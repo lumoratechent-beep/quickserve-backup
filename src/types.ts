@@ -314,6 +314,7 @@ export interface DuitNowPayment {
   id: string;
   restaurant_id: string;
   plan_id: PlanId;
+  change_type?: 'renew' | 'upgrade';
   billing_interval: 'monthly' | 'annual';
   amount: number;
   status: DuitNowPaymentStatus;

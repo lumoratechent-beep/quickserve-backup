@@ -1852,8 +1852,13 @@ const AdminView: React.FC<Props> = ({
 
     const normalizedPlanPayments = duitnowPayments.map((payment: any) => {
       const planLabel = planLabels[payment.plan_id] || payment.plan_id || 'Unknown Plan';
+      const isUpgrade = payment.change_type === 'upgrade'
+        || (
+          payment.original_plan_id
+          && ['basic', 'pro', 'pro_plus'].indexOf(payment.plan_id) > ['basic', 'pro', 'pro_plus'].indexOf(payment.original_plan_id)
+        );
       const descriptionParts = [
-        `DuitNow ${planLabel} (${payment.billing_interval === 'annual' ? 'Annual' : 'Monthly'})`,
+        `DuitNow ${isUpgrade ? 'upgrade to' : 'renewal for'} ${planLabel} (${payment.billing_interval === 'annual' ? 'Annual' : 'Monthly'})`,
         payment.reference_number ? `Ref: ${payment.reference_number}` : null,
         payment.admin_note || null,
       ].filter(Boolean);
@@ -1861,7 +1866,7 @@ const AdminView: React.FC<Props> = ({
       return {
         ...payment,
         entryKind: 'plan_extension' as const,
-        transactionTypeLabel: 'Plan Extension',
+        transactionTypeLabel: isUpgrade ? 'Plan Upgrade' : 'Plan Renewal',
         restaurantDisplayName: payment.restaurant_name || 'Unknown',
         referenceLabel: payment.reference_code || `DNB-${String(payment.id || '').slice(0, 8).toUpperCase()}`,
         cleanDescription: descriptionParts.join(' · '),
