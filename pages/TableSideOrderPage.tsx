@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Check, Grid2X2, Hash, LayoutGrid, ListTree, LogOut, Minus, Plus, Search, ShoppingCart, Trash2, UtensilsCrossed, X } from 'lucide-react';
+import { ArrowLeft, Check, Grid2X2, Hash, LayoutGrid, ListTree, LogOut, Minus, Moon, Plus, Search, ShoppingCart, Sun, Trash2, UtensilsCrossed, X } from 'lucide-react';
 import { Restaurant, CartItem, Order, OrderStatus, MenuItem, ModifierData, OrderSource } from '../src/types';
 import { supabase } from '../lib/supabase';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
@@ -27,6 +27,8 @@ interface Props {
     color: string;
   } | null;
   batteryCharging?: boolean;
+  isDarkMode?: boolean;
+  onToggleTheme?: () => void;
 }
 
 const ACTIVE_TABLE_STATUSES = [OrderStatus.PENDING, OrderStatus.ONGOING, OrderStatus.SERVED];
@@ -165,6 +167,8 @@ const TableSideOrderPage: React.FC<Props> = ({
   networkMeta,
   batteryMeta,
   batteryCharging = false,
+  isDarkMode = false,
+  onToggleTheme,
 }) => {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -182,7 +186,6 @@ const TableSideOrderPage: React.FC<Props> = ({
   const [showTableEditor, setShowTableEditor] = useState(false);
   const [showBackConfirmModal, setShowBackConfirmModal] = useState(false);
   const [tableCountDraft, setTableCountDraft] = useState('');
-  const [tableColumnsDraft, setTableColumnsDraft] = useState('');
   const [floorEnabledDraft, setFloorEnabledDraft] = useState(false);
   const [floorCountDraft, setFloorCountDraft] = useState('');
   const [isSavingTables, setIsSavingTables] = useState(false);
@@ -233,7 +236,6 @@ const TableSideOrderPage: React.FC<Props> = ({
   useEffect(() => {
     setTableCountDraft(String(tableCount));
     const nextColumns = Math.max(1, Number(featureSettings.tableColumns) || DEFAULT_TABLE_COLUMNS);
-    setTableColumnsDraft(String(nextColumns));
     setTableViewColumns(TABLE_VIEW_COLUMN_OPTIONS.find(count => nextColumns <= count) || 12);
     setFloorEnabledDraft(floorEnabled);
     setFloorCountDraft(String(floorCount || DEFAULT_FLOOR_COUNT));
@@ -415,16 +417,11 @@ const TableSideOrderPage: React.FC<Props> = ({
   const handleSaveTableEditor = async () => {
     if (isSavingTables) return;
     const nextTableCount = parsePositiveIntegerDraft(tableCountDraft);
-    const nextTableColumns = parsePositiveIntegerDraft(tableColumnsDraft);
+    const currentTableColumns = Math.max(1, Number(featureSettings.tableColumns) || DEFAULT_TABLE_COLUMNS);
     const nextFloorCount = floorEnabledDraft ? parsePositiveIntegerDraft(floorCountDraft) : DEFAULT_FLOOR_COUNT;
 
-    if (!nextTableCount || !nextTableColumns) {
-      toast('Table count and tables per row are required.', 'error');
-      return;
-    }
-
-    if (nextTableColumns > 20) {
-      toast('Tables per row must be between 1 and 20.', 'error');
+    if (!nextTableCount) {
+      toast('Table count is required.', 'error');
       return;
     }
 
@@ -436,15 +433,14 @@ const TableSideOrderPage: React.FC<Props> = ({
     const nextFeatures = {
       ...featureSettings,
       tableCount: nextTableCount,
-      tableColumns: nextTableColumns,
-      tableRows: Math.ceil(nextTableCount / nextTableColumns),
+      tableColumns: currentTableColumns,
+      tableRows: Math.ceil(nextTableCount / currentTableColumns),
       floorEnabled: floorEnabledDraft,
       floorCount: floorEnabledDraft ? (nextFloorCount || DEFAULT_FLOOR_COUNT) : DEFAULT_FLOOR_COUNT,
     };
 
     await saveTableFeatureSettings(nextFeatures);
     setSelectedFloor(1);
-    setTableViewColumns(TABLE_VIEW_COLUMN_OPTIONS.find(count => nextTableColumns <= count) || 12);
     setShowTableEditor(false);
   };
 
@@ -685,6 +681,15 @@ const TableSideOrderPage: React.FC<Props> = ({
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {statusTools}
+        {onToggleTheme && (
+          <button
+            onClick={onToggleTheme}
+            className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 hover:text-orange-500 transition-all"
+            title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {isDarkMode ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
+        )}
         {selectedTable && (
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-tighter">
             <Hash size={12} className="text-orange-500" />
@@ -823,7 +828,7 @@ const TableSideOrderPage: React.FC<Props> = ({
                 </button>
               </div>
               <div className="p-5 space-y-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div>
                   <div>
                     <label className="block text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Tables</label>
                     <input
@@ -831,17 +836,6 @@ const TableSideOrderPage: React.FC<Props> = ({
                       min={1}
                       value={tableCountDraft}
                       onChange={e => setTableCountDraft(e.target.value)}
-                      className="w-full h-11 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-3 text-sm font-black dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Per Row</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={20}
-                      value={tableColumnsDraft}
-                      onChange={e => setTableColumnsDraft(e.target.value)}
                       className="w-full h-11 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-3 text-sm font-black dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
                     />
                   </div>

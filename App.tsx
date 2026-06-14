@@ -2906,10 +2906,10 @@ const App: React.FC = () => {
             return (
               <button
                 onClick={() => setShowShiftModal(true)}
-                className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-black transition-all ${
+                className={`flex h-8 items-center gap-1.5 sm:gap-2 rounded-full border px-2.5 sm:px-3 text-[10px] sm:text-xs font-black shadow-sm transition-all ${
                   activeShift
-                    ? 'bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/60'
-                    : 'bg-red-100 text-red-700 border border-red-300 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700 dark:hover:bg-red-900/60'
+                    ? 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-700/70 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50'
+                    : 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-700/70 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50'
                 }`}
                 title={activeShift ? 'Shift Active — Click to close' : 'Shift required before payment'}
               >
@@ -3244,6 +3244,8 @@ const App: React.FC = () => {
               networkMeta={networkMeta}
               batteryMeta={batteryMeta}
               batteryCharging={batteryStatus?.charging ?? false}
+              isDarkMode={isDarkMode}
+              onToggleTheme={() => setIsDarkMode(!isDarkMode)}
             />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">

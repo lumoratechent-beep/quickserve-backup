@@ -21,7 +21,7 @@ import WalletBillingPage from './WalletBillingPage';
 import {
   ShoppingBag, Search, Download, Calendar,
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid,
-  List, Clock, CheckCircle, CheckCircle2, BarChart3, Hash, Menu, Settings, BookOpen,
+  List, ListTree, Grid2X2, Clock, CheckCircle, CheckCircle2, BarChart3, Hash, Menu, Settings, BookOpen,
   X, Edit3, Archive, RotateCcw, Upload, Eye,
   AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon,
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeftRight, RotateCw, Wifi, WifiOff,
@@ -484,6 +484,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [addonPendingUninstallId, setAddonPendingUninstallId] = useState<string | null>(null);
   const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'grid-6' | 'list'>('grid-5');
   const [mobileMenuLayout, setMobileMenuLayout] = useState<'2' | '3' | 'list'>('3');
+  const [groupMenuByCategory, setGroupMenuByCategory] = useState(true);
   const [flashItemId, setFlashItemId] = useState<string | null>(null);
   const [showLayoutPicker, setShowLayoutPicker] = useState(false);
   const [showCounterModePicker, setShowCounterModePicker] = useState(false);
@@ -1679,6 +1680,57 @@ const PosOnlyView: React.FC<Props> = ({
     });
     return groups;
   }, [filteredMenu, selectedCategory, categories]);
+
+  const posMenuGridClass = `grid gap-1.5 ${
+    mobileMenuLayout === '2' ? 'grid-cols-2' :
+    mobileMenuLayout === '3' ? 'grid-cols-3' :
+    'grid-cols-1'
+  } ${
+    menuLayout === 'list' ? 'lg:grid-cols-1' :
+    menuLayout === 'grid-3' ? 'lg:grid-cols-3' :
+    menuLayout === 'grid-4' ? 'lg:grid-cols-4' :
+    menuLayout === 'grid-5' ? 'lg:grid-cols-5' :
+    'lg:grid-cols-6'
+  }`;
+
+  const renderPosMenuItemButton = (item: MenuItem) => (
+    <button
+      key={item.id}
+      onClick={() => handleMenuItemClick(item)}
+      className={`relative bg-white dark:bg-gray-800 border dark:border-gray-700 text-left hover:border-orange-500 transition-all group shadow-sm flex p-2 rounded-xl ${
+        mobileMenuLayout === 'list' ? 'flex-row items-center gap-4' : 'flex-col'
+      } ${
+        menuLayout === 'list' ? 'lg:flex-row lg:items-center lg:gap-4' : 'lg:flex-col lg:items-stretch lg:gap-0'
+      } ${flashItemId === item.id ? 'ring-2 ring-green-500 border-green-500 scale-95' : ''}`}
+      style={flashItemId === item.id ? { transition: 'all 0.15s ease-in-out' } : {}}
+    >
+      {flashItemId === item.id && (
+        <div className="absolute inset-0 bg-green-500/20 rounded-xl flex items-center justify-center z-10 pointer-events-none">
+          <CheckCircle2 size={28} className="text-green-500 drop-shadow-md" />
+        </div>
+      )}
+      <div
+        className={`${
+          mobileMenuLayout === 'list' ? 'w-16 h-16' : 'aspect-square w-full'
+        } ${
+          menuLayout === 'list' ? 'lg:w-16 lg:h-16 lg:aspect-auto' : 'lg:aspect-square lg:w-full'
+        } rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0`}
+        style={!hasRenderableMenuItemImage(item) ? { backgroundColor: getMenuItemTileBackground(item) } : undefined}
+      >
+        {hasRenderableMenuItemImage(item) ? (
+          <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-white/70">
+            <Coffee size={28} />
+          </div>
+        )}
+      </div>
+      <div className={`${mobileMenuLayout === 'list' ? 'flex-1' : 'mt-3'} ${menuLayout === 'list' ? 'lg:flex-1 lg:mt-0' : 'lg:flex-none lg:mt-3'}`}>
+        <h4 className="font-black text-xs dark:text-white uppercase tracking-tighter mb-1 line-clamp-1">{item.name}</h4>
+        <p className="text-orange-500 font-black text-sm">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+      </div>
+    </button>
+  );
 
   useEffect(() => {
     setKitchenDivisions(normalizeKitchenDepartments(restaurant.kitchenDivisions));
@@ -7282,6 +7334,17 @@ const PosOnlyView: React.FC<Props> = ({
                       </button>
                     ))}
                   </div>
+                  <button
+                    onClick={() => setGroupMenuByCategory(prev => !prev)}
+                    className={`p-1.5 rounded-xl border dark:border-gray-700 transition-all shrink-0 ${
+                      groupMenuByCategory
+                        ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                        : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-300 hover:border-orange-300'
+                    }`}
+                    title={groupMenuByCategory ? 'Category grouping on' : 'Category grouping off'}
+                  >
+                    {groupMenuByCategory ? <ListTree size={14} /> : <Grid2X2 size={14} />}
+                  </button>
                   <div className="relative shrink-0 hidden lg:block">
                     <button onClick={() => setShowLayoutPicker(!showLayoutPicker)} className="p-1.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-all">
                       <LayoutGrid size={14} />
@@ -7310,65 +7373,24 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
 
               <div className="flex-1 overflow-y-auto p-2 pb-24 lg:pb-2 scroll-smooth">
-                <div className="space-y-4">
-                  {Object.entries(groupedMenu).map(([category, items]) => (
-                    <section key={category}>
-                      <div className="mb-2 text-center">
-                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] whitespace-nowrap">{category}</h3>
-                      </div>
-                      
-                      <div className={`grid gap-1.5 ${
-                        mobileMenuLayout === '2' ? 'grid-cols-2' :
-                        mobileMenuLayout === '3' ? 'grid-cols-3' :
-                        'grid-cols-1'
-                      } ${
-                        menuLayout === 'list' ? 'lg:grid-cols-1' :
-                        menuLayout === 'grid-3' ? 'lg:grid-cols-3' :
-                        menuLayout === 'grid-4' ? 'lg:grid-cols-4' :
-                        menuLayout === 'grid-5' ? 'lg:grid-cols-5' :
-                        'lg:grid-cols-6'
-                      }`}>
-                        {items.map(item => (
-                          <button
-                            key={item.id}
-                            onClick={() => handleMenuItemClick(item)}
-                            className={`relative bg-white dark:bg-gray-800 border dark:border-gray-700 text-left hover:border-orange-500 transition-all group shadow-sm flex p-2 rounded-xl ${
-                              mobileMenuLayout === 'list' ? 'flex-row items-center gap-4' : 'flex-col'
-                            } ${
-                              menuLayout === 'list' ? 'lg:flex-row lg:items-center lg:gap-4' : 'lg:flex-col lg:items-stretch lg:gap-0'
-                            } ${flashItemId === item.id ? 'ring-2 ring-green-500 border-green-500 scale-95' : ''}`}
-                            style={flashItemId === item.id ? { transition: 'all 0.15s ease-in-out' } : {}}
-                          >
-                            {flashItemId === item.id && (
-                              <div className="absolute inset-0 bg-green-500/20 rounded-xl flex items-center justify-center z-10 pointer-events-none">
-                                <CheckCircle2 size={28} className="text-green-500 drop-shadow-md" />
-                              </div>
-                            )}
-                            <div className={`${
-                              mobileMenuLayout === 'list' ? 'w-16 h-16' : 'aspect-square w-full'
-                            } ${
-                              menuLayout === 'list' ? 'lg:w-16 lg:h-16 lg:aspect-auto' : 'lg:aspect-square lg:w-full'
-                            } rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0`}
-                            style={!hasRenderableMenuItemImage(item) ? { backgroundColor: getMenuItemTileBackground(item) } : undefined}
-                            >
-                              {hasRenderableMenuItemImage(item) ? (
-                                <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-white/70">
-                                  <Coffee size={28} />
-                                </div>
-                              )}
-                            </div>
-                            <div className={`${mobileMenuLayout === 'list' ? 'flex-1' : 'mt-3'} ${menuLayout === 'list' ? 'lg:flex-1 lg:mt-0' : 'lg:flex-none lg:mt-3'}`}>
-                              <h4 className="font-black text-xs dark:text-white uppercase tracking-tighter mb-1 line-clamp-1">{item.name}</h4>
-                              <p className="text-orange-500 font-black text-sm">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </section>
-                  ))}
-                </div>
+                {groupMenuByCategory ? (
+                  <div className="space-y-4">
+                    {Object.entries(groupedMenu).map(([category, items]) => (
+                      <section key={category}>
+                        <div className="mb-2 text-center">
+                          <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] whitespace-nowrap">{category}</h3>
+                        </div>
+                        <div className={posMenuGridClass}>
+                          {items.map(renderPosMenuItemButton)}
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={posMenuGridClass}>
+                    {filteredMenu.map(renderPosMenuItemButton)}
+                  </div>
+                )}
               </div>
               </div>{/* close shift dim wrapper */}
             </>
@@ -8268,7 +8290,7 @@ const PosOnlyView: React.FC<Props> = ({
 
             return (
               <div className="relative flex-1 overflow-y-auto bg-gradient-to-b from-slate-50 via-white to-orange-50/40 dark:bg-gray-900 dark:bg-none">
-                <div className="mx-auto w-full max-w-[1480px] px-3 pb-8 pt-3 sm:px-5 sm:pt-5 lg:px-8 lg:pt-6">
+                <div className="w-full px-3 pb-8 pt-3 sm:px-5 sm:pt-5 lg:px-6 lg:pt-6">
                   <div className="animate-in fade-in duration-500">
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-[300px_minmax(0,1fr)] lg:gap-6">
                       <aside className="h-fit rounded-2xl border border-slate-200/80 bg-white/95 p-3 shadow-sm dark:border-gray-700/80 dark:bg-gray-800 dark:shadow-none md:sticky md:top-4">
