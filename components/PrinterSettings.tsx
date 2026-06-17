@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Printer, Bluetooth, Plus, Trash2, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, X, Wifi, Usb, Settings, FileText, UtensilsCrossed, RotateCw, ListOrdered } from 'lucide-react';
+import { Printer, Bluetooth, Plus, Trash2, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, X, Wifi, Usb, Settings, FileText, UtensilsCrossed, RotateCw, ListOrdered, Smartphone } from 'lucide-react';
 import printerService, { PrinterDevice, SavedPrinter, ReceiptConfig, OrderListConfig, KitchenTicketConfig, DEFAULT_RECEIPT_CONFIG, DEFAULT_ORDER_LIST_CONFIG, DEFAULT_KITCHEN_TICKET_CONFIG, createDefaultPrinter, PRINTER_MODELS, applyModelPreset } from '../services/printerService';
 import type { PaperSize, ConnectionType, PrintDensity, PrintJobType, PrintMode, TextSize, TextFont, TextAlignment } from '../services/printerService';
 
@@ -47,6 +47,7 @@ const PrinterSettings: React.FC<Props> = ({
   const [realPrinterConnected, setRealPrinterConnected] = useState(false);
   const [testPrintStatus, setTestPrintStatus] = useState<'idle' | 'printing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [sunmiStatus, setSunmiStatus] = useState(() => printerService.getSunmiIntegrationStatus());
 
   // Saved printers
   const [savedPrinters, setSavedPrinters] = useState<SavedPrinter[]>(() => {
@@ -128,9 +129,16 @@ const PrinterSettings: React.FC<Props> = ({
   }, [initialTab]);
 
   useEffect(() => {
+    const currentSunmiStatus = printerService.getSunmiIntegrationStatus();
+    setSunmiStatus(currentSunmiStatus);
+
     if (!(('bluetooth' in navigator) && (navigator as any).bluetooth)) {
       setIsBluetoothSupported(false);
-      setErrorMessage('Web Bluetooth not supported. Use Chrome, Edge, or Opera.');
+      if (!currentSunmiStatus.available) {
+        setErrorMessage(currentSunmiStatus.likelySunmiDevice
+          ? 'SUNMI device detected, but the printer bridge is not available. Open QuickServe from the SUNMI WebView wrapper to use the built-in printer.'
+          : 'Web Bluetooth not supported. Use Chrome, Edge, Opera, or the SUNMI printer bridge.');
+      }
     }
 
     // Auto-reconnect
@@ -156,6 +164,7 @@ const PrinterSettings: React.FC<Props> = ({
   useEffect(() => {
     const interval = setInterval(() => {
       const connected = printerService.isConnected();
+      setSunmiStatus(printerService.getSunmiIntegrationStatus());
       setRealPrinterConnected(connected);
       if (connectedDevice) setPrinterStatus(connected ? 'connected' : 'disconnected');
     }, 3000);
@@ -183,6 +192,44 @@ const PrinterSettings: React.FC<Props> = ({
     setTestPrintStatus(success ? 'success' : 'error');
     if (!success) setErrorMessage('Print failed');
     setTimeout(() => setTestPrintStatus('idle'), 3000);
+  };
+
+  const handleConnectSunmi = async () => {
+    setPrinterStatus('connecting');
+    setErrorMessage('');
+    const device: PrinterDevice = { id: 'sunmi-inner-printer', name: 'SUNMI Built-in Printer' };
+    const success = await printerService.connect(device.name);
+    const status = printerService.getSunmiIntegrationStatus();
+    setSunmiStatus(status);
+
+    if (success) {
+      setConnectedDevice(device);
+      setPrinterStatus('connected');
+      setRealPrinterConnected(true);
+      setPrinterForm(f => {
+        const next = applyModelPreset(f, f.printerModel.startsWith('sunmi_') ? f.printerModel : 'sunmi_v2');
+        return {
+          ...next,
+          name: f.name.trim() ? f.name : 'SUNMI Built-in Printer',
+          connectionType: 'sunmi',
+          deviceId: device.id,
+          deviceName: device.name,
+          paperSize: '58mm',
+          printWidth: 384,
+          printResolution: 205,
+          autoCut: false,
+        };
+      });
+      localStorage.setItem(`printer_${restaurantId}`, JSON.stringify(device));
+      onPrinterConnected?.(device);
+      return;
+    }
+
+    setPrinterStatus('error');
+    setRealPrinterConnected(false);
+    setErrorMessage(status.likelySunmiDevice
+      ? 'SUNMI printer bridge not found. Install or open QuickServe through the SUNMI WebView wrapper.'
+      : 'SUNMI bridge not available on this browser.');
   };
 
   // ─── Printer CRUD ──────────────────────────────────────────────
@@ -304,11 +351,17 @@ const PrinterSettings: React.FC<Props> = ({
         </>
       )}
 
-      {!isBluetoothSupported && (
+      {!isBluetoothSupported && !sunmiStatus.available && (
         <div className="text-center py-6">
           <AlertCircle size={24} className="mx-auto text-red-400 mb-2" />
-          <p className="text-xs font-bold text-gray-500">Bluetooth not supported</p>
-          <p className="text-[9px] text-gray-400 mt-1">Use Chrome, Edge, or Opera</p>
+          <p className="text-xs font-bold text-gray-500">
+            {sunmiStatus.likelySunmiDevice ? 'SUNMI bridge not available' : 'Bluetooth not supported'}
+          </p>
+          <p className="text-[9px] text-gray-400 mt-1">
+            {sunmiStatus.likelySunmiDevice
+              ? 'Open QuickServe from the SUNMI WebView wrapper to print with the built-in printer.'
+              : 'Use Chrome, Edge, Opera, or the SUNMI printer bridge.'}
+          </p>
         </div>
       )}
 
@@ -428,13 +481,28 @@ const PrinterSettings: React.FC<Props> = ({
               <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Interface</label>
               <div className="flex gap-2">
                 {([
+                  { type: 'sunmi' as ConnectionType, icon: Smartphone, label: 'SUNMI' },
                   { type: 'bluetooth' as ConnectionType, icon: Bluetooth, label: 'Bluetooth' },
                   { type: 'wifi' as ConnectionType, icon: Wifi, label: 'Ethernet' },
                   { type: 'usb' as ConnectionType, icon: Usb, label: 'USB' },
                 ]).map(({ type, icon: Icon, label }) => (
                   <button
                     key={type}
-                    onClick={() => setPrinterForm(f => ({ ...f, connectionType: type }))}
+                    onClick={() => setPrinterForm(f => {
+                      if (type !== 'sunmi') return { ...f, connectionType: type };
+                      const next = applyModelPreset(f, f.printerModel.startsWith('sunmi_') ? f.printerModel : 'sunmi_v2');
+                      return {
+                        ...next,
+                        connectionType: 'sunmi',
+                        name: f.name.trim() ? f.name : 'SUNMI Built-in Printer',
+                        deviceId: 'sunmi-inner-printer',
+                        deviceName: 'SUNMI Built-in Printer',
+                        paperSize: '58mm',
+                        printWidth: 384,
+                        printResolution: 205,
+                        autoCut: false,
+                      };
+                    })}
                     className={`flex-1 py-2.5 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 border transition-all ${
                       printerForm.connectionType === type
                         ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700 text-orange-600'
@@ -445,6 +513,48 @@ const PrinterSettings: React.FC<Props> = ({
                   </button>
                 ))}
               </div>
+
+              {/* SUNMI: Built-in printer bridge */}
+              {printerForm.connectionType === 'sunmi' && printerStatus !== 'connected' && (
+                <div className="mt-2 space-y-2">
+                  <div className={`p-2.5 rounded-lg border ${
+                    sunmiStatus.available
+                      ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800'
+                      : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800'
+                  }`}>
+                    <div className="flex items-start gap-2">
+                      {sunmiStatus.available ? (
+                        <CheckCircle2 size={13} className="text-green-500 mt-0.5" />
+                      ) : (
+                        <AlertCircle size={13} className="text-amber-500 mt-0.5" />
+                      )}
+                      <div>
+                        <p className={`text-[9px] font-black uppercase tracking-widest ${sunmiStatus.available ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                          {sunmiStatus.available ? 'SUNMI Bridge Ready' : 'SUNMI Bridge Required'}
+                        </p>
+                        <p className={`text-[9px] mt-0.5 ${sunmiStatus.available ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                          {sunmiStatus.available
+                            ? `Detected ${sunmiStatus.bridgeName || 'printer bridge'} for the built-in printer.`
+                            : sunmiStatus.likelySunmiDevice
+                              ? 'This looks like a SUNMI device, but the browser does not expose the printer bridge.'
+                              : 'Use this when QuickServe is opened inside the SUNMI WebView wrapper.'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleConnectSunmi}
+                    disabled={printerStatus === 'connecting'}
+                    className="w-full py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {printerStatus === 'connecting' ? (
+                      <><div className="w-3 h-3 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin" /> Connecting...</>
+                    ) : (
+                      <><Smartphone size={12} /> Connect Built-in Printer</>
+                    )}
+                  </button>
+                </div>
+              )}
 
               {/* Bluetooth: Scan & Pair */}
               {printerForm.connectionType === 'bluetooth' && printerStatus !== 'connected' && isBluetoothSupported && (
