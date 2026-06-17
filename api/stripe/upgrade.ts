@@ -28,6 +28,11 @@ const PLAN_KITCHEN_MAP: Record<string, { kitchenEnabled: boolean }> = {
   pro: { kitchenEnabled: false },
   pro_plus: { kitchenEnabled: true },
 };
+const ACCESS_UNLOCK_PATCH = {
+  access_locked: false,
+  access_lock_at: null,
+  access_locked_at: null,
+};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -85,6 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .update({
         plan_id: newPlanId,
         billing_interval: isAnnual ? 'annual' : 'monthly',
+        ...ACCESS_UNLOCK_PATCH,
         updated_at: new Date().toISOString(),
       })
       .eq('restaurant_id', restaurantId);

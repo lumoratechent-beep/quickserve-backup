@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Restaurant, MenuItem, CartItem, ModifierData, SelectedAddOn, OrderStatus, OrderSource } from '../src/types';
+import { Restaurant, MenuItem, CartItem, ModifierData, SelectedAddOn, OrderStatus, OrderSource, KitchenDepartment } from '../src/types';
 import { supabase } from '../lib/supabase';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import {
@@ -28,6 +28,54 @@ interface CustomerInfo {
 function getItemDisplayPrice(item: MenuItem): number {
   return item.onlinePrice ?? item.price;
 }
+
+const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry: any) => {
+      if (typeof entry === 'string') {
+        const name = entry.trim();
+        return name ? { name, categories: [] } : null;
+      }
+      if (!entry || typeof entry !== 'object') return null;
+      const name = String(entry.name || '').trim();
+      if (!name) return null;
+      const categories = Array.isArray(entry.categories)
+        ? entry.categories.map((c: any) => String(c || '').trim()).filter(Boolean)
+        : [];
+      return { name, categories: Array.from(new Set<string>(categories)).sort((a, b) => a.localeCompare(b)) };
+    })
+    .filter(Boolean) as KitchenDepartment[];
+};
+
+const getKitchenCategoryKey = (value: any): string => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+const getInitialOnlineOrderStatus = (restaurant: Restaurant, items: Array<{ category?: string }>): OrderStatus => {
+  const kitchenEnabled = restaurant.kitchenEnabled === true || (restaurant as any).kitchen_enabled === true || restaurant.settings?.features?.kitchenEnabled === true;
+  if (!kitchenEnabled) return OrderStatus.SERVED;
+
+  const departments = normalizeKitchenDepartments(restaurant.kitchenDivisions || (restaurant as any).kitchen_divisions);
+  if (departments.length === 0) return OrderStatus.PENDING;
+
+  const routedCategories = new Set<string>();
+  departments.forEach(department => department.categories.forEach(category => {
+    const key = getKitchenCategoryKey(category);
+    if (key) routedCategories.add(key);
+  }));
+  if (routedCategories.size === 0) return OrderStatus.PENDING;
+
+  return items.some(item => routedCategories.has(getKitchenCategoryKey(item.category)))
+    ? OrderStatus.PENDING
+    : OrderStatus.SERVED;
+};
+
+const withInitialOnlineItemStatuses = <T extends { category?: string }>(restaurant: Restaurant, items: T[]): Array<T & { status: OrderStatus }> => (
+  items.map(item => ({ ...item, status: getInitialOnlineOrderStatus(restaurant, [item]) }))
+);
+
+const getAggregateOnlineOrderStatus = (items: Array<{ status?: OrderStatus }>): OrderStatus => (
+  items.some(item => item.status === OrderStatus.PENDING) ? OrderStatus.PENDING : OrderStatus.SERVED
+);
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
@@ -239,7 +287,7 @@ const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
     if (!restaurant || !selectedDelivery || !selectedPayment) return;
     setIsPlacingOrder(true);
     try {
-      const orderItems = cart.map(item => ({
+      const orderItems = withInitialOnlineItemStatuses(restaurant, cart.map(item => ({
         id: item.id,
         name: item.name,
         price: item.price,
@@ -251,7 +299,7 @@ const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
         selectedOtherVariant: item.selectedOtherVariant,
         selectedModifiers: item.selectedModifiers,
         selectedAddOns: item.selectedAddOns,
-      }));
+      })));
 
       const orderId = `ONL-${Date.now()}`;
       const remark = [
@@ -267,7 +315,7 @@ const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
         restaurantId: restaurant.id,
         items: orderItems,
         total: totalWithDelivery,
-        status: OrderStatus.PENDING,
+        status: getAggregateOnlineOrderStatus(orderItems),
         timestamp: Date.now(),
         tableNumber: 'Online',
         locationName: restaurant.name,

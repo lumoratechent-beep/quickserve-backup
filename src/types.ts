@@ -156,6 +156,7 @@ export interface SelectedAddOn {
 export interface CartItem extends MenuItem {
   quantity: number;
   restaurantId: string;
+  status?: OrderStatus;
   selectedSize?: string;
   selectedTemp?: string;
   selectedOtherVariant?: string;
@@ -281,8 +282,30 @@ export interface Subscription {
   current_period_end?: string;
   cancel_at_period_end?: boolean;
   duitnow_enabled?: boolean;
+  access_locked?: boolean;
+  access_lock_at?: string | null;
+  access_locked_at?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type SubscriptionExpiryEvent =
+  | 'initial'
+  | 'renewal'
+  | 'manual_adjustment'
+  | 'expiry_correction'
+  | 'expiry_removed';
+
+export interface SubscriptionExpiryHistory {
+  id: string;
+  subscription_id: string;
+  restaurant_id: string;
+  old_expiry?: string | null;
+  new_expiry?: string | null;
+  event_type: SubscriptionExpiryEvent;
+  change_source: string;
+  note?: string | null;
+  changed_at: string;
 }
 
 export type DuitNowPaymentStatus = 'pending' | 'approved' | 'rejected';
@@ -291,6 +314,7 @@ export interface DuitNowPayment {
   id: string;
   restaurant_id: string;
   plan_id: PlanId;
+  change_type?: 'renew' | 'upgrade';
   billing_interval: 'monthly' | 'annual';
   amount: number;
   status: DuitNowPaymentStatus;
@@ -300,6 +324,13 @@ export interface DuitNowPayment {
   admin_note?: string | null;
   reviewed_by?: string | null;
   reviewed_at?: string | null;
+  provisional_access_until?: string | null;
+  original_status?: SubscriptionStatus | null;
+  original_plan_id?: PlanId | null;
+  original_billing_interval?: 'monthly' | 'annual' | null;
+  original_current_period_start?: string | null;
+  original_current_period_end?: string | null;
+  original_trial_end?: string | null;
   created_at: string;
   updated_at: string;
   // Joined fields (for admin view)

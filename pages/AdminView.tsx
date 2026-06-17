@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, Subscription, PlanId, MenuItem } from '../src/types';
+import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, Subscription, SubscriptionExpiryHistory, PlanId, MenuItem } from '../src/types';
 import { uploadImage } from '../lib/storage';
-import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2 } from 'lucide-react';
+import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2, Lock, Unlock, MoreVertical } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
 import { PRICING_PLANS } from '../lib/pricingPlans';
+import { getSubscriptionAccessLockState, getSubscriptionEndDate } from '../lib/subscriptionService';
 import PitchDeck from '../components/PitchDeck';
 
 interface Props {
@@ -28,7 +29,7 @@ interface Props {
   onFetchStats?: (filters: ReportFilters) => Promise<any>;
 }
 
-type AdminTab = 'VENDORS' | 'INCOME_REPORT' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SHOP' | 'SYSTEM';
+type AdminTab = 'VENDORS' | 'INCOME_REPORT' | 'VENDOR_SUBSCRIPTION' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SHOP' | 'SYSTEM';
 type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'expired';
 type DraftNumber = number | '';
 
@@ -143,6 +144,28 @@ const calculateQuotationTotals = (quote: Pick<AdminQuotation, 'items' | 'discoun
 
 const ADMIN_QUOTATIONS_STORAGE_KEY = 'qs_admin_quotations';
 const ADMIN_SOLD_ITEMS_STORAGE_KEY = 'qs_admin_sold_items';
+
+const toDateTimeLocalValue = (date: Date) => {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+};
+
+const DateTimeRows: React.FC<{
+  value?: string | null;
+  dateClassName?: string;
+  timeClassName?: string;
+}> = ({ value, dateClassName = '', timeClassName = '' }) => {
+  if (!value) return <span className="text-gray-400">-</span>;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return <span className="text-gray-400">-</span>;
+
+  return (
+    <div className="leading-tight whitespace-nowrap">
+      <p className={dateClassName}>{date.toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+      <p className={timeClassName}>{date.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}</p>
+    </div>
+  );
+};
 
 const mergeAdminRecords = <T extends { id: string; updatedAt?: number }>(localRecords: T[], remoteRecords: T[]) => {
   const merged = new Map<string, T>();
@@ -684,6 +707,7 @@ const AdminView: React.FC<Props> = ({
   const [activeTab, setActiveTab] = useState<AdminTab>('VENDORS');
   const [vendorHubSubTab, setVendorHubSubTab] = useState<'VENDORS' | 'HUBS'>('VENDORS');
   const [incomeReportSubTab, setIncomeReportSubTab] = useState<'INCOME' | 'REPORTS'>('INCOME');
+  const [vendorSubscriptionSubTab, setVendorSubscriptionSubTab] = useState<'SCHEDULE' | 'HISTORY'>('SCHEDULE');
   const [quotations, setQuotations] = useState<AdminQuotation[]>(() => {
     try {
       const saved = localStorage.getItem(ADMIN_QUOTATIONS_STORAGE_KEY);
@@ -1358,6 +1382,7 @@ const AdminView: React.FC<Props> = ({
   const [incomeEndDate, setIncomeEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [incomeHasMore, setIncomeHasMore] = useState(false);
   const [incomeLastId, setIncomeLastId] = useState<string | null>(null);
+  const [deletingIncomeId, setDeletingIncomeId] = useState<string | null>(null);
 
   const generateSlug = (name: string): string => {
     const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -1398,21 +1423,180 @@ const AdminView: React.FC<Props> = ({
 
   // Subscription data for all restaurants
   const [subscriptions, setSubscriptions] = useState<Record<string, Subscription>>({});
+  const [subscriptionHistory, setSubscriptionHistory] = useState<SubscriptionExpiryHistory[]>([]);
+  const [subscriptionScheduleLoading, setSubscriptionScheduleLoading] = useState(false);
+  const [subscriptionScheduleSearch, setSubscriptionScheduleSearch] = useState('');
+  const [expiryEditModal, setExpiryEditModal] = useState<{
+    restaurantId: string;
+    restaurantName: string;
+    currentExpiry: string;
+  } | null>(null);
+  const [expiryEditValue, setExpiryEditValue] = useState('');
+  const [expiryEditNote, setExpiryEditNote] = useState('');
+  const [savingExpiry, setSavingExpiry] = useState(false);
+  const [scheduleActionMenu, setScheduleActionMenu] = useState<{
+    restaurantId: string;
+    top: number;
+    left: number;
+  } | null>(null);
+  const [planEditModal, setPlanEditModal] = useState<{
+    restaurantId: string;
+    restaurantName: string;
+  } | null>(null);
+  const [planEditValue, setPlanEditValue] = useState<PlanId>('basic');
+  const [savingPlan, setSavingPlan] = useState(false);
+
+  const refreshSubscriptions = async () => {
+    const { data, error } = await supabase.from('subscriptions').select('*');
+    if (!error && data) {
+      const map: Record<string, Subscription> = {};
+      data.forEach((s: any) => { map[s.restaurant_id] = s; });
+      setSubscriptions(map);
+    }
+  };
+
+  const refreshSubscriptionHistory = async () => {
+    setSubscriptionScheduleLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('subscription_expiry_history')
+        .select('*')
+        .order('changed_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      setSubscriptionHistory((data || []) as SubscriptionExpiryHistory[]);
+    } catch (err: any) {
+      toast(err.message || 'Failed to load subscription schedule history', 'error');
+    } finally {
+      setSubscriptionScheduleLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchSubscriptions = async () => {
-      const { data, error } = await supabase.from('subscriptions').select('*');
-      if (!error && data) {
-        const map: Record<string, Subscription> = {};
-        data.forEach((s: any) => { map[s.restaurant_id] = s; });
-        setSubscriptions(map);
-      }
-    };
-    fetchSubscriptions();
+    refreshSubscriptions();
   }, [restaurants]);
+
+  useEffect(() => {
+    if (activeTab === 'VENDOR_SUBSCRIPTION') {
+      refreshSubscriptionHistory();
+    }
+  }, [activeTab]);
+
+  const latestHistoryByRestaurant = useMemo(() => {
+    const latest = new Map<string, SubscriptionExpiryHistory>();
+    subscriptionHistory.forEach(entry => {
+      if (!latest.has(entry.restaurant_id)) latest.set(entry.restaurant_id, entry);
+    });
+    return latest;
+  }, [subscriptionHistory]);
+
+  const filteredSubscriptionSchedule = useMemo(() => {
+    const query = subscriptionScheduleSearch.trim().toLowerCase();
+    return restaurants
+      .filter(restaurant => {
+        if (!query) return true;
+        const vendor = vendors.find(item => item.restaurantId === restaurant.id);
+        return [restaurant.name, restaurant.location, vendor?.username]
+          .some(value => value?.toLowerCase().includes(query));
+      })
+      .sort((a, b) => {
+        const aSub = subscriptions[a.id];
+        const bSub = subscriptions[b.id];
+        const aExpiry = aSub?.current_period_end || aSub?.trial_end;
+        const bExpiry = bSub?.current_period_end || bSub?.trial_end;
+        return (aExpiry ? new Date(aExpiry).getTime() : Number.MAX_SAFE_INTEGER)
+          - (bExpiry ? new Date(bExpiry).getTime() : Number.MAX_SAFE_INTEGER);
+      });
+  }, [restaurants, vendors, subscriptions, subscriptionScheduleSearch]);
+
+  const openExpiryEditor = (restaurant: Restaurant) => {
+    const sub = subscriptions[restaurant.id];
+    const currentExpiry = sub?.current_period_end || sub?.trial_end;
+    if (!sub || !currentExpiry) {
+      toast('This vendor does not have a subscription expiry yet.', 'error');
+      return;
+    }
+    setExpiryEditModal({
+      restaurantId: restaurant.id,
+      restaurantName: restaurant.name,
+      currentExpiry,
+    });
+    setExpiryEditValue(toDateTimeLocalValue(new Date(currentExpiry)));
+    setExpiryEditNote('');
+  };
+
+  const openScheduleActionMenu = (event: React.MouseEvent<HTMLButtonElement>, restaurantId: string) => {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const width = 176;
+    const height = 92;
+    const left = Math.min(Math.max(8, rect.right - width), Math.max(8, window.innerWidth - width - 8));
+    const opensUp = rect.bottom + height > window.innerHeight - 8;
+    const top = opensUp ? Math.max(8, rect.top - height - 6) : rect.bottom + 6;
+    setScheduleActionMenu({ restaurantId, top, left });
+  };
+
+  const openPlanEditor = (restaurant: Restaurant) => {
+    const sub = subscriptions[restaurant.id];
+    if (!sub) {
+      toast('This vendor does not have a subscription yet.', 'error');
+      return;
+    }
+    setPlanEditModal({ restaurantId: restaurant.id, restaurantName: restaurant.name });
+    setPlanEditValue(sub.plan_id || 'basic');
+  };
+
+  const handleSavePlan = async () => {
+    if (!planEditModal) return;
+    setSavingPlan(true);
+    try {
+      const { error } = await supabase.rpc('admin_set_subscription_plan', {
+        p_restaurant_id: planEditModal.restaurantId,
+        p_plan_id: planEditValue,
+      });
+      if (error) throw error;
+      await refreshSubscriptions();
+      toast(`${planEditModal.restaurantName} changed to ${PRICING_PLANS.find(plan => plan.id === planEditValue)?.name || planEditValue}.`, 'success');
+      setPlanEditModal(null);
+    } catch (err: any) {
+      toast(err.message || 'Failed to update subscription plan', 'error');
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
+  const handleSaveExpiry = async () => {
+    if (!expiryEditModal || !expiryEditValue) return;
+    const newExpiry = new Date(expiryEditValue);
+    if (Number.isNaN(newExpiry.getTime())) {
+      toast('Select a valid expiry date and time.', 'error');
+      return;
+    }
+
+    setSavingExpiry(true);
+    try {
+      const { error } = await supabase.rpc('admin_set_subscription_expiry', {
+        p_restaurant_id: expiryEditModal.restaurantId,
+        p_new_expiry: newExpiry.toISOString(),
+        p_note: expiryEditNote.trim() || null,
+      });
+      if (error) throw error;
+      await Promise.all([refreshSubscriptions(), refreshSubscriptionHistory()]);
+      toast(`Expiry updated to ${newExpiry.toLocaleString()}.`, 'success');
+      setExpiryEditModal(null);
+    } catch (err: any) {
+      toast(err.message || 'Failed to update subscription expiry', 'error');
+    } finally {
+      setSavingExpiry(false);
+    }
+  };
 
   const [extendingRestId, setExtendingRestId] = useState<string | null>(null);
   const [extendModal, setExtendModal] = useState<{ restaurantId: string; restaurantName: string } | null>(null);
+  const [planLockModal, setPlanLockModal] = useState<{ restaurantId: string; restaurantName: string } | null>(null);
+  const [planLockMode, setPlanLockMode] = useState<'now' | 'scheduled'>('now');
+  const [planLockDateTime, setPlanLockDateTime] = useState(() => toDateTimeLocalValue(new Date(Date.now() + 60 * 60 * 1000)));
+  const [planLockActionId, setPlanLockActionId] = useState<string | null>(null);
 
   const handleAdminExtend = async (restaurantId: string, restaurantName: string) => {
     // Show modal to ask Free or Paid
@@ -1437,17 +1621,110 @@ const AdminView: React.FC<Props> = ({
       const data = await res.json();
       const typeLabel = extensionType === 'paid' ? 'Paid (Cash)' : 'Free';
       toast(`Extended (${typeLabel})! New end date: ${new Date(data.newPeriodEnd).toLocaleDateString()}`, 'success');
-      // Refresh subscriptions
-      const { data: subs } = await supabase.from('subscriptions').select('*');
-      if (subs) {
-        const map: Record<string, Subscription> = {};
-        subs.forEach((s: any) => { map[s.restaurant_id] = s; });
-        setSubscriptions(map);
-      }
+      await refreshSubscriptions();
     } catch (err: any) {
       toast(err.message || 'Failed to extend subscription', 'error');
     } finally {
       setExtendingRestId(null);
+    }
+  };
+
+  const handleOpenPlanLock = (restaurantId: string, restaurantName: string) => {
+    const sub = subscriptions[restaurantId];
+    const lockAt = sub?.access_lock_at ? new Date(sub.access_lock_at) : null;
+    const hasFutureLock = lockAt && !Number.isNaN(lockAt.getTime()) && lockAt > new Date();
+
+    setPlanLockModal({ restaurantId, restaurantName });
+    setPlanLockMode(hasFutureLock ? 'scheduled' : 'now');
+    setPlanLockDateTime(toDateTimeLocalValue(hasFutureLock ? lockAt : new Date(Date.now() + 60 * 60 * 1000)));
+  };
+
+  const writePlanLock = async (restaurantId: string, patch: Record<string, any>) => {
+    const existingSub = subscriptions[restaurantId];
+    const now = new Date();
+
+    if (existingSub) {
+      const { error } = await supabase
+        .from('subscriptions')
+        .update({ ...patch, updated_at: now.toISOString() })
+        .eq('restaurant_id', restaurantId);
+      if (error) throw error;
+      return;
+    }
+
+    const { error } = await supabase.from('subscriptions').insert({
+      restaurant_id: restaurantId,
+      plan_id: 'basic',
+      status: 'active',
+      trial_start: now.toISOString(),
+      trial_end: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      ...patch,
+      updated_at: now.toISOString(),
+    });
+    if (error) throw error;
+  };
+
+  const handleSavePlanLock = async () => {
+    if (!planLockModal) return;
+    const { restaurantId, restaurantName } = planLockModal;
+    const now = new Date();
+    let patch: Record<string, any>;
+
+    if (planLockMode === 'now') {
+      patch = {
+        access_locked: true,
+        access_lock_at: null,
+        access_locked_at: now.toISOString(),
+      };
+    } else {
+      const lockAt = new Date(planLockDateTime);
+      if (!planLockDateTime || Number.isNaN(lockAt.getTime())) {
+        toast('Select a valid lock date and time.', 'error');
+        return;
+      }
+      patch = {
+        access_locked: false,
+        access_lock_at: lockAt.toISOString(),
+        access_locked_at: null,
+      };
+    }
+
+    setPlanLockActionId(restaurantId);
+    try {
+      await writePlanLock(restaurantId, patch);
+      await refreshSubscriptions();
+      setPlanLockModal(null);
+      toast(
+        planLockMode === 'now'
+          ? `${restaurantName} is locked.`
+          : `${restaurantName} will lock at ${new Date(planLockDateTime).toLocaleString()}.`,
+        'success'
+      );
+    } catch (err: any) {
+      toast(err.message || 'Failed to update vendor lock.', 'error');
+    } finally {
+      setPlanLockActionId(null);
+    }
+  };
+
+  const handleUnlockPlan = async () => {
+    if (!planLockModal) return;
+    const { restaurantId, restaurantName } = planLockModal;
+    setPlanLockActionId(restaurantId);
+    try {
+      await writePlanLock(restaurantId, {
+        status: 'active',
+        access_locked: false,
+        access_lock_at: null,
+        access_locked_at: null,
+      });
+      await refreshSubscriptions();
+      setPlanLockModal(null);
+      toast(`${restaurantName} is unlocked and active.`, 'success');
+    } catch (err: any) {
+      toast(err.message || 'Failed to unlock vendor.', 'error');
+    } finally {
+      setPlanLockActionId(null);
     }
   };
 
@@ -1464,13 +1741,7 @@ const AdminView: React.FC<Props> = ({
         .update({ duitnow_enabled: !currentValue })
         .eq('restaurant_id', restaurantId);
       if (error) throw error;
-      // Refresh subscriptions
-      const { data: subs } = await supabase.from('subscriptions').select('*');
-      if (subs) {
-        const map: Record<string, Subscription> = {};
-        subs.forEach((s: any) => { map[s.restaurant_id] = s; });
-        setSubscriptions(map);
-      }
+      await refreshSubscriptions();
       toast(`DuitNow ${!currentValue ? 'enabled' : 'disabled'} successfully`, 'success');
     } catch (err: any) {
       toast(err.message || 'Failed to toggle DuitNow', 'error');
@@ -1518,6 +1789,27 @@ const AdminView: React.FC<Props> = ({
     }
   };
 
+  const handleDeleteIncome = async (transaction: any) => {
+    if (!confirm(`Delete the canceled income record for "${transaction.restaurantName}"? This only removes the income report record.`)) {
+      return;
+    }
+
+    setDeletingIncomeId(transaction.id);
+    try {
+      const response = await fetch(`/api/stripe/income?id=${encodeURIComponent(transaction.id)}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Failed to delete income record');
+      await fetchIncome();
+      toast('Income record deleted.', 'success');
+    } catch (err: any) {
+      toast(err.message || 'Failed to delete income record', 'error');
+    } finally {
+      setDeletingIncomeId(null);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'INCOME_REPORT' && incomeReportSubTab === 'INCOME') fetchIncome();
   }, [activeTab, incomeReportSubTab, incomeStartDate, incomeEndDate]);
@@ -1560,8 +1852,13 @@ const AdminView: React.FC<Props> = ({
 
     const normalizedPlanPayments = duitnowPayments.map((payment: any) => {
       const planLabel = planLabels[payment.plan_id] || payment.plan_id || 'Unknown Plan';
+      const isUpgrade = payment.change_type === 'upgrade'
+        || (
+          payment.original_plan_id
+          && ['basic', 'pro', 'pro_plus'].indexOf(payment.plan_id) > ['basic', 'pro', 'pro_plus'].indexOf(payment.original_plan_id)
+        );
       const descriptionParts = [
-        `DuitNow ${planLabel} (${payment.billing_interval === 'annual' ? 'Annual' : 'Monthly'})`,
+        `DuitNow ${isUpgrade ? 'upgrade to' : 'renewal for'} ${planLabel} (${payment.billing_interval === 'annual' ? 'Annual' : 'Monthly'})`,
         payment.reference_number ? `Ref: ${payment.reference_number}` : null,
         payment.admin_note || null,
       ].filter(Boolean);
@@ -1569,7 +1866,7 @@ const AdminView: React.FC<Props> = ({
       return {
         ...payment,
         entryKind: 'plan_extension' as const,
-        transactionTypeLabel: 'Plan Extension',
+        transactionTypeLabel: isUpgrade ? 'Plan Upgrade' : 'Plan Renewal',
         restaurantDisplayName: payment.restaurant_name || 'Unknown',
         referenceLabel: payment.reference_code || `DNB-${String(payment.id || '').slice(0, 8).toUpperCase()}`,
         cleanDescription: descriptionParts.join(' · '),
@@ -2637,6 +2934,7 @@ const AdminView: React.FC<Props> = ({
           {([
             { id: 'VENDORS', label: 'Vendor & Hubs', icon: Store },
             { id: 'INCOME_REPORT', label: 'Income & Report', icon: TrendingUp },
+            { id: 'VENDOR_SUBSCRIPTION', label: 'Vendor Subscription', icon: Calendar },
             { id: 'CASHOUT', label: 'Cashout', icon: Wallet },
             { id: 'DUITNOW', label: 'DuitNow', icon: QrCode },
             { id: 'QUOTATION', label: 'Quotation', icon: FileText },
@@ -2695,6 +2993,7 @@ const AdminView: React.FC<Props> = ({
             <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm">
               {activeTab === 'VENDORS' ? 'Vendor & Hubs' :
                activeTab === 'INCOME_REPORT' ? 'Income & Report' :
+               activeTab === 'VENDOR_SUBSCRIPTION' ? 'Vendor Subscription' :
                activeTab === 'CASHOUT' ? 'Cashout' :
                activeTab === 'DUITNOW' ? 'DuitNow' :
                activeTab === 'QUOTATION' ? 'Quotation' :
@@ -2707,19 +3006,16 @@ const AdminView: React.FC<Props> = ({
         <div className="flex-1 overflow-auto">
         {activeTab === 'VENDORS' && (
           <div className="p-4 md:p-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+            <div className="mb-5">
               <div>
-                <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter flex items-center gap-2">
-                  <Store size={20} className="text-orange-500" />
-                  Vendor & Hubs
-                </h2>
-                <p className="text-xs text-gray-400 mt-1">Manage registered kitchens and hub locations from one workspace.</p>
+                <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">Vendor & Hubs</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Manage registered kitchens and hub locations from one workspace.</p>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm">
-              <div className="p-5 border-b border-gray-100 dark:border-gray-700 space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden">
+              <div className="p-5 border-b border-gray-100 dark:border-gray-700 space-y-5">
+                <div className="flex w-fit gap-1 rounded-xl bg-gray-100 dark:bg-gray-900 p-1">
                   {([
                     { id: 'VENDORS' as const, label: 'Vendors', icon: <Store size={14} /> },
                     { id: 'HUBS' as const, label: 'Hubs', icon: <MapPin size={14} /> },
@@ -2727,10 +3023,10 @@ const AdminView: React.FC<Props> = ({
                     <button
                       key={tab.id}
                       onClick={() => setVendorHubSubTab(tab.id)}
-                      className={`h-9 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all inline-flex items-center gap-2 ${
+                      className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all whitespace-nowrap ${
                         vendorHubSubTab === tab.id
-                          ? 'bg-orange-500 text-white shadow-sm'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          ? 'bg-white dark:bg-gray-700 text-orange-500 shadow-sm'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                       }`}
                     >
                       {tab.icon}
@@ -2836,7 +3132,7 @@ const AdminView: React.FC<Props> = ({
                           <th className="px-4 py-3 text-center">Plan</th>
                           <th className="px-4 py-3 text-center">Plan Expiry</th>
                           <th className="px-4 py-3 text-center">DuitNow</th>
-                          <th className="px-4 py-3 text-center">Master Activation</th>
+                          <th className="px-4 py-3 text-center">Master / Plan Lock</th>
                           <th className="px-4 py-3 text-center">Live Status</th>
                           <th className="px-4 py-3 text-right">Actions</th>
                         </tr>
@@ -2911,9 +3207,44 @@ const AdminView: React.FC<Props> = ({
                                 })()}
                               </td>
                               <td className="px-4 py-2.5 text-center">
-                                <button onClick={() => toggleVendorStatus(vendor)} className={`p-1.5 rounded-lg transition-all ${vendor.isActive ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`}>
-                                   {vendor.isActive ? <CheckCircle2 size={16} /> : <Power size={16} />}
-                                </button>
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button onClick={() => toggleVendorStatus(vendor)} className={`p-1.5 rounded-lg transition-all ${vendor.isActive ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`} title={vendor.isActive ? 'Master active' : 'Master inactive'}>
+                                     {vendor.isActive ? <CheckCircle2 size={16} /> : <Power size={16} />}
+                                  </button>
+                                  {res && (() => {
+                                    const sub = subscriptions[res.id];
+                                    const lockState = getSubscriptionAccessLockState(sub);
+                                    const lockAt = sub?.access_lock_at ? new Date(sub.access_lock_at) : null;
+                                    const expiry = sub ? getSubscriptionEndDate(sub) : null;
+                                    const isExpired = expiry ? expiry <= new Date() : false;
+                                    const isScheduled = lockState === 'scheduled';
+                                    const isLocked = lockState === 'locked';
+                                    return (
+                                      <button
+                                        onClick={() => handleOpenPlanLock(res.id, res.name)}
+                                        disabled={planLockActionId === res.id}
+                                        className={`p-1.5 rounded-lg transition-all disabled:opacity-50 ${
+                                          isLocked
+                                            ? 'text-red-600 bg-red-50 dark:bg-red-900/20'
+                                            : isScheduled
+                                              ? 'text-amber-600 bg-amber-50 dark:bg-amber-900/20'
+                                              : 'text-gray-400 bg-gray-50 dark:bg-gray-700 hover:text-red-500'
+                                        }`}
+                                        title={
+                                          isLocked
+                                            ? isExpired
+                                              ? 'Plan expired - automatically locked'
+                                              : 'Vendor locked - click to manage'
+                                            : isScheduled && lockAt
+                                              ? `Lock scheduled ${lockAt.toLocaleString()}`
+                                              : 'Lock vendor plan access'
+                                        }
+                                      >
+                                        {isLocked ? <Unlock size={16} /> : <Lock size={16} />}
+                                      </button>
+                                    );
+                                  })()}
+                                </div>
                               </td>
                               <td className="px-4 py-2.5 text-center">
                                 <button 
@@ -3064,26 +3395,41 @@ const AdminView: React.FC<Props> = ({
           </div>
         )}
 
-        {activeTab === 'INCOME_REPORT' && (
+        {(activeTab === 'INCOME_REPORT' || activeTab === 'VENDOR_SUBSCRIPTION') && (
           <div className="flex-1 overflow-y-auto">
             <div className="p-4 md:p-8 pb-0 md:pb-0">
               <div className="mb-5">
-                <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">Income & Report</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Subscription income overview and platform-wide sales analytics.</p>
+                <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">
+                  {activeTab === 'VENDOR_SUBSCRIPTION' ? 'Vendor Subscription' : 'Income & Report'}
+                </h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">
+                  {activeTab === 'VENDOR_SUBSCRIPTION'
+                    ? 'Manage vendor expiry schedules and review every expiry change.'
+                    : 'Subscription income overview and platform-wide sales analytics.'}
+                </p>
               </div>
 
               {/* Document-style tab bar */}
               <div className="flex gap-0 relative">
-                {([
+                {(activeTab === 'VENDOR_SUBSCRIPTION' ? [
+                  { id: 'SCHEDULE' as const, label: 'Vendor Subscription Schedule', icon: <Calendar size={13} /> },
+                  { id: 'HISTORY' as const, label: 'Expiry Change Log', icon: <FileText size={13} /> },
+                ] : [
                   { id: 'INCOME' as const, label: 'Subscription Income', icon: <DollarSign size={13} /> },
                   { id: 'REPORTS' as const, label: 'Sales Report', icon: <TrendingUp size={13} /> },
                 ]).map(tab => (
                   <button
                     key={tab.id}
-                    onClick={() => setIncomeReportSubTab(tab.id)}
+                    onClick={() => {
+                      if (activeTab === 'VENDOR_SUBSCRIPTION') {
+                        setVendorSubscriptionSubTab(tab.id as 'SCHEDULE' | 'HISTORY');
+                      } else {
+                        setIncomeReportSubTab(tab.id as 'INCOME' | 'REPORTS');
+                      }
+                    }}
                     style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
                     className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
-                      incomeReportSubTab === tab.id
+                      (activeTab === 'VENDOR_SUBSCRIPTION' ? vendorSubscriptionSubTab : incomeReportSubTab) === tab.id
                         ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
                         : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
                     }`}
@@ -3094,9 +3440,11 @@ const AdminView: React.FC<Props> = ({
               </div>
 
               {/* Tab content container */}
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
+              <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm rounded-b-2xl rounded-tr-2xl ${
+                activeTab === 'VENDOR_SUBSCRIPTION' ? 'overflow-hidden' : 'p-5 md:p-6'
+              }`}>
 
-            {incomeReportSubTab === 'INCOME' && (
+            {activeTab === 'INCOME_REPORT' && incomeReportSubTab === 'INCOME' && (
               <div className="space-y-6">
                 {/* Summary Cards */}
                 {incomeSummary && (
@@ -3156,26 +3504,31 @@ const AdminView: React.FC<Props> = ({
                         <th className="w-[14%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Restaurant</th>
                         <th className="w-[8%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Plan</th>
                         <th className="w-[8%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Type</th>
-                        <th className="w-[18%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest hidden lg:table-cell">Description</th>
-                        <th className="w-[10%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Gross</th>
-                        <th className="w-[10%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest hidden md:table-cell">Fee</th>
-                        <th className="w-[10%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Net</th>
-                        <th className="w-[10%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                        <th className="w-[16%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest hidden lg:table-cell">Description</th>
+                        <th className="w-[9%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Gross</th>
+                        <th className="w-[9%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest hidden md:table-cell">Fee</th>
+                        <th className="w-[9%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Net</th>
+                        <th className="w-[9%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                        <th className="w-[8%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                       {incomeLoading && incomeTransactions.length === 0 ? (
-                        <tr><td colSpan={9} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
+                        <tr><td colSpan={10} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
                       ) : incomeTransactions.length === 0 ? (
-                        <tr><td colSpan={9} className="text-center py-12">
+                        <tr><td colSpan={10} className="text-center py-12">
                           <FileText size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
                           <p className="text-sm font-bold text-gray-400">No transactions found</p>
                           <p className="text-xs text-gray-400 mt-1">Try adjusting the date range</p>
                         </td></tr>
                       ) : incomeTransactions.map(txn => (
                         <tr key={txn.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                          <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 truncate">
-                            {new Date(txn.date).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: '2-digit' })}
+                          <td className="px-3 py-2 text-xs font-bold dark:text-gray-300">
+                            <DateTimeRows
+                              value={txn.date}
+                              dateClassName="font-black text-gray-700 dark:text-gray-200"
+                              timeClassName="mt-1 text-[9px] font-bold text-gray-400"
+                            />
                           </td>
                           <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 truncate">{txn.restaurantName}</td>
                           <td className="px-3 py-2">
@@ -3188,7 +3541,9 @@ const AdminView: React.FC<Props> = ({
                             ) : <span className="text-xs text-gray-400">—</span>}
                           </td>
                           <td className="px-3 py-2 text-center">
-                            {txn.extensionType === 'stripe' ? (
+                            {txn.extensionType === 'subscription_income' ? (
+                              <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-pink-50 dark:bg-pink-900/20 text-pink-600">Subscription Income</span>
+                            ) : txn.extensionType === 'stripe' ? (
                               <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/20 text-blue-600">Stripe</span>
                             ) : txn.extensionType === 'paid' ? (
                               <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-orange-50 dark:bg-orange-900/20 text-orange-600">Cash</span>
@@ -3209,6 +3564,17 @@ const AdminView: React.FC<Props> = ({
                               <CheckCircle2 size={10} /> {txn.status === 'succeeded' ? 'Success' : txn.status}
                             </span>
                           </td>
+                          <td className="px-3 py-2 text-center">
+                            <button
+                              onClick={() => handleDeleteIncome(txn)}
+                              disabled={deletingIncomeId === txn.id}
+                              className="inline-flex p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                              title="Delete canceled income record"
+                              aria-label={`Delete income record for ${txn.restaurantName}`}
+                            >
+                              {deletingIncomeId === txn.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -3226,7 +3592,226 @@ const AdminView: React.FC<Props> = ({
               </div>
             )}
 
-            {incomeReportSubTab === 'REPORTS' && (
+            {activeTab === 'VENDOR_SUBSCRIPTION' && (
+              <div className="space-y-6 pb-6">
+                {vendorSubscriptionSubTab === 'SCHEDULE' && (
+                <>
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-5 pt-5 md:px-6 md:pt-6">
+                  <div>
+                    <h3 className="text-base font-black dark:text-white uppercase tracking-tighter">Vendor Subscription Schedule</h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+                      Current expiry dates, previous dates, renewals, and admin adjustments
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 w-full lg:w-auto">
+                    <div className="relative flex-1 lg:w-64">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        value={subscriptionScheduleSearch}
+                        onChange={event => setSubscriptionScheduleSearch(event.target.value)}
+                        placeholder="Search vendor or hub..."
+                        className="w-full h-[36px] pl-9 pr-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 dark:text-white"
+                      />
+                    </div>
+                    <button
+                      onClick={() => Promise.all([refreshSubscriptions(), refreshSubscriptionHistory()])}
+                      disabled={subscriptionScheduleLoading}
+                      className="h-[36px] px-4 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <RefreshCw size={13} className={subscriptionScheduleLoading ? 'animate-spin' : ''} />
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                <div className="border-y border-gray-200 dark:border-gray-700 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[940px]">
+                      <thead className="bg-gray-50 dark:bg-gray-900/50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Vendor</th>
+                          <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Plan</th>
+                          <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Previous Expiry</th>
+                          <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Current Expiry</th>
+                          <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Last Changed</th>
+                          <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Change</th>
+                          <th className="px-4 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {filteredSubscriptionSchedule.map(restaurant => {
+                          const sub = subscriptions[restaurant.id];
+                          const currentExpiry = sub?.current_period_end || sub?.trial_end;
+                          const latestHistory = latestHistoryByRestaurant.get(restaurant.id);
+                          const currentExpiryDate = currentExpiry ? new Date(currentExpiry) : null;
+                          const isExpired = currentExpiryDate ? currentExpiryDate < new Date() : false;
+                          const planName = PRICING_PLANS.find(plan => plan.id === sub?.plan_id)?.name || sub?.plan_id || 'No plan';
+                          const eventLabels: Record<string, string> = {
+                            initial: 'Initial',
+                            renewal: 'Renewal',
+                            manual_adjustment: 'Admin edit',
+                            expiry_correction: 'Correction',
+                            expiry_removed: 'Removed',
+                          };
+
+                          return (
+                            <tr key={restaurant.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                              <td className="px-4 py-3">
+                                <p className="text-xs font-black dark:text-white">{restaurant.name}</p>
+                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{restaurant.location || 'Unassigned'}</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="inline-flex px-2 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/20 text-orange-600 text-[9px] font-black uppercase tracking-wider">
+                                  {planName}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-[10px] font-bold text-gray-500 dark:text-gray-300">
+                                <DateTimeRows
+                                  value={latestHistory?.old_expiry}
+                                  dateClassName="font-black text-gray-600 dark:text-gray-200"
+                                  timeClassName="mt-1 text-[9px] text-gray-400"
+                                />
+                              </td>
+                              <td className="px-4 py-3">
+                                {currentExpiryDate ? (
+                                  <DateTimeRows
+                                    value={currentExpiry}
+                                    dateClassName={`text-[10px] font-black ${isExpired ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}
+                                    timeClassName={`mt-1 text-[9px] font-bold ${isExpired ? 'text-red-400' : 'text-gray-400'}`}
+                                  />
+                                ) : (
+                                  <span className="text-[10px] font-bold text-gray-400">No expiry</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-[10px] font-bold text-gray-500 dark:text-gray-300">
+                                <DateTimeRows
+                                  value={latestHistory?.changed_at}
+                                  dateClassName="font-black text-gray-600 dark:text-gray-200"
+                                  timeClassName="mt-1 text-[9px] text-gray-400"
+                                />
+                              </td>
+                              <td className="px-4 py-3">
+                                {latestHistory ? (
+                                  <div>
+                                    <span className="inline-flex px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[9px] font-black uppercase tracking-wider">
+                                      {eventLabels[latestHistory.event_type] || latestHistory.event_type}
+                                    </span>
+                                    {latestHistory.note && (
+                                      <p className="mt-1 max-w-[180px] truncate text-[9px] text-gray-400" title={latestHistory.note}>
+                                        {latestHistory.note}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] text-gray-400">No history</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <button
+                                  type="button"
+                                  onClick={event => openScheduleActionMenu(event, restaurant.id)}
+                                  disabled={!sub}
+                                  className="inline-flex p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-white dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                  title="Subscription actions"
+                                  aria-label={`Actions for ${restaurant.name}`}
+                                  aria-expanded={scheduleActionMenu?.restaurantId === restaurant.id}
+                                >
+                                  <MoreVertical size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {filteredSubscriptionSchedule.length === 0 && (
+                          <tr>
+                            <td colSpan={7} className="py-14 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                              No matching vendors found.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                </>
+                )}
+
+                {vendorSubscriptionSubTab === 'HISTORY' && (
+                <div>
+                  <div className="mb-3 px-5 pt-5 md:px-6 md:pt-6">
+                    <h3 className="text-base font-black dark:text-white uppercase tracking-tighter">Expiry Change Log</h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Most recent 500 recorded changes</p>
+                  </div>
+                  <div className="border-y border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="overflow-x-auto max-h-[440px] custom-scrollbar">
+                      <table className="w-full min-w-[860px]">
+                        <thead className="bg-gray-50 dark:bg-gray-900/50 sticky top-0 z-[1]">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Changed At</th>
+                            <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Vendor</th>
+                            <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Old Expiry</th>
+                            <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">New Expiry</th>
+                            <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Event</th>
+                            <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Note</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                          {subscriptionHistory.map(entry => {
+                            const restaurant = restaurants.find(item => item.id === entry.restaurant_id);
+                            return (
+                              <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                <td className="px-4 py-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-300">
+                                  <DateTimeRows
+                                    value={entry.changed_at}
+                                    dateClassName="font-black text-gray-600 dark:text-gray-200"
+                                    timeClassName="mt-1 text-[9px] text-gray-400"
+                                  />
+                                </td>
+                                <td className="px-4 py-2.5 text-[10px] font-black dark:text-white">{restaurant?.name || 'Unknown vendor'}</td>
+                                <td className="px-4 py-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-300">
+                                  <DateTimeRows
+                                    value={entry.old_expiry}
+                                    dateClassName="font-black text-gray-600 dark:text-gray-200"
+                                    timeClassName="mt-1 text-[9px] text-gray-400"
+                                  />
+                                </td>
+                                <td className="px-4 py-2.5 text-[10px] font-black text-orange-500">
+                                  <DateTimeRows
+                                    value={entry.new_expiry}
+                                    dateClassName="font-black text-orange-500"
+                                    timeClassName="mt-1 text-[9px] text-orange-400"
+                                  />
+                                </td>
+                                <td className="px-4 py-2.5 text-[9px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">{entry.event_type.replace(/_/g, ' ')}</td>
+                                <td className="px-4 py-2.5 text-[10px] text-gray-500 dark:text-gray-300">{entry.note || entry.change_source}</td>
+                              </tr>
+                            );
+                          })}
+                          {!subscriptionScheduleLoading && subscriptionHistory.length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="py-14 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                No expiry changes recorded yet.
+                              </td>
+                            </tr>
+                          )}
+                          {subscriptionScheduleLoading && subscriptionHistory.length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="py-14 text-center text-gray-400">
+                                <RefreshCw size={22} className="mx-auto animate-spin" />
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'INCOME_REPORT' && incomeReportSubTab === 'REPORTS' && (
               <div className="space-y-5">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
@@ -5535,6 +6120,300 @@ const AdminView: React.FC<Props> = ({
                  ))}
               </div>
            </div>
+        </div>
+      )}
+
+      {scheduleActionMenu && (() => {
+        const restaurant = restaurants.find(item => item.id === scheduleActionMenu.restaurantId);
+        const sub = subscriptions[scheduleActionMenu.restaurantId];
+        if (!restaurant || !sub) return null;
+
+        return (
+          <>
+            <button
+              type="button"
+              aria-label="Close subscription actions"
+              className="fixed inset-0 z-[9997] cursor-default"
+              onClick={() => setScheduleActionMenu(null)}
+            />
+            <div
+              className="fixed z-[9998] w-44 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-left shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+              style={{ top: scheduleActionMenu.top, left: scheduleActionMenu.left }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setScheduleActionMenu(null);
+                  openExpiryEditor(restaurant);
+                }}
+                disabled={!sub.current_period_end && !sub.trial_end}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-xs font-bold text-gray-700 transition hover:bg-orange-50 hover:text-orange-600 disabled:opacity-40 dark:text-gray-200 dark:hover:bg-orange-900/20 dark:hover:text-orange-300"
+              >
+                <Calendar size={14} /> Change Date
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setScheduleActionMenu(null);
+                  openPlanEditor(restaurant);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-xs font-bold text-gray-700 transition hover:bg-blue-50 hover:text-blue-600 dark:text-gray-200 dark:hover:bg-blue-900/20 dark:hover:text-blue-300"
+              >
+                <Edit3 size={14} /> Edit Plan
+              </button>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* Subscription Plan Editor */}
+      {planEditModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => { if (!savingPlan) setPlanEditModal(null); }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden" onClick={event => event.stopPropagation()}>
+            <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-700 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">Edit Subscription Plan</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{planEditModal.restaurantName}</p>
+              </div>
+              <button
+                onClick={() => setPlanEditModal(null)}
+                disabled={savingPlan}
+                className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Plan</label>
+                <select
+                  value={planEditValue}
+                  onChange={event => setPlanEditValue(event.target.value as PlanId)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm focus:ring-1 focus:ring-orange-500"
+                >
+                  {PRICING_PLANS.map(plan => (
+                    <option key={plan.id} value={plan.id}>{plan.name}</option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-[10px] text-gray-400">
+                The new plan applies immediately. Kitchen access is enabled only for Pro Plus.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setPlanEditModal(null)}
+                  disabled={savingPlan}
+                  className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-300 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSavePlan}
+                  disabled={savingPlan}
+                  className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {savingPlan ? <Loader2 size={14} className="animate-spin" /> : <Edit3 size={14} />}
+                  Save Plan
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vendor Plan Lock Modal */}
+      {planLockModal && (() => {
+        const sub = subscriptions[planLockModal.restaurantId] || null;
+        const lockState = getSubscriptionAccessLockState(sub);
+        const scheduledAt = sub?.access_lock_at ? new Date(sub.access_lock_at) : null;
+        const expiry = sub ? getSubscriptionEndDate(sub) : null;
+        const isExpired = expiry ? expiry <= new Date() : false;
+        const isBusy = planLockActionId === planLockModal.restaurantId;
+
+        return (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => { if (!isBusy) setPlanLockModal(null); }}>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-700 flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">Vendor Plan Lock</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Control POS access for <span className="font-bold text-gray-700 dark:text-gray-200">"{planLockModal.restaurantName}"</span>.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPlanLockModal(null)}
+                  disabled={isBusy}
+                  className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5">
+                <div className={`rounded-xl border p-4 ${
+                  lockState === 'locked'
+                    ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300'
+                    : lockState === 'scheduled'
+                      ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300'
+                      : 'border-green-200 bg-green-50 text-green-700 dark:border-green-900/40 dark:bg-green-900/20 dark:text-green-300'
+                }`}>
+                  <p className="text-[10px] font-black uppercase tracking-widest">Current Status</p>
+                  <p className="mt-1 text-sm font-black uppercase tracking-tight">
+                    {lockState === 'locked'
+                      ? isExpired
+                        ? 'Expired - Automatically Locked'
+                        : 'Locked'
+                      : lockState === 'scheduled' && scheduledAt
+                        ? `Scheduled for ${scheduledAt.toLocaleString()}`
+                        : 'Active'}
+                  </p>
+                </div>
+
+                {isExpired && (
+                  <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
+                    Renew the plan or extend its expiry date to restore POS access.
+                  </p>
+                )}
+
+                <div className="grid grid-cols-2 gap-2 rounded-xl bg-gray-100 dark:bg-gray-700 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setPlanLockMode('now')}
+                    className={`py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                      planLockMode === 'now'
+                        ? 'bg-white dark:bg-gray-600 text-red-500 shadow-sm'
+                        : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    Lock Now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlanLockMode('scheduled')}
+                    className={`py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                      planLockMode === 'scheduled'
+                        ? 'bg-white dark:bg-gray-600 text-amber-500 shadow-sm'
+                        : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    Set Timer
+                  </button>
+                </div>
+
+                {planLockMode === 'scheduled' && (
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Lock Date & Time</label>
+                    <input
+                      type="datetime-local"
+                      value={planLockDateTime}
+                      onChange={e => setPlanLockDateTime(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm"
+                    />
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-1">
+                  {lockState !== 'active' && !isExpired && (
+                    <button
+                      onClick={handleUnlockPlan}
+                      disabled={isBusy}
+                      className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest border border-green-400 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isBusy ? <Loader2 size={14} className="animate-spin" /> : <Unlock size={14} />}
+                      Unlock
+                    </button>
+                  )}
+                  <button
+                    onClick={handleSavePlanLock}
+                    disabled={isBusy}
+                    className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest bg-red-600 text-white hover:bg-red-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isBusy ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
+                    {planLockMode === 'now' ? 'Lock Vendor' : 'Schedule Lock'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Subscription Expiry Editor */}
+      {expiryEditModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => { if (!savingExpiry) setExpiryEditModal(null); }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden" onClick={event => event.stopPropagation()}>
+            <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-700 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">Change Subscription Expiry</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{expiryEditModal.restaurantName}</p>
+              </div>
+              <button
+                onClick={() => setExpiryEditModal(null)}
+                disabled={savingExpiry}
+                className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Current Expiry</p>
+                <div className="mt-2">
+                  <DateTimeRows
+                    value={expiryEditModal.currentExpiry}
+                    dateClassName="text-sm font-black dark:text-white"
+                    timeClassName="mt-1 text-xs font-bold text-gray-400"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">New Expiry Date & Time</label>
+                <input
+                  type="datetime-local"
+                  value={expiryEditValue}
+                  onChange={event => setExpiryEditValue(event.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm focus:ring-1 focus:ring-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Reason / Note (Optional)</label>
+                <textarea
+                  value={expiryEditNote}
+                  onChange={event => setExpiryEditNote(event.target.value)}
+                  maxLength={500}
+                  rows={3}
+                  placeholder="Example: Cash renewal confirmed by admin"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-medium dark:text-white text-sm resize-none focus:ring-1 focus:ring-orange-500"
+                />
+              </div>
+              <p className="text-[10px] text-gray-400">
+                Saving creates a permanent log with the previous date, new date, time changed, and this note.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setExpiryEditModal(null)}
+                  disabled={savingExpiry}
+                  className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-300 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveExpiry}
+                  disabled={savingExpiry || !expiryEditValue}
+                  className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {savingExpiry ? <Loader2 size={14} className="animate-spin" /> : <Calendar size={14} />}
+                  Save New Date
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

@@ -73,7 +73,7 @@ export interface PrinterDevice {
 }
 
 export type PaperSize = '58mm' | '80mm';
-export type ConnectionType = 'bluetooth' | 'wifi' | 'usb';
+export type ConnectionType = 'bluetooth' | 'wifi' | 'usb' | 'sunmi';
 export type PrintDensity = 'light' | 'medium' | 'dark';
 export type PrintJobType = 'receipt' | 'kitchen';
 export type PrintMode = 'text' | 'graphic';
@@ -97,6 +97,9 @@ export interface PrinterModelPreset {
 }
 
 export const PRINTER_MODELS: PrinterModelPreset[] = [
+  { id: 'sunmi_v2', name: 'V2 Built-in', brand: 'SUNMI', paperSize: '58mm', printMode: 'text', printWidth: 384, printResolution: 205, initCommand: '1B40', cutterCommand: '', drawerCommand: '1B70003C78' },
+  { id: 'sunmi_v2_pro', name: 'V2 Pro Built-in', brand: 'SUNMI', paperSize: '58mm', printMode: 'text', printWidth: 384, printResolution: 205, initCommand: '1B40', cutterCommand: '', drawerCommand: '1B70003C78' },
+  { id: 'sunmi_v2s', name: 'V2s Built-in', brand: 'SUNMI', paperSize: '58mm', printMode: 'text', printWidth: 384, printResolution: 205, initCommand: '1B40', cutterCommand: '', drawerCommand: '1B70003C78' },
   { id: 'epson_tm_t20ii', name: 'TM-T20II', brand: 'Epson', paperSize: '80mm', printMode: 'text', printWidth: 576, printResolution: 203, initCommand: '1B40', cutterCommand: '1D564200', drawerCommand: '1B70003C78' },
   { id: 'epson_tm_t88v', name: 'TM-T88V', brand: 'Epson', paperSize: '80mm', printMode: 'text', printWidth: 576, printResolution: 180, initCommand: '1B40', cutterCommand: '1D564200', drawerCommand: '1B70003C78' },
   { id: 'epson_tm_t82iii', name: 'TM-T82III', brand: 'Epson', paperSize: '80mm', printMode: 'text', printWidth: 576, printResolution: 203, initCommand: '1B40', cutterCommand: '1D564200', drawerCommand: '1B70003C78' },
@@ -361,6 +364,7 @@ export function applyModelPreset(printer: SavedPrinter, modelId: string): SavedP
     ...printer,
     printerModel: modelId,
     paperSize: preset.paperSize,
+    autoCut: modelId.startsWith('sunmi_') ? false : printer.autoCut,
     printMode: preset.printMode,
     printWidth: preset.printWidth,
     printResolution: preset.printResolution,
@@ -548,6 +552,37 @@ class EscPosBuilder {
 }
 
 
+type SunmiBridge = Record<string, any>;
+
+const SUNMI_INNER_PRINTER: PrinterDevice = {
+  id: 'sunmi-inner-printer',
+  name: 'SUNMI Built-in Printer',
+};
+
+const SUNMI_BRIDGE_NAMES = [
+  'QuickServeSunmi',
+  'SunmiPrinter',
+  'sunmiPrinter',
+  'SunmiPrint',
+  'sunmiPrint',
+  'WoyouPrinter',
+  'woyouPrinter',
+  'Android',
+  'android',
+];
+
+const SUNMI_BRIDGE_METHODS = [
+  'printEscPosBase64',
+  'printRawBase64',
+  'printBase64',
+  'sendRawBase64',
+  'runRAWData',
+  'sendRAWData',
+  'sendRawData',
+  'printRawData',
+];
+
+
 // ─── Printer Service ────────────────────────────────────────────────────────
 
 class PrinterService {
@@ -561,6 +596,8 @@ class PrinterService {
   private lastPrintTime: number = 0;
   private connectionPromise: Promise<boolean> | null = null;
   private disconnectRequested: boolean = false;
+  private sunmiConnected: boolean = false;
+  private sunmiBridgeName: string | null = null;
 
   // Reprint support
   private lastPrintedOrder: any = null;
@@ -588,19 +625,153 @@ class PrinterService {
     'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Nordic UART
   ];
 
+  private getSunmiBridge(): { name: string; bridge: SunmiBridge } | null {
+    if (typeof window === 'undefined') return null;
+    const w = window as unknown as Record<string, any>;
+
+    for (const name of SUNMI_BRIDGE_NAMES) {
+      const bridge = w[name];
+      if (!bridge || typeof bridge !== 'object') continue;
+      const hasPrinterMethod = SUNMI_BRIDGE_METHODS.some(method => typeof bridge[method] === 'function')
+        || ['printerInit', 'initPrinter', 'isReady', 'getPrinterVersion', 'getServiceVersion'].some(method => typeof bridge[method] === 'function');
+      if (hasPrinterMethod) return { name, bridge };
+    }
+
+    return null;
+  }
+
+  isSunmiBridgeAvailable(): boolean {
+    return this.getSunmiBridge() !== null;
+  }
+
+  isLikelySunmiDevice(): boolean {
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    return /sunmi|v2 pro|v2s/i.test(ua);
+  }
+
+  getSunmiIntegrationStatus() {
+    const bridge = this.getSunmiBridge();
+    return {
+      available: !!bridge,
+      connected: this.sunmiConnected && !!bridge,
+      bridgeName: bridge?.name || this.sunmiBridgeName,
+      likelySunmiDevice: this.isLikelySunmiDevice(),
+    };
+  }
+
+  private isSunmiDeviceName(deviceName: string): boolean {
+    return deviceName === SUNMI_INNER_PRINTER.name || /sunmi/i.test(deviceName);
+  }
+
+  private hasWritableTransport(): boolean {
+    return (this.sunmiConnected && this.isSunmiBridgeAvailable()) || !!this.characteristic;
+  }
+
+  private async connectSunmiBridge(): Promise<boolean> {
+    const found = this.getSunmiBridge();
+    if (!found) return false;
+    this.sunmiConnected = true;
+    this.sunmiBridgeName = found.name;
+    this.disconnectRequested = false;
+    await this.trySunmiInit(found.bridge);
+    return true;
+  }
+
+  private async trySunmiInit(bridge?: SunmiBridge): Promise<void> {
+    const target = bridge || this.getSunmiBridge()?.bridge;
+    if (!target) return;
+    for (const method of ['printerInit', 'initPrinter']) {
+      if (typeof target[method] === 'function') {
+        try {
+          await Promise.resolve(target[method]());
+          return;
+        } catch {
+          return;
+        }
+      }
+    }
+  }
+
+  private bytesToBase64(data: Uint8Array): string {
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < data.length; i += chunkSize) {
+      const chunk = data.slice(i, i + chunkSize);
+      binary += String.fromCharCode(...Array.from(chunk));
+    }
+    return btoa(binary);
+  }
+
+  private isBridgeResultOk(result: any): boolean {
+    if (result == null) return true;
+    if (typeof result === 'boolean') return result;
+    if (typeof result === 'number') return result === 0 || result === 1;
+    if (typeof result === 'string') {
+      const normalized = result.trim().toLowerCase();
+      if (!normalized) return true;
+      if (['true', 'ok', 'success', '1', '0'].includes(normalized)) return true;
+      if (['false', 'fail', 'failed', 'error', '-1'].includes(normalized)) return false;
+      try {
+        return this.isBridgeResultOk(JSON.parse(result));
+      } catch {
+        return !/fail|error|exception/i.test(result);
+      }
+    }
+    if (typeof result === 'object') {
+      if ('success' in result) return !!result.success;
+      if ('ok' in result) return !!result.ok;
+      if ('code' in result) return result.code === 0 || result.code === 1;
+    }
+    return true;
+  }
+
+  private async writeSunmiData(data: Uint8Array): Promise<void> {
+    const found = this.getSunmiBridge();
+    if (!found) throw new Error('SUNMI bridge not available');
+    const { bridge } = found;
+    const byteArray = Array.from(data);
+
+    await this.trySunmiInit(bridge);
+
+    for (const method of SUNMI_BRIDGE_METHODS) {
+      if (typeof bridge[method] !== 'function') continue;
+      const usesBase64 = /base64/i.test(method);
+      const payload = usesBase64 ? this.bytesToBase64(data) : byteArray;
+      let result: any;
+      try {
+        result = await Promise.resolve(bridge[method](payload));
+      } catch (firstError) {
+        try {
+          result = await Promise.resolve(bridge[method](payload, null));
+        } catch {
+          throw firstError;
+        }
+      }
+      if (!this.isBridgeResultOk(result)) throw new Error(`SUNMI bridge ${method} failed`);
+      return;
+    }
+
+    throw new Error('SUNMI bridge is missing a raw ESC/POS print method');
+  }
+
 
   // ─── Connection ─────────────────────────────────────────────────────────
 
   async scanForPrinters(): Promise<PrinterDevice[]> {
+    const devices: PrinterDevice[] = [];
+    if (this.isSunmiBridgeAvailable()) devices.push(SUNMI_INNER_PRINTER);
+
     try {
+      if (typeof navigator === 'undefined' || !(navigator as any).bluetooth) return devices;
       const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: PrinterService.SERVICE_UUIDS,
       });
-      return [{ id: device.id, name: device.name || 'Unknown Printer' }];
+      return [...devices, { id: device.id, name: device.name || 'Unknown Printer' }];
     } catch (error) {
       console.error('Scan error:', error);
-      return [];
+      return devices;
     }
   }
 
@@ -616,6 +787,14 @@ class PrinterService {
     try {
       await this.disconnect();
       this.disconnectRequested = false;
+
+      if (this.isSunmiDeviceName(deviceName)) {
+        return await this.connectSunmiBridge();
+      }
+
+      if (typeof navigator === 'undefined' || !(navigator as any).bluetooth) {
+        throw new Error('Web Bluetooth not supported');
+      }
 
       this.device = await navigator.bluetooth.requestDevice({
         filters: [{ name: deviceName }],
@@ -672,6 +851,7 @@ class PrinterService {
 
   async autoReconnect(deviceName: string): Promise<boolean> {
     if (this.isConnected()) return true;
+    if (this.isSunmiDeviceName(deviceName)) return this.connectSunmiBridge();
 
     try {
       const bluetooth = (navigator as any).bluetooth;
@@ -729,13 +909,15 @@ class PrinterService {
   }
 
   isConnected(): boolean {
-    return this.server?.connected === true;
+    return (this.sunmiConnected && this.isSunmiBridgeAvailable()) || this.server?.connected === true;
   }
 
   async disconnect() {
     this.disconnectRequested = true;
     this.stopKeepAlive();
     this.clearQueue();
+    this.sunmiConnected = false;
+    this.sunmiBridgeName = null;
     try { if (this.server?.connected) this.server.disconnect(); } catch {}
     await this.cleanup();
     this.device = null;
@@ -744,9 +926,10 @@ class PrinterService {
   getConnectionStatus() {
     return {
       connected: this.isConnected(),
-      deviceName: this.device?.name,
+      deviceName: this.sunmiConnected ? SUNMI_INNER_PRINTER.name : this.device?.name,
       isPrinting: this.isPrinting,
       queueSize: this.printQueue.length,
+      transport: this.sunmiConnected ? 'sunmi' : this.server?.connected ? 'bluetooth' : 'none',
     };
   }
 
@@ -780,6 +963,11 @@ class PrinterService {
   // ─── Write Helpers ──────────────────────────────────────────────────────
 
   private async writeData(data: Uint8Array): Promise<void> {
+    if (this.sunmiConnected && this.isSunmiBridgeAvailable()) {
+      await this.writeSunmiData(data);
+      return;
+    }
+
     if (!this.characteristic) throw new Error('No writable characteristic');
 
     for (let i = 0; i < data.length; i += this.bleChunkSize) {
@@ -797,6 +985,8 @@ class PrinterService {
   }
 
   async ensureConnection(): Promise<boolean> {
+    if (this.sunmiConnected && this.isSunmiBridgeAvailable()) return true;
+    if (this.sunmiConnected) return this.connectSunmiBridge();
     if (this.isConnected() && this.characteristic) return true;
     if (this.device && !this.disconnectRequested) {
       try { return await this.connectGatt(); } catch { /* fall through */ }
@@ -887,7 +1077,7 @@ class PrinterService {
   private async executePrint(order: any, restaurant: any, options?: ReceiptPrintOptions): Promise<boolean> {
     this.isPrinting = true;
     try {
-      if (!this.characteristic) throw new Error('No printer connection');
+      if (!this.hasWritableTransport()) throw new Error('No printer connection');
 
       const paperSize: PaperSize = options?.paperSize || '58mm';
       const r = new EscPosBuilder(paperSize);
@@ -1155,7 +1345,7 @@ class PrinterService {
 
   async printTestPage(businessName?: string, paperSize?: PaperSize): Promise<boolean> {
     if (!await this.ensureConnection()) throw new Error('Printer not connected');
-    if (!this.characteristic) throw new Error('No writable characteristic');
+    if (!this.hasWritableTransport()) throw new Error('No writable printer transport');
 
     this.isPrinting = true;
     try {
@@ -1218,7 +1408,7 @@ class PrinterService {
     paperSize?: PaperSize,
   ): Promise<boolean> {
     if (!await this.ensureConnection()) throw new Error('Printer not connected');
-    if (!this.characteristic) throw new Error('No writable characteristic');
+    if (!this.hasWritableTransport()) throw new Error('No writable printer transport');
 
     this.isPrinting = true;
     try {
@@ -1326,7 +1516,7 @@ class PrinterService {
     options?: ShiftPrintOptions,
   ): Promise<boolean> {
     if (!await this.ensureConnection()) throw new Error('Printer not connected');
-    if (!this.characteristic) throw new Error('No writable characteristic');
+    if (!this.hasWritableTransport()) throw new Error('No writable printer transport');
 
     this.isPrinting = true;
     try {
@@ -1436,7 +1626,7 @@ class PrinterService {
   async openDrawer(pin: 0 | 1 = 0): Promise<boolean> {
     try {
       if (!await this.ensureConnection()) throw new Error('Printer not connected');
-      if (!this.characteristic) throw new Error('No writable characteristic');
+      if (!this.hasWritableTransport()) throw new Error('No writable printer transport');
 
       const r = new EscPosBuilder();
       r.openDrawer(pin);
@@ -1451,7 +1641,7 @@ class PrinterService {
   async beep(): Promise<boolean> {
     try {
       if (!await this.ensureConnection()) throw new Error('Printer not connected');
-      if (!this.characteristic) throw new Error('No writable characteristic');
+      if (!this.hasWritableTransport()) throw new Error('No writable printer transport');
 
       const r = new EscPosBuilder();
       r.beep();

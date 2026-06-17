@@ -3,6 +3,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { isSubscriptionLockDue } from '../../lib/subscriptionAccess.js';
+import { calculateNextSubscriptionPeriod } from '../../lib/subscriptionPeriod.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
@@ -19,6 +21,34 @@ const PLAN_PRICES: Record<string, { monthly: number; annual: number }> = {
   pro_plus: { monthly: 70, annual: 60 },
 };
 const PLAN_NAMES: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
+const PLAN_ORDER = ['basic', 'pro', 'pro_plus'];
+const ACCESS_UNLOCK_PATCH = {
+  access_locked: false,
+  access_lock_at: null,
+  access_locked_at: null,
+};
+const DUITNOW_SNAPSHOT_COLUMNS = [
+  'provisional_access_until',
+  'original_status',
+  'original_plan_id',
+  'original_billing_interval',
+  'original_current_period_start',
+  'original_current_period_end',
+  'original_trial_end',
+];
+
+function isMissingColumnError(error: any, columns: string[] = []): boolean {
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '').toLowerCase();
+  const isMissingColumn = code === '42703'
+    || code === 'PGRST204'
+    || message.includes('column') && (message.includes('does not exist') || message.includes('schema cache'));
+
+  return isMissingColumn && (
+    columns.length === 0
+    || columns.some(column => message.includes(column.toLowerCase()))
+  );
+}
 
 async function getOrCreateStripeCustomerId(restaurantId: string, inputCustomerId?: string): Promise<string> {
   if (inputCustomerId) return inputCustomerId;
@@ -415,6 +445,153 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ success: true, transaction, balance, paymentIntentId: paymentIntent.id });
       }
 
+      // POST /api/stripe/billing?action=plan-change-wallet
+      // Pays a renew/upgrade/downgrade/switch from wallet balance.
+      case 'plan-change-wallet': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const {
+          restaurantId: walletRestId,
+          planId: walletPlanId,
+          billingInterval: walletInterval = 'monthly',
+          changeType: walletChangeType = 'renew',
+        } = req.body || {};
+
+        if (!walletRestId || !walletPlanId) {
+          return res.status(400).json({ error: 'restaurantId and planId are required.' });
+        }
+        if (!PLAN_PRICES[walletPlanId]) {
+          return res.status(400).json({ error: 'Invalid plan.' });
+        }
+        if (!['monthly', 'annual'].includes(walletInterval)) {
+          return res.status(400).json({ error: 'Invalid billing interval.' });
+        }
+        if (!['renew', 'upgrade', 'downgrade'].includes(walletChangeType)) {
+          return res.status(400).json({ error: 'Invalid change type.' });
+        }
+
+        const { data: walletSub } = await supabase
+          .from('subscriptions')
+          .select('plan_id, billing_interval, current_period_end, trial_end')
+          .eq('restaurant_id', walletRestId)
+          .single();
+
+        if (!walletSub) {
+          return res.status(404).json({ error: 'Subscription not found.' });
+        }
+
+        const isWalletAnnual = walletInterval === 'annual';
+        const walletPlanPrices = PLAN_PRICES[walletPlanId];
+        const walletPricePerMonth = isWalletAnnual ? walletPlanPrices.annual : walletPlanPrices.monthly;
+        const walletMonths = isWalletAnnual ? 12 : 1;
+        const walletChargeAmount = walletPricePerMonth * walletMonths;
+        const currentWalletBalance = await getWalletBalance(walletRestId);
+
+        if (currentWalletBalance < walletChargeAmount) {
+          return res.status(400).json({
+            error: `Insufficient wallet balance. Available: RM ${currentWalletBalance.toFixed(2)}. Required: RM ${walletChargeAmount.toFixed(2)}.`,
+          });
+        }
+
+        const walletRenewFrom = walletChangeType === 'upgrade'
+          ? undefined
+          : (walletSub.current_period_end || walletSub.trial_end || undefined);
+        const walletRenewDate = walletRenewFrom ? new Date(walletRenewFrom) : null;
+        const walletIsFutureRenew = walletRenewDate ? walletRenewDate > new Date() : false;
+        const walletIsScheduledDowngrade = walletChangeType === 'downgrade' && walletIsFutureRenew;
+        let walletNewPeriodEnd: string | null = null;
+
+        if (walletIsScheduledDowngrade) {
+          await supabase
+            .from('subscriptions')
+            .update({
+              pending_plan_id: walletPlanId,
+              pending_billing_interval: walletInterval,
+              pending_change_effective_at: (walletRenewDate || new Date()).toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('restaurant_id', walletRestId);
+          walletNewPeriodEnd = walletSub.current_period_end || walletSub.trial_end || null;
+        } else {
+          const { periodStart: walletPeriodStart, periodEnd: walletPeriodEnd } =
+            calculateNextSubscriptionPeriod(walletRenewFrom, isWalletAnnual);
+          walletNewPeriodEnd = walletPeriodEnd.toISOString();
+
+          await supabase
+            .from('subscriptions')
+            .upsert({
+              restaurant_id: walletRestId,
+              status: 'active',
+              plan_id: walletPlanId,
+              billing_interval: walletInterval,
+              current_period_start: walletPeriodStart.toISOString(),
+              current_period_end: walletNewPeriodEnd,
+              pending_plan_id: null,
+              pending_billing_interval: null,
+              pending_change_effective_at: null,
+              ...ACCESS_UNLOCK_PATCH,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'restaurant_id' });
+
+          const walletKitchenEnabled = walletPlanId === 'pro_plus';
+          await supabase.from('restaurants').update({ kitchen_enabled: walletKitchenEnabled }).eq('id', walletRestId);
+        }
+
+        const walletIntervalLabel = isWalletAnnual ? 'Annual' : 'Monthly';
+        const walletPlanName = PLAN_NAMES[walletPlanId] || walletPlanId;
+        const walletActionLabel = walletChangeType === 'upgrade'
+          ? 'Upgrade'
+          : walletChangeType === 'downgrade'
+            ? 'Downgrade'
+            : 'Renewal';
+
+        const { data: walletBillingTransaction, error: walletBillingInsertError } = await supabase
+          .from('wallet_transactions')
+          .insert({
+            restaurant_id: walletRestId,
+            amount: walletChargeAmount,
+            type: 'billing',
+            status: 'completed',
+            description: `Subscription ${walletActionLabel.toLowerCase()} - ${walletPlanName} (${walletIntervalLabel})`,
+          })
+          .select('reference_code')
+          .single();
+
+        if (walletBillingInsertError) {
+          return res.status(500).json({ error: walletBillingInsertError.message || 'Failed to record wallet billing transaction.' });
+        }
+
+        const { data: walletRest } = await supabase
+          .from('restaurants')
+          .select('name')
+          .eq('id', walletRestId)
+          .single();
+
+        await supabase.from('billing_records').insert({
+          restaurant_id: walletRestId,
+          description: `QuickServe Wallet ${walletActionLabel} (${walletIntervalLabel})`,
+          amount: walletChargeAmount,
+          type: 'wallet',
+          gross: walletChargeAmount,
+          fee: 0,
+          net: walletChargeAmount,
+          plan_id: walletPlanId,
+          restaurant_name: walletRest?.name || 'Unknown',
+          created_by: 'wallet',
+          reference_code: walletBillingTransaction?.reference_code || null,
+        });
+
+        const updatedWalletBalance = await getWalletBalance(walletRestId);
+        return res.status(200).json({
+          success: true,
+          amountCharged: walletChargeAmount,
+          interval: walletIntervalLabel,
+          changeType: walletChangeType,
+          scheduled: walletIsScheduledDowngrade,
+          newPeriodEnd: walletNewPeriodEnd,
+          balance: updatedWalletBalance,
+        });
+      }
+
       // POST /api/stripe/billing?action=renew-wallet  body: { restaurantId }
       case 'renew-wallet': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -445,16 +622,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           });
         }
 
-        const renewFrom = renewSub.current_period_end || renewSub.trial_end;
-        let periodStart: Date;
-        if (renewFrom) {
-          const renewDate = new Date(renewFrom);
-          periodStart = renewDate > new Date() ? renewDate : new Date();
-        } else {
-          periodStart = new Date();
-        }
-        const periodEnd = new Date(periodStart);
-        periodEnd.setDate(periodEnd.getDate() + (isAnnual ? 365 : 30));
+        const { periodStart, periodEnd } = calculateNextSubscriptionPeriod(
+          renewSub.current_period_end || renewSub.trial_end,
+          isAnnual
+        );
 
         await supabase
           .from('subscriptions')
@@ -462,6 +633,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             status: 'active',
             current_period_start: periodStart.toISOString(),
             current_period_end: periodEnd.toISOString(),
+            ...ACCESS_UNLOCK_PATCH,
             updated_at: new Date().toISOString(),
           })
           .eq('restaurant_id', renewRestaurantId);
@@ -618,16 +790,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // Payment succeeded — extend the subscription period
-        const renewFrom = renewSub.current_period_end || renewSub.trial_end;
-        let periodStart: Date;
-        if (renewFrom) {
-          const renewDate = new Date(renewFrom);
-          periodStart = renewDate > new Date() ? renewDate : new Date();
-        } else {
-          periodStart = new Date();
-        }
-        const periodEnd = new Date(periodStart);
-        periodEnd.setDate(periodEnd.getDate() + (isAnnual ? 365 : 30));
+        const { periodStart, periodEnd } = calculateNextSubscriptionPeriod(
+          renewSub.current_period_end || renewSub.trial_end,
+          isAnnual
+        );
 
         await supabase
           .from('subscriptions')
@@ -635,6 +801,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             status: 'active',
             current_period_start: periodStart.toISOString(),
             current_period_end: periodEnd.toISOString(),
+            ...ACCESS_UNLOCK_PATCH,
             updated_at: new Date().toISOString(),
           })
           .eq('restaurant_id', renewRestId);
@@ -670,7 +837,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // GET/POST /api/stripe/billing?action=cleanup-stale
-      // Deletes incomplete registrations (pending_payment) older than 24 hours
+      // Persists automatic expiry locks and deletes stale pending registrations.
       case 'cleanup-stale': {
         // Verify cron secret to prevent unauthorized calls
         const authHeader = req.headers.authorization;
@@ -679,7 +846,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const now = new Date();
+        const nowIso = now.toISOString();
+        const { data: lockCandidates, error: lockFetchError } = await supabase
+          .from('subscriptions')
+          .select('id, current_period_end, trial_end, access_lock_at')
+          .eq('access_locked', false)
+          .neq('status', 'pending_payment');
+
+        if (lockFetchError) {
+          console.error('Error fetching automatic lock candidates:', lockFetchError);
+          return res.status(500).json({ error: 'Failed to enforce expired subscription locks.' });
+        }
+
+        const dueLockIds = (lockCandidates || [])
+          .filter(candidate => isSubscriptionLockDue(candidate, now))
+          .map(candidate => candidate.id);
+
+        let lockedCount = 0;
+        if (dueLockIds.length > 0) {
+          const { data: lockedSubscriptions, error: lockUpdateError } = await supabase
+            .from('subscriptions')
+            .update({
+              access_locked: true,
+              access_lock_at: null,
+              access_locked_at: nowIso,
+              updated_at: nowIso,
+            })
+            .in('id', dueLockIds)
+            .eq('access_locked', false)
+            .select('id');
+
+          if (lockUpdateError) {
+            console.error('Error persisting automatic subscription locks:', lockUpdateError);
+            return res.status(500).json({ error: 'Failed to persist expired subscription locks.' });
+          }
+          lockedCount = lockedSubscriptions?.length || 0;
+        }
+
+        const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
         const { data: staleSubs, error: fetchError } = await supabase
           .from('subscriptions')
@@ -692,11 +897,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(500).json({ error: 'Failed to fetch stale registrations.' });
         }
 
-        if (!staleSubs || staleSubs.length === 0) {
-          return res.status(200).json({ message: 'No stale registrations found.', deleted: 0 });
-        }
-
-        const staleRestaurantIds = staleSubs.map(s => s.restaurant_id);
+        const staleRestaurantIds = (staleSubs || []).map(s => s.restaurant_id);
         let deletedCount = 0;
 
         for (const staleRestId of staleRestaurantIds) {
@@ -724,7 +925,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         return res.status(200).json({
-          message: `Cleaned up ${deletedCount} stale registration(s).`,
+          message: `Locked ${lockedCount} expired subscription(s) and cleaned up ${deletedCount} stale registration(s).`,
+          locked: lockedCount,
           deleted: deletedCount,
           total_found: staleRestaurantIds.length,
         });
@@ -849,13 +1051,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { data: extRest } = await supabase.from('restaurants').select('name').eq('id', extendRestId).single();
         const restaurantName = extRest?.name || 'Unknown';
 
-        // Calculate new period: extend from current end date (or now if already expired)
+        // Preserve remaining time for active plans; expired plans restart from now.
         const currentEnd = extSub.current_period_end || extSub.trial_end;
-        const baseDate = currentEnd && new Date(currentEnd) > new Date()
-          ? new Date(currentEnd)
-          : new Date();
-        const newEnd = new Date(baseDate);
-        newEnd.setDate(newEnd.getDate() + 30);
+        const { periodStart: baseDate, periodEnd: newEnd } =
+          calculateNextSubscriptionPeriod(currentEnd, false);
 
         const { error: extUpdateErr } = await supabase
           .from('subscriptions')
@@ -863,6 +1062,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             status: 'active',
             current_period_start: baseDate.toISOString(),
             current_period_end: newEnd.toISOString(),
+            ...ACCESS_UNLOCK_PATCH,
             updated_at: new Date().toISOString(),
           })
           .eq('restaurant_id', extendRestId);
@@ -897,20 +1097,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Vendor submits a DuitNow QR payment request
       case 'duitnow-submit': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-        const { restaurantId: dnRestId, planId: dnPlanId, billingInterval: dnInterval, amount: dnAmount, attachmentUrl: dnAttach, referenceNumber: dnRef } = req.body || {};
+        const {
+          restaurantId: dnRestId,
+          planId: dnPlanId,
+          billingInterval: dnInterval,
+          amount: dnAmount,
+          attachmentUrl: dnAttach,
+          referenceNumber: dnRef,
+          changeType: dnRequestedChangeType,
+        } = req.body || {};
 
         if (!dnRestId || !dnPlanId || !dnAmount) {
           return res.status(400).json({ error: 'restaurantId, planId, and amount are required.' });
         }
+        if (!PLAN_PRICES[dnPlanId]) {
+          return res.status(400).json({ error: 'Invalid plan.' });
+        }
 
         const { data: dnSub } = await supabase
           .from('subscriptions')
-          .select('duitnow_enabled')
+          .select('duitnow_enabled, status, plan_id, billing_interval, current_period_start, current_period_end, trial_end')
           .eq('restaurant_id', dnRestId)
           .single();
 
         if (!dnSub?.duitnow_enabled) {
           return res.status(403).json({ error: 'DuitNow payment is not enabled for this restaurant.' });
+        }
+
+        const dnCurrentPlanIndex = PLAN_ORDER.indexOf(dnSub.plan_id);
+        const dnRequestedPlanIndex = PLAN_ORDER.indexOf(dnPlanId);
+        const dnChangeType = dnRequestedPlanIndex > dnCurrentPlanIndex ? 'upgrade' : 'renew';
+        if (dnRequestedPlanIndex < dnCurrentPlanIndex) {
+          return res.status(400).json({ error: 'DuitNow QR cannot be used for plan downgrades.' });
+        }
+        if (dnRequestedChangeType && dnRequestedChangeType !== dnChangeType) {
+          return res.status(400).json({ error: 'The requested plan change type is invalid.' });
+        }
+        if (!['monthly', 'annual'].includes(dnInterval || 'monthly')) {
+          return res.status(400).json({ error: 'Invalid billing interval.' });
+        }
+        const dnExpectedAmount = dnInterval === 'annual'
+          ? (PLAN_PRICES[dnPlanId]?.annual || 0) * 12
+          : PLAN_PRICES[dnPlanId]?.monthly || 0;
+        if (!dnExpectedAmount || Math.abs(Number(dnAmount) - dnExpectedAmount) > 0.009) {
+          return res.status(400).json({ error: 'The submitted amount does not match the selected renewal plan.' });
         }
 
         const { data: dnExisting } = await supabase
@@ -926,27 +1156,94 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const safeRef = dnRef ? String(dnRef).slice(0, 100) : null;
         const safeAttachment = dnAttach ? String(dnAttach).slice(0, 500) : null;
+        const dnSubmittedAt = new Date();
+        const dnProvisionalUntil = new Date(dnSubmittedAt.getTime() + 24 * 60 * 60 * 1000);
+        const dnOriginalExpiry = dnSub.current_period_end || dnSub.trial_end;
+        const dnOriginalExpiryDate = dnOriginalExpiry ? new Date(dnOriginalExpiry) : null;
+        const dnAccessUntil = dnOriginalExpiryDate && dnOriginalExpiryDate > dnProvisionalUntil
+          ? dnOriginalExpiryDate
+          : dnProvisionalUntil;
 
-        const { data: dnPayment, error: dnInsertErr } = await supabase
+        const dnPaymentPayload = {
+          restaurant_id: dnRestId,
+          plan_id: dnPlanId,
+          change_type: dnChangeType,
+          billing_interval: dnInterval || 'monthly',
+          amount: Number(dnAmount),
+          status: 'pending',
+          attachment_url: safeAttachment,
+          reference_number: safeRef,
+        };
+        const dnSnapshotPayload = {
+          provisional_access_until: dnProvisionalUntil.toISOString(),
+          original_status: dnSub.status,
+          original_plan_id: dnSub.plan_id,
+          original_billing_interval: dnSub.billing_interval,
+          original_current_period_start: dnSub.current_period_start,
+          original_current_period_end: dnSub.current_period_end,
+          original_trial_end: dnSub.trial_end,
+        };
+
+        let dnSupportsProvisionalSnapshot = true;
+        let { data: dnPayment, error: dnInsertErr } = await supabase
           .from('duitnow_payments')
           .insert({
-            restaurant_id: dnRestId,
-            plan_id: dnPlanId,
-            billing_interval: dnInterval || 'monthly',
-            amount: Number(dnAmount),
-            status: 'pending',
-            attachment_url: safeAttachment,
-            reference_number: safeRef,
+            ...dnPaymentPayload,
+            ...dnSnapshotPayload,
           })
           .select()
           .single();
 
-        if (dnInsertErr) {
+        if (dnInsertErr && isMissingColumnError(dnInsertErr, DUITNOW_SNAPSHOT_COLUMNS)) {
+          console.warn('DuitNow snapshot columns are unavailable; submitting without provisional access.');
+          dnSupportsProvisionalSnapshot = false;
+          const fallbackInsert = await supabase
+            .from('duitnow_payments')
+            .insert(dnPaymentPayload)
+            .select()
+            .single();
+          dnPayment = fallbackInsert.data;
+          dnInsertErr = fallbackInsert.error;
+        }
+
+        if (dnInsertErr || !dnPayment) {
           console.error('DuitNow submit error:', dnInsertErr);
           return res.status(500).json({ error: 'Failed to submit payment request.' });
         }
 
-        return res.status(200).json({ success: true, payment: dnPayment });
+        if (dnSupportsProvisionalSnapshot) {
+          const { error: dnAccessErr } = await supabase
+            .from('subscriptions')
+            .update({
+              status: 'active',
+              plan_id: dnSub.plan_id,
+              billing_interval: dnSub.billing_interval || 'monthly',
+              current_period_start: dnOriginalExpiryDate && dnOriginalExpiryDate > dnSubmittedAt
+                ? dnSub.current_period_start
+                : dnSubmittedAt.toISOString(),
+              current_period_end: dnAccessUntil.toISOString(),
+              access_locked: false,
+              access_lock_at: dnAccessUntil.toISOString(),
+              access_locked_at: null,
+              updated_at: dnSubmittedAt.toISOString(),
+            })
+            .eq('restaurant_id', dnRestId);
+
+          if (dnAccessErr) {
+            console.error('DuitNow access activation error:', dnAccessErr);
+            await supabase.from('duitnow_payments').delete().eq('id', dnPayment.id);
+            return res.status(500).json({ error: 'Payment submitted, but access could not be restored. Please contact support.' });
+          }
+        }
+
+        return res.status(200).json({
+          success: true,
+          payment: dnPayment,
+          changeType: dnChangeType,
+          provisionalAccessUntil: dnSupportsProvisionalSnapshot
+            ? dnProvisionalUntil.toISOString()
+            : null,
+        });
       }
 
       // GET /api/stripe/billing?action=duitnow-list&restaurantId=...&status=...
@@ -1011,24 +1308,94 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (dnFetchErr || !dnPay) return res.status(404).json({ error: 'Payment not found.' });
         if (dnPay.status !== 'pending') return res.status(409).json({ error: 'Payment has already been reviewed.' });
 
-        const { error: dnUpdateErr } = await supabase
-          .from('duitnow_payments')
-          .update({
-            status: dnDecision,
-            admin_note: dnAdminNote ? String(dnAdminNote).slice(0, 500) : null,
-            reviewed_by: 'admin',
-            reviewed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', dnPayId);
+        const dnReviewedAt = new Date().toISOString();
+        const finalizeDuitNowReview = async () => {
+          const { error } = await supabase
+            .from('duitnow_payments')
+            .update({
+              status: dnDecision,
+              admin_note: dnAdminNote ? String(dnAdminNote).slice(0, 500) : null,
+              reviewed_by: 'admin',
+              reviewed_at: dnReviewedAt,
+              updated_at: dnReviewedAt,
+            })
+            .eq('id', dnPayId)
+            .eq('status', 'pending');
+          return error;
+        };
 
-        if (dnUpdateErr) return res.status(500).json({ error: 'Failed to update payment.' });
+        if (dnDecision === 'rejected') {
+          const dnHasOriginalSnapshot = Boolean(dnPay.original_status || dnPay.original_plan_id);
+          if (dnHasOriginalSnapshot) {
+            const dnOriginalExpiry = dnPay.original_current_period_end || dnPay.original_trial_end;
+            const dnOriginalExpiryDate = dnOriginalExpiry ? new Date(dnOriginalExpiry) : null;
+            const dnOriginalAccessValid = Boolean(
+              dnOriginalExpiryDate
+              && !Number.isNaN(dnOriginalExpiryDate.getTime())
+              && dnOriginalExpiryDate > new Date()
+            );
+
+            const { error: dnRestoreErr } = await supabase
+              .from('subscriptions')
+              .update({
+                status: dnOriginalAccessValid ? (dnPay.original_status || 'active') : 'pending_payment',
+                plan_id: dnPay.original_plan_id || dnPay.plan_id || 'basic',
+                billing_interval: dnPay.original_billing_interval || dnPay.billing_interval || 'monthly',
+                current_period_start: dnPay.original_current_period_start || null,
+                current_period_end: dnPay.original_current_period_end || null,
+                trial_end: dnPay.original_trial_end || null,
+                access_locked: !dnOriginalAccessValid,
+                access_lock_at: null,
+                access_locked_at: dnOriginalAccessValid ? null : new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq('restaurant_id', dnPay.restaurant_id);
+
+            if (dnRestoreErr) {
+              console.error('DuitNow rejection restore error:', dnRestoreErr);
+              return res.status(500).json({ error: 'Payment was rejected, but subscription access could not be updated.' });
+            }
+
+            await supabase
+              .from('restaurants')
+              .update({ kitchen_enabled: (dnPay.original_plan_id || 'basic') === 'pro_plus' })
+              .eq('id', dnPay.restaurant_id);
+          }
+
+          const dnPlanName = PLAN_NAMES[dnPay.plan_id] || String(dnPay.plan_id || 'Plan').replace('_', ' ');
+          const dnIntervalLabel = dnPay.billing_interval === 'annual' ? 'Annual' : 'Monthly';
+          const dnNote = dnAdminNote ? String(dnAdminNote).trim().slice(0, 500) : '';
+          const dnBody = [
+            `Your DuitNow payment for ${dnPlanName} (${dnIntervalLabel}) was rejected by admin.`,
+            `Amount submitted: RM ${Number(dnPay.amount || 0).toFixed(2)}.`,
+            dnNote ? `Admin note: ${dnNote}` : null,
+            'Please update your payment or submit a new QR payment for review.',
+          ].filter(Boolean).join('\n\n');
+
+          const { error: dnAnnouncementErr } = await supabase.from('announcements').insert({
+            title: 'DuitNow payment rejected',
+            body: dnBody,
+            category: 'billing',
+            is_active: true,
+            hub: 'all',
+            restaurant_id: dnPay.restaurant_id,
+          });
+
+          if (dnAnnouncementErr) {
+            console.error('DuitNow rejection announcement error:', dnAnnouncementErr);
+          }
+
+          const dnFinalizeErr = await finalizeDuitNowReview();
+          if (dnFinalizeErr) return res.status(500).json({ error: 'Subscription was updated, but the payment review could not be finalized.' });
+        }
 
         if (dnDecision === 'approved') {
           const dnApproveRestId = dnPay.restaurant_id;
           const dnApprovePlan = dnPay.plan_id || 'basic';
           const dnApproveInterval = dnPay.billing_interval || 'monthly';
           const dnIsAnnual = dnApproveInterval === 'annual';
+          const dnIsUpgrade = dnPay.change_type === 'upgrade'
+            || PLAN_ORDER.indexOf(dnApprovePlan) > PLAN_ORDER.indexOf(dnPay.original_plan_id || dnApprovePlan);
 
           const { data: dnApproveSub } = await supabase
             .from('subscriptions')
@@ -1037,13 +1404,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .single();
 
           if (dnApproveSub) {
-            const dnCurrentEnd = dnApproveSub.current_period_end || dnApproveSub.trial_end;
-            const dnBaseDate = dnCurrentEnd && new Date(dnCurrentEnd) > new Date()
-              ? new Date(dnCurrentEnd) : new Date();
-            const dnNewEnd = new Date(dnBaseDate);
-            dnNewEnd.setDate(dnNewEnd.getDate() + (dnIsAnnual ? 365 : 30));
+            const { periodStart: dnBaseDate, periodEnd: dnNewEnd } = calculateNextSubscriptionPeriod(
+              dnIsUpgrade ? undefined : (dnPay.original_current_period_end || dnPay.original_trial_end),
+              dnIsAnnual
+            );
 
-            await supabase
+            const { error: dnSubscriptionUpdateErr } = await supabase
               .from('subscriptions')
               .update({
                 status: 'active',
@@ -1051,19 +1417,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 billing_interval: dnApproveInterval,
                 current_period_start: dnBaseDate.toISOString(),
                 current_period_end: dnNewEnd.toISOString(),
+                pending_plan_id: null,
+                pending_billing_interval: null,
+                pending_change_effective_at: null,
+                ...ACCESS_UNLOCK_PATCH,
                 updated_at: new Date().toISOString(),
               })
               .eq('restaurant_id', dnApproveRestId);
+            if (dnSubscriptionUpdateErr) {
+              return res.status(500).json({ error: 'Failed to activate the approved subscription.' });
+            }
 
             const dnKitchenEnabled = dnApprovePlan === 'pro_plus';
-            await supabase.from('restaurants').update({ kitchen_enabled: dnKitchenEnabled }).eq('id', dnApproveRestId);
+            const { error: dnKitchenErr } = await supabase
+              .from('restaurants')
+              .update({ kitchen_enabled: dnKitchenEnabled })
+              .eq('id', dnApproveRestId);
+            if (dnKitchenErr) {
+              return res.status(500).json({ error: 'Subscription activated, but kitchen access could not be updated.' });
+            }
 
             const { data: dnApproveRest } = await supabase.from('restaurants').select('name').eq('id', dnApproveRestId).single();
-            await supabase.from('billing_records').insert({
+            const dnIncomeRecord = {
               restaurant_id: dnApproveRestId,
-              description: `DuitNow Payment (${dnIsAnnual ? 'Annual' : 'Monthly'})`,
+              description: `SUBSCRIPTION INCOME - DuitNow ${dnIsUpgrade ? 'Upgrade' : 'Renewal'} (${dnIsAnnual ? 'Annual' : 'Monthly'})`,
               amount: Number(dnPay.amount),
-              type: 'paid',
+              type: 'subscription_income',
               gross: Number(dnPay.amount),
               fee: 0,
               net: Number(dnPay.amount),
@@ -1071,17 +1450,75 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               restaurant_name: dnApproveRest?.name || 'Unknown',
               created_by: 'duitnow',
               reference_code: dnPay.reference_code || null,
-            });
+            };
+            let { error: dnIncomeErr } = await supabase.from('billing_records').upsert({
+              ...dnIncomeRecord,
+              duitnow_payment_id: dnPay.id,
+            }, { onConflict: 'duitnow_payment_id', ignoreDuplicates: true });
 
-            return res.status(200).json({ success: true, decision: 'approved', newPeriodEnd: dnNewEnd.toISOString() });
+            if (dnIncomeErr && isMissingColumnError(dnIncomeErr, ['duitnow_payment_id'])) {
+              const { data: existingIncome } = dnPay.reference_code
+                ? await supabase
+                  .from('billing_records')
+                  .select('id')
+                  .eq('reference_code', dnPay.reference_code)
+                  .limit(1)
+                : { data: null };
+
+              if (existingIncome?.length) {
+                dnIncomeErr = null;
+              } else {
+                const fallbackIncomeInsert = await supabase
+                  .from('billing_records')
+                  .insert(dnIncomeRecord);
+                dnIncomeErr = fallbackIncomeInsert.error;
+              }
+            }
+
+            if (dnIncomeErr) {
+              return res.status(500).json({ error: 'Subscription activated, but subscription income could not be saved.' });
+            }
+
+            const dnPlanName = PLAN_NAMES[dnApprovePlan] || String(dnApprovePlan).replace('_', ' ');
+            const dnIntervalLabel = dnIsAnnual ? 'Annual' : 'Monthly';
+            const dnApprovalBody = [
+              `Your DuitNow ${dnIsUpgrade ? 'plan upgrade' : 'subscription renewal'} has been approved.`,
+              `Plan: ${dnPlanName} (${dnIntervalLabel}).`,
+              `Amount approved: RM ${Number(dnPay.amount || 0).toFixed(2)}.`,
+              `Your subscription is active until ${dnNewEnd.toLocaleDateString('en-MY', { day: 'numeric', month: 'long', year: 'numeric' })}.`,
+            ].join('\n\n');
+
+            const { error: dnApprovalAnnouncementErr } = await supabase.from('announcements').insert({
+              title: dnIsUpgrade ? 'Plan upgrade approved' : 'DuitNow renewal approved',
+              body: dnApprovalBody,
+              category: 'billing',
+              is_active: true,
+              hub: 'all',
+              restaurant_id: dnApproveRestId,
+            });
+            if (dnApprovalAnnouncementErr) {
+              console.error('DuitNow approval announcement error:', dnApprovalAnnouncementErr);
+            }
+
+            const dnFinalizeErr = await finalizeDuitNowReview();
+            if (dnFinalizeErr) return res.status(500).json({ error: 'Subscription was activated, but the payment review could not be finalized.' });
+
+            return res.status(200).json({
+              success: true,
+              decision: 'approved',
+              changeType: dnIsUpgrade ? 'upgrade' : 'renew',
+              newPeriodEnd: dnNewEnd.toISOString(),
+            });
           }
+
+          return res.status(404).json({ error: 'Subscription not found for this payment.' });
         }
 
         return res.status(200).json({ success: true, decision: dnDecision });
       }
 
       default:
-        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, wallet-topup-direct, renew-wallet, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access, admin-extend, duitnow-submit, duitnow-list, duitnow-review' });
+        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, wallet-topup-direct, plan-change-wallet, renew-wallet, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access, admin-extend, duitnow-submit, duitnow-list, duitnow-review' });
     }
   } catch (err: any) {
     console.error(`Stripe billing error (${action}):`, err);

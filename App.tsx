@@ -19,7 +19,7 @@ import { getConnectivityMonitor, destroyConnectivityMonitor, type ConnectivitySt
 import { toast } from './components/Toast';
 import CashierShiftModal from './components/CashierShiftModal';
 import RenewalBanner from './components/RenewalBanner';
-import { getRenewalStatus } from './lib/subscriptionService';
+import { isSubscriptionAccessLocked } from './lib/subscriptionService';
 
 type BatteryStatus = {
   level: number;
@@ -88,6 +88,49 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
     })
     .filter(Boolean) as KitchenDepartment[];
 };
+
+const getKitchenCategoryKey = (value: any): string => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+const isKitchenEnabledForRouting = (restaurant: Restaurant | undefined): boolean => (
+  restaurant?.kitchenEnabled === true || restaurant?.settings?.features?.kitchenEnabled === true
+);
+
+const getKitchenRoutedCategories = (restaurant: Restaurant | undefined): Set<string> | null => {
+  if (!isKitchenEnabledForRouting(restaurant)) return new Set<string>();
+  if (!restaurant) return new Set<string>();
+
+  const departments = normalizeKitchenDepartments(restaurant.kitchenDivisions);
+  if (departments.length === 0) return null;
+
+  const routedCategories = new Set<string>();
+  departments.forEach(department => {
+    department.categories.forEach(category => {
+      const key = getKitchenCategoryKey(category);
+      if (key) routedCategories.add(key);
+    });
+  });
+
+  return routedCategories.size > 0 ? routedCategories : null;
+};
+
+const getInitialKitchenItemStatus = (restaurant: Restaurant | undefined, item: CartItem): OrderStatus => {
+  const routedCategories = getKitchenRoutedCategories(restaurant);
+  if (routedCategories === null) return OrderStatus.PENDING;
+  return routedCategories.has(getKitchenCategoryKey(item.category)) ? OrderStatus.PENDING : OrderStatus.SERVED;
+};
+
+const withInitialKitchenItemStatuses = (restaurant: Restaurant | undefined, items: CartItem[]): CartItem[] => (
+  items.map(item => ({ ...item, status: getInitialKitchenItemStatus(restaurant, item) }))
+);
+
+const getAggregateKitchenOrderStatus = (items: CartItem[]): OrderStatus => {
+  if (items.some(item => item.status === OrderStatus.PENDING)) return OrderStatus.PENDING;
+  if (items.some(item => item.status === OrderStatus.ONGOING)) return OrderStatus.ONGOING;
+  if (items.some(item => item.status === OrderStatus.SERVED)) return OrderStatus.SERVED;
+  return OrderStatus.SERVED;
+};
+
+const getInitialKitchenOrderStatus = (items: CartItem[]): OrderStatus => getAggregateKitchenOrderStatus(items);
 
 function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T | null> {
   return new Promise<T | null>((resolve) => {
@@ -899,15 +942,22 @@ const App: React.FC = () => {
   }, [currentRole, sessionLocation, sessionRestaurantId, sessionRestaurantSlug]);
 
   const fetchSubscriptions = useCallback(async () => {
-    const result = await withTimeout(supabase.from('subscriptions').select('*'), 6000);
+    let query = supabase.from('subscriptions').select('*');
+    if (currentRole !== 'ADMIN' && currentUser?.restaurantId) {
+      query = query.eq('restaurant_id', currentUser.restaurantId);
+    }
+
+    const result = await withTimeout(query, 6000);
     if (!result) return;
     const { data, error } = result;
     if (!error && data) {
-      const map: Record<string, Subscription> = {};
-      data.forEach((s: any) => { map[s.restaurant_id] = s; });
-      setVendorSubscriptions(map);
+      setVendorSubscriptions(prev => {
+        const map: Record<string, Subscription> = currentRole !== 'ADMIN' && currentUser?.restaurantId ? { ...prev } : {};
+        data.forEach((s: any) => { map[s.restaurant_id] = s; });
+        return map;
+      });
     }
-  }, []);
+  }, [currentRole, currentUser?.restaurantId]);
 
   useEffect(() => {
     const roleCanOwnRestaurant = currentRole === 'VENDOR' || currentRole === 'CASHIER' || currentRole === 'KITCHEN' || currentRole === 'ORDER_TAKER';
@@ -1083,18 +1133,80 @@ const App: React.FC = () => {
         });
         setLastSyncTime(new Date());
       }
+      
+      // Additionally poll for orders that were UPDATED since last sync time
+      try {
+        if (lastSyncTime) {
+          const updatesResult = await withTimeout(
+            supabase.from('orders')
+              .select('*')
+              .eq('restaurant_id', user.restaurantId)
+              .gte('timestamp', lastSyncTime.getTime())
+              .order('timestamp', { ascending: false }),
+            5000
+          );
+
+          if (updatesResult && updatesResult.data && updatesResult.data.length > 0) {
+            const updatedMapped = updatesResult.data.map((o: any) => ({
+              id: o.id,
+              items: Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? JSON.parse(o.items) : []),
+              total: Number(o.total || 0),
+              status: o.status as OrderStatus,
+              timestamp: parseTimestamp(o.timestamp),
+              customerId: o.customer_id,
+              restaurantId: o.restaurant_id,
+              tableNumber: o.table_number,
+              diningType: o.dining_type || undefined,
+              locationName: o.location_name,
+              remark: o.remark,
+              rejectionReason: o.rejection_reason,
+              rejectionNote: o.rejection_note,
+              paymentMethod: o.payment_method,
+              cashierName: o.cashier_name,
+              amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
+              changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
+              orderSource: o.order_source || undefined
+            }));
+
+            setOrders(prev => {
+              const map = new Map(prev.map(p => [p.id, p]));
+              updatedMapped.forEach((u: Order) => {
+                const existing = map.get(u.id);
+                if (!existing) {
+                  map.set(u.id, u);
+                } else {
+                  // Respect locked ids and status priority
+                  if (lockedOrderIds.current.has(u.id)) return;
+                  const existingPriority = STATUS_PRIORITY[existing.status] ?? 0;
+                  const incomingPriority = STATUS_PRIORITY[u.status] ?? 0;
+                  if (incomingPriority < existingPriority) return;
+                  map.set(u.id, { ...existing, ...u });
+                }
+              });
+              const merged = Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp).slice(0, 200);
+              persistCache('qs_cache_orders', merged);
+              return merged;
+            });
+            setLastSyncTime(new Date());
+          }
+        }
+      } catch (err) {
+        // Non-fatal — continue
+        console.warn('Update poll failed', err);
+      }
     } catch (e) {
       console.error("Fetch new orders failed", e);
     } finally {
+      await fetchSubscriptions().catch(() => {});
       isFetchingRef.current = false;
     }
-  }, [rememberKnownOrderId]);
+  }, [rememberKnownOrderId, lastSyncTime, fetchSubscriptions]);
 
   // Combined refresh function to ensure heartbeat works reliably
   const refreshAppData = useCallback(async () => {
-    await Promise.allSettled([fetchOrders(), fetchRestaurants()]);
+    await Promise.allSettled([fetchOrders(), fetchRestaurants(), fetchSubscriptions()]);
     setLastSyncTime(new Date());
-  }, [fetchOrders, fetchRestaurants]);
+  }, [fetchOrders, fetchRestaurants, fetchSubscriptions]);
 
   // QR Redirection Logic
   useEffect(() => {
@@ -1206,15 +1318,15 @@ const App: React.FC = () => {
     } else if (currentRole === 'VENDOR' && currentUser?.restaurantId) {
       orderFilter = `restaurant_id=eq.${currentUser.restaurantId}`;
     }
+    const subscriptionFilter = currentRole !== 'ADMIN' && currentUser?.restaurantId
+      ? `restaurant_id=eq.${currentUser.restaurantId}`
+      : undefined;
 
-    const channel = supabase.channel('qs-realtime-optimized')
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'orders',
-        filter: orderFilter
-      }, (payload) => {
-        const o = payload.new;
+    const channel = supabase.channel('qs-realtime-optimized');
+    const insertFilter: any = { event: 'INSERT', schema: 'public', table: 'orders' };
+    if (orderFilter) insertFilter.filter = orderFilter;
+    channel.on('postgres_changes', insertFilter, (payload) => {
+        const o = payload.new as any;
         const mappedOrder: Order = {
           id: o.id, 
           items: Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? JSON.parse(o.items) : []), 
@@ -1248,16 +1360,17 @@ const App: React.FC = () => {
         });
         setLastSyncTime(new Date());
       })
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'orders',
-        filter: orderFilter
-      }, (payload) => {
-        const o = payload.new;
+      ;
+    const updateFilter: any = { event: 'UPDATE', schema: 'public', table: 'orders' };
+    if (orderFilter) updateFilter.filter = orderFilter;
+    channel.on('postgres_changes', updateFilter, (payload) => {
+      console.debug('[realtime] ORDER UPDATE payload', payload);
+      const o = payload.new as any;
         setOrders(prev => {
+          let found = false;
           const updated = prev.map(existing => {
             if (existing.id === o.id) {
+              found = true;
               const incomingStatus = o.status as OrderStatus;
 
               // If locked, only accept updates that match or advance the status
@@ -1293,6 +1406,36 @@ const App: React.FC = () => {
             }
             return existing;
           });
+
+          if (!found) {
+            // If we don't have this order locally yet, insert it so status changes are visible
+            const mappedOrder: Order = {
+              id: o.id,
+              items: Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? JSON.parse(o.items) : []),
+              total: Number(o.total || 0),
+              status: o.status as OrderStatus,
+              timestamp: parseTimestamp(o.timestamp),
+              customerId: o.customer_id,
+              restaurantId: o.restaurant_id,
+              tableNumber: o.table_number,
+              diningType: o.dining_type || undefined,
+              locationName: o.location_name,
+              remark: o.remark,
+              rejectionReason: o.rejection_reason,
+              rejectionNote: o.rejection_note,
+              paymentMethod: o.payment_method,
+              cashierName: o.cashier_name,
+              amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
+              changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
+              orderSource: o.order_source || undefined
+            };
+            const prepended = [mappedOrder, ...updated].slice(0, 200);
+            rememberKnownOrderId(mappedOrder.restaurantId, mappedOrder.id);
+            if (mappedOrder.timestamp > lastOrderTimestampRef.current) lastOrderTimestampRef.current = mappedOrder.timestamp;
+            persistCache('qs_cache_orders', prepended);
+            return prepended;
+          }
+
           persistCache('qs_cache_orders', updated);
           return updated;
         });
@@ -1318,6 +1461,25 @@ const App: React.FC = () => {
           } : r);
           persistCache('qs_cache_restaurants', updated);
           return updated;
+        });
+        setLastSyncTime(new Date());
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'subscriptions',
+        ...(subscriptionFilter ? { filter: subscriptionFilter } : {}),
+      }, (payload) => {
+        const row = payload.new as any;
+        const oldRow = payload.old as any;
+        setVendorSubscriptions(prev => {
+          const next = { ...prev };
+          if (payload.eventType === 'DELETE' && oldRow?.restaurant_id) {
+            delete next[oldRow.restaurant_id];
+          } else if (row?.restaurant_id) {
+            next[row.restaurant_id] = row as Subscription;
+          }
+          return next;
         });
         setLastSyncTime(new Date());
       })
@@ -1357,6 +1519,14 @@ const App: React.FC = () => {
       fetchAnnouncements(currentUser.restaurantId);
     }
   }, [currentUser?.restaurantId, currentRole]);
+
+  useEffect(() => {
+    if (!currentUser?.restaurantId || (currentRole !== 'VENDOR' && currentRole !== 'CASHIER')) return;
+    const interval = window.setInterval(() => {
+      fetchAnnouncements(currentUser.restaurantId);
+    }, 60000);
+    return () => window.clearInterval(interval);
+  }, [currentUser?.restaurantId, currentRole, fetchAnnouncements]);
 
   const handleScanSimulation = (locationName: string, tableNo: string) => {
     setSessionLocation(locationName);
@@ -1409,11 +1579,11 @@ const App: React.FC = () => {
       }
 
       const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
-      const itemsForThisRestaurant = cart.filter(item => item.restaurantId === rid);
+      const itemsForThisRestaurant = withInitialKitchenItemStatuses(res, cart.filter(item => item.restaurantId === rid));
       const totalForThisRestaurant = itemsForThisRestaurant.reduce((acc, item) => acc + (item.price * item.quantity), 0);
       ordersToInsert.push({
         id: orderId, items: itemsForThisRestaurant, total: totalForThisRestaurant,
-        status: OrderStatus.PENDING, timestamp: Date.now(), customer_id: 'guest_user',
+        status: getInitialKitchenOrderStatus(itemsForThisRestaurant), timestamp: Date.now(), customer_id: 'guest_user',
         restaurant_id: rid, table_number: sessionTable || 'N/A', location_name: sessionLocation || QS_DEFAULT_HUB,
         remark: remark,
         dining_type: 'Dine-in',
@@ -1452,8 +1622,27 @@ const App: React.FC = () => {
     localStorage.setItem('qs_view', portalMode === 'backoffice' ? 'BACK_OFFICE' : 'APP');
     precacheBasicPwaShell();
 
-    // Check shift-related prompts for VENDOR/CASHIER
+    let loginSubscription: Subscription | null = user.restaurantId ? (vendorSubscriptions[user.restaurantId] || null) : null;
     if ((user.role === 'VENDOR' || user.role === 'CASHIER') && user.restaurantId) {
+      try {
+        const { data } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('restaurant_id', user.restaurantId)
+          .maybeSingle();
+        if (data) {
+          loginSubscription = data as Subscription;
+          setVendorSubscriptions(prev => ({ ...prev, [user.restaurantId!]: data as Subscription }));
+        }
+      } catch {
+        // Best effort only; cached subscription state still covers active sessions.
+      }
+    }
+
+    const loginPlanLocked = isSubscriptionAccessLocked(loginSubscription);
+
+    // Check shift-related prompts for VENDOR/CASHIER, but never interrupt a locked POS renewal flow.
+    if ((user.role === 'VENDOR' || user.role === 'CASHIER') && user.restaurantId && !loginPlanLocked) {
       try {
         // Check if shift feature is enabled
         let shiftEnabled = false;
@@ -1502,6 +1691,10 @@ const App: React.FC = () => {
           }
         }
       } catch { /* ignore shift check errors */ }
+    } else if (loginPlanLocked) {
+      setShowOwnShiftActive(false);
+      setShowOtherUserShiftAlert(null);
+      setShowLoginShiftPrompt(false);
     }
   };
 
@@ -1615,8 +1808,8 @@ const App: React.FC = () => {
     }
   };
 
-  const updateOrderItems = (orderId: string, items: CartItem[], total: number) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, items, total } : o));
+  const updateOrderItems = (orderId: string, items: CartItem[], total: number, remark?: string, updateNote?: string) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, items, total, ...(remark !== undefined ? { remark } : {}), ...(updateNote !== undefined ? { rejectionNote: updateNote } : {}) } : o));
   };
 
   const toggleVendorOnline = async (restaurantId: string, currentStatus: boolean) => {
@@ -2447,11 +2640,12 @@ const App: React.FC = () => {
     }
 
     const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
+    const kitchenItems = withInitialKitchenItemStatuses(res, orderData.items);
     const orderToInsert = {
       id: orderId,
-      items: orderData.items,
+      items: kitchenItems,
       total: orderData.total,
-      status: OrderStatus.PENDING,
+      status: getInitialKitchenOrderStatus(kitchenItems),
       timestamp: Date.now(),
       customer_id: 'tableside_user',
       restaurant_id: currentUser.restaurantId,
@@ -2465,6 +2659,39 @@ const App: React.FC = () => {
 
     const { error } = await insertOrderSafe(orderToInsert);
     if (error) throw new Error(error.message || 'Failed to place order');
+
+    // Update local orders state immediately so tableside/order-taker UIs reflect the new order
+    const newOrder: Order = {
+      id: orderId,
+      items: kitchenItems,
+      total: Number(orderData.total || 0),
+      status: getInitialKitchenOrderStatus(kitchenItems),
+      timestamp: Date.now(),
+      customerId: 'tableside_user',
+      restaurantId: currentUser.restaurantId!,
+      tableNumber: orderData.tableNumber,
+      diningType: 'Dine-in',
+      locationName: res?.location || 'Unspecified',
+      remark: orderData.remark,
+      rejectionReason: undefined,
+      rejectionNote: undefined,
+      paymentMethod: undefined,
+      cashierName: currentUser.username,
+      amountReceived: undefined,
+      changeAmount: undefined,
+      orderSource: orderData.orderSource || 'tableside'
+    };
+
+    setOrders(prev => {
+      const updated = [newOrder, ...prev].slice(0, 200);
+      persistCache('qs_cache_orders', updated);
+      return updated;
+    });
+
+    // Remember this id for offline tracker and ensure lastOrderTimestamp is up-to-date
+    rememberKnownOrderId(newOrder.restaurantId, newOrder.id);
+    if (newOrder.timestamp > lastOrderTimestampRef.current) lastOrderTimestampRef.current = newOrder.timestamp;
+
     offlineQueue.rememberOrderId(code, orderId);
   };
 
@@ -2658,6 +2885,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors" style={{ height: 'var(--app-height, 100dvh)' }}>
+      {currentRole !== 'ORDER_TAKER' && (
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-11 sm:h-12 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
         <div className="flex items-center gap-2 cursor-pointer min-w-0" onClick={handleBrandClick}>
           <img
@@ -2678,10 +2906,10 @@ const App: React.FC = () => {
             return (
               <button
                 onClick={() => setShowShiftModal(true)}
-                className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-black transition-all ${
+                className={`flex h-8 items-center gap-1.5 sm:gap-2 rounded-full border px-2.5 sm:px-3 text-[10px] sm:text-xs font-black shadow-sm transition-all ${
                   activeShift
-                    ? 'bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/60'
-                    : 'bg-red-100 text-red-700 border border-red-300 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700 dark:hover:bg-red-900/60'
+                    ? 'border-green-300 bg-green-100 text-green-800 hover:bg-green-200 dark:border-green-600 dark:bg-green-900/50 dark:text-green-200 dark:hover:bg-green-900/70'
+                    : 'border-red-300 bg-red-100 text-red-800 hover:bg-red-200 dark:border-red-600 dark:bg-red-900/50 dark:text-red-200 dark:hover:bg-red-900/70'
                 }`}
                 title={activeShift ? 'Shift Active — Click to close' : 'Shift required before payment'}
               >
@@ -2793,12 +3021,11 @@ const App: React.FC = () => {
           )}
         </div>
       </header>
+      )}
       {/* Renewal reminder banner for vendors/cashiers */}
       {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (() => {
         const sub = vendorSubscriptions[currentUser!.restaurantId] || null;
         if (!sub) return null;
-        const renewalStatus = getRenewalStatus(sub);
-        if (renewalStatus === 'ok') return null;
         return (
           <RenewalBanner
             subscription={sub}
@@ -2880,7 +3107,7 @@ const App: React.FC = () => {
               pendingOfflineOrdersCount={pendingOfflineOrdersCount}
               cashierName={currentUser?.username}
               subscription={currentUser?.restaurantId ? (vendorSubscriptions[currentUser.restaurantId] || null) : null}
-              onSubscriptionUpdated={() => { fetchSubscriptions(); fetchRestaurants(); }}
+              onSubscriptionUpdated={async () => { await Promise.all([fetchSubscriptions(), fetchRestaurants()]); }}
               announcements={announcements}
               announcementsLoading={announcementsLoading}
               onMarkAnnouncementRead={markAnnouncementRead}
@@ -2929,7 +3156,7 @@ const App: React.FC = () => {
                 userRole="VENDOR"
                 onSaveKitchenDivisions={(divisions) => saveKitchenDivisions(activeVendorRes.id, divisions)}
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
-                onSubscriptionUpdated={() => { fetchSubscriptions(); fetchRestaurants(); }}
+                onSubscriptionUpdated={async () => { await Promise.all([fetchSubscriptions(), fetchRestaurants()]); }}
                 onNavigateBackOffice={() => setView('BACK_OFFICE')}
                 announcements={announcements}
                 announcementsLoading={announcementsLoading}
@@ -2975,7 +3202,7 @@ const App: React.FC = () => {
                 userRole="KITCHEN"
                 userKitchenCategories={currentUser?.kitchenCategories}
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
-                onSubscriptionUpdated={() => { fetchSubscriptions(); fetchRestaurants(); }}
+                onSubscriptionUpdated={async () => { await Promise.all([fetchSubscriptions(), fetchRestaurants()]); }}
                 announcements={announcements}
                 announcementsLoading={announcementsLoading}
                 onMarkAnnouncementRead={markAnnouncementRead}
@@ -3010,6 +3237,13 @@ const App: React.FC = () => {
               cashierName={currentUser?.username}
               onLogout={handleLogout}
               onPlaceOrder={placeTablesideOrder}
+              onUpdateOrderItems={updateOrderItems}
+              onUpdateOrderStatus={updateOrderStatus}
+              networkMeta={networkMeta}
+              batteryMeta={batteryMeta}
+              batteryCharging={batteryStatus?.charging ?? false}
+              isDarkMode={isDarkMode}
+              onToggleTheme={() => setIsDarkMode(!isDarkMode)}
             />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">

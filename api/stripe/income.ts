@@ -15,9 +15,28 @@ const PLAN_LABELS: Record<string, string> = {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-
   try {
+    if (req.method === 'DELETE') {
+      const rawId = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
+      const billingRecordId = rawId?.startsWith('br_') ? rawId.slice(3) : rawId;
+      if (!billingRecordId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(billingRecordId)) {
+        return res.status(400).json({ error: 'A valid billing record id is required.' });
+      }
+
+      const { data: deletedRecord, error } = await supabase
+        .from('billing_records')
+        .delete()
+        .eq('id', billingRecordId)
+        .select('id')
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!deletedRecord) return res.status(404).json({ error: 'Income record not found.' });
+
+      return res.status(200).json({ success: true });
+    }
+
+    if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
     const startDate = req.query.startDate as string | undefined;
     const endDate = req.query.endDate as string | undefined;
 

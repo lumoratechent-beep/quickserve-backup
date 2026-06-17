@@ -23,6 +23,7 @@ const EXPENSE_CATEGORIES: { key: string; name: string; subcategories: string[]; 
 
 const PAYMENT_METHODS = ['Cash', 'Bank Transfer', 'Card'];
 const EXPENSE_TYPE_KEYS: ExpenseSubTab[] = ['staff', 'food_cost', 'bills', 'rent', 'marketing', 'platform', 'others'];
+const EXPENSE_CREATE_KEYS: ExpenseSubTab[] = ['food_cost', 'bills', 'rent', 'marketing', 'platform', 'others'];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -273,18 +274,45 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
 
   // ─── Search ───
   const [expenseSearch, setExpenseSearch] = useState('');
+  const [staffSubcategoryFilter, setStaffSubcategoryFilter] = useState('all');
 
   // ─── Derived data ─────────────────────────────────────────────────────────
   const allExpenses = useMemo(() => [...expenses, ...poExpenses, ...billingExpenses], [expenses, poExpenses, billingExpenses]);
+  const staffSubcategoryOptions = useMemo(() => {
+    const base = getCategoryByKey('staff')?.subcategories ?? [];
+    const fromData = allExpenses.filter(e => e.category === 'Staff').map(e => e.subcategory).filter(Boolean);
+    return Array.from(new Set([...base, ...fromData]));
+  }, [allExpenses]);
+
+  const staffExpenseBreakdown = useMemo(() => {
+    const staffExpenses = allExpenses.filter(e => e.category === 'Staff');
+    return staffSubcategoryOptions.map(subcategory => ({
+      subcategory,
+      count: staffExpenses.filter(e => e.subcategory === subcategory).length,
+      total: staffExpenses.filter(e => e.subcategory === subcategory).reduce((sum, e) => sum + e.amount, 0),
+    }));
+  }, [allExpenses, staffSubcategoryOptions]);
+
+  const expenseMatchesSearch = (expense: Expense, query: string) => {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return [
+      expense.category,
+      expense.subcategory,
+      expense.notes,
+      expense.supplierName,
+      expense.staffName,
+      expense.staffRole,
+      expense.payPeriod,
+      expense.paymentMethod,
+    ].some(value => (value || '').toLowerCase().includes(q));
+  };
 
   const filterByCategory = (categoryName: string) => {
     return allExpenses.filter(e => {
       if (e.category !== categoryName) return false;
-      if (expenseSearch) {
-        const q = expenseSearch.toLowerCase();
-        if (!e.subcategory.toLowerCase().includes(q) && !e.notes.toLowerCase().includes(q) && !(e.supplierName ?? '').toLowerCase().includes(q)) return false;
-      }
-      return true;
+      if (categoryName === 'Staff' && staffSubcategoryFilter !== 'all' && e.subcategory !== staffSubcategoryFilter) return false;
+      return expenseMatchesSearch(e, expenseSearch);
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
 
@@ -292,15 +320,11 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
     const cat = getCategoryByKey(subTab);
     if (subTab === 'all' || !cat) {
       return allExpenses.filter(e => {
-        if (expenseSearch) {
-          const q = expenseSearch.toLowerCase();
-          if (!e.category.toLowerCase().includes(q) && !e.subcategory.toLowerCase().includes(q) && !e.notes.toLowerCase().includes(q) && !(e.supplierName ?? '').toLowerCase().includes(q)) return false;
-        }
-        return true;
+        return expenseMatchesSearch(e, expenseSearch);
       }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }
     return filterByCategory(cat.name);
-  }, [allExpenses, subTab, expenseSearch]);
+  }, [allExpenses, subTab, expenseSearch, staffSubcategoryFilter]);
 
   const totalFiltered = useMemo(() => filteredExpenses.reduce((s, e) => s + e.amount, 0), [filteredExpenses]);
   const showSupplierColumn = useMemo(() => filteredExpenses.some(e => Boolean(e.supplierName)), [filteredExpenses]);
@@ -348,7 +372,10 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
   // ─── Pagination ───
   const [pageSize, setPageSize] = useState(30);
   const [currentPage, setCurrentPage] = useState(1);
-  useEffect(() => { setCurrentPage(1); }, [subTab, expenseSearch]);
+  useEffect(() => { setCurrentPage(1); }, [subTab, expenseSearch, staffSubcategoryFilter]);
+  useEffect(() => {
+    if (subTab !== 'staff') setStaffSubcategoryFilter('all');
+  }, [subTab]);
 
   const subcategoryOptions = useMemo(() => {
     const cat = EXPENSE_CATEGORIES.find(c => c.name === form.category);
@@ -540,7 +567,7 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
           </button>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {EXPENSE_TYPE_KEYS.map(key => {
+          {EXPENSE_CREATE_KEYS.map(key => {
             const category = getCategoryByKey(key);
             if (!category) return null;
             return (
@@ -858,6 +885,36 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
         </div>
       )}
 
+      {subTab === 'staff' && (
+        <>
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {staffExpenseBreakdown.map(item => (
+              <button
+                key={item.subcategory}
+                type="button"
+                onClick={() => setStaffSubcategoryFilter(item.subcategory)}
+                className={`rounded-xl border px-4 py-3.5 text-left transition ${
+                  staffSubcategoryFilter === item.subcategory
+                    ? 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20'
+                    : 'border-gray-200 bg-white hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600'
+                }`}
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{item.subcategory}</p>
+                <p className="mt-1 text-lg font-bold text-gray-900 dark:text-white">{fmt(item.total)}</p>
+                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">{item.count} records</p>
+              </button>
+            ))}
+          </div>
+          <div className="mb-4 flex items-center gap-3 rounded-xl border border-sky-200/60 bg-sky-50/60 px-4 py-3 dark:border-sky-800/20 dark:bg-sky-900/10">
+            <Users size={14} className="shrink-0 text-sky-600 dark:text-sky-400" />
+            <div>
+              <p className="text-[11px] font-semibold text-sky-800 dark:text-sky-300">Staff salary and claims sync from Staff Management</p>
+              <p className="text-[10px] text-sky-600/80 dark:text-sky-500/70">Create payslips and staff claims in HR; this view separates Salary and Claims totals.</p>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Food Cost PO banner */}
       {subTab === 'food_cost' && (
         <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-200/60 bg-amber-50/50 px-4 py-3 dark:border-amber-800/20 dark:bg-amber-900/10">
@@ -891,7 +948,17 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
 
       {/* Toolbar */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {subTab === 'staff' && (
+            <select
+              value={staffSubcategoryFilter}
+              onChange={e => setStaffSubcategoryFilter(e.target.value)}
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-400/20 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:focus:bg-gray-800"
+            >
+              <option value="all">All Staff</option>
+              {staffSubcategoryOptions.map(subcategory => <option key={subcategory} value={subcategory}>{subcategory}</option>)}
+            </select>
+          )}
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -912,9 +979,9 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
           <button onClick={downloadCSV} className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-600 transition hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
             <Download size={13} /> CSV
           </button>
-          {subTab !== 'platform' && (
+          {subTab !== 'platform' && subTab !== 'staff' && (
             <button onClick={openAdd} className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-amber-600">
-              <Plus size={13} /> {subTab === 'staff' ? 'Add Staff Expense' : 'Add Expense'}
+              <Plus size={13} /> Add Expense
             </button>
           )}
         </div>
@@ -938,7 +1005,7 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
                   <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400">Subcategory</th>
                   {subTab === 'staff' && <th className="hidden px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400 md:table-cell">Employee</th>}
                   <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400">Amount</th>
-                  {showSupplierColumn && <th className="hidden px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400 lg:table-cell">Supplier</th>}
+                  {showSupplierColumn && <th className="hidden px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400 lg:table-cell">{subTab === 'staff' ? 'Detail' : 'Supplier'}</th>}
                   <th className="hidden px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400 md:table-cell">Payment</th>
                   <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400">Type</th>
                   <th className="hidden px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400 lg:table-cell">Notes</th>

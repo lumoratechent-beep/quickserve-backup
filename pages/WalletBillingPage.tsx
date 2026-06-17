@@ -11,8 +11,9 @@ interface Props {
   restaurantId: string;
   subscription: Subscription | null;
   onUpgradeClick: () => void;
-  onSubscriptionUpdated?: () => void;
+  onSubscriptionUpdated?: () => void | Promise<void>;
   onComparePlans?: () => void;
+  onDuitNowSubmitted?: () => void;
 }
 
 const WalletBillingPage: React.FC<Props> = ({
@@ -21,7 +22,8 @@ const WalletBillingPage: React.FC<Props> = ({
   subscription,
   onUpgradeClick,
   onSubscriptionUpdated,
-  onComparePlans
+  onComparePlans,
+  onDuitNowSubmitted
 }) => {
   const [activeTab, setActiveTab] = useState<'BILLING' | 'WALLET'>(() => {
     const storedTab = localStorage.getItem('qs_wallet_billing_subtab');
@@ -72,6 +74,7 @@ const WalletBillingPage: React.FC<Props> = ({
               onUpgradeClick={onUpgradeClick}
               onSubscriptionUpdated={onSubscriptionUpdated}
               onComparePlans={onComparePlans}
+              onDuitNowSubmitted={onDuitNowSubmitted}
             />
           )}
 

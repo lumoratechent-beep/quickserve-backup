@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { calculateNextSubscriptionPeriod } from '../../lib/subscriptionPeriod.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
@@ -14,6 +15,11 @@ const PLAN_KITCHEN_MAP: Record<string, { kitchenEnabled: boolean }> = {
   basic: { kitchenEnabled: false },
   pro: { kitchenEnabled: false },
   pro_plus: { kitchenEnabled: true },
+};
+const ACCESS_UNLOCK_PATCH = {
+  access_locked: false,
+  access_lock_at: null,
+  access_locked_at: null,
 };
 
 async function getWalletBalance(restaurantId: string): Promise<number> {
@@ -141,6 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         current_period_start: periodStart,
         current_period_end: periodEnd,
         cancel_at_period_end: subscription.cancel_at_period_end,
+        ...ACCESS_UNLOCK_PATCH,
         updated_at: new Date().toISOString(),
       };
 
@@ -180,7 +187,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } else if (session.mode === 'payment') {
       const renewFrom = session.metadata?.renew_from;
       const changeType = session.metadata?.change_type || 'renew';
-      const durationDays = billingInterval === 'annual' ? 365 : 30;
       const renewDate = renewFrom ? new Date(renewFrom) : null;
       const isFutureRenew = renewDate ? renewDate > new Date() : false;
       if (changeType === 'downgrade' && isFutureRenew) {
@@ -203,20 +209,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .eq('restaurant_id', restaurantId);
       } else {
         // Immediate change (upgrade, renew, or expired downgrade)
-        let periodStart: Date;
-        if (renewFrom) {
-          periodStart = renewDate && renewDate > new Date() ? renewDate : new Date();
-        } else {
-          periodStart = new Date();
-        }
-        const periodEnd = new Date(periodStart);
-        periodEnd.setDate(periodEnd.getDate() + durationDays);
+        const { periodStart, periodEnd } = calculateNextSubscriptionPeriod(
+          renewFrom,
+          billingInterval === 'annual'
+        );
 
         const subscriptionUpdate: Record<string, any> = {
           status: 'active',
           stripe_customer_id: typeof session.customer === 'string' ? session.customer : session.customer?.id,
           current_period_start: periodStart.toISOString(),
           current_period_end: periodEnd.toISOString(),
+          ...ACCESS_UNLOCK_PATCH,
           updated_at: new Date().toISOString(),
           billing_interval: billingInterval,
           pending_plan_id: null,

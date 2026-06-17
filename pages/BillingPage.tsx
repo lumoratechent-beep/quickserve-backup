@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Subscription, PlanId, DuitNowPayment } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
-import { daysLeftInTrial, isTrialActive, isSubscriptionActive, getRenewalStatus, daysUntilExpiry, GRACE_PERIOD_DAYS } from '../lib/subscriptionService';
+import { daysLeftInTrial, isTrialActive, isSubscriptionActive, getRenewalStatus } from '../lib/subscriptionService';
 import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight, Upload, Clock, FileImage, Search, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast, Menu } from 'lucide-react';
 import { toast } from '../components/Toast';
 import { supabase } from '../lib/supabase';
@@ -39,13 +39,14 @@ interface Props {
   restaurantId: string;
   subscription: Subscription | null;
   onUpgradeClick: () => void;
-  onSubscriptionUpdated?: () => void;
+  onSubscriptionUpdated?: () => void | Promise<void>;
   onComparePlans?: () => void;
+  onDuitNowSubmitted?: () => void;
 }
 
 const DEFAULT_DUITNOW_QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://www.duitnow.my/qr/quickserve')}`;
 
-const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeClick, onSubscriptionUpdated, onComparePlans }) => {
+const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeClick, onSubscriptionUpdated, onComparePlans, onDuitNowSubmitted }) => {
   const [billingHistory, setBillingHistory] = useState<BillingHistory[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(30);
@@ -240,17 +241,31 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
           referenceNumber: duitnowRef || undefined,
         }),
       });
+      const responseText = await res.text();
+      let data: any = {};
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        toast(`Payment service error (${res.status}). Please try again.`, 'error');
+        return;
+      }
 
       if (res.ok) {
-        toast('DuitNow payment submitted! Waiting for admin approval.', 'success');
+        toast(
+          data.provisionalAccessUntil
+            ? 'DuitNow payment submitted. POS access is active for 24 hours while admin reviews it.'
+            : 'DuitNow payment submitted for admin review.',
+          'success'
+        );
         setShowDuitNowModal(false);
         setDuitnowRef('');
         setDuitnowAttachment(null);
         setDuitnowPreviewUrl(null);
+        await onSubscriptionUpdated?.();
+        onDuitNowSubmitted?.();
         fetchDuitnowPayments();
       } else {
-        const err = await res.json().catch(() => ({}));
-        toast(err.error || 'Failed to submit payment', 'error');
+        toast(data.error || 'Failed to submit payment', 'error');
       }
     } catch {
       toast('Connection error. Please try again.', 'error');
@@ -657,7 +672,6 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     const isExpired = d < new Date();
                     const currentPlanDaysLeft = Math.max(0, Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
                     const renewalStatus = subscription ? getRenewalStatus(subscription) : 'ok';
-                    const graceDays = subscription ? Math.max(0, GRACE_PERIOD_DAYS + daysUntilExpiry(subscription)) : 0;
                     return (
                       <div className="space-y-1">
                         <p className={`text-xs font-semibold ${
@@ -665,14 +679,9 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                         }`}>
                           {plan.name} Plan till: {formatted} ({currentPlanDaysLeft} days remaining)
                         </p>
-                        {renewalStatus === 'grace' && (
-                          <p className="text-[10px] font-bold text-red-500 animate-pulse">
-                            ⚠ Grace period: {graceDays} day{graceDays !== 1 ? 's' : ''} left before account deactivation
-                          </p>
-                        )}
                         {renewalStatus === 'blocked' && (
                           <p className="text-[10px] font-bold text-red-600">
-                            ❌ Plan expired — renew now to restore access
+                            Plan expired - POS access is locked until renewal
                           </p>
                         )}
                       </div>
@@ -717,7 +726,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                           className="w-full md:flex-1 min-w-0 px-2.5 py-2 rounded-lg text-[11px] lg:text-xs font-semibold border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center gap-1.5 text-center leading-tight whitespace-normal break-words"
                         >
                           <ArrowLeftRight size={12} />
-                          {currentPlanInterval === 'annual' ? 'Switch to Monthly' : 'Switch to Annual'}
+                          Switch Plan
                         </button>
                       </>
                     ) : isUpgrade ? (

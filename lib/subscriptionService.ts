@@ -1,19 +1,22 @@
 import { supabase } from './supabase';
 import { Subscription, PlanId } from '../src/types';
+import {
+  getEffectiveSubscriptionExpiry,
+  isSubscriptionLockDue,
+} from './subscriptionAccess';
 
 /** Days before expiry to start showing renewal reminders */
-export const RENEWAL_WARNING_DAYS = 7;
-/** Days before expiry to escalate to urgent reminder */
-export const RENEWAL_URGENT_DAYS = 3;
-/** Grace period days after expiry before fully blocking access */
-export const GRACE_PERIOD_DAYS = 7;
+export const RENEWAL_WARNING_DAYS = 3;
+/** Days before expiry to escalate to an urgent reminder */
+export const RENEWAL_URGENT_DAYS = 1;
 
 export type RenewalStatus =
   | 'ok'              // No action needed
-  | 'warning'         // 7 days or fewer until expiry
-  | 'urgent'          // 3 days or fewer until expiry
-  | 'grace'           // Expired but within grace period
-  | 'blocked';        // Past grace period — access restricted
+  | 'warning'         // 3 days or fewer until expiry
+  | 'urgent'          // 1 day or fewer until expiry
+  | 'blocked';        // Expired or explicitly locked
+
+export type SubscriptionAccessLockState = 'active' | 'scheduled' | 'locked';
 
 export async function getSubscription(restaurantId: string): Promise<Subscription | null> {
   const { data, error } = await supabase
@@ -26,33 +29,47 @@ export async function getSubscription(restaurantId: string): Promise<Subscriptio
   return data as Subscription;
 }
 
-export function isTrialActive(sub: Subscription): boolean {
+export function isTrialActive(sub: Subscription, now: Date = new Date()): boolean {
   if (sub.status !== 'trialing') return false;
-  return new Date(sub.trial_end) > new Date();
+  return new Date(sub.trial_end) > now;
 }
 
 /**
  * Returns the subscription end date (current_period_end for paid plans, trial_end for trials).
  */
 export function getSubscriptionEndDate(sub: Subscription): Date | null {
-  const dateStr = sub.current_period_end || sub.trial_end;
-  if (!dateStr) return null;
-  return new Date(dateStr);
+  return getEffectiveSubscriptionExpiry(sub);
 }
 
 /**
  * Days remaining until subscription expires. Negative = days past expiry.
  */
-export function daysUntilExpiry(sub: Subscription): number {
+export function daysUntilExpiry(sub: Subscription, now: Date = new Date()): number {
   const end = getSubscriptionEndDate(sub);
   if (!end) return 0;
-  return Math.ceil((end.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  return Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+export function getSubscriptionAccessLockState(sub: Subscription | null | undefined, now: Date = new Date()): SubscriptionAccessLockState {
+  if (!sub) return 'active';
+  if (sub.access_locked === true) return 'locked';
+  if (isSubscriptionLockDue(sub, now)) return 'locked';
+
+  const lockAt = sub.access_lock_at ? new Date(sub.access_lock_at) : null;
+  const hasValidLockAt = lockAt && !Number.isNaN(lockAt.getTime());
+  return hasValidLockAt ? 'scheduled' : 'active';
+}
+
+export function isSubscriptionAccessLocked(sub: Subscription | null | undefined, now: Date = new Date()): boolean {
+  return getSubscriptionAccessLockState(sub, now) === 'locked';
 }
 
 /**
  * Determines the renewal status for a subscription.
  */
-export function getRenewalStatus(sub: Subscription): RenewalStatus {
+export function getRenewalStatus(sub: Subscription, now: Date = new Date()): RenewalStatus {
+  if (isSubscriptionAccessLocked(sub, now)) return 'blocked';
+
   // Canceled / unpaid subscriptions are always blocked
   if (sub.status === 'canceled' || sub.status === 'unpaid') return 'blocked';
   if (sub.status === 'pending_payment') return 'blocked';
@@ -64,29 +81,28 @@ export function getRenewalStatus(sub: Subscription): RenewalStatus {
   // cancel_at_period_end=false means Stripe will auto-charge before end date
   if (sub.stripe_subscription_id && sub.cancel_at_period_end === false) return 'ok';
 
-  const days = daysUntilExpiry(sub);
+  const days = daysUntilExpiry(sub, now);
 
-  if (days < -GRACE_PERIOD_DAYS) return 'blocked';
-  if (days < 0) return 'grace';
   if (days <= RENEWAL_URGENT_DAYS) return 'urgent';
   if (days <= RENEWAL_WARNING_DAYS) return 'warning';
   return 'ok';
 }
 
 /**
- * Checks if a subscription is currently active (including grace period).
+ * Checks if a subscription is currently active.
  * Accounts for current_period_end on paid plans.
  */
-export function isSubscriptionActive(sub: Subscription): boolean {
-  if (sub.status === 'canceled' || sub.status === 'unpaid' || sub.status === 'pending_payment') return false;
-  if (sub.status === 'trialing') return isTrialActive(sub);
+export function isSubscriptionActive(sub: Subscription, now: Date = new Date()): boolean {
+  if (isSubscriptionAccessLocked(sub, now)) return false;
 
-  // For active / past_due statuses, check if within period + grace
+  if (sub.status === 'canceled' || sub.status === 'unpaid' || sub.status === 'pending_payment') return false;
+  if (sub.status === 'trialing') return isTrialActive(sub, now);
+
+  // For active / past_due statuses, access ends at the stored expiry.
   const end = getSubscriptionEndDate(sub);
   if (!end) return sub.status === 'active';
 
-  const graceEnd = new Date(end.getTime() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000);
-  return new Date() <= graceEnd;
+  return end > now;
 }
 
 export function isPendingPayment(sub: Subscription): boolean {
