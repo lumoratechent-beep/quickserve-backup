@@ -510,6 +510,7 @@ const PosOnlyView: React.FC<Props> = ({
   });
   const savedBillsSyncRef = useRef(false); // prevent echo from realtime after local write
   const [activeSavedBillTable, setActiveSavedBillTable] = useState<string | null>(null);
+  const [showMobileSavedBillCart, setShowMobileSavedBillCart] = useState(false);
   const [showSaveBillTableModal, setShowSaveBillTableModal] = useState(false);
   const [pendingSaveBillSource, setPendingSaveBillSource] = useState<'COUNTER' | 'QR' | null>(null);
   const [tableModalMode, setTableModalMode] = useState<TableModalMode | null>(null);
@@ -1950,18 +1951,6 @@ const PosOnlyView: React.FC<Props> = ({
     }
     return tableLabels;
   }, [tableLabels, featureSettings.floorEnabled, effectiveFloorCount, modalSelectedFloor]);
-
-  const tableRowsForSelection = useMemo(() => {
-    const labelsToUse = tableLabelsForFloor;
-    const rowCount = Math.ceil(labelsToUse.length / effectiveTableCols);
-    const rows: string[][] = [];
-    for (let r = 0; r < rowCount; r++) {
-      const start = r * effectiveTableCols;
-      const row = labelsToUse.slice(start, start + effectiveTableCols);
-      if (row.length > 0) rows.push(row);
-    }
-    return rows;
-  }, [tableLabelsForFloor, effectiveTableCols]);
 
   const tableRowsForModal = useMemo(() => {
     const labelsToUse = tableLabelsForModalFloor;
@@ -7181,11 +7170,6 @@ const PosOnlyView: React.FC<Props> = ({
                         const COLS_PER_PAGE = 5;
                         const totalColPages = Math.ceil(effectiveTableCols / COLS_PER_PAGE);
                         const safePage = Math.min(tableColPage, Math.max(0, totalColPages - 1));
-                        const colStart = safePage * COLS_PER_PAGE;
-                        // Always use COLS_PER_PAGE columns for consistent cell width,
-                        // unless total cols < 5 (then shrink to fit)
-                        const gridCols = Math.min(COLS_PER_PAGE, effectiveTableCols);
-                        const colsThisPage = Math.min(COLS_PER_PAGE, effectiveTableCols - colStart);
                         return (
                           <>
                       <div
@@ -7200,14 +7184,8 @@ const PosOnlyView: React.FC<Props> = ({
                           else setTableColPage(p => Math.max(p - 1, 0));
                         }}
                       >
-                        {tableRowsForSelection.map((row, rowIdx) => (
-                          <div key={`saved-row-${rowIdx}`} className="grid gap-2" style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}>
-                            {Array.from({ length: colsThisPage }, (_, i) => {
-                              const colIdx = colStart + i;
-                              const table = colIdx < effectiveTableCols ? (row[colIdx] || null) : null;
-                              if (!table) {
-                                return <div key={`saved-empty-${rowIdx}-${i}`} aria-hidden="true" />;
-                              }
+                        <div className="grid grid-cols-3 gap-2 landscape:grid-cols-5 lg:grid-cols-5">
+                            {tableLabelsForFloor.map((table) => {
                               const tableBill = savedBillsByTable.get(table);
                               const hasPending = !!tableBill;
                               const isActiveTable = activeSavedBillTable === table;
@@ -7222,6 +7200,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     e.stopPropagation();
                                     if (!hasPending) return;
                                     setActiveSavedBillTable(isActiveTable ? null : table);
+                                    setShowMobileSavedBillCart(false);
                                   }}
                                   className={`saved-table-cell h-[96px] rounded-xl border-2 p-3 transition-all text-left flex flex-col justify-between ${
                                     isActiveTable
@@ -7243,7 +7222,6 @@ const PosOnlyView: React.FC<Props> = ({
                               );
                             })}
                           </div>
-                        ))}
                       </div>
                       {/* Fixed dot indicator area — always takes space so layout never shifts */}
                       <div className="h-8 flex items-center justify-center gap-1.5 shrink-0">
@@ -7258,6 +7236,57 @@ const PosOnlyView: React.FC<Props> = ({
                           />
                         ))}
                       </div>
+                      {selectedSavedBillEntry && (
+                        <div className="lg:hidden mt-3 shrink-0 rounded-2xl border border-orange-200 bg-white p-3 shadow-lg dark:border-orange-900/50 dark:bg-gray-800" onClick={e => e.stopPropagation()}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-orange-500">Selected Bill</p>
+                              <p className="mt-0.5 truncate text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">{selectedSavedBillEntry.tableNumber}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">{selectedSavedBillEntry.items.length} items</p>
+                              <p className="text-base font-black text-orange-500">{currencySymbol}{selectedSavedBillGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            </div>
+                          </div>
+
+                          {showMobileSavedBillCart && (
+                            <div className="mt-3 max-h-36 space-y-2 overflow-y-auto rounded-xl bg-gray-50 p-3 dark:bg-gray-700/40">
+                              {selectedSavedBillEntry.items.map((item, idx) => (
+                                <div key={`mobile-saved-${item.id}-${idx}`} className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-xs font-black uppercase tracking-tight text-gray-900 dark:text-white">{item.name}</p>
+                                    <p className="text-[10px] font-bold text-gray-500 dark:text-gray-300">x{item.quantity}</p>
+                                  </div>
+                                  <p className="shrink-0 text-xs font-black text-orange-500">{currencySymbol}{(item.price * item.quantity).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                </div>
+                              ))}
+                              {selectedSavedBillEntry.remark && (
+                                <div className="rounded-lg bg-orange-50 p-2 text-[10px] font-bold text-gray-600 dark:bg-orange-900/20 dark:text-gray-300">
+                                  {selectedSavedBillEntry.remark}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="mt-3 grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setShowMobileSavedBillCart(prev => !prev)}
+                              className="py-3 rounded-xl bg-gray-100 text-[10px] font-black uppercase tracking-[0.15em] text-gray-700 transition-all hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                            >
+                              {showMobileSavedBillCart ? 'Hide Cart' : 'Check Cart'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { if (activeSavedBillTable) loadSavedBill(activeSavedBillTable); }}
+                              disabled={isCompletingPayment}
+                              className="py-3 rounded-xl bg-orange-500 text-[10px] font-black uppercase tracking-[0.15em] text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 disabled:opacity-50 disabled:shadow-none"
+                            >
+                              Edit Bill
+                            </button>
+                          </div>
+                        </div>
+                      )}
                           </>
                         );
                       })()}
@@ -12332,7 +12361,7 @@ const PosOnlyView: React.FC<Props> = ({
                         </>
                       ) : (
                         <>
-                          <CreditCard size={16} className="lg:hidden" /><CreditCard size={24} className="hidden lg:block" /> Confirm Payment
+                          <CreditCard size={24} className="hidden lg:block" /> Confirm Payment
                         </>
                       )}
                     </button>
@@ -13245,7 +13274,7 @@ const PosOnlyView: React.FC<Props> = ({
                     {collectPaymentProcessing ? (
                       <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Processing...</>
                     ) : (
-                      <><CreditCard size={14} /> Confirm Payment</>
+                      <>Confirm Payment</>
                     )}
                   </button>
                 </div>
