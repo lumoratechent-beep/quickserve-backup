@@ -22,7 +22,7 @@ import WalletBillingPage from './WalletBillingPage';
 import {
   ShoppingBag, Search, Download, Calendar,
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid,
-  List, ListTree, Grid2X2, Clock, CheckCircle, CheckCircle2, BarChart3, Hash, Menu, Settings, BookOpen,
+  List, ListTree, Clock, CheckCircle, CheckCircle2, BarChart3, Hash, Menu, Settings, BookOpen,
   X, Edit3, Archive, RotateCcw, Upload, Eye,
   AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon,
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeftRight, RotateCw, Wifi, WifiOff,
@@ -175,6 +175,7 @@ interface FeatureSettings {
   tablesideOrderingEnabled: boolean;
   onlineShopEnabled: boolean;
   shiftEnabled: boolean;
+  groupMenuByCategory: boolean;
 }
 
 const POS_FIXED_TABLE_COLUMNS = 5;
@@ -201,7 +202,31 @@ const getDefaultFeatureSettings = (): FeatureSettings => ({
   tablesideOrderingEnabled: false,
   onlineShopEnabled: false,
   shiftEnabled: false,
+  groupMenuByCategory: true,
 });
+
+const getInitialGroupMenuByCategory = (restaurant: Restaurant): boolean => {
+  const dbValue = restaurant.settings?.features?.groupMenuByCategory;
+  if (typeof dbValue === 'boolean') return dbValue;
+
+  try {
+    const cachedFullSettings = localStorage.getItem(`qs_settings_${restaurant.id}`);
+    if (cachedFullSettings) {
+      const parsed = JSON.parse(cachedFullSettings);
+      if (typeof parsed?.features?.groupMenuByCategory === 'boolean') {
+        return parsed.features.groupMenuByCategory;
+      }
+    }
+
+    const cachedFeatures = localStorage.getItem(`features_${restaurant.id}`);
+    if (cachedFeatures) {
+      const parsed = JSON.parse(cachedFeatures);
+      if (typeof parsed?.groupMenuByCategory === 'boolean') return parsed.groupMenuByCategory;
+    }
+  } catch {}
+
+  return true;
+};
 
 const REJECTION_REASONS = [
   'Item out of stock',
@@ -494,7 +519,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [addonPendingUninstallId, setAddonPendingUninstallId] = useState<string | null>(null);
   const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'grid-6' | 'list'>('grid-5');
   const [mobileMenuLayout, setMobileMenuLayout] = useState<'2' | '3' | 'list'>('3');
-  const [groupMenuByCategory, setGroupMenuByCategory] = useState(true);
+  const [groupMenuByCategory, setGroupMenuByCategory] = useState(() => getInitialGroupMenuByCategory(restaurant));
   const [flashItemId, setFlashItemId] = useState<string | null>(null);
   const [showLayoutPicker, setShowLayoutPicker] = useState(false);
   const [showCounterModePicker, setShowCounterModePicker] = useState(false);
@@ -3107,6 +3132,8 @@ const PosOnlyView: React.FC<Props> = ({
 
   // Fetch latest settings from server on mount to ensure cross-device consistency
   useEffect(() => {
+    setGroupMenuByCategory(getInitialGroupMenuByCategory(restaurant));
+
     const syncSettingsFromServer = async () => {
       const serverSettingsRaw = await fetchSettingsFromServer(restaurant.id);
       if (!serverSettingsRaw) {
@@ -3121,6 +3148,9 @@ const PosOnlyView: React.FC<Props> = ({
       // Hydrate ALL settings state from server (DB is authoritative for cross-device)
       if (serverSettings.features) {
         setFeatureSettings(prev => ({ ...prev, ...serverSettings.features }));
+        if (typeof serverSettings.features.groupMenuByCategory === 'boolean') {
+          setGroupMenuByCategory(serverSettings.features.groupMenuByCategory);
+        }
         if (Array.isArray(serverSettings.features.shiftSchedules)) {
           setShiftSchedules(serverSettings.features.shiftSchedules);
         }
@@ -3174,7 +3204,7 @@ const PosOnlyView: React.FC<Props> = ({
       settingsHydratedRef.current = true;
     };
     syncSettingsFromServer();
-  }, [restaurant.id]);
+  }, [restaurant.id, restaurant.name]);
 
   // Setup periodic sync to database every 10 minutes
   useEffect(() => {
@@ -3846,6 +3876,43 @@ const PosOnlyView: React.FC<Props> = ({
       setReceiptConfig(prev => ({ ...prev, openCashDrawerOnPayment: value as boolean }));
     } else if (key === 'printReceiptForRefund') {
       setReceiptConfig(prev => ({ ...prev, printReceiptForRefund: value as boolean }));
+    }
+  };
+
+  const handleToggleGroupMenuByCategory = async () => {
+    const nextValue = !groupMenuByCategory;
+    const nextFeatures = {
+      ...featureSettings,
+      groupMenuByCategory: nextValue,
+    };
+    setGroupMenuByCategory(nextValue);
+    setFeatureSettings(nextFeatures);
+
+    const currentSettings = (() => {
+      try {
+        const cached = localStorage.getItem(`qs_settings_${restaurant.id}`);
+        return cached ? JSON.parse(cached) : {};
+      } catch {
+        return {};
+      }
+    })();
+
+    const nextSettings = {
+      ...currentSettings,
+      features: {
+        ...(currentSettings.features || {}),
+        ...nextFeatures,
+      },
+    };
+
+    localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(nextSettings));
+    localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(nextSettings.features));
+
+    const saved = await updateFeatureOnServer(restaurant.id, 'groupMenuByCategory', nextValue, nextSettings);
+    if (saved) {
+      toast('Category grouping preference saved.', 'success');
+    } else {
+      toast('Category grouping updated on this device. Cloud sync failed.', 'warning');
     }
   };
 
@@ -7391,7 +7458,7 @@ const PosOnlyView: React.FC<Props> = ({
                     ))}
                   </div>
                   <button
-                    onClick={() => setGroupMenuByCategory(prev => !prev)}
+                    onClick={handleToggleGroupMenuByCategory}
                     className={`p-1.5 rounded-xl border dark:border-gray-700 transition-all shrink-0 ${
                       groupMenuByCategory
                         ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
@@ -7399,7 +7466,7 @@ const PosOnlyView: React.FC<Props> = ({
                     }`}
                     title={groupMenuByCategory ? 'Category grouping on' : 'Category grouping off'}
                   >
-                    {groupMenuByCategory ? <ListTree size={14} /> : <Grid2X2 size={14} />}
+                    {groupMenuByCategory ? <ListTree size={14} /> : <Tag size={14} />}
                   </button>
                   <div className="relative shrink-0 hidden lg:block">
                     <button onClick={() => setShowLayoutPicker(!showLayoutPicker)} className="p-1.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-all">

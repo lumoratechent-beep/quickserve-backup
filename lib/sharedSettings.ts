@@ -109,6 +109,7 @@ export const POS_DEFAULTS = {
     tablesideOrderingEnabled: false,
     onlineShopEnabled: false,
     shiftEnabled: false,
+    groupMenuByCategory: true,
   } as Record<string, unknown>,
   kitchenTicket: {
     printLargeOrderNumber: true,
