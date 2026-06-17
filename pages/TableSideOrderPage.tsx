@@ -125,6 +125,14 @@ const getInitialFeatureSettings = (restaurant: Restaurant) => {
   return defaults;
 };
 
+const getInitialTablesideGroupMenuByCategory = (restaurantId: string): boolean => {
+  try {
+    return localStorage.getItem(`tableside_group_menu_by_category_${restaurantId}`) === 'true';
+  } catch {
+    return false;
+  }
+};
+
 const getItemKey = (item: CartItem) => [
   item.id,
   item.selectedSize,
@@ -181,7 +189,7 @@ const TableSideOrderPage: React.FC<Props> = ({
     const initialColumns = Number(getInitialFeatureSettings(restaurant).tableColumns) || DEFAULT_TABLE_COLUMNS;
     return TABLE_VIEW_COLUMN_OPTIONS.find(count => initialColumns <= count) || 12;
   });
-  const [groupMenuByCategory, setGroupMenuByCategory] = useState(() => !!getInitialFeatureSettings(restaurant).groupMenuByCategory);
+  const [groupMenuByCategory, setGroupMenuByCategory] = useState(() => getInitialTablesideGroupMenuByCategory(restaurant.id));
   const [featureSettings, setFeatureSettings] = useState<Record<string, any>>(() => getInitialFeatureSettings(restaurant));
   const [showTableEditor, setShowTableEditor] = useState(false);
   const [showBackConfirmModal, setShowBackConfirmModal] = useState(false);
@@ -210,7 +218,7 @@ const TableSideOrderPage: React.FC<Props> = ({
     let cancelled = false;
     const initialFeatures = getInitialFeatureSettings(restaurant);
     setFeatureSettings(initialFeatures);
-    setGroupMenuByCategory(!!initialFeatures.groupMenuByCategory);
+    setGroupMenuByCategory(getInitialTablesideGroupMenuByCategory(restaurant.id));
 
     const hydrateLatestSettings = async () => {
       const serverSettingsRaw = await fetchSettingsFromServer(restaurant.id);
@@ -223,9 +231,6 @@ const TableSideOrderPage: React.FC<Props> = ({
       };
 
       setFeatureSettings(nextFeatures);
-      if (typeof nextFeatures.groupMenuByCategory === 'boolean') {
-        setGroupMenuByCategory(nextFeatures.groupMenuByCategory);
-      }
       try {
         localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(serverSettings));
         localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(nextFeatures));
@@ -411,38 +416,16 @@ const TableSideOrderPage: React.FC<Props> = ({
     }
   }, [restaurant.id, restaurant.name, restaurant.settings]);
 
-  const handleToggleGroupMenuByCategory = useCallback(async () => {
+  const handleToggleGroupMenuByCategory = useCallback(() => {
     const nextValue = !groupMenuByCategory;
-    const nextFeatures = {
-      ...featureSettings,
-      groupMenuByCategory: nextValue,
-    };
 
     setGroupMenuByCategory(nextValue);
-    setFeatureSettings(nextFeatures);
-
     try {
-      const serverSettingsRaw = await fetchSettingsFromServer(restaurant.id);
-      const baseSettings = serverSettingsRaw
-        ? expandPosSettings(serverSettingsRaw, restaurant.name)
-        : (restaurant.settings || {});
-      const nextSettings = {
-        ...baseSettings,
-        features: {
-          ...(baseSettings.features || {}),
-          ...nextFeatures,
-        },
-      };
-
-      localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(nextFeatures));
-      localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(nextSettings));
-
-      const saved = await saveAllSettingsToDb(restaurant.id, nextSettings, restaurant.name);
-      if (!saved) toast('Category grouping updated on this device. Cloud sync failed.', 'warning');
-    } catch (err: any) {
-      toast(err?.message || 'Failed to save category grouping', 'error');
+      localStorage.setItem(`tableside_group_menu_by_category_${restaurant.id}`, String(nextValue));
+    } catch {
+      toast('Category grouping updated for this session only.', 'warning');
     }
-  }, [featureSettings, groupMenuByCategory, restaurant.id, restaurant.name, restaurant.settings]);
+  }, [groupMenuByCategory, restaurant.id]);
 
   const parsePositiveIntegerDraft = (value: string) => {
     const trimmed = value.trim();

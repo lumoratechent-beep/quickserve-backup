@@ -3879,10 +3879,41 @@ const PosOnlyView: React.FC<Props> = ({
     }
   };
 
-  const handleToggleGroupMenuByCategory = () => {
+  const handleToggleGroupMenuByCategory = async () => {
     const nextValue = !groupMenuByCategory;
+    const nextFeatures = {
+      ...featureSettings,
+      groupMenuByCategory: nextValue,
+    };
     setGroupMenuByCategory(nextValue);
-    updateFeatureSetting('groupMenuByCategory', nextValue);
+    setFeatureSettings(nextFeatures);
+
+    const currentSettings = (() => {
+      try {
+        const cached = localStorage.getItem(`qs_settings_${restaurant.id}`);
+        return cached ? JSON.parse(cached) : {};
+      } catch {
+        return {};
+      }
+    })();
+
+    const nextSettings = {
+      ...currentSettings,
+      features: {
+        ...(currentSettings.features || {}),
+        ...nextFeatures,
+      },
+    };
+
+    localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(nextSettings));
+    localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(nextSettings.features));
+
+    const saved = await updateFeatureOnServer(restaurant.id, 'groupMenuByCategory', nextValue, nextSettings);
+    if (saved) {
+      toast('Category grouping preference saved.', 'success');
+    } else {
+      toast('Category grouping updated on this device. Cloud sync failed.', 'warning');
+    }
   };
 
   const saveFeatureSettingsBundle = useCallback(async (nextFeatures: FeatureSettings, successMessage: string) => {
