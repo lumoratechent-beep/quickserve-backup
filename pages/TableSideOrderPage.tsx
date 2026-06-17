@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Check, Grid2X2, Hash, LayoutGrid, ListTree, LogOut, Minus, Moon, Plus, Search, ShoppingCart, Sun, Trash2, UtensilsCrossed, X } from 'lucide-react';
+import { ArrowLeft, Check, Hash, LayoutGrid, ListTree, LogOut, Minus, Moon, Plus, Search, ShoppingCart, Sun, Tag, Trash2, UtensilsCrossed, X } from 'lucide-react';
 import { Restaurant, CartItem, Order, OrderStatus, MenuItem, ModifierData, OrderSource } from '../src/types';
 import { supabase } from '../lib/supabase';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
@@ -181,7 +181,7 @@ const TableSideOrderPage: React.FC<Props> = ({
     const initialColumns = Number(getInitialFeatureSettings(restaurant).tableColumns) || DEFAULT_TABLE_COLUMNS;
     return TABLE_VIEW_COLUMN_OPTIONS.find(count => initialColumns <= count) || 12;
   });
-  const [groupMenuByCategory, setGroupMenuByCategory] = useState(false);
+  const [groupMenuByCategory, setGroupMenuByCategory] = useState(() => !!getInitialFeatureSettings(restaurant).groupMenuByCategory);
   const [featureSettings, setFeatureSettings] = useState<Record<string, any>>(() => getInitialFeatureSettings(restaurant));
   const [showTableEditor, setShowTableEditor] = useState(false);
   const [showBackConfirmModal, setShowBackConfirmModal] = useState(false);
@@ -208,7 +208,9 @@ const TableSideOrderPage: React.FC<Props> = ({
 
   useEffect(() => {
     let cancelled = false;
-    setFeatureSettings(getInitialFeatureSettings(restaurant));
+    const initialFeatures = getInitialFeatureSettings(restaurant);
+    setFeatureSettings(initialFeatures);
+    setGroupMenuByCategory(!!initialFeatures.groupMenuByCategory);
 
     const hydrateLatestSettings = async () => {
       const serverSettingsRaw = await fetchSettingsFromServer(restaurant.id);
@@ -221,6 +223,9 @@ const TableSideOrderPage: React.FC<Props> = ({
       };
 
       setFeatureSettings(nextFeatures);
+      if (typeof nextFeatures.groupMenuByCategory === 'boolean') {
+        setGroupMenuByCategory(nextFeatures.groupMenuByCategory);
+      }
       try {
         localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(serverSettings));
         localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(nextFeatures));
@@ -405,6 +410,39 @@ const TableSideOrderPage: React.FC<Props> = ({
       setIsSavingTables(false);
     }
   }, [restaurant.id, restaurant.name, restaurant.settings]);
+
+  const handleToggleGroupMenuByCategory = useCallback(async () => {
+    const nextValue = !groupMenuByCategory;
+    const nextFeatures = {
+      ...featureSettings,
+      groupMenuByCategory: nextValue,
+    };
+
+    setGroupMenuByCategory(nextValue);
+    setFeatureSettings(nextFeatures);
+
+    try {
+      const serverSettingsRaw = await fetchSettingsFromServer(restaurant.id);
+      const baseSettings = serverSettingsRaw
+        ? expandPosSettings(serverSettingsRaw, restaurant.name)
+        : (restaurant.settings || {});
+      const nextSettings = {
+        ...baseSettings,
+        features: {
+          ...(baseSettings.features || {}),
+          ...nextFeatures,
+        },
+      };
+
+      localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(nextFeatures));
+      localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(nextSettings));
+
+      const saved = await saveAllSettingsToDb(restaurant.id, nextSettings, restaurant.name);
+      if (!saved) toast('Category grouping updated on this device. Cloud sync failed.', 'warning');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to save category grouping', 'error');
+    }
+  }, [featureSettings, groupMenuByCategory, restaurant.id, restaurant.name, restaurant.settings]);
 
   const parsePositiveIntegerDraft = (value: string) => {
     const trimmed = value.trim();
@@ -926,7 +964,7 @@ const TableSideOrderPage: React.FC<Props> = ({
                 ))}
               </div>
               <button
-                onClick={() => setGroupMenuByCategory(prev => !prev)}
+                onClick={handleToggleGroupMenuByCategory}
                 className={`p-2 rounded-xl border dark:border-gray-700 transition-all shrink-0 ${
                   groupMenuByCategory
                     ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
@@ -934,7 +972,7 @@ const TableSideOrderPage: React.FC<Props> = ({
                 }`}
                 title={groupMenuByCategory ? 'Grouped by category' : 'Category grouping off'}
               >
-                {groupMenuByCategory ? <ListTree size={16} /> : <Grid2X2 size={16} />}
+                {groupMenuByCategory ? <ListTree size={16} /> : <Tag size={16} />}
               </button>
               <div className="flex items-center gap-1 bg-white dark:bg-gray-800 border dark:border-gray-700 p-1 rounded-xl shadow-sm">
                 {[2, 3, 6, 8].map(count => (

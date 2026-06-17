@@ -47,6 +47,13 @@ const generateDefaultOrderCode = (restaurantName: string): string => {
   return code.toUpperCase().padEnd(3, 'X');
 };
 
+const BACK_OFFICE_DEVICE_MESSAGE = 'Back Office can only be accessed through a tablet, laptop, or desktop.';
+
+const isPhoneSizedDevice = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return Math.min(window.innerWidth, window.innerHeight) < 768;
+};
+
 /**
  * Resolve the order code for a restaurant. Priority:
  * 1. Custom orderCode from restaurant settings
@@ -456,6 +463,12 @@ const App: React.FC = () => {
       localStorage.setItem('qs_view', view);
     }
   }, [currentUser, view]);
+
+  useEffect(() => {
+    if (view !== 'BACK_OFFICE' || !isPhoneSizedDevice()) return;
+    toast(BACK_OFFICE_DEVICE_MESSAGE, 'warning');
+    setView('APP');
+  }, [view]);
 
   // Show toast for Stripe payment redirect on mount
   useEffect(() => {
@@ -1610,6 +1623,10 @@ const App: React.FC = () => {
     const allowedBackOfficeRoles: User['role'][] = ['VENDOR', 'ADMIN'];
     if (portalMode === 'backoffice' && !allowedBackOfficeRoles.includes(user.role)) {
       toast('This account is not allowed to access Back Office Portal.', 'error');
+      return;
+    }
+    if (portalMode === 'backoffice' && isPhoneSizedDevice()) {
+      toast(BACK_OFFICE_DEVICE_MESSAGE, 'warning');
       return;
     }
 
@@ -2883,6 +2900,14 @@ const App: React.FC = () => {
     setView('MARKETING');
   };
 
+  const handleNavigateBackOffice = () => {
+    if (isPhoneSizedDevice()) {
+      toast(BACK_OFFICE_DEVICE_MESSAGE, 'warning');
+      return;
+    }
+    setView('BACK_OFFICE');
+  };
+
   return (
     <div className="flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors" style={{ height: 'var(--app-height, 100dvh)' }}>
       {currentRole !== 'ORDER_TAKER' && (
@@ -3157,7 +3182,7 @@ const App: React.FC = () => {
                 onSaveKitchenDivisions={(divisions) => saveKitchenDivisions(activeVendorRes.id, divisions)}
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
                 onSubscriptionUpdated={async () => { await Promise.all([fetchSubscriptions(), fetchRestaurants()]); }}
-                onNavigateBackOffice={() => setView('BACK_OFFICE')}
+                onNavigateBackOffice={handleNavigateBackOffice}
                 announcements={announcements}
                 announcementsLoading={announcementsLoading}
                 onMarkAnnouncementRead={markAnnouncementRead}
