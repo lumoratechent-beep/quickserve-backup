@@ -50,6 +50,12 @@ function isMissingColumnError(error: any, columns: string[] = []): boolean {
   );
 }
 
+function isDuplicateKeyError(error: any): boolean {
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '').toLowerCase();
+  return code === '23505' || message.includes('duplicate key');
+}
+
 async function getOrCreateStripeCustomerId(restaurantId: string, inputCustomerId?: string): Promise<string> {
   if (inputCustomerId) return inputCustomerId;
 
@@ -1451,12 +1457,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               created_by: 'duitnow',
               reference_code: dnPay.reference_code || null,
             };
-            let { error: dnIncomeErr } = await supabase.from('billing_records').upsert({
-              ...dnIncomeRecord,
-              duitnow_payment_id: dnPay.id,
-            }, { onConflict: 'duitnow_payment_id', ignoreDuplicates: true });
+            let dnIncomeErr: any = null;
+            const { data: existingDuitNowIncome, error: dnIncomeLookupErr } = await supabase
+              .from('billing_records')
+              .select('id')
+              .eq('duitnow_payment_id', dnPay.id)
+              .maybeSingle();
 
-            if (dnIncomeErr && isMissingColumnError(dnIncomeErr, ['duitnow_payment_id'])) {
+            if (dnIncomeLookupErr && isMissingColumnError(dnIncomeLookupErr, ['duitnow_payment_id'])) {
               const { data: existingIncome } = dnPay.reference_code
                 ? await supabase
                   .from('billing_records')
@@ -1473,9 +1481,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                   .insert(dnIncomeRecord);
                 dnIncomeErr = fallbackIncomeInsert.error;
               }
+            } else if (dnIncomeLookupErr) {
+              dnIncomeErr = dnIncomeLookupErr;
+            } else if (!existingDuitNowIncome) {
+              const fallbackIncomeInsert = await supabase
+                .from('billing_records')
+                .insert({
+                  ...dnIncomeRecord,
+                  duitnow_payment_id: dnPay.id,
+                });
+              dnIncomeErr = isDuplicateKeyError(fallbackIncomeInsert.error) ? null : fallbackIncomeInsert.error;
             }
 
             if (dnIncomeErr) {
+              console.error('DuitNow subscription income save error:', dnIncomeErr);
               return res.status(500).json({ error: 'Subscription activated, but subscription income could not be saved.' });
             }
 
