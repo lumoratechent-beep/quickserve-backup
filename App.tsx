@@ -49,9 +49,16 @@ const generateDefaultOrderCode = (restaurantName: string): string => {
 
 const BACK_OFFICE_DEVICE_MESSAGE = 'Back Office can only be accessed through a tablet, laptop, or desktop.';
 
-const isPhoneSizedDevice = (): boolean => {
+const isMobilePhoneDevice = (): boolean => {
   if (typeof window === 'undefined') return false;
-  return Math.min(window.innerWidth, window.innerHeight) < 768;
+
+  const userAgent = navigator.userAgent || '';
+  const isPhoneUA = /Android.*Mobile|iPhone|iPod|Windows Phone|BlackBerry|BB10|Mobile.*Firefox|Opera Mini/i.test(userAgent);
+  if (isPhoneUA) return true;
+
+  const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || (navigator as any).msMaxTouchPoints > 0;
+  const isSmallTouchScreen = hasTouch && Math.max(window.innerWidth, window.innerHeight) <= 812;
+  return isSmallTouchScreen;
 };
 
 /**
@@ -465,7 +472,7 @@ const App: React.FC = () => {
   }, [currentUser, view]);
 
   useEffect(() => {
-    if (view !== 'BACK_OFFICE' || !isPhoneSizedDevice()) return;
+    if (view !== 'BACK_OFFICE' || !isMobilePhoneDevice()) return;
     toast(BACK_OFFICE_DEVICE_MESSAGE, 'warning');
     setView('APP');
   }, [view]);
@@ -1625,7 +1632,7 @@ const App: React.FC = () => {
       toast('This account is not allowed to access Back Office Portal.', 'error');
       return;
     }
-    if (portalMode === 'backoffice' && isPhoneSizedDevice()) {
+    if (portalMode === 'backoffice' && isMobilePhoneDevice()) {
       toast(BACK_OFFICE_DEVICE_MESSAGE, 'warning');
       return;
     }
@@ -2901,7 +2908,7 @@ const App: React.FC = () => {
   };
 
   const handleNavigateBackOffice = () => {
-    if (isPhoneSizedDevice()) {
+    if (isMobilePhoneDevice()) {
       toast(BACK_OFFICE_DEVICE_MESSAGE, 'warning');
       return;
     }
