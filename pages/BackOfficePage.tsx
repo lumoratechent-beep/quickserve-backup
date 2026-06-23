@@ -22,6 +22,8 @@ import ExpensesView from '../components/ExpensesView';
 import CashierShiftRecords from '../components/CashierShiftRecords';
 import StaffManagementView from '../components/StaffManagementView';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
+import PromotionDiscountManager from '../components/PromotionDiscountManager';
+import { getMenuItemEffectivePrice, isMenuPromotionActive } from '../lib/menuPricing';
 
 interface Props {
   restaurant: Restaurant;
@@ -114,7 +116,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [formItem, setFormItem] = useState<MenuFormItem>({});
   const [isSavingItem, setIsSavingItem] = useState(false);
-  const [itemSubTab, setItemSubTab] = useState<'menu' | 'ingredients' | 'stock'>('menu');
+  const [itemSubTab, setItemSubTab] = useState<'menu' | 'ingredients' | 'stock' | 'promotions'>('menu');
   const [itemEntriesPerPage, setItemEntriesPerPage] = useState(30);
   const [itemCurrentPage, setItemCurrentPage] = useState(1);
   const [stockEntriesPerPage, setStockEntriesPerPage] = useState(30);
@@ -769,7 +771,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
   const openAddItem = () => {
     setEditingItem(null);
-    setFormItem({ name: '', description: '', price: 0, image: '', category: '', soldBy: 'each', cost: 0, sku: '', barcode: '', trackStock: false, isArchived: false, sizes: [], addOns: [], linkedModifiers: [], sizesEnabled: false });
+    setFormItem({ name: '', description: '', price: 0, image: '', category: '', soldBy: 'each', cost: 0, sku: '', barcode: '', trackStock: false, isArchived: false, sizes: [], addOns: [], linkedModifiers: [], sizesEnabled: false, promotionDiscount: undefined });
     setIsItemFormOpen(true);
   };
 
@@ -779,6 +781,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       ...item,
       sizesEnabled: (item.sizes?.length ?? 0) > 0,
       variantOptions: item.variantOptions || { enabled: false, options: [] },
+      promotionDiscount: item.promotionDiscount,
     });
     setIsItemFormOpen(true);
   };
@@ -815,6 +818,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       trackStock: formItem.trackStock || false,
       color: formItem.color || undefined,
       mixAndMatch: formItem.mixAndMatch?.enabled ? formItem.mixAndMatch : undefined,
+      promotionDiscount: formItem.promotionDiscount,
     };
 
     setIsSavingItem(true);
@@ -1497,7 +1501,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             <div className="min-w-0">
               {/* Sub-tab toggle */}
               <div className="relative flex gap-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {([['menu', 'Menu Items'], ['ingredients', 'Ingredients / Supplies'], ['stock', 'Stock Management']] as const).map(([key, label]) => (
+                {([['menu', 'Menu Items'], ['promotions', 'Promotion / Discount'], ['ingredients', 'Ingredients / Supplies'], ['stock', 'Stock Management']] as const).map(([key, label]) => (
                   <button
                     key={key}
                     onClick={() => setItemSubTab(key)}
@@ -1608,7 +1612,16 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                         <td className="hidden px-4 py-3 md:table-cell">
                           <span className="rounded-lg bg-gray-100 px-2 py-1 text-[10px] font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-300">{item.category}</span>
                         </td>
-                        <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white">{currencySymbol}{item.price.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-right">
+                          {isMenuPromotionActive(item.promotionDiscount) ? (
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className="text-[10px] font-bold text-gray-400 line-through">{currencySymbol}{item.price.toFixed(2)}</span>
+                              <span className="font-bold text-orange-500">{currencySymbol}{getMenuItemEffectivePrice(item).toFixed(2)}</span>
+                            </div>
+                          ) : (
+                            <span className="font-bold text-gray-900 dark:text-white">{currencySymbol}{item.price.toFixed(2)}</span>
+                          )}
+                        </td>
                         <td className="hidden px-4 py-3 text-right text-gray-500 lg:table-cell">{item.cost ? `${currencySymbol}${item.cost.toFixed(2)}` : '-'}</td>
                         <td className="hidden px-4 py-3 font-mono text-xs text-gray-500 lg:table-cell">{item.sku || '-'}</td>
                         <td className="hidden px-4 py-3 text-center md:table-cell">
@@ -1680,6 +1693,15 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               </div>
             )}
             </>
+            )}
+
+            {/* Promotion / Discount sub-tab */}
+            {itemSubTab === 'promotions' && (
+              <PromotionDiscountManager
+                restaurant={restaurant}
+                currencySymbol={currencySymbol}
+                onUpdateMenu={onUpdateMenu}
+              />
             )}
 
             {/* â”€â”€ Ingredients / Supplies sub-tab â”€â”€ */}

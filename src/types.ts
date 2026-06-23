@@ -36,6 +36,15 @@ export interface MixMatchSelection {
   options: MixMatchOption[];
 }
 
+export interface MenuPromotionDiscount {
+  enabled: boolean;
+  type: 'percentage' | 'fixed';
+  value: number;
+  label?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 export interface MenuItem {
   id: string;
   name: string;
@@ -74,6 +83,7 @@ export interface MenuItem {
     enabled: boolean;
     selections: MixMatchSelection[];
   };
+  promotionDiscount?: MenuPromotionDiscount;
 }
 
 export interface Area {

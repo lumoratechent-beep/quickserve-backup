@@ -12,6 +12,7 @@ import printerService, { PrinterDevice, ReceiptPrintOptions, SavedPrinter, Recei
 import type { PaperSize } from '../services/printerService';
 import PrinterSettings from '../components/PrinterSettings';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
+import PromotionDiscountManager from '../components/PromotionDiscountManager';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import PriceEntryModal from '../components/PriceEntryModal';
 import { toast } from '../components/Toast';
@@ -19,6 +20,7 @@ import StandardReport, { type ReportDownloadOptions } from '../components/Standa
 import UpgradePlanModal from '../components/UpgradePlanModal';
 import ImageCropModal from '../components/ImageCropModal';
 import WalletBillingPage from './WalletBillingPage';
+import { getMenuItemEffectivePrice, isMenuPromotionActive } from '../lib/menuPricing';
 import {
   ShoppingBag, Search, Download, Calendar,
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid,
@@ -29,7 +31,7 @@ import {
   Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
   ArrowLeft, Star, Package, Monitor, Info, ExternalLink,
   Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail,
-  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2, Delete
+  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2, Delete, Percent
 } from 'lucide-react';
 
 type CashierAccessPermissionKey = 'viewOwnSalesOnly' | 'requireManagerApprovalForRefund';
@@ -558,7 +560,7 @@ const PosOnlyView: React.FC<Props> = ({
   });
   const [menuCategoryFilter, setMenuCategoryFilter] = useState<string>('All');
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
-  const [menuSubTab, setMenuSubTab] = useState<'KITCHEN' | 'CATEGORY' | 'MODIFIER' | 'ADDON'>('KITCHEN');
+  const [menuSubTab, setMenuSubTab] = useState<'KITCHEN' | 'CATEGORY' | 'MODIFIER' | 'ADDON' | 'PROMOTION'>('KITCHEN');
   const [menuEditorStuck, setMenuEditorStuck] = useState(false);
   const menuEditorStickyRef = useRef<HTMLDivElement>(null);
   const [onlineOrderSubTab, setOnlineOrderSubTab] = useState<'INCOMING' | 'PRODUCT' | 'SETTING'>('INCOMING');
@@ -613,6 +615,7 @@ const PosOnlyView: React.FC<Props> = ({
     linkedModifiers: [],
     tempOptions: { enabled: false, hot: 0, cold: 0 },
     addOns: [],
+    promotionDiscount: undefined,
   });
 
   const [showAddClassModal, setShowAddClassModal] = useState(false);
@@ -1514,6 +1517,7 @@ const PosOnlyView: React.FC<Props> = ({
       tempOptions: { enabled: false, hot: 0, cold: 0, options: [] },
       variantOptions: { enabled: false, options: [] },
       addOns: [],
+      promotionDiscount: undefined,
     });
     setIsFormModalOpen(true);
   };
@@ -1536,6 +1540,7 @@ const PosOnlyView: React.FC<Props> = ({
       tempOptions: item.tempOptions ? { ...item.tempOptions, options: item.tempOptions.options ? [...item.tempOptions.options] : [] } : { enabled: false, hot: 0, cold: 0, options: [] },
       variantOptions: item.variantOptions ? { ...item.variantOptions, options: item.variantOptions.options ? [...item.variantOptions.options] : [] } : { enabled: false, options: [] },
       addOns: item.addOns ? [...item.addOns] : [],
+      promotionDiscount: item.promotionDiscount,
     });
     setIsFormModalOpen(true);
   };
@@ -1560,6 +1565,7 @@ const PosOnlyView: React.FC<Props> = ({
       tempOptions: { enabled: false, hot: 0, cold: 0, options: [] },
       variantOptions: { enabled: false, options: [] },
       addOns: [],
+      promotionDiscount: undefined,
     });
   };
 
@@ -1621,6 +1627,7 @@ const PosOnlyView: React.FC<Props> = ({
       trackStock: formItem.trackStock || false,
       color: resolvedTileColor,
       mixAndMatch: formItem.mixAndMatch?.enabled ? formItem.mixAndMatch : undefined,
+      promotionDiscount: formItem.promotionDiscount,
     };
 
     setIsSavingMenuItem(true);
@@ -1729,44 +1736,61 @@ const PosOnlyView: React.FC<Props> = ({
     'lg:grid-cols-6'
   }`;
 
-  const renderPosMenuItemButton = (item: MenuItem) => (
-    <button
-      key={item.id}
-      onClick={() => handleMenuItemClick(item)}
-      className={`relative bg-white dark:bg-gray-800 border dark:border-gray-700 text-left hover:border-orange-500 transition-all group shadow-sm flex p-2 rounded-xl ${
-        mobileMenuLayout === 'list' ? 'flex-row items-center gap-4' : 'flex-col'
-      } ${
-        menuLayout === 'list' ? 'lg:flex-row lg:items-center lg:gap-4' : 'lg:flex-col lg:items-stretch lg:gap-0'
-      } ${flashItemId === item.id ? 'ring-2 ring-green-500 border-green-500 scale-95' : ''}`}
-      style={flashItemId === item.id ? { transition: 'all 0.15s ease-in-out' } : {}}
-    >
-      {flashItemId === item.id && (
-        <div className="absolute inset-0 bg-green-500/20 rounded-xl flex items-center justify-center z-10 pointer-events-none">
-          <CheckCircle2 size={28} className="text-green-500 drop-shadow-md" />
-        </div>
-      )}
-      <div
-        className={`${
-          mobileMenuLayout === 'list' ? 'w-16 h-16' : 'aspect-square w-full'
+  const renderPosMenuItemButton = (item: MenuItem) => {
+    const hasPromotion = isMenuPromotionActive(item.promotionDiscount);
+    const effectivePrice = getMenuItemEffectivePrice(item);
+
+    return (
+      <button
+        key={item.id}
+        onClick={() => handleMenuItemClick(item)}
+        className={`relative bg-white dark:bg-gray-800 border dark:border-gray-700 text-left hover:border-orange-500 transition-all group shadow-sm flex p-2 rounded-xl ${
+          mobileMenuLayout === 'list' ? 'flex-row items-center gap-4' : 'flex-col'
         } ${
-          menuLayout === 'list' ? 'lg:w-16 lg:h-16 lg:aspect-auto' : 'lg:aspect-square lg:w-full'
-        } rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0`}
-        style={!hasRenderableMenuItemImage(item) ? { backgroundColor: getMenuItemTileBackground(item) } : undefined}
+          menuLayout === 'list' ? 'lg:flex-row lg:items-center lg:gap-4' : 'lg:flex-col lg:items-stretch lg:gap-0'
+        } ${flashItemId === item.id ? 'ring-2 ring-green-500 border-green-500 scale-95' : ''}`}
+        style={flashItemId === item.id ? { transition: 'all 0.15s ease-in-out' } : {}}
       >
-        {hasRenderableMenuItemImage(item) ? (
-          <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-white/70">
-            <Coffee size={28} />
+        {flashItemId === item.id && (
+          <div className="absolute inset-0 bg-green-500/20 rounded-xl flex items-center justify-center z-10 pointer-events-none">
+            <CheckCircle2 size={28} className="text-green-500 drop-shadow-md" />
           </div>
         )}
-      </div>
-      <div className={`${mobileMenuLayout === 'list' ? 'flex-1' : 'mt-3'} ${menuLayout === 'list' ? 'lg:flex-1 lg:mt-0' : 'lg:flex-none lg:mt-3'}`}>
-        <h4 className="font-black text-xs dark:text-white uppercase tracking-tighter mb-1 line-clamp-1">{item.name}</h4>
-        <p className="text-orange-500 font-black text-sm">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-      </div>
-    </button>
-  );
+        {hasPromotion && (
+          <span className="absolute left-2 top-2 z-10 rounded-md bg-orange-500 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest text-white shadow">
+            Promo
+          </span>
+        )}
+        <div
+          className={`${
+            mobileMenuLayout === 'list' ? 'w-16 h-16' : 'aspect-square w-full'
+          } ${
+            menuLayout === 'list' ? 'lg:w-16 lg:h-16 lg:aspect-auto' : 'lg:aspect-square lg:w-full'
+          } rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0`}
+          style={!hasRenderableMenuItemImage(item) ? { backgroundColor: getMenuItemTileBackground(item) } : undefined}
+        >
+          {hasRenderableMenuItemImage(item) ? (
+            <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-white/70">
+              <Coffee size={28} />
+            </div>
+          )}
+        </div>
+        <div className={`${mobileMenuLayout === 'list' ? 'flex-1' : 'mt-3'} ${menuLayout === 'list' ? 'lg:flex-1 lg:mt-0' : 'lg:flex-none lg:mt-3'}`}>
+          <h4 className="font-black text-xs dark:text-white uppercase tracking-tighter mb-1 line-clamp-1">{item.name}</h4>
+          {hasPromotion ? (
+            <div className="flex items-baseline gap-2">
+              <p className="text-[10px] text-gray-400 line-through font-black">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-orange-500 font-black text-sm">{currencySymbol}{effectivePrice.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+          ) : (
+            <p className="text-orange-500 font-black text-sm">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          )}
+        </div>
+      </button>
+    );
+  };
 
   useEffect(() => {
     setKitchenDivisions(normalizeKitchenDepartments(restaurant.kitchenDivisions));
@@ -1838,6 +1862,7 @@ const PosOnlyView: React.FC<Props> = ({
     
     const sanitizedItem: MenuItem = {
       ...item,
+      price: getMenuItemEffectivePrice(item),
       sizes: Array.isArray(item.sizes) ? item.sizes.filter(size => size && typeof size.name === 'string' && typeof size.price === 'number') : [],
       otherVariants: Array.isArray(item.otherVariants) ? item.otherVariants.filter(variant => variant && typeof variant.name === 'string' && typeof variant.price === 'number') : [],
       addOns: Array.isArray(item.addOns) ? item.addOns.filter(addon => addon && typeof addon.name === 'string' && typeof addon.price === 'number') : [],
@@ -7666,12 +7691,13 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Document-style tab bar */}
-                <div className="flex gap-0 relative">
+                <div className="flex gap-0 relative overflow-x-auto overflow-y-hidden hide-scrollbar">
                   {([
                     { id: 'KITCHEN' as const, label: 'Kitchen Menu', icon: <BookOpen size={13} /> },
                     { id: 'CATEGORY' as const, label: 'Category', icon: <Layers size={13} /> },
                     { id: 'MODIFIER' as const, label: 'Modifier', icon: <Coffee size={13} /> },
                     { id: 'ADDON' as const, label: 'Add-On Item', icon: <PlusCircle size={13} /> },
+                    { id: 'PROMOTION' as const, label: 'Promotion / Discount', icon: <Percent size={13} /> },
                   ]).map(tab => (
                     <button
                       key={tab.id}
@@ -7752,6 +7778,11 @@ const PosOnlyView: React.FC<Props> = ({
                           <Coffee size={14} /> + New Modifier
                         </button>
                       </>
+                    ) : menuSubTab === 'PROMOTION' ? (
+                      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-orange-500">
+                        <Percent size={14} />
+                        {restaurant.menu.filter(item => !item.isArchived && isMenuPromotionActive(item.promotionDiscount)).length} Active Promotions
+                      </div>
                     ) : (
                       <>
                         <div className="flex items-center gap-3">
@@ -7869,6 +7900,14 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                     )}
                   </>
+                )}
+
+                {menuSubTab === 'PROMOTION' && (
+                  <PromotionDiscountManager
+                    restaurant={restaurant}
+                    currencySymbol={currencySymbol}
+                    onUpdateMenu={onUpdateMenu}
+                  />
                 )}
 
                 {menuSubTab === 'CATEGORY' && (

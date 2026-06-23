@@ -20,6 +20,7 @@ import { toast } from './components/Toast';
 import CashierShiftModal from './components/CashierShiftModal';
 import RenewalBanner from './components/RenewalBanner';
 import { isSubscriptionAccessLocked } from './lib/subscriptionService';
+import { getDefaultPromotionDiscount, normalizeMenuPromotionDiscount } from './lib/menuPricing';
 
 type BatteryStatus = {
   level: number;
@@ -953,6 +954,7 @@ const App: React.FC = () => {
               enabled: others.mixAndMatch.enabled ?? false,
               selections: Array.isArray(others.mixAndMatch.selections) ? others.mixAndMatch.selections : [],
             } : { enabled: false, selections: [] },
+            promotionDiscount: normalizeMenuPromotionDiscount(others.promotionDiscount),
           };
         })
       }));
@@ -1898,6 +1900,7 @@ const App: React.FC = () => {
         onlineDisabled: item.onlineDisabled ?? false,
         onlinePrice: item.onlinePrice ?? null,
         mixAndMatch: item.mixAndMatch || { enabled: false, selections: [] },
+        promotionDiscount: normalizeMenuPromotionDiscount(item.promotionDiscount || getDefaultPromotionDiscount()),
       },
       add_ons: item.addOns || []
     }).eq('id', item.id);
@@ -1937,6 +1940,7 @@ const App: React.FC = () => {
         onlineDisabled: item.onlineDisabled ?? false,
         onlinePrice: item.onlinePrice ?? null,
         mixAndMatch: item.mixAndMatch || { enabled: false, selections: [] },
+        promotionDiscount: normalizeMenuPromotionDiscount(item.promotionDiscount || getDefaultPromotionDiscount()),
       },
       add_ons: item.addOns || []
     });
@@ -2034,6 +2038,7 @@ const App: React.FC = () => {
         onlineDisabled: item.onlineDisabled ?? false,
         onlinePrice: item.onlinePrice ?? null,
         mixAndMatch: copyJson(item.mixAndMatch || { enabled: false, selections: [] }),
+        promotionDiscount: copyJson(normalizeMenuPromotionDiscount(item.promotionDiscount || getDefaultPromotionDiscount())),
       },
       add_ons: copyJson(item.addOns || [])
     }));
