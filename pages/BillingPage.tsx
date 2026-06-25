@@ -478,7 +478,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         status: entry.status || 'success',
         referenceNumber: null,
       })),
-      ...duitnowPayments.map((payment) => ({
+      ...duitnowPayments.filter((payment) => payment.status !== 'approved').map((payment) => ({
         id: payment.id,
         date: payment.created_at,
         description: [
@@ -994,7 +994,6 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     <option value="ALL">All Status</option>
                     <option value="success">Successful</option>
                     <option value="pending">Pending Review</option>
-                    <option value="approved">Approved QR</option>
                     <option value="rejected">Rejected QR</option>
                   </select>
                   <select
