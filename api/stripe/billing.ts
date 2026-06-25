@@ -38,6 +38,15 @@ const DUITNOW_SNAPSHOT_COLUMNS = [
   'original_trial_end',
 ];
 
+type StripeRepairResult = {
+  checked: boolean;
+  updated: boolean;
+  reason?: string;
+  billingRecordsCreated: number;
+  subscriptionPaymentsSynced: number;
+  newPeriodEnd?: string | null;
+};
+
 function isMissingColumnError(error: any, columns: string[] = []): boolean {
   const code = String(error?.code || '').toUpperCase();
   const message = String(error?.message || '').toLowerCase();
@@ -110,6 +119,263 @@ async function getWalletBalance(restaurantId: string): Promise<number> {
     if (DEBIT_TRANSACTION_TYPES.has(transaction.type)) return total - amount;
     return total;
   }, 0);
+}
+
+async function recordStripeBillingIncome(input: {
+  restaurantId: string;
+  planId?: string | null;
+  amount: number;
+  description: string;
+  stripeObjectId: string;
+}): Promise<{ id: string | null; created: boolean }> {
+  if (!input.amount || input.amount <= 0 || !input.stripeObjectId) return { id: null, created: false };
+
+  const referenceCode = `STRIPE-${input.stripeObjectId}`;
+  const { data: existingRecord, error: lookupError } = await supabase
+    .from('billing_records')
+    .select('id')
+    .eq('reference_code', referenceCode)
+    .maybeSingle();
+
+  if (lookupError) {
+    throw new Error(lookupError.message || 'Failed to check existing Stripe billing record.');
+  }
+  if (existingRecord) return { id: existingRecord.id, created: false };
+
+  const grossAmount = Math.round(input.amount * 100) / 100;
+  const stripeFee = Math.round((grossAmount * 0.03 + 1) * 100) / 100;
+  const netAmount = Math.round((grossAmount - stripeFee) * 100) / 100;
+
+  const { data: restRow } = await supabase
+    .from('restaurants')
+    .select('name')
+    .eq('id', input.restaurantId)
+    .single();
+
+  const { data: billingRecord, error: insertError } = await supabase.from('billing_records').insert({
+    restaurant_id: input.restaurantId,
+    description: input.description,
+    amount: grossAmount,
+    type: 'stripe',
+    gross: grossAmount,
+    fee: stripeFee,
+    net: netAmount,
+    plan_id: input.planId || 'basic',
+    restaurant_name: restRow?.name || 'Unknown',
+    created_by: 'stripe',
+    reference_code: referenceCode,
+  }).select('id').maybeSingle();
+
+  if (insertError) {
+    throw new Error(insertError.message || 'Failed to record Stripe billing income.');
+  }
+
+  return { id: billingRecord?.id || null, created: true };
+}
+
+function getStripeSubscriptionPeriod(subscription: Stripe.Subscription): { periodStart: string | null; periodEnd: string | null } {
+  const subItem = subscription.items.data[0];
+  const periodStart = subItem?.current_period_start
+    ? new Date(subItem.current_period_start * 1000).toISOString()
+    : subscription.start_date
+      ? new Date(subscription.start_date * 1000).toISOString()
+      : null;
+  const periodEnd = subItem?.current_period_end
+    ? new Date(subItem.current_period_end * 1000).toISOString()
+    : null;
+
+  return { periodStart, periodEnd };
+}
+
+function normalizeStripeBillingInterval(value: string | null | undefined): 'monthly' | 'annual' {
+  return value === 'annual' || value === 'year' ? 'annual' : 'monthly';
+}
+
+async function reconcileStripePaymentsForRestaurant(
+  restaurantId: string,
+  sub: any
+): Promise<StripeRepairResult> {
+  const customerId = sub?.stripe_customer_id;
+  if (!customerId) {
+    return { checked: false, updated: false, reason: 'no_stripe_customer', billingRecordsCreated: 0, subscriptionPaymentsSynced: 0 };
+  }
+
+  let billingRecordsCreated = 0;
+  let subscriptionPaymentsSynced = 0;
+  let updated = false;
+  let repairedPeriodEnd: string | null = null;
+  const now = new Date();
+  const localPlanId = sub?.plan_id || 'basic';
+  const localInterval = normalizeStripeBillingInterval(sub?.billing_interval);
+
+  const subscriptions = await stripe.subscriptions.list({
+    customer: customerId,
+    status: 'all',
+    limit: 10,
+  });
+  const activeSubscription = subscriptions.data
+    .filter(item => item.status === 'active' || item.status === 'trialing')
+    .sort((a, b) => {
+      const aEnd = getStripeSubscriptionPeriod(a).periodEnd;
+      const bEnd = getStripeSubscriptionPeriod(b).periodEnd;
+      return (bEnd ? new Date(bEnd).getTime() : 0) - (aEnd ? new Date(aEnd).getTime() : 0);
+    })[0];
+
+  if (activeSubscription) {
+    const { periodStart, periodEnd } = getStripeSubscriptionPeriod(activeSubscription);
+    const stripePlanId = activeSubscription.metadata?.plan_id || localPlanId;
+    const stripeInterval = normalizeStripeBillingInterval(
+      activeSubscription.metadata?.billing_interval
+      || activeSubscription.items.data[0]?.price?.recurring?.interval
+      || localInterval
+    );
+
+    if (periodEnd) {
+      const { error } = await supabase
+        .from('subscriptions')
+        .update({
+          status: activeSubscription.status === 'trialing' ? 'trialing' : 'active',
+          stripe_subscription_id: activeSubscription.id,
+          plan_id: stripePlanId,
+          billing_interval: stripeInterval,
+          current_period_start: periodStart,
+          current_period_end: periodEnd,
+          cancel_at_period_end: activeSubscription.cancel_at_period_end,
+          pending_plan_id: null,
+          pending_billing_interval: null,
+          pending_change_effective_at: null,
+          ...ACCESS_UNLOCK_PATCH,
+          updated_at: now.toISOString(),
+        })
+        .eq('restaurant_id', restaurantId);
+
+      if (error) throw new Error(error.message || 'Failed to repair subscription from Stripe.');
+
+      await supabase
+        .from('users')
+        .update({ is_active: true })
+        .eq('restaurant_id', restaurantId)
+        .eq('role', 'VENDOR');
+
+      await supabase
+        .from('restaurants')
+        .update({ kitchen_enabled: stripePlanId === 'pro_plus' })
+        .eq('id', restaurantId);
+
+      repairedPeriodEnd = periodEnd;
+      updated = true;
+    }
+  }
+
+  const invoices = await stripe.invoices.list({ customer: customerId, limit: 24 });
+  for (const invoice of invoices.data.filter(inv => inv.status === 'paid' && (inv.amount_paid || 0) > 0)) {
+    const lineDesc = invoice.lines.data[0]?.description;
+    const record = await recordStripeBillingIncome({
+      restaurantId,
+      planId: activeSubscription?.metadata?.plan_id || localPlanId,
+      amount: (invoice.amount_paid || 0) / 100,
+      description: lineDesc || 'Stripe subscription renewal',
+      stripeObjectId: invoice.id || `invoice-${invoice.created}`,
+    });
+    if (record.created) billingRecordsCreated++;
+    await upsertSubscriptionPayment(supabase, {
+      restaurantId,
+      provider: 'stripe',
+      status: 'succeeded',
+      providerReference: invoice.id || `invoice-${invoice.created}`,
+      billingRecordId: record.id,
+    });
+    subscriptionPaymentsSynced++;
+  }
+
+  const charges = await stripe.charges.list({ customer: customerId, limit: 50 });
+  for (const charge of charges.data.filter(ch =>
+    ch.paid
+    && ch.status === 'succeeded'
+    && (ch.amount || 0) > 0
+    && !(ch as any).invoice
+    && ch.metadata?.type !== 'wallet_topup'
+    && (ch.metadata?.plan_id || ch.metadata?.change_type)
+  )) {
+    if ((charge as any).invoice) continue;
+    const metadataPlanId = charge.metadata?.plan_id || localPlanId;
+    const metadataInterval = normalizeStripeBillingInterval(charge.metadata?.billing_interval || localInterval);
+    const changeType = charge.metadata?.change_type || 'renew';
+    const planName = PLAN_NAMES[metadataPlanId] || metadataPlanId;
+    const intervalLabel = metadataInterval === 'annual' ? 'Annual' : 'Monthly';
+    const actionLabel = changeType === 'upgrade'
+      ? 'Upgrade'
+      : changeType === 'downgrade'
+        ? 'Downgrade'
+        : 'Renewal';
+
+    const record = await recordStripeBillingIncome({
+      restaurantId,
+      planId: metadataPlanId,
+      amount: (charge.amount || 0) / 100,
+      description: charge.description || `Stripe ${planName} ${actionLabel} (${intervalLabel})`,
+      stripeObjectId: charge.id,
+    });
+    if (record.created) {
+      billingRecordsCreated++;
+
+      if (!activeSubscription) {
+        const { periodStart, periodEnd } = calculateNextSubscriptionPeriod(
+          charge.metadata?.renew_from || sub?.current_period_end || sub?.trial_end,
+          metadataInterval === 'annual',
+          new Date(charge.created * 1000)
+        );
+        const { error } = await supabase
+          .from('subscriptions')
+          .update({
+            status: 'active',
+            plan_id: metadataPlanId,
+            billing_interval: metadataInterval,
+            current_period_start: periodStart.toISOString(),
+            current_period_end: periodEnd.toISOString(),
+            pending_plan_id: null,
+            pending_billing_interval: null,
+            pending_change_effective_at: null,
+            ...ACCESS_UNLOCK_PATCH,
+            updated_at: now.toISOString(),
+          })
+          .eq('restaurant_id', restaurantId);
+
+        if (error) throw new Error(error.message || 'Failed to repair payment-mode subscription from Stripe.');
+
+        await supabase
+          .from('users')
+          .update({ is_active: true })
+          .eq('restaurant_id', restaurantId)
+          .eq('role', 'VENDOR');
+
+        await supabase
+          .from('restaurants')
+          .update({ kitchen_enabled: metadataPlanId === 'pro_plus' })
+          .eq('id', restaurantId);
+
+        repairedPeriodEnd = periodEnd.toISOString();
+        updated = true;
+      }
+    }
+
+    await upsertSubscriptionPayment(supabase, {
+      restaurantId,
+      provider: 'stripe',
+      status: 'succeeded',
+      providerReference: charge.id,
+      billingRecordId: record.id,
+    });
+    subscriptionPaymentsSynced++;
+  }
+
+  return {
+    checked: true,
+    updated,
+    billingRecordsCreated,
+    subscriptionPaymentsSynced,
+    newPeriodEnd: repairedPeriodEnd,
+  };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -980,7 +1246,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const { data: reconcileSub, error: reconcileSubErr } = await supabase
           .from('subscriptions')
-          .select('plan_id, billing_interval, pending_plan_id, pending_billing_interval, pending_change_effective_at, current_period_start')
+          .select('*')
           .eq('restaurant_id', reconcileRestId)
           .single();
 
@@ -990,13 +1256,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         let reconcilePlan = reconcileSub.plan_id;
         const now = new Date();
+        let stripeRepair: StripeRepairResult | null = null;
+        const shouldCheckStripe = Boolean(
+          reconcileSub.stripe_customer_id
+          && (
+            reconcileSub.access_locked
+            || reconcileSub.status === 'past_due'
+            || reconcileSub.status === 'pending_payment'
+            || isSubscriptionLockDue(reconcileSub, now)
+          )
+        );
+
+        if (shouldCheckStripe) {
+          stripeRepair = await reconcileStripePaymentsForRestaurant(reconcileRestId, reconcileSub);
+          if (stripeRepair.updated) {
+            const { data: refreshedSub } = await supabase
+              .from('subscriptions')
+              .select('*')
+              .eq('restaurant_id', reconcileRestId)
+              .single();
+            if (refreshedSub) {
+              reconcilePlan = refreshedSub.plan_id;
+            }
+          }
+        }
 
         if (reconcileSub.pending_plan_id) {
           const effectiveAtRaw = reconcileSub.pending_change_effective_at || reconcileSub.current_period_start;
           const effectiveAt = effectiveAtRaw ? new Date(effectiveAtRaw) : null;
 
           if (effectiveAt && effectiveAt > now) {
-            return res.status(200).json({ updated: false, reason: 'before_effective_start' });
+            return res.status(200).json({ updated: Boolean(stripeRepair?.updated), reason: 'before_effective_start', stripeRepair });
           }
 
           const pendingInterval = reconcileSub.pending_billing_interval || reconcileSub.billing_interval;
@@ -1045,7 +1335,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const alreadyApplied = reconcileRest.kitchen_enabled === target.kitchenEnabled;
 
         if (alreadyApplied) {
-          return res.status(200).json({ updated: false, reason: 'already_synced' });
+          return res.status(200).json({
+            updated: Boolean(stripeRepair?.updated),
+            reason: stripeRepair?.updated ? 'stripe_repaired' : 'already_synced',
+            stripeRepair,
+          });
         }
 
         const { error: reconcileUpdateErr } = await supabase
@@ -1057,7 +1351,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(500).json({ error: 'Failed to update restaurant access.' });
         }
 
-        return res.status(200).json({ updated: true, plan: reconcilePlan });
+        return res.status(200).json({ updated: true, plan: reconcilePlan, stripeRepair });
       }
 
       // POST /api/stripe/billing?action=admin-extend
