@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { BookOpen, Download, ExternalLink, FileText, Presentation, Search } from 'lucide-react';
 import PitchDeck from './PitchDeck';
 import lanPrintingGuide from '../docs/LAN_PRINTING_TERMUX_SETUP.md?raw';
+import wifiPrintingGuide from '../docs/WIFI_PRINTING_TERMUX_SETUP.md?raw';
 import sunmiGuide from '../docs/SUNMI_V2_INTEGRATION.md?raw';
 
 type GuideDocument = {
@@ -32,6 +33,15 @@ const documents: AdminDocument[] = [
     markdown: lanPrintingGuide,
     filename: 'quickserve-lan-printing-termux-setup.pdf',
     staticPdfPath: '/docs/quickserve-lan-printing-termux-setup.pdf',
+  },
+  {
+    id: 'wifi-printing-termux',
+    title: 'WiFi Printing Setup',
+    description: 'Android Tablet + Termux print server setup for WiFi thermal printers and order routing.',
+    type: 'guide',
+    markdown: wifiPrintingGuide,
+    filename: 'quickserve-wifi-printing-termux-setup.pdf',
+    staticPdfPath: '/docs/quickserve-wifi-printing-termux-setup.pdf',
   },
   {
     id: 'sunmi-v2',

@@ -407,7 +407,7 @@ const PrinterSettings: React.FC<Props> = ({
           <button
             onClick={handleDownloadPrintServer}
             className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-[8px] font-black text-gray-500 hover:text-orange-500 transition-all"
-            title="Download print-server.js for LAN printing"
+            title="Download print-server.js for WiFi/LAN printing"
           >
             <Download size={10} /> Proxy Script
           </button>
@@ -519,7 +519,7 @@ const PrinterSettings: React.FC<Props> = ({
                 {([
                   { type: 'sunmi' as ConnectionType, icon: Smartphone, label: 'SUNMI' },
                   { type: 'bluetooth' as ConnectionType, icon: Bluetooth, label: 'Bluetooth' },
-                  { type: 'wifi' as ConnectionType, icon: Wifi, label: 'Ethernet' },
+                  { type: 'wifi' as ConnectionType, icon: Wifi, label: 'WiFi/LAN' },
                   { type: 'usb' as ConnectionType, icon: Usb, label: 'USB' },
                 ]).map(({ type, icon: Icon, label }) => (
                   <button
@@ -632,7 +632,7 @@ const PrinterSettings: React.FC<Props> = ({
                 </div>
               )}
 
-              {/* Ethernet: Network Printer via Print Server */}
+              {/* WiFi/LAN: Network Printer via Print Server */}
               {printerForm.connectionType === 'wifi' && (
                 <div className="mt-2 space-y-2">
                   <div>
@@ -644,7 +644,7 @@ const PrinterSettings: React.FC<Props> = ({
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white font-mono"
                       placeholder="http://192.168.1.50:3001"
                     />
-                    <p className="text-[8px] text-gray-400 mt-1">IP:port of the device running print-server.js on your LAN</p>
+                    <p className="text-[8px] text-gray-400 mt-1">IP:port of the device running print-server.js on the same WiFi/LAN</p>
                   </div>
                   <div>
                     <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Printer IP Address</label>
@@ -655,7 +655,7 @@ const PrinterSettings: React.FC<Props> = ({
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
                       placeholder="192.168.1.100"
                     />
-                    <p className="text-[8px] text-gray-400 mt-1">IP address of the thermal printer on your LAN</p>
+                    <p className="text-[8px] text-gray-400 mt-1">IP address of the WiFi/LAN thermal printer</p>
                   </div>
                   <div>
                     <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Printer Port</label>
@@ -1183,7 +1183,7 @@ const PrinterSettings: React.FC<Props> = ({
     <div className="grid grid-cols-1 gap-6">
       <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8">
         <div>
-          <p className="text-xs font-black text-orange-500 uppercase tracking-widest">LAN Printer Setup</p>
+          <p className="text-xs font-black text-orange-500 uppercase tracking-widest">WiFi/LAN Printer Setup</p>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">How to print over your local network.</p>
         </div>
         <div className="min-w-0 space-y-4">
@@ -1194,7 +1194,7 @@ const PrinterSettings: React.FC<Props> = ({
               <p className="text-xs font-black dark:text-white">Download the print proxy script</p>
             </div>
             <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">
-              Download <strong>print-server.js</strong> and save it to the device on your LAN that will act as the print proxy.
+              Download <strong>print-server.js</strong> and save it to the device on the same WiFi/LAN that will act as the print proxy.
             </p>
             <button
               onClick={handleDownloadPrintServer}
@@ -1208,7 +1208,7 @@ const PrinterSettings: React.FC<Props> = ({
           <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-[10px] font-black">2</div>
-              <p className="text-xs font-black dark:text-white">Run it on a LAN device</p>
+              <p className="text-xs font-black dark:text-white">Run it on a WiFi/LAN device</p>
             </div>
             <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">
               On any PC, laptop, or Android tablet with <strong>Termux + Node.js</strong> installed:
@@ -1225,10 +1225,10 @@ const PrinterSettings: React.FC<Props> = ({
           <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-[10px] font-black">3</div>
-              <p className="text-xs font-black dark:text-white">Connect your printer via Ethernet</p>
+              <p className="text-xs font-black dark:text-white">Connect your printer by WiFi or Ethernet</p>
             </div>
             <p className="text-[10px] text-gray-500 dark:text-gray-400">
-              Connect your thermal printer's RJ45 port to your LAN switch. Find its IP address from the printer's network settings menu.
+              Connect your thermal printer to the same router using WiFi or RJ45/LAN cable. Find its IP address from the printer's network settings menu or self-test page.
               Most thermal printers use <strong>port 9100</strong> for raw ESC/POS data.
             </p>
           </div>
@@ -1240,7 +1240,7 @@ const PrinterSettings: React.FC<Props> = ({
               <p className="text-xs font-black dark:text-white">Add printer in QuickServe</p>
             </div>
             <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">
-              Go to the <strong>Printers</strong> tab, click <strong>Add Printer</strong>, and select <strong>Ethernet</strong> interface. Fill in:
+              Go to the <strong>Printers</strong> tab, click <strong>Add Printer</strong>, and select <strong>WiFi/LAN</strong> interface. Fill in:
             </p>
             <ul className="text-[10px] text-gray-500 dark:text-gray-400 space-y-1 ml-4 list-disc">
               <li><strong>Print Server URL</strong> — e.g. <code>http://192.168.1.50:3001</code></li>

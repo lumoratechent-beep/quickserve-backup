@@ -10,6 +10,8 @@ QuickServe LAN printing uses a lightweight local print proxy named `print-server
 
 The print proxy runs on a device inside the same local network as the thermal printer. QuickServe sends ESC/POS print data to the proxy through HTTP, and the proxy forwards the raw print data to the Ethernet printer over TCP, usually port `9100`.
 
+For WiFi thermal printers, use the same proxy flow and see `docs/WIFI_PRINTING_TERMUX_SETUP.md`. In QuickServe, WiFi and Ethernet printers are configured as network printers with a print server URL, printer IP address, and printer port.
+
 Typical flow:
 
 ```text

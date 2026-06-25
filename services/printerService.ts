@@ -131,7 +131,7 @@ export interface SavedPrinter {
   deviceId?: string;
   deviceName?: string;
   ipAddress?: string;
-  /** IP/hostname:port of the local print-server.js proxy (e.g. "192.168.1.50:3001") */
+  /** URL of the local WiFi/LAN print-server.js proxy (e.g. "http://192.168.1.50:3001") */
   printServerUrl?: string;
   /** Network printer port (usually 9100 for raw ESC/POS over TCP) */
   printerPort?: number;
@@ -775,7 +775,7 @@ class PrinterService {
   private networkPrinterConfigSource: 'manual' | 'saved' | null = null;
 
   /**
-   * Set the active network printer for LAN printing.
+   * Set the active network printer for WiFi/LAN printing.
    * Call this before printReceipt/printKitchenTicket when using wifi connection type.
    */
   setActiveNetworkPrinter(config: { printServerUrl: string; printerIp: string; printerPort?: number }): void {
@@ -801,7 +801,7 @@ class PrinterService {
   /**
    * Send ESC/POS data to a network printer through the local print-server.js proxy.
    * @param printServerUrl - e.g. "http://192.168.1.50:3001"
-   * @param printerIp - The printer's IP address on the LAN
+   * @param printerIp - The printer's IP address on the same WiFi/LAN
    * @param printerPort - The printer's TCP port (default 9100)
    * @param data - Raw ESC/POS Uint8Array to print
    */

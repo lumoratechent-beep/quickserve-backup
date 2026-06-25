@@ -7118,7 +7118,7 @@ const PosOnlyView: React.FC<Props> = ({
             ) : hasPrintableTransport ? (
               <>
                 <BluetoothConnected size={18} />
-                {!isSidebarCollapsed && (hasConfiguredNetworkPrinter ? 'LAN Printer Ready' : 'Printer Connected')}
+                {!isSidebarCollapsed && (hasConfiguredNetworkPrinter ? 'WiFi/LAN Printer Ready' : 'Printer Connected')}
               </>
             ) : connectedDevice ? (
               <>
@@ -12603,7 +12603,7 @@ const PosOnlyView: React.FC<Props> = ({
                     {hasPrintableTransport ? (
                       <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
                         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        {hasConfiguredNetworkPrinter ? 'LAN Printer Ready' : 'Printer Connected'}
+                        {hasConfiguredNetworkPrinter ? 'WiFi/LAN Printer Ready' : 'Printer Connected'}
                       </div>
                     ) : (
                       <button
