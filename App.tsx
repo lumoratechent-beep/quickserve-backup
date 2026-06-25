@@ -1219,10 +1219,9 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Fetch new orders failed", e);
     } finally {
-      await fetchSubscriptions().catch(() => {});
       isFetchingRef.current = false;
     }
-  }, [rememberKnownOrderId, lastSyncTime, fetchSubscriptions]);
+  }, [rememberKnownOrderId, lastSyncTime]);
 
   // Combined refresh function to ensure heartbeat works reliably
   const refreshAppData = useCallback(async () => {
