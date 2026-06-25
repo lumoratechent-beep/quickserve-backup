@@ -1,13 +1,13 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, Subscription, SubscriptionExpiryHistory, PlanId, MenuItem } from '../src/types';
 import { uploadImage } from '../lib/storage';
-import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2, Lock, Unlock, MoreVertical } from 'lucide-react';
+import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2, Lock, Unlock, MoreVertical, BookOpen } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { getSubscriptionAccessLockState, getSubscriptionEndDate } from '../lib/subscriptionService';
-import PitchDeck from '../components/PitchDeck';
+import AdminDocuments from '../components/AdminDocuments';
 
 interface Props {
   vendors: User[];
@@ -29,7 +29,7 @@ interface Props {
   onFetchStats?: (filters: ReportFilters) => Promise<any>;
 }
 
-type AdminTab = 'VENDORS' | 'INCOME_REPORT' | 'VENDOR_SUBSCRIPTION' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SHOP' | 'SYSTEM';
+type AdminTab = 'VENDORS' | 'INCOME_REPORT' | 'VENDOR_SUBSCRIPTION' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SHOP' | 'DOCUMENTS' | 'SYSTEM';
 type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'expired';
 type DraftNumber = number | '';
 
@@ -2076,7 +2076,6 @@ const AdminView: React.FC<Props> = ({
 
   // Feature Images State
   const [systemSubTab, setSystemSubTab] = useState<'STATUS' | 'FEATURE_IMAGES' | 'PAYMENT_QR' | 'ANNOUNCEMENTS' | 'JOIN_TEAM' | 'TEAM_MEMBERS'>('STATUS');
-  const [showPitchDeck, setShowPitchDeck] = useState(false);
   const [featureImages, setFeatureImages] = useState<{ id: string; url: string; alt: string; crop_shape: string; display_width: number; display_height: number; sort_order: number; category: string }[]>([]);
   const [isLoadingFeatureImages, setIsLoadingFeatureImages] = useState(false);
   const [featureCropFile, setFeatureCropFile] = useState<File | null>(null);
@@ -2939,6 +2938,7 @@ const AdminView: React.FC<Props> = ({
             { id: 'DUITNOW', label: 'DuitNow', icon: QrCode },
             { id: 'QUOTATION', label: 'Quotation', icon: FileText },
             { id: 'SHOP', label: 'Shop', icon: ShoppingBag },
+            { id: 'DOCUMENTS', label: 'Documents', icon: BookOpen },
             { id: 'SYSTEM', label: 'System', icon: Database },
           ] as { id: AdminTab; label: string; icon: React.ElementType }[]).map(item => (
             <button
@@ -2998,6 +2998,7 @@ const AdminView: React.FC<Props> = ({
                activeTab === 'DUITNOW' ? 'DuitNow' :
                activeTab === 'QUOTATION' ? 'Quotation' :
                activeTab === 'SHOP' ? 'Shop' :
+               activeTab === 'DOCUMENTS' ? 'Documents' :
                'System'}
             </h1>
           </div>
@@ -4928,6 +4929,10 @@ const AdminView: React.FC<Props> = ({
           </div>
         )}
 
+        {activeTab === 'DOCUMENTS' && (
+          <AdminDocuments />
+        )}
+
         {activeTab === 'SYSTEM' && (
           <div className="flex-1 overflow-y-auto">
             <div className="p-4 md:p-8 pb-0 md:pb-0">
@@ -4936,12 +4941,6 @@ const AdminView: React.FC<Props> = ({
                   <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">System</h1>
                   <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">System status, feature images, announcements and tools.</p>
                 </div>
-                <button
-                  onClick={() => setShowPitchDeck(true)}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25"
-              >
-                <FileText size={16} /> Pitch Deck
-              </button>
               </div>
 
               {/* Document-style tab bar */}
@@ -5642,9 +5641,6 @@ const AdminView: React.FC<Props> = ({
             onCancel={() => { setNewTeamMemberCropFile(null); setTeamMemberCropTargetId(null); }}
           />
         )}
-
-        {/* Pitch Deck Modal */}
-        {showPitchDeck && <PitchDeck onClose={() => setShowPitchDeck(false)} />}
 
         {quotationPdfUrl && (
           <div className="fixed inset-0 z-[100000] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">

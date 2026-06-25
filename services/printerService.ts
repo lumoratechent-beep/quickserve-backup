@@ -709,6 +709,10 @@ class PrinterService {
     return btoa(binary);
   }
 
+  private normalizePrintServerUrl(url: string): string {
+    return url.trim().replace(/\/+$/, '');
+  }
+
   private isBridgeResultOk(result: any): boolean {
     if (result == null) return true;
     if (typeof result === 'boolean') return result;
@@ -768,6 +772,7 @@ class PrinterService {
 
   /** Active network printer config — set before printing via setActiveNetworkPrinter() */
   private networkPrinterConfig: { printServerUrl: string; printerIp: string; printerPort: number } | null = null;
+  private networkPrinterConfigSource: 'manual' | 'saved' | null = null;
 
   /**
    * Set the active network printer for LAN printing.
@@ -775,15 +780,17 @@ class PrinterService {
    */
   setActiveNetworkPrinter(config: { printServerUrl: string; printerIp: string; printerPort?: number }): void {
     this.networkPrinterConfig = {
-      printServerUrl: config.printServerUrl,
+      printServerUrl: this.normalizePrintServerUrl(config.printServerUrl),
       printerIp: config.printerIp,
       printerPort: config.printerPort || 9100,
     };
+    this.networkPrinterConfigSource = 'manual';
   }
 
   /** Clear the active network printer config */
   clearActiveNetworkPrinter(): void {
     this.networkPrinterConfig = null;
+    this.networkPrinterConfigSource = null;
   }
 
   /** Returns true if a network printer is configured */
@@ -805,9 +812,10 @@ class PrinterService {
     printerPort: number = 9100,
   ): Promise<boolean> {
     const base64Data = this.bytesToBase64(data);
+    const serverUrl = this.normalizePrintServerUrl(printServerUrl);
 
     try {
-      const response = await fetch(`${printServerUrl}/print`, {
+      const response = await fetch(`${serverUrl}/print`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -834,8 +842,9 @@ class PrinterService {
    * Check if a network printer is reachable by calling the print server health endpoint.
    */
   async checkNetworkPrinterHealth(printServerUrl: string): Promise<boolean> {
+    const serverUrl = this.normalizePrintServerUrl(printServerUrl);
     try {
-      const response = await fetch(`${printServerUrl}/health`, {
+      const response = await fetch(`${serverUrl}/health`, {
         method: 'GET',
         signal: AbortSignal.timeout(5000),
       });
@@ -1000,6 +1009,8 @@ class PrinterService {
   }
 
   isConnected(): boolean {
+    this.autoConfigureNetworkPrinter();
+    if (this.networkPrinterConfig) return true;
     return (this.sunmiConnected && this.isSunmiBridgeAvailable()) || this.server?.connected === true;
   }
 
@@ -1086,6 +1097,8 @@ class PrinterService {
   }
 
   async ensureConnection(): Promise<boolean> {
+    this.autoConfigureNetworkPrinter();
+    if (this.networkPrinterConfig) return true;
     if (this.sunmiConnected && this.isSunmiBridgeAvailable()) return true;
     if (this.sunmiConnected) return this.connectSunmiBridge();
     if (this.isConnected() && this.characteristic) return true;
@@ -1165,10 +1178,10 @@ class PrinterService {
    * Call this before printReceipt / printKitchenTicket.
    */
   private autoConfigureNetworkPrinter(): void {
-    // If already configured, skip
-    if (this.networkPrinterConfig) return;
+    if (this.networkPrinterConfigSource === 'manual') return;
 
     try {
+      let savedConfig: { printServerUrl: string; printerIp: string; printerPort: number } | null = null;
       // Try all localStorage keys matching the pattern
       const keys = Object.keys(localStorage);
       for (const key of keys) {
@@ -1185,15 +1198,18 @@ class PrinterService {
             p.ipAddress &&
             p.printServerUrl
           ) {
-            this.networkPrinterConfig = {
-              printServerUrl: p.printServerUrl,
+            savedConfig = {
+              printServerUrl: this.normalizePrintServerUrl(p.printServerUrl),
               printerIp: p.ipAddress,
               printerPort: p.printerPort || 9100,
             };
-            return; // Use first wifi printer found
+            break; // Use first wifi printer found
           }
         }
+        if (savedConfig) break;
       }
+      this.networkPrinterConfig = savedConfig;
+      this.networkPrinterConfigSource = savedConfig ? 'saved' : null;
     } catch {
       // Silently fail — network printing won't work but BLE/SUNMI will
     }

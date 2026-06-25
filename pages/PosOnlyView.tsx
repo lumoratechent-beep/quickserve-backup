@@ -669,6 +669,12 @@ const PosOnlyView: React.FC<Props> = ({
     const saved = localStorage.getItem(`printers_${restaurant.id}`);
     return saved ? JSON.parse(saved) : [];
   });
+  const hasConfiguredNetworkPrinter = savedPrinters.some(printer =>
+    printer.connectionType === 'wifi' &&
+    Boolean(printer.printServerUrl?.trim()) &&
+    Boolean(printer.ipAddress?.trim())
+  );
+  const hasPrintableTransport = realPrinterConnected || hasConfiguredNetworkPrinter;
 
   const normalizeReceiptConfig = (config: Partial<ReceiptConfig> | null | undefined): ReceiptConfig => {
     const legacyAddress = typeof (config as (Partial<ReceiptConfig> & { businessAddress?: string }) | null | undefined)?.businessAddress === 'string'
@@ -2279,7 +2285,7 @@ const PosOnlyView: React.FC<Props> = ({
       toast('Select a pending saved bill first.', 'error');
       return;
     }
-    if (!realPrinterConnected) {
+    if (!hasPrintableTransport) {
       toast('Printer not connected.', 'error');
       return;
     }
@@ -2537,7 +2543,7 @@ const PosOnlyView: React.FC<Props> = ({
     setIsCompletingPayment(false);
 
     if (featureSettings.autoPrintReceipt) {
-      if (connectedDevice) {
+      if (hasPrintableTransport) {
         const printRestaurant = {
           ...restaurant,
           name: receiptConfig.businessName.trim() || restaurant.name,
@@ -2550,7 +2556,7 @@ const PosOnlyView: React.FC<Props> = ({
               setCheckoutNotice('Order saved. Receipt printing did not complete.');
             }
             // Auto-print order list after receipt with beep countdown
-            if (featureSettings.autoPrintOrderList && connectedDevice) {
+            if (featureSettings.autoPrintOrderList && hasPrintableTransport) {
               setTimeout(() => {
                 printerService.beep().catch(() => {});
                 setTimeout(() => {
@@ -2582,7 +2588,7 @@ const PosOnlyView: React.FC<Props> = ({
       }
     } else if (featureSettings.autoPrintOrderList) {
       // Auto-print order list only (no receipt auto-print)
-      if (connectedDevice) {
+      if (hasPrintableTransport) {
         setTimeout(() => {
           printerService.beep().catch(() => {});
           setTimeout(() => {
@@ -2606,7 +2612,7 @@ const PosOnlyView: React.FC<Props> = ({
         setCheckoutNotice('Order saved. Auto-print is enabled but no printer is connected.');
       }
     } else if (featureSettings.autoOpenDrawer) {
-      if (connectedDevice) {
+      if (hasPrintableTransport) {
         printerService
           .openDrawer()
           .then((drawerSuccess) => {
@@ -3462,6 +3468,12 @@ const PosOnlyView: React.FC<Props> = ({
   }, [savedPrinters, restaurant.id]);
 
   useEffect(() => {
+    if (hasConfiguredNetworkPrinter) {
+      setRealPrinterConnected(true);
+    }
+  }, [hasConfiguredNetworkPrinter]);
+
+  useEffect(() => {
     localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(featureSettings));
   }, [featureSettings, restaurant.id]);
 
@@ -3590,12 +3602,16 @@ const PosOnlyView: React.FC<Props> = ({
   useEffect(() => {
     const interval = setInterval(() => {
       const connected = printerService.isConnected();
-      setRealPrinterConnected(connected);
+      setRealPrinterConnected(connected || hasConfiguredNetworkPrinter);
     }, 3000);
     return () => clearInterval(interval);
-  }, [connectedDevice]);
+  }, [connectedDevice, hasConfiguredNetworkPrinter]);
 
   const handlePrinterButtonClick = async () => {
+    if (hasConfiguredNetworkPrinter) {
+      setRealPrinterConnected(true);
+      return;
+    }
     if (!connectedDevice) {
       // No saved printer - scan and connect in one go
       setIsAutoReconnecting(true);
@@ -4388,12 +4404,12 @@ const PosOnlyView: React.FC<Props> = ({
 
       // Draw filled area under smooth curve (using triangles)
       const baseY = chartY + chartH;
-      doc.setFillColor(217, 119, 6); doc.setGState(new (doc as any).GState({ opacity: 0.12 }));
+      doc.setFillColor(217, 119, 6); (doc as any).setGState(new (doc as any).GState({ opacity: 0.12 }));
       for (let i = 0; i < smoothPoints.length - 1; i++) {
         doc.triangle(smoothPoints[i].x, smoothPoints[i].y, smoothPoints[i + 1].x, smoothPoints[i + 1].y, smoothPoints[i].x, baseY, 'F');
         doc.triangle(smoothPoints[i + 1].x, smoothPoints[i + 1].y, smoothPoints[i + 1].x, baseY, smoothPoints[i].x, baseY, 'F');
       }
-      doc.setGState(new (doc as any).GState({ opacity: 1 }));
+      (doc as any).setGState(new (doc as any).GState({ opacity: 1 }));
 
       // Draw the smooth line
       doc.setDrawColor(...amber); doc.setLineWidth(0.6);
@@ -4653,7 +4669,7 @@ const PosOnlyView: React.FC<Props> = ({
     }
 
     // Footer on every page
-    const pageCount = doc.getNumberOfPages();
+    const pageCount = (doc as any).getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.setFontSize(7); doc.setTextColor(160, 160, 160);
@@ -4983,7 +4999,7 @@ const PosOnlyView: React.FC<Props> = ({
       });
     }
 
-    const pageCount = doc.getNumberOfPages();
+    const pageCount = (doc as any).getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.setFontSize(7);
@@ -5191,8 +5207,8 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const handleKitchenManualPrint = async (order: Order) => {
-    if (!connectedDevice) {
-      toast('No printer connected. Please connect a printer in Settings.', 'warning');
+    if (!hasPrintableTransport) {
+      toast('No printer connected. Please connect or configure a printer in Settings.', 'warning');
       return;
     }
     setKitchenPrintingOrderId(order.id);
@@ -7087,7 +7103,7 @@ const PosOnlyView: React.FC<Props> = ({
             className={`w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg ${
               isAutoReconnecting
                 ? 'bg-blue-500 text-white cursor-wait'
-                : realPrinterConnected
+                : hasPrintableTransport
                   ? 'bg-green-500 text-white hover:bg-green-600'
                   : connectedDevice
                     ? 'bg-red-500 text-white hover:bg-red-600'
@@ -7099,10 +7115,10 @@ const PosOnlyView: React.FC<Props> = ({
                 <Bluetooth size={18} className="animate-pulse" />
                 {!isSidebarCollapsed && 'Connecting...'}
               </>
-            ) : realPrinterConnected ? (
+            ) : hasPrintableTransport ? (
               <>
                 <BluetoothConnected size={18} />
-                {!isSidebarCollapsed && 'Printer Connected'}
+                {!isSidebarCollapsed && (hasConfiguredNetworkPrinter ? 'LAN Printer Ready' : 'Printer Connected')}
               </>
             ) : connectedDevice ? (
               <>
@@ -10605,21 +10621,21 @@ const PosOnlyView: React.FC<Props> = ({
                             <button
                               onClick={() => toggleQrOrderSetting('autoPrint')}
                               className={`w-11 h-6 rounded-full transition-all relative ${
-                                isOrderAcceptanceManagedByKitchen || !connectedDevice
+                                isOrderAcceptanceManagedByKitchen || !hasPrintableTransport
                                   ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
                                   : qrOrderSettings.autoPrint ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
                               }`}
-                              disabled={isOrderAcceptanceManagedByKitchen || !connectedDevice}
+                              disabled={isOrderAcceptanceManagedByKitchen || !hasPrintableTransport}
                               title={isOrderAcceptanceManagedByKitchen ? 'Managed from Kitchen' : undefined}
                             >
                               <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                                isOrderAcceptanceManagedByKitchen || !connectedDevice
+                                isOrderAcceptanceManagedByKitchen || !hasPrintableTransport
                                   ? 'left-1 opacity-50'
                                   : qrOrderSettings.autoPrint ? 'left-6' : 'left-1'
                               }`} />
                             </button>
                           </div>
-                          {!isOrderAcceptanceManagedByKitchen && !connectedDevice && qrOrderSettings.autoPrint && (
+                          {!isOrderAcceptanceManagedByKitchen && !hasPrintableTransport && qrOrderSettings.autoPrint && (
                             <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl">
                               <p className="text-[10px] text-yellow-600 dark:text-yellow-400">Auto-print enabled but no printer connected. Connect a printer to use this feature.</p>
                             </div>
@@ -10666,21 +10682,21 @@ const PosOnlyView: React.FC<Props> = ({
                             <button
                               onClick={() => toggleTablesideOrderSetting('autoPrint')}
                               className={`w-11 h-6 rounded-full transition-all relative ${
-                                isOrderAcceptanceManagedByKitchen || !connectedDevice
+                                isOrderAcceptanceManagedByKitchen || !hasPrintableTransport
                                   ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
                                   : tablesideOrderSettings.autoPrint ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
                               }`}
-                              disabled={isOrderAcceptanceManagedByKitchen || !connectedDevice}
+                              disabled={isOrderAcceptanceManagedByKitchen || !hasPrintableTransport}
                               title={isOrderAcceptanceManagedByKitchen ? 'Managed from Kitchen' : undefined}
                             >
                               <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                                isOrderAcceptanceManagedByKitchen || !connectedDevice
+                                isOrderAcceptanceManagedByKitchen || !hasPrintableTransport
                                   ? 'left-1 opacity-50'
                                   : tablesideOrderSettings.autoPrint ? 'left-6' : 'left-1'
                               }`} />
                             </button>
                           </div>
-                          {!isOrderAcceptanceManagedByKitchen && !connectedDevice && tablesideOrderSettings.autoPrint && (
+                          {!isOrderAcceptanceManagedByKitchen && !hasPrintableTransport && tablesideOrderSettings.autoPrint && (
                             <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl">
                               <p className="text-[10px] text-yellow-600 dark:text-yellow-400">Auto-print enabled but no printer connected. Connect a printer to use this feature.</p>
                             </div>
@@ -11846,7 +11862,7 @@ const PosOnlyView: React.FC<Props> = ({
                         onClick={handlePrintSavedBillOrderList}
                         disabled={!selectedSavedBillEntry}
                         className={`inline-flex h-7 items-center gap-2 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest leading-none transition-all ${
-                          selectedSavedBillEntry && realPrinterConnected
+                          selectedSavedBillEntry && hasPrintableTransport
                             ? 'border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30'
                             : selectedSavedBillEntry
                             ? 'border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500'
@@ -12584,10 +12600,10 @@ const PosOnlyView: React.FC<Props> = ({
 
                   {/* Printer Status */}
                   <div className="flex flex-1 items-center justify-center">
-                    {realPrinterConnected ? (
+                    {hasPrintableTransport ? (
                       <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
                         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        Printer Connected
+                        {hasConfiguredNetworkPrinter ? 'LAN Printer Ready' : 'Printer Connected'}
                       </div>
                     ) : (
                       <button
@@ -12632,7 +12648,7 @@ const PosOnlyView: React.FC<Props> = ({
                   <div className="w-full max-w-3xl mx-auto mt-4 grid grid-cols-2 gap-3 pb-2">
                     <button
                       type="button"
-                      disabled={!realPrinterConnected}
+                      disabled={!hasPrintableTransport}
                       onClick={async () => {
                         if (!pendingOrderData) return;
                         const printRestaurant = {
@@ -12661,7 +12677,7 @@ const PosOnlyView: React.FC<Props> = ({
                         }
                       }}
                       className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-black text-sm uppercase tracking-wider transition-all ${
-                        realPrinterConnected
+                        hasPrintableTransport
                           ? 'bg-gray-800 dark:bg-white text-white dark:text-gray-800 hover:bg-gray-700 dark:hover:bg-gray-100'
                           : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                       }`}
@@ -12671,7 +12687,7 @@ const PosOnlyView: React.FC<Props> = ({
                     </button>
                     <button
                       type="button"
-                      disabled={!realPrinterConnected}
+                      disabled={!hasPrintableTransport}
                       onClick={async () => {
                         if (!pendingOrderData) return;
                         const printRestaurant = {
@@ -12700,7 +12716,7 @@ const PosOnlyView: React.FC<Props> = ({
                         }
                       }}
                       className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-black text-sm uppercase tracking-wider transition-all ${
-                        realPrinterConnected
+                        hasPrintableTransport
                           ? 'bg-gray-800 dark:bg-white text-white dark:text-gray-800 hover:bg-gray-700 dark:hover:bg-gray-100'
                           : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                       }`}
@@ -13019,8 +13035,8 @@ const PosOnlyView: React.FC<Props> = ({
                   <div className="flex gap-2">
                   <button
                     onClick={async () => {
-                      if (!connectedDevice) {
-                        toast('Printer is not connected. Please connect a printer to reprint.', 'warning');
+                      if (!hasPrintableTransport) {
+                        toast('Printer is not connected. Please connect or configure a printer to reprint.', 'warning');
                         return;
                       }
                       const printRestaurant = {
@@ -13053,8 +13069,8 @@ const PosOnlyView: React.FC<Props> = ({
                   </button>
                   <button
                     onClick={async () => {
-                      if (!connectedDevice) {
-                        toast('Printer is not connected. Please connect a printer to reprint.', 'warning');
+                      if (!hasPrintableTransport) {
+                        toast('Printer is not connected. Please connect or configure a printer to reprint.', 'warning');
                         return;
                       }
                       const olRestaurant = {
