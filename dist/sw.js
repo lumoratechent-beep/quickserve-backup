@@ -1,8 +1,6 @@
-const CACHE_NAME = 'quickserve-v5';
+const CACHE_NAME = 'quickserve-v7';
 const OFFLINE_URL = '/offline.html';
-const APP_SHELL = [
-  '/',
-  '/index.html',
+const STATIC_SHELL = [
   '/manifest.json',
   OFFLINE_URL,
   '/LOGO/icon-96x96.png',
@@ -13,10 +11,76 @@ const APP_SHELL = [
   '/LOGO/9-dark.png',
 ];
 
-// Install: pre-cache the app shell and the offline refresh page.
+const APP_DOCUMENT_URLS = ['/', '/index.html'];
+
+const getContentType = (response) => response.headers.get('content-type') || '';
+
+const isHtmlResponse = (response) => getContentType(response).includes('text/html');
+
+const isAssetResponseValid = (response, pathname) => {
+  if (!response || !response.ok) return false;
+
+  const contentType = getContentType(response);
+  if (pathname.endsWith('.css')) return contentType.includes('text/css');
+  if (pathname.endsWith('.js')) return contentType.includes('javascript');
+
+  return !isHtmlResponse(response);
+};
+
+const assetUnavailableResponse = () => new Response('', {
+  status: 504,
+  statusText: 'Asset unavailable',
+});
+
+const getAssetUrlsFromHtml = (html) => {
+  const urls = new Set();
+  const assetPattern = /(?:src|href)=["'](\/assets\/[^"']+)["']/g;
+  let match;
+
+  while ((match = assetPattern.exec(html)) !== null) {
+    urls.add(match[1]);
+  }
+
+  return [...urls];
+};
+
+const cacheAppDocument = async (response) => {
+  const html = await response.clone().text();
+  const cache = await caches.open(CACHE_NAME);
+
+  const assetUrls = getAssetUrlsFromHtml(html);
+  if (assetUrls.length > 0) {
+    const assetResults = await Promise.all(
+      assetUrls.map((url) =>
+        fetch(url, { cache: 'reload' })
+          .then((assetResponse) => {
+            if (!isAssetResponseValid(assetResponse, new URL(url, self.location.origin).pathname)) {
+              return false;
+            }
+
+            return cache.put(url, assetResponse).then(() => true);
+          })
+          .catch(() => false)
+      )
+    );
+
+    if (assetResults.some((cached) => !cached)) return;
+  }
+
+  await Promise.all(APP_DOCUMENT_URLS.map((url) => cache.put(url, response.clone())));
+};
+
+const fetchAndCacheAppDocument = async () => {
+  const response = await fetch('/', { cache: 'reload' });
+  if (response.ok) await cacheAppDocument(response.clone());
+  return response;
+};
+
+// Install: pre-cache the static shell only. App HTML is fetched network-first
+// so it cannot point at hashed CSS/JS files that have already been replaced.
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_SHELL))
   );
   self.skipWaiting();
 });
@@ -34,10 +98,18 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
   if (!event.data || !['PRECACHE_OFFLINE_PAGE', 'PRECACHE_BASIC_PWA'].includes(event.data.type)) return;
 
+  if (event.data.type === 'PRECACHE_BASIC_PWA') {
+    event.waitUntil(
+      caches.open(CACHE_NAME)
+        .then((cache) => cache.addAll(STATIC_SHELL))
+        .then(() => fetchAndCacheAppDocument())
+        .catch(() => undefined)
+    );
+    return;
+  }
+
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) =>
-      cache.addAll(event.data.type === 'PRECACHE_BASIC_PWA' ? APP_SHELL : [OFFLINE_URL])
-    )
+    caches.open(CACHE_NAME).then((cache) => cache.addAll([OFFLINE_URL]))
   );
 });
 
@@ -56,16 +128,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Content-hashed assets (/assets/*.js, /assets/*.css) -> cache-first.
+  // Content-hashed assets (/assets/*.js, /assets/*.css) -> cache-first,
+  // but never cache SPA fallback HTML as an asset.
   if (url.pathname.startsWith('/assets/')) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
-        cache.match(event.request).then((cached) => {
-          if (cached) return cached;
+        cache.match(event.request).then(async (cached) => {
+          if (cached && isAssetResponseValid(cached, url.pathname)) return cached;
+          if (cached) await cache.delete(event.request);
+
           return fetch(event.request).then((response) => {
-            if (response.ok) cache.put(event.request, response.clone());
+            if (isAssetResponseValid(response, url.pathname)) {
+              cache.put(event.request, response.clone());
+            }
             return response;
-          });
+          }).catch(() =>
+            caches.match(event.request).then((fallback) => fallback || assetUnavailableResponse())
+          );
         })
       )
     );
@@ -79,11 +158,7 @@ self.addEventListener('fetch', (event) => {
       fetch(event.request)
         .then((response) => {
           if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put('/', copy.clone());
-              cache.put('/index.html', copy);
-            });
+            cacheAppDocument(response.clone()).catch(() => undefined);
           }
           return response;
         })
@@ -102,8 +177,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static HTML/manifest -> stale-while-revalidate.
-  if (url.pathname === '/index.html' || url.pathname === '/manifest.json' || url.pathname === OFFLINE_URL) {
+  // App HTML must stay network-first because it references content-hashed assets.
+  if (url.pathname === '/index.html') {
+    event.respondWith(
+      fetchAndCacheAppDocument()
+        .catch(() =>
+          caches.match('/index.html')
+            .then((cachedApp) => cachedApp || caches.match('/'))
+            .then((cachedApp) => cachedApp || caches.match(OFFLINE_URL))
+        )
+    );
+    return;
+  }
+
+  // Static manifest/offline page -> stale-while-revalidate.
+  if (url.pathname === '/manifest.json' || url.pathname === OFFLINE_URL) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
         cache.match(event.request).then((cached) => {
