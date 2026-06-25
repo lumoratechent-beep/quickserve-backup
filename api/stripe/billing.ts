@@ -231,6 +231,16 @@ async function reconcileStripePaymentsForRestaurant(
     );
 
     if (periodEnd) {
+      let localPeriodStart = periodStart;
+      let localPeriodEnd = periodEnd;
+      const localEndMs = sub?.current_period_end ? new Date(sub.current_period_end).getTime() : NaN;
+      const stripeEndMs = new Date(periodEnd).getTime();
+
+      if (!Number.isNaN(localEndMs) && !Number.isNaN(stripeEndMs) && localEndMs > stripeEndMs) {
+        localPeriodStart = sub?.current_period_start || periodStart;
+        localPeriodEnd = sub.current_period_end;
+      }
+
       const { error } = await supabase
         .from('subscriptions')
         .update({
@@ -238,8 +248,8 @@ async function reconcileStripePaymentsForRestaurant(
           stripe_subscription_id: activeSubscription.id,
           plan_id: stripePlanId,
           billing_interval: stripeInterval,
-          current_period_start: periodStart,
-          current_period_end: periodEnd,
+          current_period_start: localPeriodStart,
+          current_period_end: localPeriodEnd,
           cancel_at_period_end: activeSubscription.cancel_at_period_end,
           pending_plan_id: null,
           pending_billing_interval: null,
@@ -262,7 +272,7 @@ async function reconcileStripePaymentsForRestaurant(
         .update({ kitchen_enabled: stripePlanId === 'pro_plus' })
         .eq('id', restaurantId);
 
-      repairedPeriodEnd = periodEnd;
+      repairedPeriodEnd = localPeriodEnd;
       updated = true;
     }
   }
@@ -396,9 +406,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .filter(inv => inv.status === 'paid')
           .map(inv => {
             const lineDesc = inv.lines.data[0]?.description;
+            const paidAt = inv.status_transitions?.paid_at || inv.created;
             return {
               id: inv.id,
-              date: inv.created ? new Date(inv.created * 1000).toISOString() : '',
+              date: paidAt ? new Date(paidAt * 1000).toISOString() : '',
               description: lineDesc || inv.description || 'Subscription payment',
               amount: (inv.amount_paid || 0) / 100,
               invoiceUrl: inv.invoice_pdf || inv.hosted_invoice_url || null,
@@ -408,7 +419,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Fetch paid charges that are not tied to invoices (e.g. Checkout payment mode plan changes)
         const charges = await stripe.charges.list({ customer: customerId, limit: 50 });
         const chargeEntries = charges.data
-          .filter(ch => ch.paid && ch.status === 'succeeded' && (ch.metadata?.change_type || ch.metadata?.plan_id))
+          .filter(ch =>
+            ch.paid
+            && ch.status === 'succeeded'
+            && !(ch as any).invoice
+            && (ch.metadata?.change_type || ch.metadata?.plan_id)
+          )
           .map(ch => {
             const changeType = ch.metadata?.change_type;
             const planId = ch.metadata?.plan_id;
@@ -446,6 +462,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }));
           }
         }
+
+        const stripeReferenceCodes = new Set([
+          ...invoiceEntries.map(entry => `STRIPE-${entry.id}`),
+          ...chargeEntries.map(entry => `STRIPE-${entry.id}`),
+        ]);
+        localEntries = localEntries.filter(entry => (
+          !entry.referenceCode || !stripeReferenceCodes.has(entry.referenceCode)
+        ));
 
         const result = [...invoiceEntries, ...chargeEntries, ...localEntries]
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());

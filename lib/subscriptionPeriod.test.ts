@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { calculateNextSubscriptionPeriod } from './subscriptionPeriod';
+import { calculateNextSubscriptionPeriod, calculatePaidSubscriptionPeriod } from './subscriptionPeriod';
 
 test('extends an active monthly plan from its future expiry', () => {
   const now = new Date('2026-06-12T01:01:04.333Z');
@@ -32,4 +32,14 @@ test('uses the renewal time when no valid expiry exists', () => {
 
   assert.equal(periodStart.toISOString(), '2026-06-12T01:01:04.333Z');
   assert.equal(periodEnd.toISOString(), '2027-06-12T01:01:04.333Z');
+});
+
+test('starts a paid monthly Stripe retry from the actual paid time', () => {
+  const { periodStart, periodEnd } = calculatePaidSubscriptionPeriod(
+    '2026-06-25T14:30:00.000Z',
+    false
+  );
+
+  assert.equal(periodStart.toISOString(), '2026-06-25T14:30:00.000Z');
+  assert.equal(periodEnd.toISOString(), '2026-07-25T14:30:00.000Z');
 });

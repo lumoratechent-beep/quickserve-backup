@@ -3,7 +3,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-import { calculateNextSubscriptionPeriod } from '../../lib/subscriptionPeriod.js';
+import { calculateNextSubscriptionPeriod, calculatePaidSubscriptionPeriod } from '../../lib/subscriptionPeriod.js';
 import { upsertSubscriptionPayment } from '../../lib/subscriptionPayments.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
@@ -33,6 +33,22 @@ function getStripeSubscriptionIdFromInvoice(invoice: Stripe.Invoice): string | n
   if (typeof invoiceAny.subscription === 'string') return invoiceAny.subscription;
   if (invoiceAny.subscription?.id) return invoiceAny.subscription.id;
   return null;
+}
+
+function normalizeStripeBillingInterval(value: string | null | undefined): 'monthly' | 'annual' {
+  return value === 'annual' || value === 'year' ? 'annual' : 'monthly';
+}
+
+function getDateMs(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.getTime();
+}
+
+function getInvoicePaidAt(invoice: Stripe.Invoice, event: Stripe.Event): Date {
+  const paidAt = invoice.status_transitions?.paid_at;
+  if (paidAt) return new Date(paidAt * 1000);
+  return new Date(event.created * 1000);
 }
 
 async function recordStripeBillingIncome(input: {
@@ -336,14 +352,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Also update plan_id from metadata so the webhook acts as a safety net
         const planId = subscription.metadata?.plan_id;
+        const periodPatch: Record<string, any> = {
+          current_period_start: periodStart,
+          current_period_end: periodEnd,
+        };
+
+        if ((subscription.status === 'active' || subscription.status === 'trialing') && periodEnd) {
+          const { data: currentSub } = await supabase
+            .from('subscriptions')
+            .select('current_period_start, current_period_end')
+            .eq('restaurant_id', restaurantId)
+            .maybeSingle();
+
+          const currentEndMs = getDateMs(currentSub?.current_period_end || null);
+          const stripeEndMs = getDateMs(periodEnd);
+
+          if (currentEndMs && stripeEndMs && currentEndMs > stripeEndMs) {
+            periodPatch.current_period_start = currentSub?.current_period_start || periodStart;
+            periodPatch.current_period_end = currentSub?.current_period_end;
+          }
+        }
 
         await supabase
           .from('subscriptions')
           .update({
             status: statusMap[subscription.status] || subscription.status,
             ...(planId ? { plan_id: planId } : {}),
-            current_period_start: periodStart,
-            current_period_end: periodEnd,
+            ...periodPatch,
             cancel_at_period_end: subscription.cancel_at_period_end,
             ...(subscription.status === 'active' || subscription.status === 'trialing' ? ACCESS_UNLOCK_PATCH : {}),
             updated_at: new Date().toISOString(),
@@ -406,19 +441,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ? new Date(subItem.current_period_end * 1000).toISOString()
           : null;
         const planId = subscription.metadata?.plan_id;
-        const billingInterval = subscription.metadata?.billing_interval
+        const rawBillingInterval = subscription.metadata?.billing_interval
           || subItem?.price?.recurring?.interval
           || 'monthly';
+        const billingInterval = normalizeStripeBillingInterval(rawBillingInterval);
+        let localPeriodStart = periodStart;
+        let localPeriodEnd = periodEnd;
+
+        if ((invoice.amount_paid || 0) > 0) {
+          const paidPeriod = calculatePaidSubscriptionPeriod(
+            getInvoicePaidAt(invoice, event),
+            billingInterval === 'annual'
+          );
+          localPeriodStart = paidPeriod.periodStart.toISOString();
+          localPeriodEnd = paidPeriod.periodEnd.toISOString();
+        }
 
         const { error: subError } = await supabase
           .from('subscriptions')
           .update({
             status: statusMap[subscription.status] || subscription.status,
             ...(planId ? { plan_id: planId } : {}),
-            billing_interval: billingInterval === 'year' ? 'annual' : billingInterval,
+            billing_interval: billingInterval,
             stripe_subscription_id: subscription.id,
-            current_period_start: periodStart,
-            current_period_end: periodEnd,
+            current_period_start: localPeriodStart,
+            current_period_end: localPeriodEnd,
             cancel_at_period_end: subscription.cancel_at_period_end,
             ...ACCESS_UNLOCK_PATCH,
             updated_at: new Date().toISOString(),
