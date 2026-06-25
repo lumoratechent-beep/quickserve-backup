@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { isSubscriptionLockDue } from '../../lib/subscriptionAccess.js';
 import { calculateNextSubscriptionPeriod } from '../../lib/subscriptionPeriod.js';
+import { upsertSubscriptionPayment } from '../../lib/subscriptionPayments.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
@@ -559,7 +560,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             status: 'completed',
             description: `Subscription ${walletActionLabel.toLowerCase()} - ${walletPlanName} (${walletIntervalLabel})`,
           })
-          .select('reference_code')
+          .select('id, reference_code')
           .single();
 
         if (walletBillingInsertError) {
@@ -572,7 +573,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .eq('id', walletRestId)
           .single();
 
-        await supabase.from('billing_records').insert({
+        const { data: walletBillingRecord } = await supabase.from('billing_records').insert({
           restaurant_id: walletRestId,
           description: `QuickServe Wallet ${walletActionLabel} (${walletIntervalLabel})`,
           amount: walletChargeAmount,
@@ -584,6 +585,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           restaurant_name: walletRest?.name || 'Unknown',
           created_by: 'wallet',
           reference_code: walletBillingTransaction?.reference_code || null,
+        }).select('id').maybeSingle();
+
+        await upsertSubscriptionPayment(supabase, {
+          restaurantId: walletRestId,
+          provider: 'wallet',
+          status: 'succeeded',
+          providerReference: walletBillingTransaction?.reference_code || walletBillingTransaction?.id || `wallet-${Date.now()}`,
+          billingRecordId: walletBillingRecord?.id || null,
+          walletTransactionId: walletBillingTransaction?.id || null,
         });
 
         const updatedWalletBalance = await getWalletBalance(walletRestId);
@@ -653,7 +663,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           type: 'billing',
           status: 'completed',
           description: `Subscription renewal - ${planName} (${intervalLabel})`,
-        }).select('reference_code').single();
+        }).select('id, reference_code').single();
 
         if (walletBillingInsertError) {
           return res.status(500).json({ error: walletBillingInsertError.message || 'Failed to record wallet billing transaction.' });
@@ -665,7 +675,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .eq('id', renewRestaurantId)
           .single();
 
-        await supabase.from('billing_records').insert({
+        const { data: renewBillingRecord } = await supabase.from('billing_records').insert({
           restaurant_id: renewRestaurantId,
           description: `QuickServe Wallet Payment (${intervalLabel})`,
           amount: grossCharged,
@@ -677,6 +687,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           restaurant_name: renewRestaurant?.name || 'Unknown',
           created_by: 'wallet',
           reference_code: walletBillingTransaction?.reference_code || null,
+        }).select('id').maybeSingle();
+
+        await upsertSubscriptionPayment(supabase, {
+          restaurantId: renewRestaurantId,
+          provider: 'wallet',
+          status: 'succeeded',
+          providerReference: walletBillingTransaction?.reference_code || walletBillingTransaction?.id || `wallet-${Date.now()}`,
+          billingRecordId: renewBillingRecord?.id || null,
+          walletTransactionId: walletBillingTransaction?.id || null,
         });
 
         const balance = await getWalletBalance(renewRestaurantId);
@@ -821,7 +840,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { data: renewRest } = await supabase
           .from('restaurants').select('name').eq('id', renewRestId).single();
 
-        await supabase.from('billing_records').insert({
+        const { data: stripeRenewBillingRecord } = await supabase.from('billing_records').insert({
           restaurant_id: renewRestId,
           description: chargeDescription,
           amount: grossCharged,
@@ -832,6 +851,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           plan_id: planId,
           restaurant_name: renewRest?.name || 'Unknown',
           created_by: 'stripe',
+          reference_code: `STRIPE-${paidInvoice.id}`,
+        }).select('id').maybeSingle();
+
+        await upsertSubscriptionPayment(supabase, {
+          restaurantId: renewRestId,
+          provider: 'stripe',
+          status: 'succeeded',
+          providerReference: paidInvoice.id,
+          billingRecordId: stripeRenewBillingRecord?.id || null,
         });
 
         return res.status(200).json({
@@ -1242,6 +1270,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
         }
 
+        await upsertSubscriptionPayment(supabase, {
+          restaurantId: dnRestId,
+          provider: 'duitnow',
+          status: 'pending',
+          providerReference: dnPayment.reference_code || `duitnow-${dnPayment.id}`,
+          duitnowPaymentId: dnPayment.id,
+        });
+
         return res.status(200).json({
           success: true,
           payment: dnPayment,
@@ -1393,6 +1429,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           const dnFinalizeErr = await finalizeDuitNowReview();
           if (dnFinalizeErr) return res.status(500).json({ error: 'Subscription was updated, but the payment review could not be finalized.' });
+
+          await upsertSubscriptionPayment(supabase, {
+            restaurantId: dnPay.restaurant_id,
+            provider: 'duitnow',
+            status: 'rejected',
+            providerReference: dnPay.reference_code || `duitnow-${dnPay.id}`,
+            duitnowPaymentId: dnPay.id,
+          });
         }
 
         if (dnDecision === 'approved') {
@@ -1463,6 +1507,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               .select('id')
               .eq('duitnow_payment_id', dnPay.id)
               .maybeSingle();
+            let dnBillingRecordId: string | null = existingDuitNowIncome?.id || null;
 
             if (dnIncomeLookupErr && isMissingColumnError(dnIncomeLookupErr, ['duitnow_payment_id'])) {
               const { data: existingIncome } = dnPay.reference_code
@@ -1474,11 +1519,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : { data: null };
 
               if (existingIncome?.length) {
+                dnBillingRecordId = existingIncome[0]?.id || null;
                 dnIncomeErr = null;
               } else {
                 const fallbackIncomeInsert = await supabase
                   .from('billing_records')
-                  .insert(dnIncomeRecord);
+                  .insert(dnIncomeRecord)
+                  .select('id')
+                  .maybeSingle();
+                dnBillingRecordId = fallbackIncomeInsert.data?.id || null;
                 dnIncomeErr = fallbackIncomeInsert.error;
               }
             } else if (dnIncomeLookupErr) {
@@ -1489,7 +1538,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 .insert({
                   ...dnIncomeRecord,
                   duitnow_payment_id: dnPay.id,
-                });
+                })
+                .select('id')
+                .maybeSingle();
+              dnBillingRecordId = fallbackIncomeInsert.data?.id || null;
               dnIncomeErr = isDuplicateKeyError(fallbackIncomeInsert.error) ? null : fallbackIncomeInsert.error;
             }
 
@@ -1521,6 +1573,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const dnFinalizeErr = await finalizeDuitNowReview();
             if (dnFinalizeErr) return res.status(500).json({ error: 'Subscription was activated, but the payment review could not be finalized.' });
+
+            await upsertSubscriptionPayment(supabase, {
+              restaurantId: dnApproveRestId,
+              provider: 'duitnow',
+              status: 'approved',
+              providerReference: dnPay.reference_code || `duitnow-${dnPay.id}`,
+              billingRecordId: dnBillingRecordId,
+              duitnowPaymentId: dnPay.id,
+            });
 
             return res.status(200).json({
               success: true,

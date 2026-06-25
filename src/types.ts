@@ -319,6 +319,21 @@ export interface SubscriptionExpiryHistory {
 }
 
 export type DuitNowPaymentStatus = 'pending' | 'approved' | 'rejected';
+export type SubscriptionPaymentProvider = 'stripe' | 'duitnow' | 'wallet';
+export type SubscriptionPaymentStatus = 'pending' | 'succeeded' | 'failed' | 'approved' | 'rejected' | 'cancelled';
+
+export interface SubscriptionPayment {
+  id: string;
+  restaurant_id: string;
+  provider: SubscriptionPaymentProvider;
+  status: SubscriptionPaymentStatus;
+  provider_reference: string;
+  billing_record_id?: string | null;
+  wallet_transaction_id?: string | null;
+  duitnow_payment_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface DuitNowPayment {
   id: string;

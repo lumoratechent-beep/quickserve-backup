@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { calculateNextSubscriptionPeriod } from '../../lib/subscriptionPeriod.js';
+import { upsertSubscriptionPayment } from '../../lib/subscriptionPayments.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
@@ -21,6 +22,7 @@ const ACCESS_UNLOCK_PATCH = {
   access_lock_at: null,
   access_locked_at: null,
 };
+const PLAN_NAMES: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
 
 async function getWalletBalance(restaurantId: string): Promise<number> {
   const { data, error } = await supabase
@@ -37,6 +39,58 @@ async function getWalletBalance(restaurantId: string): Promise<number> {
     if (transaction.type === 'cashout' || transaction.type === 'billing') return total - amount;
     return total;
   }, 0);
+}
+
+async function recordStripeBillingIncome(input: {
+  restaurantId: string;
+  planId?: string | null;
+  amount: number;
+  description: string;
+  stripeObjectId: string;
+}): Promise<string | null> {
+  if (!input.amount || input.amount <= 0 || !input.stripeObjectId) return null;
+
+  const referenceCode = `STRIPE-${input.stripeObjectId}`;
+  const { data: existingRecord, error: lookupError } = await supabase
+    .from('billing_records')
+    .select('id')
+    .eq('reference_code', referenceCode)
+    .maybeSingle();
+
+  if (lookupError) {
+    throw new Error(lookupError.message || 'Failed to check existing billing record.');
+  }
+  if (existingRecord) return existingRecord.id;
+
+  const grossAmount = Math.round(input.amount * 100) / 100;
+  const stripeFee = Math.round((grossAmount * 0.03 + 1) * 100) / 100;
+  const netAmount = Math.round((grossAmount - stripeFee) * 100) / 100;
+
+  const { data: restRow } = await supabase
+    .from('restaurants')
+    .select('name')
+    .eq('id', input.restaurantId)
+    .single();
+
+  const { data: billingRecord, error: insertError } = await supabase.from('billing_records').insert({
+    restaurant_id: input.restaurantId,
+    description: input.description,
+    amount: grossAmount,
+    type: 'stripe',
+    gross: grossAmount,
+    fee: stripeFee,
+    net: netAmount,
+    plan_id: input.planId || 'basic',
+    restaurant_name: restRow?.name || 'Unknown',
+    created_by: 'stripe',
+    reference_code: referenceCode,
+  }).select('id').maybeSingle();
+
+  if (insertError) {
+    throw new Error(insertError.message || 'Failed to record Stripe billing income.');
+  }
+
+  return billingRecord?.id || null;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -163,9 +217,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       subUpdate.restaurant_id = restaurantId;
-      await supabase
+      const { error: subscriptionUpdateError } = await supabase
         .from('subscriptions')
         .upsert(subUpdate, { onConflict: 'restaurant_id' });
+      if (subscriptionUpdateError) {
+        throw new Error(subscriptionUpdateError.message || 'Failed to activate subscription.');
+      }
 
       await supabase
         .from('users')
@@ -184,7 +241,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           },
         });
       }
+
+      if ((session.amount_total || 0) > 0) {
+        await upsertSubscriptionPayment(supabase, {
+          restaurantId,
+          provider: 'stripe',
+          status: 'succeeded',
+          providerReference: session.id,
+        });
+      }
     } else if (session.mode === 'payment') {
+      if (session.payment_status !== 'paid') {
+        return res.status(409).json({
+          error: 'Checkout session completed but payment is not marked paid yet.',
+          paymentStatus: session.payment_status,
+        });
+      }
+
       const renewFrom = session.metadata?.renew_from;
       const changeType = session.metadata?.change_type || 'renew';
       const renewDate = renewFrom ? new Date(renewFrom) : null;
@@ -197,7 +270,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (isScheduledDowngrade) {
         // Scheduled downgrade: only set pending fields, don't touch current plan or period
-        await supabase
+        const { error: scheduledUpdateError } = await supabase
           .from('subscriptions')
           .update({
             pending_plan_id: planId || null,
@@ -207,6 +280,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             updated_at: new Date().toISOString(),
           })
           .eq('restaurant_id', restaurantId);
+        if (scheduledUpdateError) {
+          throw new Error(scheduledUpdateError.message || 'Failed to schedule plan change.');
+        }
       } else {
         // Immediate change (upgrade, renew, or expired downgrade)
         const { periodStart, periodEnd } = calculateNextSubscriptionPeriod(
@@ -229,10 +305,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (planId) subscriptionUpdate.plan_id = planId;
 
         subscriptionUpdate.restaurant_id = restaurantId;
-        await supabase
+        const { error: subscriptionUpdateError } = await supabase
           .from('subscriptions')
           .upsert(subscriptionUpdate, { onConflict: 'restaurant_id' });
+        if (subscriptionUpdateError) {
+          throw new Error(subscriptionUpdateError.message || 'Failed to activate subscription renewal.');
+        }
       }
+
+      const grossAmount = (session.amount_total || 0) / 100;
+      const changeLabel = changeType === 'upgrade'
+        ? 'Upgrade'
+        : changeType === 'downgrade'
+          ? 'Downgrade'
+          : 'Renewal';
+      const intervalLabel = billingInterval === 'annual' ? 'Annual' : 'Monthly';
+      const billingRecordId = await recordStripeBillingIncome({
+        restaurantId,
+        planId: planId || 'basic',
+        amount: grossAmount,
+        description: `Stripe ${PLAN_NAMES[planId || 'basic'] || planId || 'Plan'} ${changeLabel} (${intervalLabel})`,
+        stripeObjectId: session.id,
+      });
+      await upsertSubscriptionPayment(supabase, {
+        restaurantId,
+        provider: 'stripe',
+        status: 'succeeded',
+        providerReference: session.id,
+        billingRecordId,
+      });
     }
 
     if (shouldUpdateFeaturesNow && planId && PLAN_KITCHEN_MAP[planId]) {
