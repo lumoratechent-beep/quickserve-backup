@@ -265,7 +265,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
     }
 
     // Footer
-    const pageCount = doc.getNumberOfPages();
+    const pageCount = (doc as any).getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.setFontSize(7); doc.setTextColor(160, 160, 160);
