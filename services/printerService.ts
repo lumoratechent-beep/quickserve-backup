@@ -125,10 +125,16 @@ export interface SavedPrinter {
   cashDrawer: boolean;
   printJobs: PrintJobType[];
   kitchenCategories: string[];
+  /** Tie this printer to a specific kitchen department name */
+  departmentId?: string;
   numberOfCopies: number;
   deviceId?: string;
   deviceName?: string;
   ipAddress?: string;
+  /** IP/hostname:port of the local print-server.js proxy (e.g. "192.168.1.50:3001") */
+  printServerUrl?: string;
+  /** Network printer port (usually 9100 for raw ESC/POS over TCP) */
+  printerPort?: number;
   // Advanced settings (editable when model is 'other')
   printMode: PrintMode;
   printWidth: number;
@@ -665,7 +671,7 @@ class PrinterService {
   }
 
   private hasWritableTransport(): boolean {
-    return (this.sunmiConnected && this.isSunmiBridgeAvailable()) || !!this.characteristic;
+    return (this.sunmiConnected && this.isSunmiBridgeAvailable()) || !!this.characteristic || !!this.networkPrinterConfig;
   }
 
   private async connectSunmiBridge(): Promise<boolean> {
@@ -755,6 +761,91 @@ class PrinterService {
     throw new Error('SUNMI bridge is missing a raw ESC/POS print method');
   }
 
+
+  // ─── Network Printer (LAN via print-server.js proxy) ─────────────────
+  // Sends data via HTTP POST to the local print-server.js which forwards
+  // to the printer via raw TCP on port 9100 (or custom port).
+
+  /** Active network printer config — set before printing via setActiveNetworkPrinter() */
+  private networkPrinterConfig: { printServerUrl: string; printerIp: string; printerPort: number } | null = null;
+
+  /**
+   * Set the active network printer for LAN printing.
+   * Call this before printReceipt/printKitchenTicket when using wifi connection type.
+   */
+  setActiveNetworkPrinter(config: { printServerUrl: string; printerIp: string; printerPort?: number }): void {
+    this.networkPrinterConfig = {
+      printServerUrl: config.printServerUrl,
+      printerIp: config.printerIp,
+      printerPort: config.printerPort || 9100,
+    };
+  }
+
+  /** Clear the active network printer config */
+  clearActiveNetworkPrinter(): void {
+    this.networkPrinterConfig = null;
+  }
+
+  /** Returns true if a network printer is configured */
+  hasNetworkPrinter(): boolean {
+    return this.networkPrinterConfig !== null;
+  }
+
+  /**
+   * Send ESC/POS data to a network printer through the local print-server.js proxy.
+   * @param printServerUrl - e.g. "http://192.168.1.50:3001"
+   * @param printerIp - The printer's IP address on the LAN
+   * @param printerPort - The printer's TCP port (default 9100)
+   * @param data - Raw ESC/POS Uint8Array to print
+   */
+  async sendToNetworkPrinter(
+    printServerUrl: string,
+    printerIp: string,
+    data: Uint8Array,
+    printerPort: number = 9100,
+  ): Promise<boolean> {
+    const base64Data = this.bytesToBase64(data);
+
+    try {
+      const response = await fetch(`${printServerUrl}/print`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ip: printerIp,
+          port: printerPort,
+          data: base64Data,
+        }),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error(errBody.error || `Print server returned ${response.status}`);
+      }
+
+      const result = await response.json();
+      return result.success === true;
+    } catch (error) {
+      console.error('[NetworkPrinter] Error:', error);
+      throw error; // Let caller handle
+    }
+  }
+
+  /**
+   * Check if a network printer is reachable by calling the print server health endpoint.
+   */
+  async checkNetworkPrinterHealth(printServerUrl: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${printServerUrl}/health`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!response.ok) return false;
+      const data = await response.json();
+      return data.status === 'ok';
+    } catch {
+      return false;
+    }
+  }
 
   // ─── Connection ─────────────────────────────────────────────────────────
 
@@ -963,11 +1054,21 @@ class PrinterService {
   // ─── Write Helpers ──────────────────────────────────────────────────────
 
   private async writeData(data: Uint8Array): Promise<void> {
+    // Network printer (LAN via print-server.js proxy)
+    if (this.networkPrinterConfig) {
+      const { printServerUrl, printerIp, printerPort } = this.networkPrinterConfig;
+      const ok = await this.sendToNetworkPrinter(printServerUrl, printerIp, data, printerPort);
+      if (!ok) throw new Error('Network printer failed');
+      return;
+    }
+
+    // SUNMI built-in printer
     if (this.sunmiConnected && this.isSunmiBridgeAvailable()) {
       await this.writeSunmiData(data);
       return;
     }
 
+    // Bluetooth / BLE printer
     if (!this.characteristic) throw new Error('No writable characteristic');
 
     for (let i = 0; i < data.length; i += this.bleChunkSize) {
@@ -1055,6 +1156,49 @@ class PrinterService {
   }
 
 
+  // ─── Auto-detect network printer from saved printers ───────────────────
+
+  /**
+   * Looks up saved printers from localStorage and auto-configures the
+   * network printer if any saved printer has connectionType === 'wifi'
+   * with a valid ipAddress and printServerUrl.
+   * Call this before printReceipt / printKitchenTicket.
+   */
+  private autoConfigureNetworkPrinter(): void {
+    // If already configured, skip
+    if (this.networkPrinterConfig) return;
+
+    try {
+      // Try all localStorage keys matching the pattern
+      const keys = Object.keys(localStorage);
+      for (const key of keys) {
+        if (!key.startsWith('printers_')) continue;
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        let printers: SavedPrinter[];
+        try { printers = JSON.parse(raw); } catch { continue; }
+        if (!Array.isArray(printers)) continue;
+
+        for (const p of printers) {
+          if (
+            p.connectionType === 'wifi' &&
+            p.ipAddress &&
+            p.printServerUrl
+          ) {
+            this.networkPrinterConfig = {
+              printServerUrl: p.printServerUrl,
+              printerIp: p.ipAddress,
+              printerPort: p.printerPort || 9100,
+            };
+            return; // Use first wifi printer found
+          }
+        }
+      }
+    } catch {
+      // Silently fail — network printing won't work but BLE/SUNMI will
+    }
+  }
+
   // ─── Receipt Printing ───────────────────────────────────────────────────
 
   async printReceipt(order: any, restaurant: any, options?: ReceiptPrintOptions): Promise<boolean> {
@@ -1075,6 +1219,8 @@ class PrinterService {
   }
 
   private async executePrint(order: any, restaurant: any, options?: ReceiptPrintOptions): Promise<boolean> {
+    // Auto-configure network printer if a wifi printer is saved
+    this.autoConfigureNetworkPrinter();
     this.isPrinting = true;
     try {
       if (!this.hasWritableTransport()) throw new Error('No printer connection');

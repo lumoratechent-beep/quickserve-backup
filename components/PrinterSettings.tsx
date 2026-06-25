@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Printer, Bluetooth, Plus, Trash2, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, X, Wifi, Usb, Settings, FileText, UtensilsCrossed, RotateCw, ListOrdered, Smartphone } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Printer, Bluetooth, Plus, Trash2, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, X, Wifi, Usb, Settings, FileText, UtensilsCrossed, RotateCw, ListOrdered, Smartphone, Download, HelpCircle, Building2 } from 'lucide-react';
 import printerService, { PrinterDevice, SavedPrinter, ReceiptConfig, OrderListConfig, KitchenTicketConfig, DEFAULT_RECEIPT_CONFIG, DEFAULT_ORDER_LIST_CONFIG, DEFAULT_KITCHEN_TICKET_CONFIG, createDefaultPrinter, PRINTER_MODELS, applyModelPreset } from '../services/printerService';
 import type { PaperSize, ConnectionType, PrintDensity, PrintJobType, PrintMode, TextSize, TextFont, TextAlignment } from '../services/printerService';
+import { KitchenDepartment } from '../src/types';
 
 interface Props {
   restaurantId: string;
   restaurantName: string;
   categories?: string[];
+  /** Kitchen departments for department-to-printer routing */
+  departments?: KitchenDepartment[];
   savedPrinters?: SavedPrinter[];
   receiptConfig?: ReceiptConfig;
   orderListConfig?: OrderListConfig;
@@ -20,12 +23,13 @@ interface Props {
   onPrintersChange?: (printers: SavedPrinter[]) => void;
 }
 
-type SettingsTab = 'printers' | 'receipts' | 'orderList' | 'kitchen';
+type SettingsTab = 'printers' | 'receipts' | 'orderList' | 'kitchen' | 'help';
 
 const PrinterSettings: React.FC<Props> = ({
   restaurantId,
   restaurantName,
   categories = [],
+  departments,
   savedPrinters: propPrinters,
   receiptConfig: propReceiptConfig,
   orderListConfig: propOrderListConfig,
@@ -61,6 +65,7 @@ const PrinterSettings: React.FC<Props> = ({
   const [editingPrinterId, setEditingPrinterId] = useState<string | null>(null);
   const [printerForm, setPrinterForm] = useState<SavedPrinter>(createDefaultPrinter());
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  const printServerRef = useRef<HTMLTextAreaElement>(null);
 
   const normalizeReceiptConfig = (config: Partial<ReceiptConfig> | null | undefined): ReceiptConfig => {
     const legacyAddress = typeof (config as (Partial<ReceiptConfig> & { businessAddress?: string }) | null | undefined)?.businessAddress === 'string'
@@ -262,6 +267,29 @@ const PrinterSettings: React.FC<Props> = ({
     savePrinters(savedPrinters.filter(p => p.id !== id));
   };
 
+  // ─── Download print-server.js ──────────────────────────────────
+  const handleDownloadPrintServer = () => {
+    // Fetch the file and trigger download
+    fetch('/print-server.js')
+      .then(res => res.text())
+      .then(content => {
+        const blob = new Blob([content], { type: 'application/javascript' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'print-server.js';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      })
+      .catch(() => {
+        // Fallback: show content in textarea for manual copy
+        setErrorMessage('Could not download. Copy the content from the Help tab.');
+        setTimeout(() => setErrorMessage(''), 5000);
+      });
+  };
+
   // ─── Receipt & Kitchen Config save ─────────────────────────────
 
   const updateReceiptConfig = <K extends keyof ReceiptConfig>(key: K, value: ReceiptConfig[K]) => {
@@ -375,6 +403,14 @@ const PrinterSettings: React.FC<Props> = ({
       <div className="pt-4">
         <div className="flex items-center mb-3">
           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Printers</p>
+          <div className="flex-1" />
+          <button
+            onClick={handleDownloadPrintServer}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-[8px] font-black text-gray-500 hover:text-orange-500 transition-all"
+            title="Download print-server.js for LAN printing"
+          >
+            <Download size={10} /> Proxy Script
+          </button>
         </div>
 
         {savedPrinters.length === 0 && !isAddingPrinter && (
@@ -596,17 +632,63 @@ const PrinterSettings: React.FC<Props> = ({
                 </div>
               )}
 
-              {/* Ethernet: IP Address */}
+              {/* Ethernet: Network Printer via Print Server */}
               {printerForm.connectionType === 'wifi' && (
-                <div className="mt-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Printer IP Address</label>
-                  <input
-                    type="text"
-                    value={printerForm.ipAddress || ''}
-                    onChange={e => setPrinterForm(f => ({ ...f, ipAddress: e.target.value }))}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                    placeholder="192.168.1.100"
-                  />
+                <div className="mt-2 space-y-2">
+                  <div>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Server URL (required)</label>
+                    <input
+                      type="text"
+                      value={printerForm.printServerUrl || ''}
+                      onChange={e => setPrinterForm(f => ({ ...f, printServerUrl: e.target.value }))}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white font-mono"
+                      placeholder="http://192.168.1.50:3001"
+                    />
+                    <p className="text-[8px] text-gray-400 mt-1">IP:port of the device running print-server.js on your LAN</p>
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Printer IP Address</label>
+                    <input
+                      type="text"
+                      value={printerForm.ipAddress || ''}
+                      onChange={e => setPrinterForm(f => ({ ...f, ipAddress: e.target.value }))}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                      placeholder="192.168.1.100"
+                    />
+                    <p className="text-[8px] text-gray-400 mt-1">IP address of the thermal printer on your LAN</p>
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Printer Port</label>
+                    <input
+                      type="number"
+                      value={printerForm.printerPort || 9100}
+                      onChange={e => setPrinterForm(f => ({ ...f, printerPort: Number(e.target.value) || 9100 }))}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                      placeholder="9100"
+                    />
+                    <p className="text-[8px] text-gray-400 mt-1">Default is 9100 for ESC/POS over TCP</p>
+                  </div>
+                  {printerForm.printServerUrl && (
+                    <button
+                      onClick={async () => {
+                        setErrorMessage('');
+                        try {
+                          const ok = await printerService.checkNetworkPrinterHealth(printerForm.printServerUrl!);
+                          if (ok) {
+                            setErrorMessage('Print server reachable!');
+                            setTimeout(() => setErrorMessage(''), 3000);
+                          } else {
+                            setErrorMessage('Cannot reach print server. Check the URL and ensure print-server.js is running.');
+                          }
+                        } catch {
+                          setErrorMessage('Connection check failed.');
+                        }
+                      }}
+                      className="w-full py-2 bg-gray-100 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold text-gray-600 dark:text-gray-300 hover:border-orange-500 transition-all"
+                    >
+                      Test Connection
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -668,132 +750,43 @@ const PrinterSettings: React.FC<Props> = ({
               </SettingRow>
             </div>
 
-            {/* ── Advanced Settings ── */}
-            <div className="border-t dark:border-gray-700 pt-3">
-              <button
-                onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
-                className="flex items-center gap-2 w-full text-left"
-              >
-                {showAdvancedSettings ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
-                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Advanced Settings</span>
-              </button>
-
-              {showAdvancedSettings && (
-                <div className="mt-3 space-y-3">
-                  {/* Print Mode */}
-                  <div>
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Mode</label>
-                    <div className="flex gap-2">
-                      {(['text', 'graphic'] as PrintMode[]).map(mode => (
-                        <button
-                          key={mode}
-                          onClick={() => setPrinterForm(f => ({ ...f, printMode: mode }))}
-                          className={`flex-1 py-2 rounded-lg text-[10px] font-black capitalize border transition-all ${
-                            printerForm.printMode === mode
-                              ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700 text-orange-600'
-                              : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500'
-                          }`}
-                        >
-                          {mode}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Print Width */}
-                  <div>
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Width (dots)</label>
-                    <input
-                      type="number"
-                      value={printerForm.printWidth}
-                      onChange={e => setPrinterForm(f => ({ ...f, printWidth: Number(e.target.value) || 384 }))}
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                      placeholder="384 (58mm) or 576 (80mm)"
-                    />
-                  </div>
-
-                  {/* Print Resolution */}
-                  <div>
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Resolution (DPI)</label>
-                    <select
-                      value={printerForm.printResolution}
-                      onChange={e => setPrinterForm(f => ({ ...f, printResolution: Number(e.target.value) }))}
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+            {/* ── Department Assignment ── */}
+            {departments && departments.length > 0 && (
+              <div>
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">
+                  <Building2 size={12} className="inline mr-1" />
+                  Kitchen Department
+                </label>
+                <p className="text-[8px] text-gray-400 mb-2">Tie this printer to a kitchen department. Kitchen tickets route to the matching printer.</p>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => setPrinterForm(f => ({ ...f, departmentId: undefined }))}
+                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
+                      !printerForm.departmentId
+                        ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700 text-orange-600'
+                        : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500'
+                    }`}
+                  >
+                    All Departments
+                  </button>
+                  {departments.map(dept => (
+                    <button
+                      key={dept.name}
+                      onClick={() => setPrinterForm(f => ({ ...f, departmentId: dept.name }))}
+                      className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
+                        printerForm.departmentId === dept.name
+                          ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700 text-orange-600'
+                          : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500'
+                      }`}
                     >
-                      <option value={180}>180 DPI</option>
-                      <option value={203}>203 DPI</option>
-                      <option value={300}>300 DPI</option>
-                    </select>
-                  </div>
-
-                  {/* ESC/POS Commands */}
-                  <div>
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Initial ESC/POS Command (hex)</label>
-                    <input
-                      type="text"
-                      value={printerForm.initCommand}
-                      onChange={e => setPrinterForm(f => ({ ...f, initCommand: e.target.value.replace(/[^0-9a-fA-F]/g, '') }))}
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-mono dark:text-white"
-                      placeholder="1B40"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Cutter ESC/POS Command (hex)</label>
-                    <input
-                      type="text"
-                      value={printerForm.cutterCommand}
-                      onChange={e => setPrinterForm(f => ({ ...f, cutterCommand: e.target.value.replace(/[^0-9a-fA-F]/g, '') }))}
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-mono dark:text-white"
-                      placeholder="1D564200"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Drawer ESC/POS Command (hex)</label>
-                    <input
-                      type="text"
-                      value={printerForm.drawerCommand}
-                      onChange={e => setPrinterForm(f => ({ ...f, drawerCommand: e.target.value.replace(/[^0-9a-fA-F]/g, '') }))}
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-mono dark:text-white"
-                      placeholder="1B70003C78"
-                    />
-                  </div>
+                      {dept.name}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </div>
-
-            {/* Print Jobs */}
-            <div>
-              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Print Jobs</label>
-              <div className="space-y-2">
-                {([
-                  { job: 'receipt' as PrintJobType, icon: FileText, label: 'Receipts', desc: 'Print customer receipts' },
-                  { job: 'kitchen' as PrintJobType, icon: UtensilsCrossed, label: 'Kitchen Tickets', desc: 'Print order tickets for kitchen' },
-                ]).map(({ job, icon: Icon, label, desc }) => (
-                  <label key={job} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={printerForm.printJobs.includes(job)}
-                      onChange={e => {
-                        setPrinterForm(f => ({
-                          ...f,
-                          printJobs: e.target.checked
-                            ? [...f.printJobs, job]
-                            : f.printJobs.filter(j => j !== job),
-                        }));
-                      }}
-                      className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
-                    />
-                    <Icon size={16} className="text-gray-400" />
-                    <div>
-                      <p className="text-xs font-black dark:text-white">{label}</p>
-                      <p className="text-[9px] text-gray-400">{desc}</p>
-                    </div>
-                  </label>
-                ))}
               </div>
-            </div>
+            )}
 
-            {/* Kitchen Categories (only if kitchen job selected) */}
+            {/* ── Kitchen Categories (only if kitchen job selected) ── */}
             {printerForm.printJobs.includes('kitchen') && categories.length > 0 && (
               <div>
                 <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Kitchen Categories</label>
@@ -1184,6 +1177,118 @@ const PrinterSettings: React.FC<Props> = ({
     </div>
   );
 
+  // ─── Render: Help Tab ──────────────────────────────────────────
+
+  const renderHelpTab = () => (
+    <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8">
+        <div>
+          <p className="text-xs font-black text-orange-500 uppercase tracking-widest">LAN Printer Setup</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">How to print over your local network.</p>
+        </div>
+        <div className="min-w-0 space-y-4">
+          {/* Step 1 */}
+          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-[10px] font-black">1</div>
+              <p className="text-xs font-black dark:text-white">Download the print proxy script</p>
+            </div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">
+              Download <strong>print-server.js</strong> and save it to the device on your LAN that will act as the print proxy.
+            </p>
+            <button
+              onClick={handleDownloadPrintServer}
+              className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
+            >
+              <Download size={14} /> Download print-server.js
+            </button>
+          </div>
+
+          {/* Step 2 */}
+          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-[10px] font-black">2</div>
+              <p className="text-xs font-black dark:text-white">Run it on a LAN device</p>
+            </div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">
+              On any PC, laptop, or Android tablet with <strong>Termux + Node.js</strong> installed:
+            </p>
+            <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed">
+              <div>node print-server.js</div>
+            </div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">
+              Keep it running in the background. Takes note of the IP shown (e.g. <code>192.168.1.50</code>).
+            </p>
+          </div>
+
+          {/* Step 3 */}
+          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-[10px] font-black">3</div>
+              <p className="text-xs font-black dark:text-white">Connect your printer via Ethernet</p>
+            </div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">
+              Connect your thermal printer's RJ45 port to your LAN switch. Find its IP address from the printer's network settings menu.
+              Most thermal printers use <strong>port 9100</strong> for raw ESC/POS data.
+            </p>
+          </div>
+
+          {/* Step 4 */}
+          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-[10px] font-black">4</div>
+              <p className="text-xs font-black dark:text-white">Add printer in QuickServe</p>
+            </div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">
+              Go to the <strong>Printers</strong> tab, click <strong>Add Printer</strong>, and select <strong>Ethernet</strong> interface. Fill in:
+            </p>
+            <ul className="text-[10px] text-gray-500 dark:text-gray-400 space-y-1 ml-4 list-disc">
+              <li><strong>Print Server URL</strong> — e.g. <code>http://192.168.1.50:3001</code></li>
+              <li><strong>Printer IP</strong> — your printer's LAN IP</li>
+              <li><strong>Printer Port</strong> — usually 9100</li>
+            </ul>
+          </div>
+
+          {/* Step 5 */}
+          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-[10px] font-black">5</div>
+              <p className="text-xs font-black dark:text-white">Assign departments & print jobs</p>
+            </div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">
+              Each printer can be assigned to a <strong>Kitchen Department</strong> (e.g. Kitchen, Drinks, Grill) so tickets route to the right printer automatically.
+              You can also assign menu categories and select Receipt / Kitchen ticket jobs. Add as many printers as you need.
+            </p>
+          </div>
+
+          {/* Topology diagram */}
+          <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-200 dark:border-blue-800">
+            <p className="text-[10px] font-black text-blue-700 dark:text-blue-400 uppercase tracking-widest mb-2">Network Topology</p>
+            <div className="text-[10px] text-blue-600 dark:text-blue-400 font-mono leading-relaxed">
+              <div>┌──────────┐    WiFi/LAN    ┌────────────────┐    LAN Cable    ┌──────────┐</div>
+              <div>│  Tablet   │ ─────────────→ │ print-server.js │ ─────────────→ │ Printer  │</div>
+              <div>│ (browser) │                │ (any LAN device)│    Port 9100   │ (RJ45)   │</div>
+              <div>└──────────┘                └────────────────┘                └──────────┘</div>
+            </div>
+          </div>
+
+          {/* Termux instructions */}
+          <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-700">
+            <p className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">Android Tablet (Termux) Setup</p>
+            <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed">
+              <div># 1. Install Termux from F-Droid (not Google Play)</div>
+              <div># 2. Install Node.js:</div>
+              <div>pkg install nodejs -y</div>
+              <div># 3. Copy print-server.js to your tablet</div>
+              <div># 4. Run the proxy:</div>
+              <div>node ~/storage/downloads/print-server.js</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   // ─── Main Render ───────────────────────────────────────────────
 
   const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
@@ -1191,6 +1296,7 @@ const PrinterSettings: React.FC<Props> = ({
     { id: 'receipts', label: 'Receipts', icon: FileText },
     { id: 'orderList', label: 'Order List', icon: ListOrdered },
     { id: 'kitchen', label: 'Kitchen', icon: UtensilsCrossed },
+    { id: 'help', label: 'Help', icon: HelpCircle },
   ];
 
   const filteredTabs = visibleTabs && visibleTabs.length > 0
@@ -1233,6 +1339,7 @@ const PrinterSettings: React.FC<Props> = ({
       {activeTab === 'receipts' && renderReceiptsTab()}
       {activeTab === 'orderList' && renderOrderListTab()}
       {activeTab === 'kitchen' && renderKitchenTab()}
+      {activeTab === 'help' && renderHelpTab()}
     </div>
   );
 };
