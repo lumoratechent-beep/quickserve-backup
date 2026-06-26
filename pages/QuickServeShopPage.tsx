@@ -53,6 +53,19 @@ interface Props {
   onToggleDark?: () => void;
 }
 
+const DEFAULT_CATEGORY = 'All';
+const CATEGORY_QUERY_KEY = 'category';
+const SHOP_STATUS_VALUES = new Set(['success', 'cancelled']);
+
+const normalizeCategoryKey = (value: string) => value.trim().toLowerCase();
+
+const getInitialCategory = () => {
+  const params = new URLSearchParams(window.location.search);
+  const categoryParam = params.get(CATEGORY_QUERY_KEY)?.trim();
+  if (!categoryParam || normalizeCategoryKey(categoryParam) === normalizeCategoryKey(DEFAULT_CATEGORY)) return DEFAULT_CATEGORY;
+  return categoryParam;
+};
+
 const normalizeShopItem = (row: any): ShopItem => {
   const item = row?.item_data || row || {};
   return {
@@ -70,7 +83,7 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
   const [items, setItems] = useState<ShopItem[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [query, setQuery] = useState('');
-  const [category, setCategory] = useState('All');
+  const [category, setCategory] = useState(getInitialCategory);
   const [viewMode, setViewMode] = useState<'shop' | 'product' | 'checkout' | 'invoice'>('shop');
   const [selectedProduct, setSelectedProduct] = useState<ShopItem | null>(null);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
@@ -145,11 +158,34 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
     loadItems();
   }, []);
 
-  const categories = useMemo(() => ['All', ...Array.from(new Set(items.map(item => item.category).filter(Boolean))).sort()], [items]);
+  const categories = useMemo(() => [DEFAULT_CATEGORY, ...Array.from(new Set(items.map(item => item.category).filter(Boolean))).sort()], [items]);
+
+  useEffect(() => {
+    if (category === DEFAULT_CATEGORY || categories.length <= 1) return;
+    const matchedCategory = categories.find(name => normalizeCategoryKey(name) === normalizeCategoryKey(category));
+    if (matchedCategory && matchedCategory !== category) {
+      setCategory(matchedCategory);
+    }
+  }, [categories, category]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shopStatus = params.get('shop');
+    if (SHOP_STATUS_VALUES.has(String(shopStatus))) return;
+
+    params.set('shop', shopStatus || '1');
+    params.set(CATEGORY_QUERY_KEY, normalizeCategoryKey(category));
+
+    const nextUrl = `${window.location.pathname}?${params.toString()}`;
+    if (nextUrl !== `${window.location.pathname}${window.location.search}`) {
+      window.history.replaceState({}, '', nextUrl);
+    }
+  }, [category]);
+
   const filteredItems = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return items.filter(item => {
-      if (category !== 'All' && item.category !== category) return false;
+      if (category !== DEFAULT_CATEGORY && normalizeCategoryKey(item.category) !== normalizeCategoryKey(category)) return false;
       if (!normalized) return true;
       return [item.name, item.sku, item.description, item.category]
         .some(value => value.toLowerCase().includes(normalized));
