@@ -276,7 +276,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/stripe/shop-checkout', async (req, res) => {
+  app.post(['/api/stripe/shop-checkout', '/api/stripe/create-checkout'], async (req, res) => {
     const { items, customer } = req.body || {};
     const requestedItems = Array.isArray(items) ? items : [];
     const customerName = String(customer?.name || '').trim();
@@ -395,7 +395,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/stripe/confirm-shop-checkout', async (req, res) => {
+  app.post(['/api/stripe/confirm-shop-checkout', '/api/stripe/confirm-checkout'], async (req, res) => {
     const { checkoutSessionId } = req.body || {};
     if (!stripe) {
       return res.status(500).json({ error: 'STRIPE_SECRET_KEY is not configured.' });

@@ -67,7 +67,7 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
 
     if (shopStatus === 'success' && sessionId) {
       setMessage({ type: 'info', text: 'Payment received. Finalizing your order...' });
-      fetch('/api/stripe/confirm-shop-checkout', {
+      fetch('/api/stripe/confirm-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ checkoutSessionId: sessionId }),
@@ -146,10 +146,11 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
     setCheckoutLoading(true);
     setMessage(null);
     try {
-      const response = await fetch('/api/stripe/shop-checkout', {
+      const response = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          source: 'admin_shop',
           items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
           customer,
         }),

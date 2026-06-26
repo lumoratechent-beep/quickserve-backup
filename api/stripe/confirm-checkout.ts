@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { calculateNextSubscriptionPeriod } from '../../lib/subscriptionPeriod.js';
 import { upsertSubscriptionPayment } from '../../lib/subscriptionPayments.js';
+import { ensureAdminShopQuotationForSession } from '../../lib/adminShopOrders.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
@@ -118,6 +119,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         error: 'Checkout session is not completed yet.',
         status: session.status,
       });
+    }
+
+    if (session.metadata?.source === 'admin_shop') {
+      if (session.payment_status !== 'paid') {
+        return res.status(409).json({
+          error: 'Checkout session is not paid yet.',
+          paymentStatus: session.payment_status,
+        });
+      }
+
+      const quote = await ensureAdminShopQuotationForSession(supabase, session);
+      return res.status(200).json({ success: true, quoteId: quote.id, quoteNo: quote.quoteNo });
     }
 
     const restaurantId = session.metadata?.restaurant_id;
