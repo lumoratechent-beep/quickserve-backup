@@ -27,3 +27,5 @@ create index if not exists admin_sold_items_image_url_idx on public.admin_sold_i
 create index if not exists admin_shop_orders_status_idx on public.admin_shop_orders (status);
 create index if not exists admin_shop_orders_stripe_session_idx on public.admin_shop_orders (stripe_session_id);
 create index if not exists admin_shop_orders_updated_at_idx on public.admin_shop_orders (updated_at desc);
+
+alter table public.admin_shop_orders enable row level security;
