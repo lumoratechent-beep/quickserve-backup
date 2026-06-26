@@ -313,7 +313,7 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white">
       <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur-xl dark:border-gray-800 dark:bg-gray-950/90">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
+        <div className="flex w-full items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <button onClick={viewMode === 'checkout' ? () => setViewMode('shop') : onBack} className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:border-orange-300 hover:text-orange-500 dark:border-gray-700 dark:text-gray-300">
             <ArrowLeft size={18} />
           </button>
@@ -326,15 +326,11 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
           <button onClick={onToggleDark} className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600 transition hover:text-orange-500 dark:bg-gray-800 dark:text-gray-300">
             {isDarkMode ? <Sun size={17} /> : <Moon size={17} />}
           </button>
-          <button onClick={() => setViewMode('checkout')} className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gray-900 text-white transition hover:bg-orange-500 dark:bg-white dark:text-gray-900 dark:hover:bg-orange-500 dark:hover:text-white">
-            <ShoppingBag size={18} />
-            {cartQuantity > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[9px] font-black text-white">{cartQuantity}</span>}
-          </button>
         </div>
       </header>
 
       {viewMode === 'shop' ? (
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      <main className="w-full px-4 py-6 sm:px-6 lg:px-8">
         <section className="space-y-5">
           {message && (
             <div className={`rounded-xl border px-4 py-3 text-sm font-bold ${
