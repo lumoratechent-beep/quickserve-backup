@@ -418,7 +418,7 @@ async function startServer() {
       }
 
       const quote = await ensureAdminShopQuotationForSession(supabaseAdmin, session);
-      res.json({ success: true, quoteId: quote.id, quoteNo: quote.quoteNo });
+      res.json({ success: true, quoteId: quote.id, quoteNo: quote.quoteNo, invoice: quote });
     } catch (error: any) {
       console.error('Confirm admin shop checkout error:', error);
       res.status(500).json({ error: error?.message || 'Failed to confirm shop checkout.' });

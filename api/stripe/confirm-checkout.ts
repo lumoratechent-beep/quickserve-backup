@@ -130,7 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const quote = await ensureAdminShopQuotationForSession(supabase, session);
-      return res.status(200).json({ success: true, quoteId: quote.id, quoteNo: quote.quoteNo });
+      return res.status(200).json({ success: true, quoteId: quote.id, quoteNo: quote.quoteNo, invoice: quote });
     }
 
     const restaurantId = session.metadata?.restaurant_id;

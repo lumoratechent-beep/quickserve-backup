@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, CreditCard, Loader2, Minus, Moon, Package, Plus, Search, ShoppingBag, Sun, Trash2, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, CreditCard, Download, Loader2, Minus, Moon, Package, Plus, Search, ShoppingBag, Sun, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 type ShopItem = {
@@ -13,6 +13,24 @@ type ShopItem = {
 };
 
 type CartLine = ShopItem & { quantity: number };
+
+type InvoiceLine = {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+};
+
+type PaidInvoice = {
+  id: string;
+  quoteNo: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  companyName: string;
+  issueDate: string;
+  items: InvoiceLine[];
+};
 
 type CustomerForm = {
   name: string;
@@ -47,7 +65,8 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
   const [cart, setCart] = useState<CartLine[]>([]);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
-  const [cartOpen, setCartOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'shop' | 'checkout' | 'invoice'>('shop');
+  const [paidInvoice, setPaidInvoice] = useState<PaidInvoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
@@ -76,7 +95,11 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
           const data = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(data.error || 'Unable to confirm payment.');
           setCart([]);
-          setMessage({ type: 'success', text: `Order paid. Quotation ${data.quoteNo || ''} has been created for our team.` });
+          if (data.invoice) {
+            setPaidInvoice(data.invoice);
+            setViewMode('invoice');
+          }
+          setMessage({ type: 'success', text: 'Payment successful. Your invoice is ready. We will contact you shortly.' });
           window.history.replaceState({}, '', window.location.pathname);
         })
         .catch((error: any) => {
@@ -123,6 +146,92 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const cartQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
   const canCheckout = cart.length > 0 && customer.name.trim() && customer.email.trim() && customer.phone.trim();
+  const invoiceTotal = paidInvoice?.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0), 0) || 0;
+
+  const getInvoiceLineName = (description: string) => description.split('\n').filter(Boolean)[0] || 'QuickServe item';
+
+  const downloadInvoicePdf = async () => {
+    if (!paidInvoice) return;
+    const { default: jsPDF } = await import('jspdf');
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const right = pageWidth - 16;
+    const invoiceNo = paidInvoice.quoteNo.replace('QS-SHOP', 'INV');
+    const issued = paidInvoice.issueDate || new Date().toISOString().split('T')[0];
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.text('QuickServe', 16, 20);
+    doc.setFontSize(24);
+    doc.text('Invoice', right, 20, { align: 'right' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text('System generated invoice', right, 27, { align: 'right' });
+    doc.text(`Invoice number: ${invoiceNo}`, right, 34, { align: 'right' });
+    doc.text(`Paid on: ${issued}`, right, 39, { align: 'right' });
+
+    doc.setTextColor(0);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('Amount paid', 16, 48);
+    doc.setFontSize(22);
+    doc.text(`RM ${invoiceTotal.toFixed(2)}`, 16, 58);
+
+    doc.setFontSize(10);
+    doc.text('Bill to', 16, 76);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    [
+      paidInvoice.companyName,
+      paidInvoice.customerName,
+      paidInvoice.customerEmail,
+      paidInvoice.customerPhone,
+    ].filter(Boolean).forEach((line, index) => doc.text(String(line), 16, 83 + index * 5));
+
+    let y = 112;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setDrawColor(220);
+    doc.line(16, y - 6, right, y - 6);
+    doc.text('Description', 16, y);
+    doc.text('Qty', 125, y, { align: 'right' });
+    doc.text('Unit price', 158, y, { align: 'right' });
+    doc.text('Amount', right, y, { align: 'right' });
+    doc.line(16, y + 4, right, y + 4);
+    y += 13;
+
+    doc.setFont('helvetica', 'normal');
+    paidInvoice.items.forEach(item => {
+      const amount = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
+      const nameLines = doc.splitTextToSize(getInvoiceLineName(item.description), 82);
+      if (y + nameLines.length * 5 > 260) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(nameLines, 16, y);
+      doc.text(String(item.quantity), 125, y, { align: 'right' });
+      doc.text(`RM ${Number(item.unitPrice || 0).toFixed(2)}`, 158, y, { align: 'right' });
+      doc.text(`RM ${amount.toFixed(2)}`, right, y, { align: 'right' });
+      y += Math.max(10, nameLines.length * 5 + 5);
+    });
+
+    doc.line(120, y, right, y);
+    y += 8;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Total paid', 140, y);
+    doc.text(`RM ${invoiceTotal.toFixed(2)}`, right, y, { align: 'right' });
+
+    y += 18;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(90);
+    doc.text('Remark: We will contact you shortly to arrange fulfilment and next steps.', 16, y);
+    doc.text('Thank you for your purchase.', 16, y + 6);
+
+    doc.save(`${invoiceNo}.pdf`);
+  };
 
   const addToCart = (item: ShopItem) => {
     setCart(prev => {
@@ -132,7 +241,6 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
       }
       return [...prev, { ...item, quantity: 1 }];
     });
-    setCartOpen(true);
   };
 
   const updateQuantity = (itemId: string, delta: number) => {
@@ -168,27 +276,28 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
     <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white">
       <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur-xl dark:border-gray-800 dark:bg-gray-950/90">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
-          <button onClick={onBack} className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:border-orange-300 hover:text-orange-500 dark:border-gray-700 dark:text-gray-300">
+          <button onClick={viewMode === 'checkout' ? () => setViewMode('shop') : onBack} className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:border-orange-300 hover:text-orange-500 dark:border-gray-700 dark:text-gray-300">
             <ArrowLeft size={18} />
           </button>
           <img src="/LOGO/9.png" alt="QuickServe" className="h-8 dark:hidden" />
           <img src="/LOGO/9-dark.png" alt="QuickServe" className="hidden h-8 dark:block" />
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500">Shop</p>
-            <h1 className="truncate text-sm font-black uppercase tracking-tight">QuickServe Products</h1>
+            <h1 className="truncate text-sm font-black uppercase tracking-tight">{viewMode === 'invoice' ? 'Invoice' : viewMode === 'checkout' ? 'Checkout' : 'QuickServe Products'}</h1>
           </div>
           <button onClick={onToggleDark} className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600 transition hover:text-orange-500 dark:bg-gray-800 dark:text-gray-300">
             {isDarkMode ? <Sun size={17} /> : <Moon size={17} />}
           </button>
-          <button onClick={() => setCartOpen(true)} className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gray-900 text-white transition hover:bg-orange-500 dark:bg-white dark:text-gray-900 dark:hover:bg-orange-500 dark:hover:text-white">
+          <button onClick={() => setViewMode('checkout')} className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gray-900 text-white transition hover:bg-orange-500 dark:bg-white dark:text-gray-900 dark:hover:bg-orange-500 dark:hover:text-white">
             <ShoppingBag size={18} />
             {cartQuantity > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[9px] font-black text-white">{cartQuantity}</span>}
           </button>
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <section className="min-w-0 space-y-5">
+      {viewMode === 'shop' ? (
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+        <section className="space-y-5">
           {message && (
             <div className={`rounded-xl border px-4 py-3 text-sm font-bold ${
               message.type === 'success'
@@ -238,7 +347,7 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
               <p className="text-sm font-black uppercase tracking-widest text-gray-400">No products found</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredItems.map(item => (
                 <article key={item.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg dark:border-gray-700 dark:bg-gray-900">
                   <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-800">
@@ -268,72 +377,170 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
             </div>
           )}
         </section>
-
-        <aside className={`${cartOpen ? 'fixed inset-0 z-50 bg-black/60 p-0 lg:static lg:bg-transparent lg:p-0' : 'hidden lg:block'}`}>
-          <div className={`${cartOpen ? 'ml-auto h-full w-full max-w-md' : ''} lg:sticky lg:top-24`}>
-            <div className="flex h-full flex-col overflow-hidden bg-white shadow-2xl dark:bg-gray-900 lg:h-auto lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm lg:dark:border-gray-700">
-              <div className="flex items-center justify-between border-b border-gray-100 p-5 dark:border-gray-800">
-                <div>
-                  <h2 className="text-sm font-black uppercase tracking-tight">Cart</h2>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{cartQuantity} items</p>
+      </main>
+      ) : viewMode === 'invoice' && paidInvoice ? (
+      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+          <div className="border-b border-gray-100 p-6 dark:border-gray-800">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-300">
+                  <CheckCircle2 size={26} />
                 </div>
-                <button onClick={() => setCartOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-500 lg:hidden dark:bg-gray-800">
-                  <X size={16} />
-                </button>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-green-600 dark:text-green-300">Payment Successful</p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight">RM {invoiceTotal.toFixed(2)} paid</h2>
+                <p className="mt-2 max-w-xl text-sm font-semibold leading-relaxed text-gray-500 dark:text-gray-400">
+                  Your system generated invoice is ready. We will contact you shortly to arrange fulfilment and next steps.
+                </p>
               </div>
-
-              <div className="max-h-[42vh] flex-1 space-y-3 overflow-y-auto p-5 lg:max-h-[320px]">
-                {cart.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <ShoppingBag size={34} className="mx-auto mb-3 text-gray-300" />
-                    <p className="text-xs font-black uppercase tracking-widest text-gray-400">Cart is empty</p>
-                  </div>
-                ) : cart.map(item => (
-                  <div key={item.id} className="flex gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-950">
-                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-800">
-                      {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" /> : <Package size={22} className="m-4 text-gray-400" />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-black">{item.name}</p>
-                      <p className="mt-1 text-[11px] font-bold text-orange-500">RM {(item.price * item.quantity).toFixed(2)}</p>
-                      <div className="mt-2 flex items-center gap-1">
-                        <button onClick={() => updateQuantity(item.id, -1)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-gray-500 dark:bg-gray-800"><Minus size={12} /></button>
-                        <span className="w-8 text-center text-xs font-black">{item.quantity}</span>
-                        <button onClick={() => updateQuantity(item.id, 1)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-gray-500 dark:bg-gray-800"><Plus size={12} /></button>
-                      </div>
-                    </div>
-                    <button onClick={() => updateQuantity(item.id, -item.quantity)} className="self-start rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-3 border-t border-gray-100 p-5 dark:border-gray-800">
-                <div className="grid grid-cols-1 gap-2">
-                  <input value={customer.name} onChange={event => setCustomer(prev => ({ ...prev, name: event.target.value }))} placeholder="Full name *" className="h-10 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
-                  <input value={customer.email} onChange={event => setCustomer(prev => ({ ...prev, email: event.target.value }))} placeholder="Email *" type="email" className="h-10 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
-                  <input value={customer.phone} onChange={event => setCustomer(prev => ({ ...prev, phone: event.target.value }))} placeholder="Phone *" className="h-10 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
-                  <input value={customer.company} onChange={event => setCustomer(prev => ({ ...prev, company: event.target.value }))} placeholder="Company" className="h-10 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
-                  <textarea value={customer.notes} onChange={event => setCustomer(prev => ({ ...prev, notes: event.target.value }))} placeholder="Notes" rows={2} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
-                </div>
-                <div className="flex items-center justify-between border-t border-gray-100 pt-3 text-sm dark:border-gray-800">
-                  <span className="font-black uppercase tracking-widest text-gray-400">Total</span>
-                  <span className="text-xl font-black">RM {subtotal.toFixed(2)}</span>
-                </div>
-                <button
-                  onClick={checkout}
-                  disabled={!canCheckout || checkoutLoading}
-                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 text-xs font-black uppercase tracking-widest text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {checkoutLoading ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
-                  Stripe Checkout
-                </button>
-              </div>
+              <button onClick={downloadInvoicePdf} className="flex h-11 items-center justify-center gap-2 rounded-xl bg-gray-900 px-5 text-xs font-black uppercase tracking-widest text-white transition hover:bg-orange-500 dark:bg-white dark:text-gray-900 dark:hover:bg-orange-500 dark:hover:text-white">
+                <Download size={15} /> Download Invoice
+              </button>
             </div>
           </div>
-        </aside>
+
+          <div className="p-6">
+            <div className="mb-8 grid gap-5 md:grid-cols-2">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Invoice Number</p>
+                <p className="mt-1 text-sm font-black">{paidInvoice.quoteNo.replace('QS-SHOP', 'INV')}</p>
+              </div>
+              <div className="md:text-right">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Paid Date</p>
+                <p className="mt-1 text-sm font-black">{paidInvoice.issueDate || new Date().toISOString().split('T')[0]}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Bill To</p>
+                <div className="mt-2 text-sm font-semibold leading-relaxed text-gray-600 dark:text-gray-300">
+                  {paidInvoice.companyName && <p>{paidInvoice.companyName}</p>}
+                  <p>{paidInvoice.customerName}</p>
+                  <p>{paidInvoice.customerEmail}</p>
+                  <p>{paidInvoice.customerPhone}</p>
+                </div>
+              </div>
+              <div className="rounded-xl bg-gray-50 p-4 dark:bg-gray-950">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Remark</p>
+                <p className="mt-2 text-sm font-bold text-gray-700 dark:text-gray-200">We will contact you shortly.</p>
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+              <div className="grid grid-cols-[minmax(0,1fr)_70px_110px] gap-3 bg-gray-50 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400 dark:bg-gray-950">
+                <span>Product</span>
+                <span className="text-right">Qty</span>
+                <span className="text-right">Amount</span>
+              </div>
+              {paidInvoice.items.map(item => {
+                const amount = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
+                return (
+                  <div key={item.id} className="grid grid-cols-[minmax(0,1fr)_70px_110px] gap-3 border-t border-gray-100 px-4 py-4 text-sm dark:border-gray-800">
+                    <div className="min-w-0">
+                      <p className="font-black">{getInvoiceLineName(item.description)}</p>
+                      <p className="mt-1 text-[11px] font-bold text-gray-400">RM {Number(item.unitPrice || 0).toFixed(2)} each</p>
+                    </div>
+                    <p className="text-right font-bold text-gray-500 dark:text-gray-300">{item.quantity}</p>
+                    <p className="text-right font-black">RM {amount.toFixed(2)}</p>
+                  </div>
+                );
+              })}
+              <div className="flex justify-end border-t border-gray-200 bg-gray-50 px-4 py-4 dark:border-gray-700 dark:bg-gray-950">
+                <div className="flex w-full max-w-xs items-center justify-between">
+                  <span className="text-sm font-black uppercase tracking-widest text-gray-400">Total Paid</span>
+                  <span className="text-xl font-black">RM {invoiceTotal.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <button onClick={downloadInvoicePdf} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-orange-500 text-xs font-black uppercase tracking-widest text-white transition hover:bg-orange-600">
+                <Download size={15} /> Download Invoice
+              </button>
+              <button onClick={() => setViewMode('shop')} className="h-11 flex-1 rounded-xl border border-gray-200 text-xs font-black uppercase tracking-widest text-gray-500 transition hover:border-orange-300 hover:text-orange-500 dark:border-gray-700 dark:text-gray-300">
+                Continue Shopping
+              </button>
+            </div>
+          </div>
+        </section>
       </main>
+      ) : (
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div className="flex items-center justify-between border-b border-gray-100 p-5 dark:border-gray-800">
+              <div>
+                <h2 className="text-sm font-black uppercase tracking-tight">Checkout</h2>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{cartQuantity} items in cart</p>
+              </div>
+              <button onClick={() => setViewMode('shop')} className="rounded-xl border border-gray-200 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-500 transition hover:border-orange-300 hover:text-orange-500 dark:border-gray-700 dark:text-gray-300">
+                Continue Shopping
+              </button>
+            </div>
+
+            <div className="space-y-3 p-5">
+              {cart.length === 0 ? (
+                <div className="py-14 text-center">
+                  <ShoppingBag size={38} className="mx-auto mb-3 text-gray-300" />
+                  <p className="text-sm font-black uppercase tracking-widest text-gray-400">Cart is empty</p>
+                  <button onClick={() => setViewMode('shop')} className="mt-5 rounded-xl bg-orange-500 px-5 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:bg-orange-600">
+                    Browse Products
+                  </button>
+                </div>
+              ) : cart.map(item => (
+                <div key={item.id} className="flex gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-950">
+                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-200 dark:bg-gray-800">
+                    {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" /> : <Package size={24} className="m-5 text-gray-400" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-black">{item.name}</p>
+                    <p className="mt-1 text-[11px] font-bold text-gray-400">RM {item.price.toFixed(2)} each</p>
+                    <div className="mt-2 flex items-center gap-1">
+                      <button onClick={() => updateQuantity(item.id, -1)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-gray-500 dark:bg-gray-800"><Minus size={13} /></button>
+                      <span className="w-9 text-center text-xs font-black">{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.id, 1)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-gray-500 dark:bg-gray-800"><Plus size={13} /></button>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end justify-between">
+                    <button onClick={() => updateQuantity(item.id, -item.quantity)} className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20">
+                      <Trash2 size={14} />
+                    </button>
+                    <p className="text-sm font-black text-orange-500">RM {(item.price * item.quantity).toFixed(2)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <aside className="h-fit rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-tight">Customer Details</h3>
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">Required before Stripe payment</p>
+              </div>
+              <input value={customer.name} onChange={event => setCustomer(prev => ({ ...prev, name: event.target.value }))} placeholder="Full name *" className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+              <input value={customer.email} onChange={event => setCustomer(prev => ({ ...prev, email: event.target.value }))} placeholder="Email *" type="email" className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+              <input value={customer.phone} onChange={event => setCustomer(prev => ({ ...prev, phone: event.target.value }))} placeholder="Phone *" className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+              <input value={customer.company} onChange={event => setCustomer(prev => ({ ...prev, company: event.target.value }))} placeholder="Company" className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+              <textarea value={customer.notes} onChange={event => setCustomer(prev => ({ ...prev, notes: event.target.value }))} placeholder="Notes" rows={3} className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+            </div>
+
+            <div className="mt-5 space-y-3 border-t border-gray-100 pt-4 dark:border-gray-800">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-black uppercase tracking-widest text-gray-400">Total</span>
+                <span className="text-xl font-black">RM {subtotal.toFixed(2)}</span>
+              </div>
+              <button
+                onClick={checkout}
+                disabled={!canCheckout || checkoutLoading}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 text-xs font-black uppercase tracking-widest text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {checkoutLoading ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
+                Stripe Checkout
+              </button>
+            </div>
+          </aside>
+        </div>
+      </main>
+      )}
 
       {message?.type === 'success' && (
         <div className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-green-200 bg-white px-4 py-2 text-xs font-black text-green-700 shadow-xl dark:border-green-900/40 dark:bg-gray-900 dark:text-green-300">
