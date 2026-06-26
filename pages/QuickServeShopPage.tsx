@@ -440,15 +440,17 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
                     </div>
                     <p className="mt-auto pt-4 text-base font-black text-gray-900 sm:text-lg dark:text-white">RM {item.price.toFixed(2)}</p>
                   </div>
-                  <button
-                    onClick={event => {
-                      event.stopPropagation();
-                      addToCart(item);
-                    }}
-                    className="flex h-12 w-full items-center justify-center gap-2 border-t border-gray-100 bg-gray-900 text-[11px] font-black uppercase tracking-widest text-white transition hover:bg-orange-500 dark:border-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-orange-500 dark:hover:text-white"
-                  >
-                    <Plus size={14} /> Add
-                  </button>
+                  <div className="px-3 pb-3 sm:px-4 sm:pb-4">
+                    <button
+                      onClick={event => {
+                        event.stopPropagation();
+                        addToCart(item);
+                      }}
+                      className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-white text-[11px] font-black uppercase tracking-widest text-gray-900 shadow-sm ring-1 ring-gray-200 transition hover:bg-orange-500 hover:text-white hover:ring-orange-500 dark:bg-white dark:text-gray-900 dark:ring-transparent dark:hover:bg-orange-500 dark:hover:text-white"
+                    >
+                      <Plus size={14} /> Add
+                    </button>
+                  </div>
                 </article>
               ))}
             </div>
