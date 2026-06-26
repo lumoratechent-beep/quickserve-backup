@@ -27,6 +27,7 @@ type PaidInvoice = {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
+  customerAddress: string;
   companyName: string;
   issueDate: string;
   items: InvoiceLine[];
@@ -37,7 +38,12 @@ type CustomerForm = {
   email: string;
   phone: string;
   company: string;
-  address: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postcode: string;
+  country: string;
   notes: string;
 };
 
@@ -75,7 +81,12 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
     email: '',
     phone: '',
     company: '',
-    address: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    state: '',
+    postcode: '',
+    country: 'Malaysia',
     notes: '',
   });
 
@@ -145,7 +156,21 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const cartQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const canCheckout = cart.length > 0 && customer.name.trim() && customer.email.trim() && customer.phone.trim();
+  const fullAddress = [
+    customer.addressLine1,
+    customer.addressLine2,
+    [customer.postcode, customer.city].filter(Boolean).join(' '),
+    customer.state,
+    customer.country,
+  ].map(part => part.trim()).filter(Boolean).join('\n');
+  const canCheckout = cart.length > 0
+    && customer.name.trim()
+    && customer.email.trim()
+    && customer.phone.trim()
+    && customer.addressLine1.trim()
+    && customer.city.trim()
+    && customer.state.trim()
+    && customer.postcode.trim();
   const invoiceTotal = paidInvoice?.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0), 0) || 0;
 
   const getInvoiceLineName = (description: string) => description.split('\n').filter(Boolean)[0] || 'QuickServe item';
@@ -183,14 +208,16 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
     doc.text('Bill to', 16, 76);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    [
+    const billToLines = [
       paidInvoice.companyName,
       paidInvoice.customerName,
+      ...String(paidInvoice.customerAddress || '').split('\n'),
       paidInvoice.customerEmail,
       paidInvoice.customerPhone,
-    ].filter(Boolean).forEach((line, index) => doc.text(String(line), 16, 83 + index * 5));
+    ].filter(Boolean);
+    billToLines.forEach((line, index) => doc.text(String(line), 16, 83 + index * 5));
 
-    let y = 112;
+    let y = Math.max(112, 88 + billToLines.length * 5);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setDrawColor(220);
@@ -260,7 +287,18 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
         body: JSON.stringify({
           source: 'admin_shop',
           items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
-          customer,
+          customer: {
+            ...customer,
+            address: fullAddress,
+            addressDetails: {
+              addressLine1: customer.addressLine1.trim(),
+              addressLine2: customer.addressLine2.trim(),
+              city: customer.city.trim(),
+              state: customer.state.trim(),
+              postcode: customer.postcode.trim(),
+              country: customer.country.trim(),
+            },
+          },
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -347,7 +385,7 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
               <p className="text-sm font-black uppercase tracking-widest text-gray-400">No products found</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
               {filteredItems.map(item => (
                 <article key={item.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg dark:border-gray-700 dark:bg-gray-900">
                   <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-800">
@@ -359,15 +397,15 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
                       </div>
                     )}
                   </div>
-                  <div className="space-y-3 p-4">
+                  <div className="space-y-3 p-3 sm:p-4">
                     <div>
                       <p className="text-[9px] font-black uppercase tracking-widest text-orange-500">{item.category}</p>
-                      <h2 className="mt-1 line-clamp-2 text-base font-black leading-tight">{item.name}</h2>
-                      {item.description && <p className="mt-2 line-clamp-3 text-xs font-medium leading-relaxed text-gray-500 dark:text-gray-400">{item.description}</p>}
+                      <h2 className="mt-1 line-clamp-2 text-sm font-black leading-tight sm:text-base">{item.name}</h2>
+                      {item.description && <p className="mt-2 line-clamp-2 text-[11px] font-medium leading-relaxed text-gray-500 sm:line-clamp-3 sm:text-xs dark:text-gray-400">{item.description}</p>}
                     </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-lg font-black text-gray-900 dark:text-white">RM {item.price.toFixed(2)}</p>
-                      <button onClick={() => addToCart(item)} className="flex h-10 items-center gap-2 rounded-xl bg-gray-900 px-4 text-xs font-black uppercase tracking-widest text-white transition hover:bg-orange-500 dark:bg-white dark:text-gray-900 dark:hover:bg-orange-500 dark:hover:text-white">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                      <p className="text-base font-black text-gray-900 sm:text-lg dark:text-white">RM {item.price.toFixed(2)}</p>
+                      <button onClick={() => addToCart(item)} className="flex h-10 items-center justify-center gap-2 rounded-xl bg-gray-900 px-3 text-[11px] font-black uppercase tracking-widest text-white transition hover:bg-orange-500 sm:px-4 sm:text-xs dark:bg-white dark:text-gray-900 dark:hover:bg-orange-500 dark:hover:text-white">
                         <Plus size={14} /> Add
                       </button>
                     </div>
@@ -414,6 +452,7 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
                 <div className="mt-2 text-sm font-semibold leading-relaxed text-gray-600 dark:text-gray-300">
                   {paidInvoice.companyName && <p>{paidInvoice.companyName}</p>}
                   <p>{paidInvoice.customerName}</p>
+                  {paidInvoice.customerAddress && String(paidInvoice.customerAddress).split('\n').filter(Boolean).map(line => <p key={line}>{line}</p>)}
                   <p>{paidInvoice.customerEmail}</p>
                   <p>{paidInvoice.customerPhone}</p>
                 </div>
@@ -520,6 +559,16 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
               <input value={customer.email} onChange={event => setCustomer(prev => ({ ...prev, email: event.target.value }))} placeholder="Email *" type="email" className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
               <input value={customer.phone} onChange={event => setCustomer(prev => ({ ...prev, phone: event.target.value }))} placeholder="Phone *" className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
               <input value={customer.company} onChange={event => setCustomer(prev => ({ ...prev, company: event.target.value }))} placeholder="Company" className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+              <input value={customer.addressLine1} onChange={event => setCustomer(prev => ({ ...prev, addressLine1: event.target.value }))} placeholder="Address line 1 *" className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+              <input value={customer.addressLine2} onChange={event => setCustomer(prev => ({ ...prev, addressLine2: event.target.value }))} placeholder="Address line 2" className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+              <div className="grid grid-cols-2 gap-2">
+                <input value={customer.postcode} onChange={event => setCustomer(prev => ({ ...prev, postcode: event.target.value }))} placeholder="Postcode *" className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+                <input value={customer.city} onChange={event => setCustomer(prev => ({ ...prev, city: event.target.value }))} placeholder="City *" className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input value={customer.state} onChange={event => setCustomer(prev => ({ ...prev, state: event.target.value }))} placeholder="State *" className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+                <input value={customer.country} onChange={event => setCustomer(prev => ({ ...prev, country: event.target.value }))} placeholder="Country" className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+              </div>
               <textarea value={customer.notes} onChange={event => setCustomer(prev => ({ ...prev, notes: event.target.value }))} placeholder="Notes" rows={3} className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
             </div>
 
@@ -540,6 +589,22 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
           </aside>
         </div>
       </main>
+      )}
+
+      {viewMode === 'shop' && cartQuantity > 0 && (
+        <button
+          onClick={() => setViewMode('checkout')}
+          className="fixed bottom-5 right-5 z-40 flex h-16 items-center gap-3 rounded-full bg-orange-500 pl-5 pr-6 text-white shadow-2xl shadow-orange-500/30 transition active:scale-95"
+        >
+          <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
+            <ShoppingBag size={21} />
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-black shadow-lg">{cartQuantity}</span>
+          </span>
+          <span className="text-left">
+            <span className="block text-[9px] font-black uppercase tracking-widest text-white/80">Cart</span>
+            <span className="block text-sm font-black">RM {subtotal.toFixed(2)}</span>
+          </span>
+        </button>
       )}
 
       {message?.type === 'success' && (

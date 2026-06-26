@@ -114,6 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           phone: customerPhone,
           company: String(customer?.company || '').trim(),
           address: String(customer?.address || '').trim(),
+          addressDetails: customer?.addressDetails || null,
           notes: String(customer?.notes || '').trim(),
         },
         items: orderItems,
