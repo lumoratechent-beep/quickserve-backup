@@ -10,6 +10,7 @@ import CompanyPage from './pages/CompanyPage';
 import ComparePlansPage from './pages/ComparePlansPage';
 import RegisterPage from './pages/RegisterPage';
 import OnlineShopPage from './pages/OnlineShopPage';
+import QuickServeShopPage from './pages/QuickServeShopPage';
 import TableSideOrderPage from './pages/TableSideOrderPage';
 import { supabase } from './lib/supabase';
 import { expandPosSettings } from './lib/sharedSettings';
@@ -435,7 +436,7 @@ const App: React.FC = () => {
   const [stripeRedirect] = useState(() => stripeRedirectRef.current());
 
   const [onlineShopSlug, setOnlineShopSlug] = useState<string | null>(null);
-  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE' | 'ONLINE_SHOP' | 'COMPANY' | 'COMPARE_PLANS'>(() => {
+  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE' | 'ONLINE_SHOP' | 'COMPANY' | 'COMPARE_PLANS' | 'QS_SHOP'>(() => {
     const savedView = localStorage.getItem('qs_view') as any;
     
     // Handle Stripe payment redirect
@@ -458,6 +459,9 @@ const App: React.FC = () => {
 
     // If no session and no params, show marketing page as the first impression
     const params = new URLSearchParams(window.location.search);
+    if (params.get('shop')) {
+      return 'QS_SHOP';
+    }
     if (!savedView && !params.get('loc')) {
       return 'MARKETING';
     }
@@ -2769,11 +2773,15 @@ const App: React.FC = () => {
   }
 
   if (view === 'MARKETING') {
-    return <MarketingPage onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} onCompany={() => setView('COMPANY')} onComparePlans={() => setView('COMPARE_PLANS')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
+    return <MarketingPage onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} onCompany={() => setView('COMPANY')} onComparePlans={() => setView('COMPARE_PLANS')} onShop={() => { window.history.pushState({}, '', `${window.location.pathname}?shop=1`); setView('QS_SHOP'); }} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
   }
 
   if (view === 'COMPANY') {
     return <CompanyPage onBack={() => setView('MARKETING')} onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
+  }
+
+  if (view === 'QS_SHOP') {
+    return <QuickServeShopPage onBack={() => { window.history.replaceState({}, '', window.location.pathname); setView('MARKETING'); }} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
   }
 
   const networkMeta = (() => {

@@ -43,12 +43,13 @@ interface Props {
   onGetStarted: () => void;
   onLogin: () => void;
   onCompany: () => void;
+  onShop?: () => void;
   onComparePlans?: () => void;
   isDarkMode?: boolean;
   onToggleDark?: () => void;
 }
 
-const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onComparePlans, isDarkMode, onToggleDark }) => {
+const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onShop, onComparePlans, isDarkMode, onToggleDark }) => {
   const [mounted, setMounted] = useState(false);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -174,6 +175,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
               <a href="#how-it-works" className="hover:text-orange-500 transition-colors">How It Works</a>
               <a href="#mockup" className="hover:text-orange-500 transition-colors">Preview</a>
               <a href="#pricing" className="hover:text-orange-500 transition-colors">Pricing</a>
+              <button onClick={onShop} className="hover:text-orange-500 transition-colors">SHOP</button>
               <a href="#faq" className="hover:text-orange-500 transition-colors">FAQ</a>
               <button onClick={onCompany} className="hover:text-orange-500 transition-colors">OUR COMPANY</button>
             </div>
@@ -214,6 +216,12 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
                   {link.label}
                 </a>
               ))}
+              <button
+                onClick={() => { setMobileMenuOpen(false); onShop?.(); }}
+                className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-[0.15em] hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 rounded-xl transition-all"
+              >
+                SHOP
+              </button>
               <button
                 onClick={() => { setMobileMenuOpen(false); onCompany(); }}
                 className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-[0.15em] hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 rounded-xl transition-all"

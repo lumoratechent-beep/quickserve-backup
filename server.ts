@@ -4,6 +4,8 @@ import { put } from '@vercel/blob';
 import multer from 'multer';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
+import { ensureAdminShopQuotationForSession, normalizeAdminShopItem } from './lib/adminShopOrders.js';
 
 async function startServer() {
   const app = express();
@@ -14,6 +16,12 @@ async function startServer() {
   const supabaseUrl = 'https://anknjpuiklglykguneax.supabase.co';
   const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFua25qcHVpa2xnbHlrZ3VuZWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5ODkwNTAsImV4cCI6MjA4NzU2NTA1MH0.DUMHeKg0v-1oI9nLT-nZP9cg1eYPI0R4fRNBzE9K2MI';
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const supabaseAdmin = createClient(
+    process.env.SUPABASE_URL || supabaseUrl,
+    process.env.SUPABASE_SERVICE_KEY || supabaseAnonKey
+  );
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
+  const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
   // Configure Multer for memory storage
   const upload = multer({ storage: multer.memoryStorage() });
@@ -265,6 +273,155 @@ async function startServer() {
     } catch (err) {
       console.error('Registration error:', err);
       res.status(500).json({ error: 'Internal server error.' });
+    }
+  });
+
+  app.post('/api/stripe/shop-checkout', async (req, res) => {
+    const { items, customer } = req.body || {};
+    const requestedItems = Array.isArray(items) ? items : [];
+    const customerName = String(customer?.name || '').trim();
+    const customerEmail = String(customer?.email || '').trim();
+    const customerPhone = String(customer?.phone || '').trim();
+
+    if (!stripe) {
+      return res.status(500).json({ error: 'STRIPE_SECRET_KEY is not configured.' });
+    }
+    if (requestedItems.length === 0) {
+      return res.status(400).json({ error: 'Cart is empty.' });
+    }
+    if (!customerName || !customerEmail || !customerPhone) {
+      return res.status(400).json({ error: 'Name, email, and phone are required.' });
+    }
+
+    try {
+      const quantities = new Map<string, number>();
+      requestedItems.forEach((item: any) => {
+        const id = String(item?.id || '').trim();
+        if (!id) return;
+        const quantity = Math.max(1, Math.min(99, Math.floor(Number(item.quantity) || 1)));
+        quantities.set(id, (quantities.get(id) || 0) + quantity);
+      });
+
+      const { data, error } = await supabaseAdmin
+        .from('admin_sold_items')
+        .select('id, name, sku, description, price, category, is_active, image_url, item_data')
+        .in('id', Array.from(quantities.keys()))
+        .eq('is_active', true);
+      if (error) throw error;
+
+      const orderItems = (data || [])
+        .map((row: any) => normalizeAdminShopItem({ ...row.item_data, imageUrl: row.image_url || row.item_data?.imageUrl }))
+        .filter((item: any) => item.id && item.name && item.price > 0)
+        .map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          sku: item.sku,
+          description: item.description,
+          imageUrl: item.imageUrl,
+          category: item.category,
+          price: item.price,
+          quantity: quantities.get(item.id) || 1,
+        }));
+
+      if (orderItems.length === 0) {
+        return res.status(400).json({ error: 'No available shop products found.' });
+      }
+
+      const orderId = `shop_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
+      const total = orderItems.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0);
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const now = new Date().toISOString();
+      const orderData = {
+        id: orderId,
+        customer: {
+          name: customerName,
+          email: customerEmail,
+          phone: customerPhone,
+          company: String(customer?.company || '').trim(),
+          address: String(customer?.address || '').trim(),
+          notes: String(customer?.notes || '').trim(),
+        },
+        items: orderItems,
+        total,
+        currency: 'MYR',
+      };
+
+      await supabaseAdmin.from('admin_shop_orders').insert({
+        id: orderId,
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone,
+        company_name: orderData.customer.company,
+        total,
+        status: 'pending',
+        order_data: orderData,
+        created_at: now,
+        updated_at: now,
+      });
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        customer_email: customerEmail,
+        line_items: orderItems.map((item: any) => ({
+          quantity: item.quantity,
+          price_data: {
+            currency: 'myr',
+            unit_amount: Math.round(item.price * 100),
+            product_data: {
+              name: item.name,
+              description: item.description || undefined,
+              images: item.imageUrl ? [item.imageUrl] : undefined,
+            },
+          },
+        })),
+        success_url: `${baseUrl}?shop=success&checkout_session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}?shop=cancelled`,
+        metadata: { source: 'admin_shop', admin_shop_order_id: orderId },
+        payment_intent_data: {
+          description: `QuickServe shop order ${orderId}`,
+          metadata: { source: 'admin_shop', admin_shop_order_id: orderId },
+        },
+      });
+
+      await supabaseAdmin
+        .from('admin_shop_orders')
+        .update({ stripe_session_id: session.id, updated_at: new Date().toISOString() })
+        .eq('id', orderId);
+
+      res.json({ url: session.url, orderId });
+    } catch (error: any) {
+      console.error('Admin shop checkout error:', error);
+      res.status(500).json({ error: error?.message || 'Failed to create shop checkout.' });
+    }
+  });
+
+  app.post('/api/stripe/confirm-shop-checkout', async (req, res) => {
+    const { checkoutSessionId } = req.body || {};
+    if (!stripe) {
+      return res.status(500).json({ error: 'STRIPE_SECRET_KEY is not configured.' });
+    }
+    if (!checkoutSessionId) {
+      return res.status(400).json({ error: 'checkoutSessionId is required.' });
+    }
+
+    try {
+      const session = await stripe.checkout.sessions.retrieve(checkoutSessionId);
+      if (session.metadata?.source !== 'admin_shop') {
+        return res.status(400).json({ error: 'This checkout session is not a QuickServe shop order.' });
+      }
+      if (session.status !== 'complete' || session.payment_status !== 'paid') {
+        return res.status(409).json({
+          error: 'Checkout session is not paid yet.',
+          status: session.status,
+          paymentStatus: session.payment_status,
+        });
+      }
+
+      const quote = await ensureAdminShopQuotationForSession(supabaseAdmin, session);
+      res.json({ success: true, quoteId: quote.id, quoteNo: quote.quoteNo });
+    } catch (error: any) {
+      console.error('Confirm admin shop checkout error:', error);
+      res.status(500).json({ error: error?.message || 'Failed to confirm shop checkout.' });
     }
   });
 

@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { calculateNextSubscriptionPeriod, calculatePaidSubscriptionPeriod } from '../../lib/subscriptionPeriod.js';
 import { upsertSubscriptionPayment } from '../../lib/subscriptionPayments.js';
+import { ensureAdminShopQuotationForSession } from '../../lib/adminShopOrders.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
@@ -147,6 +148,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
+        if (session.metadata?.source === 'admin_shop') {
+          if (session.payment_status === 'paid') {
+            await ensureAdminShopQuotationForSession(supabase, session);
+          }
+          break;
+        }
+
         const restaurantId = session.metadata?.restaurant_id;
         const planId = session.metadata?.plan_id;
         let shouldUpdateFeaturesNow = true;

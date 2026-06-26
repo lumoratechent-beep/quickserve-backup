@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, Subscription, SubscriptionExpiryHistory, PlanId, MenuItem } from '../src/types';
 import { uploadImage } from '../lib/storage';
-import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2, Lock, Unlock, MoreVertical, BookOpen } from 'lucide-react';
+import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2, Lock, Unlock, MoreVertical, BookOpen, Package } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
@@ -30,7 +30,7 @@ interface Props {
 }
 
 type AdminTab = 'VENDORS' | 'INCOME_REPORT' | 'VENDOR_SUBSCRIPTION' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SHOP' | 'DOCUMENTS' | 'SYSTEM';
-type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'expired';
+type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'paid' | 'expired';
 type DraftNumber = number | '';
 
 interface QuotationLineItem {
@@ -73,6 +73,7 @@ interface AdminSoldItem {
   name: string;
   sku: string;
   description: string;
+  imageUrl: string;
   price: DraftNumber;
   costPrice: DraftNumber;
   category: string;
@@ -196,6 +197,7 @@ const normalizeAdminSoldItem = (item: any): AdminSoldItem | null => {
     name: String(item.name || ''),
     sku: String(item.sku || ''),
     description: String(item.description || ''),
+    imageUrl: String(item.imageUrl || item.image_url || ''),
     price: item.price ?? 0,
     costPrice: item.costPrice ?? item.cost_price ?? 0,
     category: String(item.category || ''),
@@ -739,6 +741,7 @@ const AdminView: React.FC<Props> = ({
     name: '',
     sku: '',
     description: '',
+    imageUrl: '',
     price: '',
     costPrice: '',
     category: '',
@@ -810,6 +813,7 @@ const AdminView: React.FC<Props> = ({
         name: item.name,
         sku: item.sku,
         description: item.description,
+        image_url: item.imageUrl,
         price: Number(item.price) || 0,
         cost_price: Number(item.costPrice) || 0,
         category: item.category,
@@ -867,6 +871,7 @@ const AdminView: React.FC<Props> = ({
       name: item.name,
       sku: item.sku,
       description: item.description,
+      image_url: item.imageUrl,
       price: Number(item.price) || 0,
       cost_price: Number(item.costPrice) || 0,
       category: item.category,
@@ -1047,6 +1052,7 @@ const AdminView: React.FC<Props> = ({
       name: '',
       sku: '',
       description: '',
+      imageUrl: '',
       price: '',
       costPrice: '',
       category: '',
@@ -1064,6 +1070,7 @@ const AdminView: React.FC<Props> = ({
       name: draft.name.trim(),
       sku: draft.sku.trim(),
       description: draft.description.trim(),
+      imageUrl: String(draft.imageUrl || '').trim(),
       category: draft.category.trim(),
       price: Math.max(0, Number(draft.price) || 0),
       costPrice: Math.max(0, Number(draft.costPrice) || 0),
@@ -1093,6 +1100,7 @@ const AdminView: React.FC<Props> = ({
       name: trimmed,
       sku: '',
       description: '',
+      imageUrl: '',
       price: 0,
       costPrice: 0,
       category: '',
@@ -1115,6 +1123,20 @@ const AdminView: React.FC<Props> = ({
       updateQuotationSellerDefaults({ sellerLogo: publicUrl });
     } catch {
       toast('Failed to upload quotation logo', 'error');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const handleSoldItemImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const publicUrl = await uploadImage(file, 'quickserve', 'admin-shop-products');
+      setSoldItemForm(prev => ({ ...prev, imageUrl: publicUrl }));
+      toast('Product image uploaded', 'success');
+    } catch {
+      toast('Failed to upload product image', 'error');
     } finally {
       e.target.value = '';
     }
@@ -2004,7 +2026,7 @@ const AdminView: React.FC<Props> = ({
       acc.totalValue += total;
       acc[quote.status] += 1;
       return acc;
-    }, { totalValue: 0, draft: 0, sent: 0, accepted: 0, expired: 0 } as Record<QuotationStatus, number> & { totalValue: number });
+    }, { totalValue: 0, draft: 0, sent: 0, accepted: 0, paid: 0, expired: 0 } as Record<QuotationStatus, number> & { totalValue: number });
   }, [quotations]);
 
   const filteredAdminCashoutRows = useMemo(() => {
@@ -4471,12 +4493,13 @@ const AdminView: React.FC<Props> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
               {[
                 { label: 'Total Value', value: `RM ${quotationStats.totalValue.toFixed(2)}`, tone: 'text-orange-500' },
                 { label: 'Drafts', value: quotationStats.draft, tone: 'text-gray-600 dark:text-gray-300' },
                 { label: 'Sent', value: quotationStats.sent, tone: 'text-blue-500' },
                 { label: 'Accepted', value: quotationStats.accepted, tone: 'text-green-500' },
+                { label: 'Paid', value: quotationStats.paid, tone: 'text-emerald-500' },
                 { label: 'Expired', value: quotationStats.expired, tone: 'text-red-500' },
               ].map(stat => (
                 <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
@@ -4503,6 +4526,7 @@ const AdminView: React.FC<Props> = ({
                       <option value="draft">Draft</option>
                       <option value="sent">Sent</option>
                       <option value="accepted">Accepted</option>
+                      <option value="paid">Paid</option>
                       <option value="expired">Expired</option>
                     </select>
                   </div>
@@ -4562,6 +4586,7 @@ const AdminView: React.FC<Props> = ({
                       <option value="draft">Draft</option>
                       <option value="sent">Sent</option>
                       <option value="accepted">Accepted</option>
+                      <option value="paid">Paid</option>
                       <option value="expired">Expired</option>
                     </select>
                     <button onClick={() => saveQuotationDraft()} className="h-9 px-4 rounded-lg bg-black dark:bg-white text-white dark:text-gray-900 text-[10px] font-black uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all">
@@ -4781,6 +4806,7 @@ const AdminView: React.FC<Props> = ({
                         <option value="draft">Draft</option>
                         <option value="sent">Sent</option>
                         <option value="accepted">Accepted</option>
+                        <option value="paid">Paid</option>
                         <option value="expired">Expired</option>
                       </select>
                     </div>
@@ -4850,7 +4876,30 @@ const AdminView: React.FC<Props> = ({
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 space-y-4">
                 <div>
                   <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">{editingSoldItemId ? 'Edit Item' : 'Add Item'}</h3>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Quotation source item</p>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Public shop and quotation source item</p>
+                </div>
+                <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-3">
+                  <div className="h-24 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                    {soldItemForm.imageUrl ? (
+                      <img src={soldItemForm.imageUrl} alt={soldItemForm.name || 'Shop item'} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <ImageIcon size={24} className="text-gray-300" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 space-y-2">
+                    <label className="block">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Picture URL</span>
+                      <input
+                        value={soldItemForm.imageUrl}
+                        onChange={e => setSoldItemForm(prev => ({ ...prev, imageUrl: e.target.value }))}
+                        placeholder="Paste image URL or upload"
+                        className="mt-1 w-full h-10 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-xs dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </label>
+                    <input type="file" accept="image/*" onChange={handleSoldItemImageUpload} className="block w-full text-[10px] text-gray-500 file:mr-2 file:h-8 file:px-3 file:rounded-lg file:border-0 file:bg-orange-50 file:text-orange-600 file:font-black file:uppercase file:text-[9px]" />
+                  </div>
                 </div>
                 {[
                   ['Name', 'name', 'Item name'],
@@ -4901,15 +4950,26 @@ const AdminView: React.FC<Props> = ({
                   ) : filteredSoldItems.map(item => (
                     <div key={item.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                       <div className="flex items-start justify-between gap-3">
-                        <button onClick={() => { setSoldItemForm({ ...item }); setEditingSoldItemId(item.id); }} className="text-left min-w-0">
-                          <p className="text-sm font-black dark:text-white truncate">{item.name}</p>
-                          <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{item.sku || 'No SKU'} {item.category ? `· ${item.category}` : ''}</p>
-                          <p className="text-[10px] text-gray-400 mt-1">{item.description}</p>
+                        <button onClick={() => { setSoldItemForm({ ...item }); setEditingSoldItemId(item.id); }} className="flex min-w-0 flex-1 gap-3 text-left">
+                          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-900">
+                            {item.imageUrl ? (
+                              <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <Package size={22} className="text-gray-300 dark:text-gray-600" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-black dark:text-white truncate">{item.name}</p>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{item.sku || 'No SKU'} {item.category ? `- ${item.category}` : ''}</p>
+                            <p className="text-[10px] text-gray-400 mt-1 line-clamp-2">{item.description}</p>
+                          </div>
                         </button>
                         <div className="text-right shrink-0">
                           <p className="text-sm font-black dark:text-white">RM {(Number(item.price) || 0).toFixed(2)}</p>
                           <p className="text-[10px] text-gray-400">Cost RM {(Number(item.costPrice) || 0).toFixed(2)}</p>
-                          <span className={`inline-flex mt-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${item.isActive ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-gray-100 text-gray-400 dark:bg-gray-700'}`}>{item.isActive ? 'Active' : 'Hidden'}</span>
+                          <span className={`inline-flex mt-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${item.isActive ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-gray-100 text-gray-400 dark:bg-gray-700'}`}>{item.isActive ? 'Public' : 'Hidden'}</span>
                         </div>
                       </div>
                       <div className="mt-3 flex items-center justify-end gap-1">
