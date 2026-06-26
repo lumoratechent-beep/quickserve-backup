@@ -71,7 +71,9 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
   const [cart, setCart] = useState<CartLine[]>([]);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
-  const [viewMode, setViewMode] = useState<'shop' | 'checkout' | 'invoice'>('shop');
+  const [viewMode, setViewMode] = useState<'shop' | 'product' | 'checkout' | 'invoice'>('shop');
+  const [selectedProduct, setSelectedProduct] = useState<ShopItem | null>(null);
+  const [selectedQuantity, setSelectedQuantity] = useState(1);
   const [paidInvoice, setPaidInvoice] = useState<PaidInvoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -175,6 +177,23 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
 
   const getInvoiceLineName = (description: string) => description.split('\n').filter(Boolean)[0] || 'QuickServe item';
 
+  const openProduct = (item: ShopItem) => {
+    setSelectedProduct(item);
+    setSelectedQuantity(1);
+    setViewMode('product');
+  };
+
+  const addQuantityToCart = (item: ShopItem, quantity = 1) => {
+    const cleanQuantity = Math.max(1, Math.min(99, Math.floor(Number(quantity) || 1)));
+    setCart(prev => {
+      const existing = prev.find(line => line.id === item.id);
+      if (existing) {
+        return prev.map(line => line.id === item.id ? { ...line, quantity: line.quantity + cleanQuantity } : line);
+      }
+      return [...prev, { ...item, quantity: cleanQuantity }];
+    });
+  };
+
   const downloadInvoicePdf = async () => {
     if (!paidInvoice) return;
     const { default: jsPDF } = await import('jspdf');
@@ -261,13 +280,7 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
   };
 
   const addToCart = (item: ShopItem) => {
-    setCart(prev => {
-      const existing = prev.find(line => line.id === item.id);
-      if (existing) {
-        return prev.map(line => line.id === item.id ? { ...line, quantity: line.quantity + 1 } : line);
-      }
-      return [...prev, { ...item, quantity: 1 }];
-    });
+    addQuantityToCart(item);
   };
 
   const updateQuantity = (itemId: string, delta: number) => {
@@ -314,14 +327,14 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
     <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white">
       <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur-xl dark:border-gray-800 dark:bg-gray-950/90">
         <div className="flex w-full items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <button onClick={viewMode === 'checkout' ? () => setViewMode('shop') : onBack} className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:border-orange-300 hover:text-orange-500 dark:border-gray-700 dark:text-gray-300">
+          <button onClick={viewMode === 'checkout' || viewMode === 'product' ? () => setViewMode('shop') : onBack} className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:border-orange-300 hover:text-orange-500 dark:border-gray-700 dark:text-gray-300">
             <ArrowLeft size={18} />
           </button>
           <img src="/LOGO/9.png" alt="QuickServe" className="h-8 dark:hidden" />
           <img src="/LOGO/9-dark.png" alt="QuickServe" className="hidden h-8 dark:block" />
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500">Shop</p>
-            <h1 className="truncate text-sm font-black uppercase tracking-tight">{viewMode === 'invoice' ? 'Invoice' : viewMode === 'checkout' ? 'Checkout' : 'QuickServe Products'}</h1>
+            <h1 className="truncate text-sm font-black uppercase tracking-tight">{viewMode === 'invoice' ? 'Invoice' : viewMode === 'checkout' ? 'Checkout' : viewMode === 'product' ? 'Product Details' : 'QuickServe Products'}</h1>
           </div>
           <button onClick={onToggleDark} className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600 transition hover:text-orange-500 dark:bg-gray-800 dark:text-gray-300">
             {isDarkMode ? <Sun size={17} /> : <Moon size={17} />}
@@ -331,7 +344,29 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
 
       {viewMode === 'shop' ? (
       <main className="w-full px-4 py-6 sm:px-6 lg:px-8">
-        <section className="space-y-5">
+        <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <aside className="hidden lg:block">
+            <div className="sticky top-24 space-y-3">
+              <h2 className="text-sm font-black uppercase tracking-tight text-gray-700 dark:text-gray-200">Categories</h2>
+              <div className="space-y-1">
+                {categories.map(name => (
+                  <button
+                    key={name}
+                    onClick={() => setCategory(name)}
+                    className={`block w-full rounded-lg px-2 py-1.5 text-left text-sm font-bold transition ${
+                      category === name
+                        ? 'text-orange-500'
+                        : 'text-gray-500 hover:text-orange-500 dark:text-gray-400 dark:hover:text-orange-300'
+                    }`}
+                  >
+                    {name === 'All' ? 'All Products' : name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </aside>
+
+        <section className="min-w-0 space-y-5">
           {message && (
             <div className={`rounded-xl border px-4 py-3 text-sm font-bold ${
               message.type === 'success'
@@ -344,7 +379,7 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
             </div>
           )}
 
-          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <div className="space-y-3">
             <div className="relative flex-1">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
@@ -354,7 +389,7 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
                 className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm font-bold outline-none focus:border-orange-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
               />
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden">
               {categories.map(name => (
                 <button
                   key={name}
@@ -365,7 +400,7 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
                       : 'border border-gray-200 bg-white text-gray-500 hover:border-orange-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
                   }`}
                 >
-                  {name}
+                  {name === 'All' ? 'All Products' : name}
                 </button>
               ))}
             </div>
@@ -381,9 +416,13 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
               <p className="text-sm font-black uppercase tracking-widest text-gray-400">No products found</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
               {filteredItems.map(item => (
-                <article key={item.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                <article
+                  key={item.id}
+                  onClick={() => openProduct(item)}
+                  className="flex min-h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg dark:border-gray-700 dark:bg-gray-900"
+                >
                   <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-800">
                     {item.imageUrl ? (
                       <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
@@ -393,23 +432,101 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
                       </div>
                     )}
                   </div>
-                  <div className="space-y-3 p-3 sm:p-4">
+                  <div className="flex flex-1 flex-col p-3 sm:p-4">
                     <div>
                       <p className="text-[9px] font-black uppercase tracking-widest text-orange-500">{item.category}</p>
                       <h2 className="mt-1 line-clamp-2 text-sm font-black leading-tight sm:text-base">{item.name}</h2>
                       {item.description && <p className="mt-2 line-clamp-2 text-[11px] font-medium leading-relaxed text-gray-500 sm:line-clamp-3 sm:text-xs dark:text-gray-400">{item.description}</p>}
                     </div>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                      <p className="text-base font-black text-gray-900 sm:text-lg dark:text-white">RM {item.price.toFixed(2)}</p>
-                      <button onClick={() => addToCart(item)} className="flex h-10 items-center justify-center gap-2 rounded-xl bg-gray-900 px-3 text-[11px] font-black uppercase tracking-widest text-white transition hover:bg-orange-500 sm:px-4 sm:text-xs dark:bg-white dark:text-gray-900 dark:hover:bg-orange-500 dark:hover:text-white">
-                        <Plus size={14} /> Add
-                      </button>
-                    </div>
+                    <p className="mt-auto pt-4 text-base font-black text-gray-900 sm:text-lg dark:text-white">RM {item.price.toFixed(2)}</p>
                   </div>
+                  <button
+                    onClick={event => {
+                      event.stopPropagation();
+                      addToCart(item);
+                    }}
+                    className="flex h-12 w-full items-center justify-center gap-2 border-t border-gray-100 bg-gray-900 text-[11px] font-black uppercase tracking-widest text-white transition hover:bg-orange-500 dark:border-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-orange-500 dark:hover:text-white"
+                  >
+                    <Plus size={14} /> Add
+                  </button>
                 </article>
               ))}
             </div>
           )}
+        </section>
+        </div>
+      </main>
+      ) : viewMode === 'product' && selectedProduct ? (
+      <main className="w-full px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mb-5 flex flex-wrap items-center gap-2 text-sm font-bold text-gray-500 dark:text-gray-400">
+          <button onClick={() => setViewMode('shop')} className="text-orange-500 hover:text-orange-600">All Products</button>
+          <span>/</span>
+          <span className="text-gray-700 dark:text-gray-200">{selectedProduct.name}</span>
+        </div>
+
+        <section className="grid gap-8 lg:grid-cols-[minmax(0,1.25fr)_460px] xl:grid-cols-[minmax(0,1.35fr)_520px]">
+          <div className="min-w-0">
+            <div className="overflow-hidden rounded-2xl bg-white dark:bg-gray-900">
+              <div className="aspect-[16/10] bg-gray-100 dark:bg-gray-800">
+                {selectedProduct.imageUrl ? (
+                  <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="h-full w-full object-contain" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <Package size={80} className="text-gray-300 dark:text-gray-600" />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <aside className="min-w-0 space-y-6">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500">{selectedProduct.category}</p>
+              <h2 className="mt-3 text-3xl font-black leading-tight tracking-tight text-gray-900 dark:text-white lg:text-4xl">{selectedProduct.name}</h2>
+              <p className="mt-5 text-3xl font-black text-gray-900 dark:text-white">RM {selectedProduct.price.toFixed(2)}</p>
+            </div>
+
+            <div className="flex w-fit overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+              <button onClick={() => setSelectedQuantity(prev => Math.max(1, prev - 1))} className="flex h-12 w-14 items-center justify-center text-gray-500 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800">
+                <Minus size={16} />
+              </button>
+              <div className="flex h-12 w-14 items-center justify-center border-x border-gray-200 text-sm font-black dark:border-gray-700">{selectedQuantity}</div>
+              <button onClick={() => setSelectedQuantity(prev => Math.min(99, prev + 1))} className="flex h-12 w-14 items-center justify-center text-gray-500 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800">
+                <Plus size={16} />
+              </button>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                onClick={() => addQuantityToCart(selectedProduct, selectedQuantity)}
+                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gray-900 px-5 text-sm font-black text-white transition hover:bg-orange-500 dark:bg-white dark:text-gray-900 dark:hover:bg-orange-500 dark:hover:text-white"
+              >
+                <ShoppingBag size={17} /> Add to cart
+              </button>
+              <button
+                onClick={() => {
+                  addQuantityToCart(selectedProduct, selectedQuantity);
+                  setViewMode('checkout');
+                }}
+                className="flex h-12 items-center justify-center gap-2 rounded-xl border border-gray-300 px-5 text-sm font-black text-gray-700 transition hover:border-orange-300 hover:text-orange-500 dark:border-gray-700 dark:text-gray-200"
+              >
+                <CreditCard size={17} /> Buy now
+              </button>
+            </div>
+
+            {selectedProduct.description && (
+              <div className="border-t border-gray-200 pt-5 dark:border-gray-800">
+                <h3 className="text-sm font-black uppercase tracking-widest text-gray-400">Description</h3>
+                <p className="mt-3 whitespace-pre-line text-sm font-semibold leading-relaxed text-gray-600 dark:text-gray-300">{selectedProduct.description}</p>
+              </div>
+            )}
+
+            <div className="border-t border-gray-200 pt-5 text-sm font-semibold leading-relaxed text-gray-500 dark:border-gray-800 dark:text-gray-400">
+              <p className="font-black text-gray-700 dark:text-gray-200">Terms and Conditions</p>
+              <p className="mt-2">Payment is processed securely via Stripe Checkout.</p>
+              <p>We will contact you shortly after payment to arrange fulfilment and next steps.</p>
+            </div>
+          </aside>
         </section>
       </main>
       ) : viewMode === 'invoice' && paidInvoice ? (
@@ -498,8 +615,8 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
         </section>
       </main>
       ) : (
-      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <main className="w-full px-4 py-6 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_460px]">
           <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div className="flex items-center justify-between border-b border-gray-100 p-5 dark:border-gray-800">
               <div>
