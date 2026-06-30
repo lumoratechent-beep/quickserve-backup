@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, CreditCard, Download, Loader2, Minus, Moon, Package, Plus, Search, ShoppingBag, Sun, Trash2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, CreditCard, Download, Loader2, Minus, Package, Plus, Search, ShoppingBag, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import PublicNavbar from '../components/PublicNavbar';
 
 type ShopItem = {
   id: string;
@@ -49,6 +50,11 @@ type CustomerForm = {
 
 interface Props {
   onBack: () => void;
+  onHome: () => void;
+  onHomeSection: (sectionId: string) => void;
+  onHelp: () => void;
+  onCompany: () => void;
+  onLogin: () => void;
   isDarkMode?: boolean;
   onToggleDark?: () => void;
 }
@@ -79,7 +85,7 @@ const normalizeShopItem = (row: any): ShopItem => {
   };
 };
 
-const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark }) => {
+const QuickServeShopPage: React.FC<Props> = ({ onBack, onHome, onHomeSection, onHelp, onCompany, onLogin, isDarkMode, onToggleDark }) => {
   const [items, setItems] = useState<ShopItem[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [query, setQuery] = useState('');
@@ -361,22 +367,32 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white">
-      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur-xl dark:border-gray-800 dark:bg-gray-950/90">
-        <div className="flex w-full items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <button onClick={viewMode === 'checkout' || viewMode === 'product' ? () => setViewMode('shop') : onBack} className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:border-orange-300 hover:text-orange-500 dark:border-gray-700 dark:text-gray-300">
+      <PublicNavbar
+        activePage="shop"
+        isDarkMode={isDarkMode}
+        onToggleDark={onToggleDark}
+        onLogin={onLogin}
+        onHome={onHome}
+        onHomeSection={onHomeSection}
+        onShop={() => {
+          setViewMode('shop');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onHelp={onHelp}
+        onCompany={onCompany}
+      />
+
+      <div className="px-4 pt-28 sm:px-6 lg:px-8 lg:pt-32">
+        <div className="flex w-full items-center gap-3">
+          <button onClick={viewMode === 'checkout' || viewMode === 'product' ? () => setViewMode('shop') : onBack} className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 transition hover:border-orange-300 hover:text-orange-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
             <ArrowLeft size={18} />
           </button>
-          <img src="/LOGO/9.png" alt="QuickServe" className="h-8 dark:hidden" />
-          <img src="/LOGO/9-dark.png" alt="QuickServe" className="hidden h-8 dark:block" />
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500">Shop</p>
             <h1 className="truncate text-sm font-black uppercase tracking-tight">{viewMode === 'invoice' ? 'Invoice' : viewMode === 'checkout' ? 'Checkout' : viewMode === 'product' ? 'Product Details' : 'QuickServe Products'}</h1>
           </div>
-          <button onClick={onToggleDark} className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600 transition hover:text-orange-500 dark:bg-gray-800 dark:text-gray-300">
-            {isDarkMode ? <Sun size={17} /> : <Moon size={17} />}
-          </button>
         </div>
-      </header>
+      </div>
 
       {viewMode === 'shop' ? (
       <main className="w-full px-4 py-6 sm:px-6 lg:px-8">

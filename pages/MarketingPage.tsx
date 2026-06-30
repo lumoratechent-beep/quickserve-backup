@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Zap, DollarSign, MessageSquare, ArrowRight, ShieldCheck, Globe, Clock, Check, QrCode, Smartphone, Monitor, ChefHat, BarChart3, Headphones, ChevronDown, ChevronLeft, ChevronRight, Star, Users, TrendingUp, Wifi, Sun, Moon, MapPin, UtensilsCrossed, PackageCheck, Receipt, Menu, X } from 'lucide-react';
+import { Zap, DollarSign, MessageSquare, ArrowRight, ShieldCheck, Globe, Clock, Check, QrCode, Smartphone, Monitor, ChefHat, BarChart3, Headphones, ChevronDown, ChevronLeft, ChevronRight, Star, Users, TrendingUp, Wifi, MapPin, UtensilsCrossed, PackageCheck, Receipt } from 'lucide-react';
 import { PRICING_PLANS, TRIAL_DAYS } from '../lib/pricingPlans';
 import { supabase } from '../lib/supabase';
+import PublicNavbar from '../components/PublicNavbar';
 
 // Custom hook: triggers once when element enters viewport
 const useInView = (options?: IntersectionObserverInit) => {
@@ -45,15 +46,14 @@ interface Props {
   onCompany: () => void;
   onShop?: () => void;
   onComparePlans?: () => void;
+  onHelp?: () => void;
   isDarkMode?: boolean;
   onToggleDark?: () => void;
 }
 
-const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onShop, onComparePlans, isDarkMode, onToggleDark }) => {
-  const [mounted, setMounted] = useState(false);
+const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onShop, onComparePlans, onHelp, isDarkMode, onToggleDark }) => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showcaseIndex, setShowcaseIndex] = useState(0);
   const [showcasePaused, setShowcasePaused] = useState(false);
   const heroRef = useInView();
@@ -70,8 +70,6 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onSh
 
   const [partnerLogos, setPartnerLogos] = useState<{ url: string; alt: string; crop_shape: string; display_width: number; display_height: number; category: string }[]>([]);
   const [addonImages, setAddonImages] = useState<Record<string, { url: string; alt: string; crop_shape: string; display_width: number; display_height: number }[]>>({});
-
-  useEffect(() => { setMounted(true); }, []);
 
   // Fetch feature images for the partner carousel and add-on features
   useEffect(() => {
@@ -154,84 +152,16 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onSh
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 font-sans selection:bg-orange-100 selection:text-orange-900 overflow-x-hidden">
-      {/* Navigation */}
-      <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${mounted ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
-        <div className="mx-auto max-w-7xl px-3 sm:px-6">
-          <div className="mt-4 flex items-center h-14 sm:h-16 px-3 sm:px-6 bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg shadow-black/5">
-            {/* Mobile: Hamburger + Logo */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-700 hover:text-orange-500 transition-all mr-2"
-            >
-              {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-            </button>
-            <div className="flex items-center gap-2">
-              <img src="/LOGO/9.png" alt="QuickServe" className="h-8 sm:h-9 dark:hidden" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32"><text x="0" y="24" font-size="20" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`; }} />
-              <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-8 sm:h-9 hidden dark:block" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32"><text x="0" y="24" font-size="20" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`; }} />
-            </div>
-            {/* Desktop nav links */}
-            <div className="hidden md:flex items-center gap-8 text-[11px] font-bold text-gray-700 dark:text-gray-400 uppercase tracking-[0.15em] mx-auto">
-              <a href="#features" className="hover:text-orange-500 transition-colors">Features</a>
-              <a href="#how-it-works" className="hover:text-orange-500 transition-colors">How It Works</a>
-              <a href="#mockup" className="hover:text-orange-500 transition-colors">Preview</a>
-              <a href="#pricing" className="hover:text-orange-500 transition-colors">Pricing</a>
-              <button onClick={onShop} className="hover:text-orange-500 transition-colors">SHOP</button>
-              <a href="#faq" className="hover:text-orange-500 transition-colors">FAQ</a>
-              <button onClick={onCompany} className="hover:text-orange-500 transition-colors">OUR COMPANY</button>
-            </div>
-            {/* Spacer for mobile */}
-            <div className="flex-1 md:hidden" />
-            <div className="flex items-center gap-2 sm:gap-3">
-              <button
-                onClick={onToggleDark}
-                className="p-2 sm:p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-700 hover:text-orange-500 transition-all"
-                title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-              >
-                {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-              </button>
-              <button
-                onClick={onLogin}
-                className="px-3 sm:px-5 py-2 sm:py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] sm:text-[11px] uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all hover:scale-105"
-              >
-                Login
-              </button>
-            </div>
-          </div>
-          {/* Mobile dropdown menu */}
-          <div className={`md:hidden overflow-hidden transition-all duration-300 ${mobileMenuOpen ? 'max-h-64 mt-2' : 'max-h-0'}`}>
-            <div className="flex flex-col gap-1 px-3 py-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg shadow-black/5">
-              {[
-                { href: '#features', label: 'Features' },
-                { href: '#how-it-works', label: 'How It Works' },
-                { href: '#mockup', label: 'Preview' },
-                { href: '#pricing', label: 'Pricing' },
-                { href: '#faq', label: 'FAQ' },
-              ].map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2.5 text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-[0.15em] hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 rounded-xl transition-all"
-                >
-                  {link.label}
-                </a>
-              ))}
-              <button
-                onClick={() => { setMobileMenuOpen(false); onShop?.(); }}
-                className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-[0.15em] hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 rounded-xl transition-all"
-              >
-                SHOP
-              </button>
-              <button
-                onClick={() => { setMobileMenuOpen(false); onCompany(); }}
-                className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-[0.15em] hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 rounded-xl transition-all"
-              >
-                OUR COMPANY
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <PublicNavbar
+        activePage="home"
+        isDarkMode={isDarkMode}
+        onToggleDark={onToggleDark}
+        onLogin={onLogin}
+        onHome={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        onShop={onShop}
+        onHelp={onHelp}
+        onCompany={onCompany}
+      />
 
       {/* ═══════════════════════ HERO SECTION ═══════════════════════ */}
       <section ref={heroRef.ref} className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 relative overflow-hidden">

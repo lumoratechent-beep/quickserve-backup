@@ -11,6 +11,7 @@ import ComparePlansPage from './pages/ComparePlansPage';
 import RegisterPage from './pages/RegisterPage';
 import OnlineShopPage from './pages/OnlineShopPage';
 import QuickServeShopPage from './pages/QuickServeShopPage';
+import HelpTutorialPage from './pages/HelpTutorialPage';
 import TableSideOrderPage from './pages/TableSideOrderPage';
 import { supabase } from './lib/supabase';
 import { expandPosSettings } from './lib/sharedSettings';
@@ -436,7 +437,7 @@ const App: React.FC = () => {
   const [stripeRedirect] = useState(() => stripeRedirectRef.current());
 
   const [onlineShopSlug, setOnlineShopSlug] = useState<string | null>(null);
-  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE' | 'ONLINE_SHOP' | 'COMPANY' | 'COMPARE_PLANS' | 'QS_SHOP'>(() => {
+  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE' | 'ONLINE_SHOP' | 'COMPANY' | 'COMPARE_PLANS' | 'QS_SHOP' | 'HELP'>(() => {
     const savedView = localStorage.getItem('qs_view') as any;
     
     // Handle Stripe payment redirect
@@ -461,6 +462,9 @@ const App: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('shop')) {
       return 'QS_SHOP';
+    }
+    if (params.get('help')) {
+      return 'HELP';
     }
     if (!savedView && !params.get('loc')) {
       return 'MARKETING';
@@ -2768,20 +2772,56 @@ const App: React.FC = () => {
     );
   }
 
+  const showMarketing = () => {
+    window.history.replaceState({}, '', window.location.pathname);
+    setView('MARKETING');
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 0);
+  };
+
+  const showMarketingSection = (sectionId: string) => {
+    window.history.replaceState({}, '', `${window.location.pathname}#${sectionId}`);
+    setView('MARKETING');
+    window.setTimeout(() => {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  };
+
+  const showShop = () => {
+    window.history.pushState({}, '', `${window.location.pathname}?shop=1`);
+    setView('QS_SHOP');
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 0);
+  };
+
+  const showHelp = () => {
+    window.history.pushState({}, '', `${window.location.pathname}?help=1`);
+    setView('HELP');
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 0);
+  };
+
+  const showCompany = () => {
+    window.history.replaceState({}, '', window.location.pathname);
+    setView('COMPANY');
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 0);
+  };
+
   if (view === 'COMPARE_PLANS') {
     return <ComparePlansPage onBack={() => setView('MARKETING')} onGetStarted={() => setView('REGISTER')} />;
   }
 
   if (view === 'MARKETING') {
-    return <MarketingPage onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} onCompany={() => setView('COMPANY')} onComparePlans={() => setView('COMPARE_PLANS')} onShop={() => { window.history.pushState({}, '', `${window.location.pathname}?shop=1`); setView('QS_SHOP'); }} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
+    return <MarketingPage onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} onCompany={showCompany} onComparePlans={() => setView('COMPARE_PLANS')} onShop={showShop} onHelp={showHelp} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
   }
 
   if (view === 'COMPANY') {
-    return <CompanyPage onBack={() => setView('MARKETING')} onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
+    return <CompanyPage onBack={showMarketing} onHomeSection={showMarketingSection} onShop={showShop} onHelp={showHelp} onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
+  }
+
+  if (view === 'HELP') {
+    return <HelpTutorialPage onHome={showMarketing} onHomeSection={showMarketingSection} onShop={showShop} onCompany={showCompany} onLogin={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
   }
 
   if (view === 'QS_SHOP') {
-    return <QuickServeShopPage onBack={() => { window.history.replaceState({}, '', window.location.pathname); setView('MARKETING'); }} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
+    return <QuickServeShopPage onBack={showMarketing} onHome={showMarketing} onHomeSection={showMarketingSection} onHelp={showHelp} onCompany={showCompany} onLogin={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
   }
 
   const networkMeta = (() => {

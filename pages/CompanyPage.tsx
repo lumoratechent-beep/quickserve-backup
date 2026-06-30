@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
 
-  Sun,
-  Moon,
   MapPin,
   MessageSquare,
   ShieldCheck,
@@ -11,12 +9,11 @@ import {
   Star,
   Sparkles,
   ChevronRight,
-  Menu,
-  X,
   Globe,
   Users,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import PublicNavbar from '../components/PublicNavbar';
 
 const useInView = (options?: IntersectionObserverInit) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -49,6 +46,9 @@ interface Props {
   onToggleDark?: () => void;
   onGetStarted: () => void;
   onLogin: () => void;
+  onHomeSection: (sectionId: string) => void;
+  onShop: () => void;
+  onHelp: () => void;
 }
 
 type ValueTab = {
@@ -59,7 +59,7 @@ type ValueTab = {
   points: string[];
 };
 
-const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetStarted, onLogin }) => {
+const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetStarted, onLogin, onHomeSection, onShop, onHelp }) => {
   const heroRef = useInView();
 
   const aboutRef = useInView();
@@ -80,10 +80,6 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [activeValue, setActiveValue] = useState<'mission' | 'vision' | 'promise'>('mission');
-
-  const [mounted, setMounted] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
 
   const valueTabs: ValueTab[] = [
     {
@@ -132,10 +128,6 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
   ];
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
     window.scrollTo({ top: 0 });
     supabase
       .from('team_members')
@@ -182,75 +174,17 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
     <div className="min-h-screen bg-white dark:bg-[#0b1120] font-sans overflow-x-hidden text-gray-900 dark:text-white">
 
       {/* ── NAVIGATION ── */}
-      <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${mounted ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3">
-          <div className="flex items-center h-14 px-4 sm:px-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-full border border-gray-200/60 dark:border-gray-700/50 shadow-lg shadow-black/[0.03]">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all mr-2"
-            >
-              {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-            </button>
-
-            <div className="flex items-center gap-2">
-              <img src="/LOGO/9.png" alt="QuickServe" className="h-8 dark:hidden" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32"><text x="0" y="24" font-size="20" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`; }} />
-              <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-8 hidden dark:block" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32"><text x="0" y="24" font-size="20" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`; }} />
-            </div>
-
-            <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-500 dark:text-gray-400 mx-auto">
-              <button onClick={onBack} className="hover:text-gray-900 dark:hover:text-white transition-colors">Home</button>
-              <a href="#about" className="text-gray-900 dark:text-white font-semibold">About</a>
-              <a href="#team" className="hover:text-gray-900 dark:hover:text-white transition-colors">Team</a>
-              <a href="#location" className="hover:text-gray-900 dark:hover:text-white transition-colors">Location</a>
-              <a href="#careers" className="hover:text-gray-900 dark:hover:text-white transition-colors">Careers</a>
-            </div>
-
-            <div className="flex-1 md:hidden" />
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={onToggleDark}
-                className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
-                title={isDarkMode ? 'Light mode' : 'Dark mode'}
-              >
-                {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-              </button>
-              <button
-                onClick={onLogin}
-                className="hidden sm:block text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors px-3"
-              >
-                Log in
-              </button>
-              <button
-                onClick={onGetStarted}
-                className="px-5 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full text-sm font-semibold hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all"
-              >
-                Started for Free
-              </button>
-            </div>
-          </div>
-
-          {/* Mobile menu */}
-          <div className={`md:hidden overflow-hidden transition-all duration-300 ${mobileMenuOpen ? 'max-h-72 mt-2' : 'max-h-0'}`}>
-            <div className="flex flex-col gap-1 p-3 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-gray-200/60 dark:border-gray-700/50 shadow-lg">
-              <button onClick={() => { setMobileMenuOpen(false); onBack(); }} className="px-4 py-2.5 text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-orange-500 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-all">
-                Home
-              </button>
-              {['#about|About', '#team|Team', '#location|Location', '#careers|Careers'].map((item) => {
-                const [href, label] = item.split('|');
-                return (
-                  <a key={href} href={href} onClick={() => setMobileMenuOpen(false)} className="px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-orange-500 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-all">
-                    {label}
-                  </a>
-                );
-              })}
-              <button onClick={() => { setMobileMenuOpen(false); onLogin(); }} className="px-4 py-2.5 text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-orange-500 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-all sm:hidden">
-                Log in
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <PublicNavbar
+        activePage="company"
+        isDarkMode={isDarkMode}
+        onToggleDark={onToggleDark}
+        onLogin={onLogin}
+        onHome={onBack}
+        onHomeSection={onHomeSection}
+        onShop={onShop}
+        onHelp={onHelp}
+        onCompany={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      />
 
       {/* ── HERO ── */}
       <section ref={heroRef.ref} className="pt-28 sm:pt-40 pb-14 sm:pb-28 px-4 sm:px-6">
