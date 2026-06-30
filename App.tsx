@@ -2821,7 +2821,7 @@ const App: React.FC = () => {
   }
 
   if (view === 'QS_SHOP') {
-    return <QuickServeShopPage onBack={showMarketing} onHome={showMarketing} onHomeSection={showMarketingSection} onHelp={showHelp} onCompany={showCompany} onLogin={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
+    return <QuickServeShopPage onBack={showMarketing} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
   }
 
   const networkMeta = (() => {
