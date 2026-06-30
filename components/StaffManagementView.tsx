@@ -27,9 +27,6 @@ interface StaffLeaveEntitlements {
   types: Record<LeaveType, LeaveEntitlementRule>;
   annualLevelsEnabled: boolean;
   annualLevels: AnnualLeaveLevel[];
-  annualIncrementEnabled: boolean;
-  annualIncrementStartYear: number;
-  annualIncrementDays: number;
 }
 
 interface StaffDepartment {
@@ -297,9 +294,6 @@ const defaultLeaveEntitlements = (): StaffLeaveEntitlements => ({
     { id: crypto.randomUUID(), serviceYear: 1, days: 8 },
     { id: crypto.randomUUID(), serviceYear: 2, days: 9 },
   ],
-  annualIncrementEnabled: false,
-  annualIncrementStartYear: 1,
-  annualIncrementDays: 1,
 });
 
 const normalizeLeaveEntitlements = (value?: Partial<StaffLeaveEntitlements> | null): StaffLeaveEntitlements => {
@@ -321,9 +315,6 @@ const normalizeLeaveEntitlements = (value?: Partial<StaffLeaveEntitlements> | nu
     types,
     annualLevelsEnabled: Boolean(value?.annualLevelsEnabled),
     annualLevels: levels,
-    annualIncrementEnabled: Boolean(value?.annualIncrementEnabled),
-    annualIncrementStartYear: Math.max(1, Math.round(n(value?.annualIncrementStartYear) || 1)),
-    annualIncrementDays: n(value?.annualIncrementDays || 1),
   };
 };
 
@@ -376,9 +367,6 @@ const getCurrentLeaveEntitlement = (profile: StaffProfile | undefined, type: Lea
       .filter(level => serviceYears + 1 >= level.serviceYear)
       .sort((a, b) => b.serviceYear - a.serviceYear)[0];
     if (matchedLevel) annualDays = n(matchedLevel.days);
-  }
-  if (entitlements.annualIncrementEnabled && serviceYears >= entitlements.annualIncrementStartYear) {
-    annualDays += ((serviceYears - entitlements.annualIncrementStartYear) + 1) * n(entitlements.annualIncrementDays);
   }
   return annualDays;
 };
@@ -2520,21 +2508,20 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <Field label="Default Deduction" type="number" value={staffForm.defaultDeduction} onChange={value => setStaffForm(form => ({ ...form, defaultDeduction: n(value) }))} />
               <SectionDivider title="Leave Entitlement" />
               <div className="md:col-span-3 rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/60">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
                   {leaveTypes.map(type => {
                     const rule = normalizeLeaveEntitlements(staffForm.leaveEntitlements).types[type];
                     return (
-                      <div key={type} className="rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
-                        <div className="mb-3 flex items-center justify-between gap-2">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">{type}</span>
-                          <label className="relative inline-flex cursor-pointer items-center">
-                            <input type="checkbox" checked={rule.enabled} onChange={event => updateLeaveEntitlementType(type, { enabled: event.target.checked })} className="peer sr-only" />
-                            <span className="h-5 w-9 rounded-full bg-gray-200 transition peer-checked:bg-amber-500 dark:bg-gray-700" />
-                            <span className="absolute left-0.5 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-4" />
-                          </label>
+                      <div key={type} className="grid grid-cols-[minmax(0,1fr)_auto_96px] items-center gap-3 border-b border-gray-100 px-3 py-2.5 last:border-b-0 dark:border-gray-700 sm:grid-cols-[minmax(0,1fr)_auto_140px]">
+                        <span className="min-w-0 text-xs font-black uppercase tracking-wider text-gray-600 dark:text-gray-300">{type}</span>
+                        <label className="relative inline-flex cursor-pointer items-center">
+                          <input type="checkbox" checked={rule.enabled} onChange={event => updateLeaveEntitlementType(type, { enabled: event.target.checked })} className="peer sr-only" />
+                          <span className="h-5 w-9 rounded-full bg-gray-200 transition peer-checked:bg-amber-500 dark:bg-gray-700" />
+                          <span className="absolute left-0.5 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-4" />
+                        </label>
+                        <div>
+                          <input type="number" min="0" step="0.5" disabled={!rule.enabled} value={rule.days || ''} onChange={event => updateLeaveEntitlementType(type, { days: n(event.target.value) })} className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 px-2 text-right text-sm font-bold text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-white" placeholder="0" />
                         </div>
-                        <label className={labelClass}>Days</label>
-                        <input type="number" min="0" step="0.5" disabled={!rule.enabled} value={rule.days || ''} onChange={event => updateLeaveEntitlementType(type, { days: n(event.target.value) })} className={`${fieldClass} disabled:opacity-50`} placeholder="0" />
                       </div>
                     );
                   })}
@@ -2544,7 +2531,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                       <p className="text-xs font-black uppercase tracking-wider text-gray-700 dark:text-gray-200">Annual Leave Levels</p>
-                      <p className="text-[11px] text-gray-400">Set entitlement by service year when company policy needs year-based levels.</p>
+                      <p className="text-[11px] text-gray-400">Set annual leave by service year; the current entitlement updates from the staff hire date.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <label className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-gray-500">
@@ -2569,24 +2556,6 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                       ))}
                     </div>
                   )}
-                </div>
-
-                <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-wider text-gray-700 dark:text-gray-200">Auto Annual Increment</p>
-                      <p className="text-[11px] text-gray-400">Example: after 1 year, add 1 annual leave every year.</p>
-                    </div>
-                    <label className="relative inline-flex cursor-pointer items-center">
-                      <input type="checkbox" checked={staffForm.leaveEntitlements.annualIncrementEnabled} onChange={event => updateLeaveEntitlements({ annualIncrementEnabled: event.target.checked })} className="peer sr-only" />
-                      <span className="h-5 w-9 rounded-full bg-gray-200 transition peer-checked:bg-amber-500 dark:bg-gray-700" />
-                      <span className="absolute left-0.5 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-4" />
-                    </label>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <Field label="Start After Year" type="number" value={staffForm.leaveEntitlements.annualIncrementStartYear} onChange={value => updateLeaveEntitlements({ annualIncrementStartYear: Math.max(1, Math.round(n(value) || 1)) })} />
-                    <Field label="Add Days / Year" type="number" value={staffForm.leaveEntitlements.annualIncrementDays} onChange={value => updateLeaveEntitlements({ annualIncrementDays: n(value) })} />
-                  </div>
                 </div>
               </div>
               <SectionDivider title="Bank & Statutory" />
