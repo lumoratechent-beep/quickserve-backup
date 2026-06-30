@@ -990,7 +990,7 @@ const App: React.FC = () => {
   }, [currentRole, currentUser?.restaurantId]);
 
   useEffect(() => {
-    const roleCanOwnRestaurant = currentRole === 'VENDOR' || currentRole === 'CASHIER' || currentRole === 'KITCHEN' || currentRole === 'ORDER_TAKER';
+    const roleCanOwnRestaurant = currentRole === 'VENDOR' || currentRole === 'CASHIER' || currentRole === 'KITCHEN' || currentRole === 'ORDER_TAKER' || currentRole === 'HR';
     const restaurantId = currentUser?.restaurantId;
 
     if (!roleCanOwnRestaurant || !restaurantId) return;
@@ -1313,7 +1313,7 @@ const App: React.FC = () => {
   }, [restaurants, sessionRestaurantSlug, sessionRestaurantId]);
 
   // Compute active vendor and current area early for hooks
-  const activeVendorRes = (currentUser?.role === 'VENDOR' || currentUser?.role === 'KITCHEN' || currentUser?.role === 'ORDER_TAKER') ? restaurants.find(r => r.id === currentUser.restaurantId) : null;
+  const activeVendorRes = (currentUser?.role === 'VENDOR' || currentUser?.role === 'KITCHEN' || currentUser?.role === 'ORDER_TAKER' || currentUser?.role === 'HR') ? restaurants.find(r => r.id === currentUser.restaurantId) : null;
   const currentArea = locations.find(l => l.name === sessionLocation);
 
   // Global Data Initialization
@@ -1636,12 +1636,13 @@ const App: React.FC = () => {
   };
 
   const handleLogin = async (user: User, portalMode: 'staff' | 'backoffice' = 'staff') => {
-    const allowedBackOfficeRoles: User['role'][] = ['VENDOR', 'ADMIN'];
-    if (portalMode === 'backoffice' && !allowedBackOfficeRoles.includes(user.role)) {
+    const effectivePortalMode = user.role === 'HR' ? 'backoffice' : portalMode;
+    const allowedBackOfficeRoles: User['role'][] = ['VENDOR', 'ADMIN', 'HR'];
+    if (effectivePortalMode === 'backoffice' && !allowedBackOfficeRoles.includes(user.role)) {
       toast('This account is not allowed to access Back Office Portal.', 'error');
       return;
     }
-    if (portalMode === 'backoffice' && isMobilePhoneDevice()) {
+    if (effectivePortalMode === 'backoffice' && isMobilePhoneDevice()) {
       toast(BACK_OFFICE_DEVICE_MESSAGE, 'warning');
       return;
     }
@@ -1649,10 +1650,10 @@ const App: React.FC = () => {
     setIsLoading(true);
     setCurrentUser(user); 
     setCurrentRole(user.role); 
-    setView(portalMode === 'backoffice' ? 'BACK_OFFICE' : 'APP');
+    setView(effectivePortalMode === 'backoffice' ? 'BACK_OFFICE' : 'APP');
     localStorage.setItem('qs_user', JSON.stringify(user));
     localStorage.setItem('qs_role', user.role);
-    localStorage.setItem('qs_view', portalMode === 'backoffice' ? 'BACK_OFFICE' : 'APP');
+    localStorage.setItem('qs_view', effectivePortalMode === 'backoffice' ? 'BACK_OFFICE' : 'APP');
     precacheBasicPwaShell();
 
     let loginSubscription: Subscription | null = user.restaurantId ? (vendorSubscriptions[user.restaurantId] || null) : null;
@@ -2901,19 +2902,29 @@ const App: React.FC = () => {
           </div>
           <h2 className="text-lg font-black uppercase tracking-tight text-gray-900 dark:text-white">You're offline</h2>
           <p className="mt-2 text-sm font-semibold text-gray-600 dark:text-gray-300">Back Office needs an internet connection.</p>
-          <button
-            onClick={() => setView('APP')}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#374151] px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-[#2f3847]"
-          >
-            <ShoppingBag size={16} />
-            Back to POS
-          </button>
+          {currentRole === 'HR' ? (
+            <button
+              onClick={handleLogoutAttempt}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#374151] px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-[#2f3847]"
+            >
+              <LogOut size={16} />
+              Logout
+            </button>
+          ) : (
+            <button
+              onClick={() => setView('APP')}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#374151] px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-[#2f3847]"
+            >
+              <ShoppingBag size={16} />
+              Back to POS
+            </button>
+          )}
         </div>
       </div>
     );
   }
 
-  if (view === 'BACK_OFFICE' && currentRole === 'VENDOR' && activeVendorRes) {
+  if (view === 'BACK_OFFICE' && (currentRole === 'VENDOR' || currentRole === 'HR') && activeVendorRes) {
     const CURRENCY_MAP: Record<string, string> = { MYR: 'RM', USD: '$', EUR: '€', GBP: '£', SGD: 'S$', JPY: '¥', KRW: '₩', INR: '₹', AUD: 'A$', CNY: '¥', TWD: 'NT$', BND: 'B$' };
     const currCode = activeVendorRes.settings?.currency || localStorage.getItem(`ux_currency_${activeVendorRes.id}`) || 'MYR';
     const currSymbol = CURRENCY_MAP[currCode] || 'RM';
@@ -2923,7 +2934,8 @@ const App: React.FC = () => {
         orders={orders.filter(o => o.restaurantId === currentUser?.restaurantId)}
         currencySymbol={currSymbol}
         onFetchAllFilteredOrders={onFetchAllFilteredOrders}
-        onBack={() => setView('APP')}
+        userRole={currentRole}
+        onBack={currentRole === 'HR' ? undefined : () => setView('APP')}
         onAddMenuItem={handleAddMenuItem}
         onUpdateMenu={handleUpdateMenuItem}
         onPermanentDeleteMenuItem={handleDeleteMenuItem}

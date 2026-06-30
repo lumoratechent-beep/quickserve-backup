@@ -1,14 +1,36 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Building2, Copy, CreditCard, Download, Edit3, Eye, FileText, MoreVertical, Plus, Receipt, RotateCcw, Search, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { Building2, CalendarDays, CalendarPlus, Copy, CreditCard, Download, Edit3, Eye, FileText, MoreVertical, Plus, Receipt, RotateCcw, Search, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { Restaurant } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from './Toast';
 import { syncBackofficeToDb } from '../lib/sharedSettings';
 
-type StaffRole = 'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' | 'MANAGER';
+type StaffRole = 'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' | 'MANAGER' | 'HR';
 type ContributionMode = 'fixed' | 'percentage';
 type StaffEmploymentStatus = 'Active' | 'Probation' | 'Inactive' | 'Resigned';
+type LeaveType = 'MC' | 'Hospitalization' | 'Paternity' | 'Annual' | 'Other';
+type LeaveStatus = 'scheduled' | 'approved' | 'completed' | 'cancelled';
+
+interface LeaveEntitlementRule {
+  enabled: boolean;
+  days: number;
+}
+
+interface AnnualLeaveLevel {
+  id: string;
+  serviceYear: number;
+  days: number;
+}
+
+interface StaffLeaveEntitlements {
+  types: Record<LeaveType, LeaveEntitlementRule>;
+  annualLevelsEnabled: boolean;
+  annualLevels: AnnualLeaveLevel[];
+  annualIncrementEnabled: boolean;
+  annualIncrementStartYear: number;
+  annualIncrementDays: number;
+}
 
 interface StaffDepartment {
   id: string;
@@ -44,6 +66,7 @@ interface StaffProfile {
   overtime_rate?: number | null;
   default_allowances?: Record<string, number> | null;
   default_deductions?: Record<string, number> | null;
+  leave_entitlements?: StaffLeaveEntitlements | null;
   notes?: string | null;
 }
 
@@ -115,6 +138,22 @@ interface StaffClaimItem {
   notes?: string | null;
 }
 
+interface StaffLeave {
+  id: string;
+  restaurant_id: string;
+  staff_user_id: string;
+  staff_profile_id?: string | null;
+  leave_type: LeaveType;
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  status: LeaveStatus;
+  notes?: string | null;
+  staff_name?: string | null;
+  staff_role?: string | null;
+  created_at?: string;
+}
+
 interface StaffForm {
   username: string;
   password: string;
@@ -143,6 +182,7 @@ interface StaffForm {
   overtimeRate: number;
   defaultAllowance: number;
   defaultDeduction: number;
+  leaveEntitlements: StaffLeaveEntitlements;
   notes: string;
 }
 
@@ -189,6 +229,16 @@ interface ClaimLineForm {
   notes: string;
 }
 
+interface LeaveForm {
+  staffUserId: string;
+  leaveType: LeaveType;
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  status: LeaveStatus;
+  notes: string;
+}
+
 interface OvertimeEntry {
   id: string;
   hours: number;
@@ -200,7 +250,7 @@ interface Props {
   currencySymbol: string;
 }
 
-type FloatingActionMenuType = 'staff' | 'payslip' | 'claim';
+type FloatingActionMenuType = 'staff' | 'payslip' | 'claim' | 'leave';
 
 interface FloatingActionMenu {
   type: FloatingActionMenuType;
@@ -220,6 +270,8 @@ const monthLabel = () => new Date().toLocaleDateString('en-US', { month: 'long',
 const blankOvertimeEntry = (): OvertimeEntry => ({ id: crypto.randomUUID(), hours: 0, multiplier: 1.5 });
 const overtimeMultipliers = [1, 1.5, 2, 2.5, 3];
 const claimTypes = ['Meals', 'Travel', 'Mileage', 'Medical', 'Supplies', 'Training', 'Other'];
+const leaveTypes: LeaveType[] = ['MC', 'Hospitalization', 'Paternity', 'Annual', 'Other'];
+const leaveStatusOptions: LeaveStatus[] = ['scheduled', 'approved', 'completed', 'cancelled'];
 const periodMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const currentYear = new Date().getFullYear();
 const periodYears = Array.from({ length: 9 }, (_, index) => currentYear - 4 + index);
@@ -232,6 +284,104 @@ const parsePeriodLabel = (value?: string | null) => {
 };
 const periodLabelFromParts = (month: string, year: number | string) => `${month} ${year}`;
 const blankClaimLine = (): ClaimLineForm => ({ id: crypto.randomUUID(), claimType: 'Meals', amount: 0, receiptRef: '', notes: '' });
+const defaultLeaveEntitlements = (): StaffLeaveEntitlements => ({
+  types: {
+    MC: { enabled: false, days: 0 },
+    Hospitalization: { enabled: false, days: 0 },
+    Paternity: { enabled: false, days: 0 },
+    Annual: { enabled: false, days: 0 },
+    Other: { enabled: false, days: 0 },
+  },
+  annualLevelsEnabled: false,
+  annualLevels: [
+    { id: crypto.randomUUID(), serviceYear: 1, days: 8 },
+    { id: crypto.randomUUID(), serviceYear: 2, days: 9 },
+  ],
+  annualIncrementEnabled: false,
+  annualIncrementStartYear: 1,
+  annualIncrementDays: 1,
+});
+
+const normalizeLeaveEntitlements = (value?: Partial<StaffLeaveEntitlements> | null): StaffLeaveEntitlements => {
+  const defaults = defaultLeaveEntitlements();
+  const types = leaveTypes.reduce((acc, type) => {
+    const rule = value?.types?.[type];
+    acc[type] = { enabled: Boolean(rule?.enabled), days: n(rule?.days) };
+    return acc;
+  }, {} as Record<LeaveType, LeaveEntitlementRule>);
+  const levels = Array.isArray(value?.annualLevels) && value.annualLevels.length
+    ? value.annualLevels.map(level => ({
+      id: level.id || crypto.randomUUID(),
+      serviceYear: Math.max(1, Math.round(n(level.serviceYear) || 1)),
+      days: n(level.days),
+    }))
+    : defaults.annualLevels;
+
+  return {
+    types,
+    annualLevelsEnabled: Boolean(value?.annualLevelsEnabled),
+    annualLevels: levels,
+    annualIncrementEnabled: Boolean(value?.annualIncrementEnabled),
+    annualIncrementStartYear: Math.max(1, Math.round(n(value?.annualIncrementStartYear) || 1)),
+    annualIncrementDays: n(value?.annualIncrementDays || 1),
+  };
+};
+
+const blankLeaveForm = (): LeaveForm => {
+  const today = new Date().toISOString().split('T')[0];
+  return {
+    staffUserId: '',
+    leaveType: 'Annual',
+    startDate: today,
+    endDate: today,
+    totalDays: 1,
+    status: 'scheduled',
+    notes: '',
+  };
+};
+
+const dateOnlyTime = (value?: string | null) => {
+  const date = new Date(`${value || new Date().toISOString().split('T')[0]}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? new Date().setHours(0, 0, 0, 0) : date.getTime();
+};
+
+const inclusiveLeaveDays = (startDate: string, endDate: string) => {
+  const start = dateOnlyTime(startDate);
+  const end = dateOnlyTime(endDate);
+  if (end < start) return 1;
+  return Math.max(1, Math.round((end - start) / 86400000) + 1);
+};
+
+const serviceYearsCompleted = (hireDate?: string | null) => {
+  if (!hireDate) return 0;
+  const hired = new Date(`${hireDate}T00:00:00`);
+  if (Number.isNaN(hired.getTime())) return 0;
+  const today = new Date();
+  let years = today.getFullYear() - hired.getFullYear();
+  const hasAnniversaryPassed = today.getMonth() > hired.getMonth() || (today.getMonth() === hired.getMonth() && today.getDate() >= hired.getDate());
+  if (!hasAnniversaryPassed) years -= 1;
+  return Math.max(0, years);
+};
+
+const getCurrentLeaveEntitlement = (profile: StaffProfile | undefined, type: LeaveType) => {
+  const entitlements = normalizeLeaveEntitlements(profile?.leave_entitlements);
+  const baseRule = entitlements.types[type];
+  if (!baseRule.enabled) return null;
+  if (type !== 'Annual') return baseRule.days;
+
+  const serviceYears = serviceYearsCompleted(profile?.hire_date);
+  let annualDays = baseRule.days;
+  if (entitlements.annualLevelsEnabled) {
+    const matchedLevel = [...entitlements.annualLevels]
+      .filter(level => serviceYears + 1 >= level.serviceYear)
+      .sort((a, b) => b.serviceYear - a.serviceYear)[0];
+    if (matchedLevel) annualDays = n(matchedLevel.days);
+  }
+  if (entitlements.annualIncrementEnabled && serviceYears >= entitlements.annualIncrementStartYear) {
+    annualDays += ((serviceYears - entitlements.annualIncrementStartYear) + 1) * n(entitlements.annualIncrementDays);
+  }
+  return annualDays;
+};
 
 const blankStaffForm = (): StaffForm => ({
   username: '',
@@ -261,6 +411,7 @@ const blankStaffForm = (): StaffForm => ({
   overtimeRate: 0,
   defaultAllowance: 0,
   defaultDeduction: 0,
+  leaveEntitlements: defaultLeaveEntitlements(),
   notes: '',
 });
 
@@ -304,7 +455,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const [departments, setDepartments] = useState<StaffDepartment[]>([]);
   const [payslips, setPayslips] = useState<PayrollPayslip[]>([]);
   const [staffClaims, setStaffClaims] = useState<StaffClaim[]>([]);
-  const [subTab, setSubTab] = useState<'directory' | 'payroll' | 'claims' | 'departments'>('directory');
+  const [staffLeaves, setStaffLeaves] = useState<StaffLeave[]>([]);
+  const [subTab, setSubTab] = useState<'directory' | 'leave' | 'payroll' | 'claims' | 'departments'>('directory');
   const [search, setSearch] = useState('');
   const [staffModalOpen, setStaffModalOpen] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
@@ -331,6 +483,11 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const [editingClaimId, setEditingClaimId] = useState<string | null>(null);
   const [isSavingClaim, setIsSavingClaim] = useState(false);
   const [claimSearch, setClaimSearch] = useState('');
+  const [isLeaveFormOpen, setIsLeaveFormOpen] = useState(false);
+  const [leaveForm, setLeaveForm] = useState<LeaveForm>(() => blankLeaveForm());
+  const [editingLeaveId, setEditingLeaveId] = useState<string | null>(null);
+  const [isSavingLeave, setIsSavingLeave] = useState(false);
+  const [leaveSearch, setLeaveSearch] = useState('');
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [floatingActionMenu, setFloatingActionMenu] = useState<FloatingActionMenu | null>(null);
 
@@ -346,8 +503,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const openFloatingActionMenu = (event: React.MouseEvent<HTMLButtonElement>, type: FloatingActionMenuType, id: string) => {
     event.stopPropagation();
     const rect = event.currentTarget.getBoundingClientRect();
-    const width = type === 'claim' ? 160 : 176;
-    const estimatedHeight = type === 'claim' ? 92 : 160;
+    const width = type === 'claim' || type === 'leave' ? 160 : 176;
+    const estimatedHeight = type === 'claim' || type === 'leave' ? 92 : 190;
     const left = Math.min(Math.max(8, rect.right - width), Math.max(8, window.innerWidth - width - 8));
     const opensUp = rect.bottom + estimatedHeight > window.innerHeight - 8;
     const top = opensUp ? Math.max(8, rect.top - estimatedHeight - 6) : Math.min(rect.bottom + 6, window.innerHeight - estimatedHeight - 8);
@@ -374,25 +531,29 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       .from('users')
       .select('id, username, role, email, phone, is_active, kitchen_categories')
       .eq('restaurant_id', restaurant.id)
-      .in('role', ['CASHIER', 'KITCHEN', 'ORDER_TAKER', 'MANAGER']);
+      .in('role', ['CASHIER', 'KITCHEN', 'ORDER_TAKER', 'MANAGER', 'HR']);
 
     if (usersError) {
       toast(usersError.message || 'Failed to load staff', 'error');
       return;
     }
 
-    const [deptRes, profileRes, payslipRes, claimRes] = await Promise.all([
+    const [deptRes, profileRes, payslipRes, claimRes, leaveRes] = await Promise.all([
       supabase.from('staff_departments').select('*').eq('restaurant_id', restaurant.id).order('name', { ascending: true }),
       supabase.from('staff_profiles').select('*').eq('restaurant_id', restaurant.id),
       supabase.from('payroll_payslips').select('*').eq('restaurant_id', restaurant.id).order('pay_date', { ascending: false }),
       supabase.from('staff_claims').select('*, staff_claim_items(*)').eq('restaurant_id', restaurant.id).order('claim_date', { ascending: false }),
+      supabase.from('staff_leaves').select('*').eq('restaurant_id', restaurant.id).order('start_date', { ascending: false }),
     ]);
 
-    if (deptRes.error || profileRes.error || payslipRes.error || claimRes.error) {
-      console.warn('Apply migrations 038_staff_hr_payroll.sql and 041_staff_claims.sql to enable HR/payroll tables.', { deptRes, profileRes, payslipRes, claimRes });
+    if (deptRes.error || profileRes.error || payslipRes.error || claimRes.error || leaveRes.error) {
+      console.warn('Apply migrations 038_staff_hr_payroll.sql, 041_staff_claims.sql, and 050_hr_leave_management.sql to enable HR/payroll tables.', { deptRes, profileRes, payslipRes, claimRes, leaveRes });
     }
 
-    const profileByUser = new Map(((profileRes.data || []) as StaffProfile[]).map(profile => [profile.user_id, profile]));
+    const profileByUser = new Map(((profileRes.data || []) as StaffProfile[]).map(profile => [profile.user_id, {
+      ...profile,
+      leave_entitlements: normalizeLeaveEntitlements(profile.leave_entitlements),
+    }]));
     const mapped = (usersData || []).map((user: any) => ({
       ...user,
       role: user.role as StaffRole,
@@ -426,6 +587,24 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         })),
         created_at: row.created_at,
       } as StaffClaim;
+    }));
+    setStaffLeaves(((leaveRes.data || []) as any[]).map(row => {
+      const item = mapped.find(staffItem => staffItem.id === row.staff_user_id);
+      return {
+        id: row.id,
+        restaurant_id: row.restaurant_id,
+        staff_user_id: row.staff_user_id,
+        staff_profile_id: row.staff_profile_id || null,
+        leave_type: row.leave_type || 'Other',
+        start_date: row.start_date,
+        end_date: row.end_date,
+        total_days: n(row.total_days),
+        status: row.status || 'scheduled',
+        notes: row.notes || null,
+        staff_name: item?.profile?.full_name || item?.username || null,
+        staff_role: item?.role || null,
+        created_at: row.created_at,
+      } as StaffLeave;
     }));
     cacheStaff(mapped);
     if (showToast) toast('Staff data refreshed', 'success');
@@ -479,6 +658,32 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       ...claim.items.flatMap(item => [item.claim_type, item.receipt_ref, item.notes]),
     ].some(value => (value || '').toLowerCase().includes(q)));
   }, [claimSearch, staffClaims]);
+
+  const visibleLeaves = useMemo(() => {
+    const q = leaveSearch.trim().toLowerCase();
+    if (!q) return staffLeaves;
+    return staffLeaves.filter(leave => [
+      leave.staff_name,
+      leave.staff_role,
+      leave.leave_type,
+      leave.start_date,
+      leave.end_date,
+      leave.status,
+      leave.notes,
+    ].some(value => (value || '').toLowerCase().includes(q)));
+  }, [leaveSearch, staffLeaves]);
+
+  const peopleOnLeaveToday = useMemo(() => {
+    const today = dateOnlyTime(new Date().toISOString().split('T')[0]);
+    return staffLeaves
+      .filter(leave => leave.status !== 'cancelled' && dateOnlyTime(leave.start_date) <= today && dateOnlyTime(leave.end_date) >= today)
+      .sort((a, b) => a.staff_name?.localeCompare(b.staff_name || '') || 0);
+  }, [staffLeaves]);
+
+  const getLeaveEntitlementLabel = (item: StaffMember, type: LeaveType) => {
+    const entitlement = getCurrentLeaveEntitlement(item.profile, type);
+    return entitlement === null ? 'Not set' : `${entitlement} days`;
+  };
 
   const claimFormTotal = useMemo(() => (
     claimForm.items.reduce((sum, item) => sum + n(item.amount), 0)
@@ -552,6 +757,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       overtimeRate: n(profile?.overtime_rate),
       defaultAllowance: n(profile?.default_allowances?.fixed),
       defaultDeduction: n(profile?.default_deductions?.fixed),
+      leaveEntitlements: normalizeLeaveEntitlements(profile?.leave_entitlements),
       notes: profile?.notes || '',
     });
     setStaffModalOpen(true);
@@ -617,6 +823,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         overtime_rate: n(staffForm.overtimeRate),
         default_allowances: { fixed: n(staffForm.defaultAllowance) },
         default_deductions: { fixed: n(staffForm.defaultDeduction) },
+        leave_entitlements: normalizeLeaveEntitlements(staffForm.leaveEntitlements),
         notes: staffForm.notes.trim() || null,
         updated_at: new Date().toISOString(),
       };
@@ -702,6 +909,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const deleteStaff = async (item: StaffMember) => {
     if (!confirm(`Remove ${item.username}? This will remove the login, HR profile and saved payslips.`)) return;
     await supabase.from('payroll_payslips').delete().eq('staff_user_id', item.id);
+    await supabase.from('staff_leaves').delete().eq('staff_user_id', item.id);
     await supabase.from('staff_profiles').delete().eq('user_id', item.id);
     const { error } = await supabase.from('users').delete().eq('id', item.id);
     if (error) {
@@ -1076,6 +1284,104 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     toast('Staff claim deleted', 'success');
   };
 
+  const openLeaveForm = (item?: StaffMember) => {
+    setEditingLeaveId(null);
+    setLeaveForm({
+      ...blankLeaveForm(),
+      staffUserId: item?.id || '',
+    });
+    setIsLeaveFormOpen(true);
+  };
+
+  const editLeave = (leave: StaffLeave) => {
+    setEditingLeaveId(leave.id);
+    setLeaveForm({
+      staffUserId: leave.staff_user_id,
+      leaveType: leave.leave_type,
+      startDate: leave.start_date,
+      endDate: leave.end_date,
+      totalDays: n(leave.total_days) || inclusiveLeaveDays(leave.start_date, leave.end_date),
+      status: leave.status || 'scheduled',
+      notes: leave.notes || '',
+    });
+    setIsLeaveFormOpen(true);
+  };
+
+  const updateLeaveStatus = async (leave: StaffLeave, status: LeaveStatus) => {
+    const statusKey = `leave_${leave.id}`;
+    setUpdatingStatusId(statusKey);
+    try {
+      const { error } = await supabase
+        .from('staff_leaves')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', leave.id);
+      if (error) throw error;
+
+      setStaffLeaves(items => items.map(item => item.id === leave.id ? { ...item, status } : item));
+      toast('Leave status updated', 'success');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to update leave status', 'error');
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
+
+  const saveLeave = async () => {
+    const selectedStaff = staff.find(item => item.id === leaveForm.staffUserId);
+    if (!selectedStaff) {
+      toast('Select a staff member first', 'warning');
+      return;
+    }
+    if (dateOnlyTime(leaveForm.endDate) < dateOnlyTime(leaveForm.startDate)) {
+      toast('Leave end date must be after the start date', 'warning');
+      return;
+    }
+
+    setIsSavingLeave(true);
+    try {
+      const id = editingLeaveId || crypto.randomUUID();
+      const row: StaffLeave = {
+        id,
+        restaurant_id: restaurant.id,
+        staff_user_id: selectedStaff.id,
+        staff_profile_id: selectedStaff.profile?.id || null,
+        leave_type: leaveForm.leaveType,
+        start_date: leaveForm.startDate,
+        end_date: leaveForm.endDate,
+        total_days: n(leaveForm.totalDays) || inclusiveLeaveDays(leaveForm.startDate, leaveForm.endDate),
+        status: leaveForm.status,
+        notes: leaveForm.notes.trim() || null,
+      };
+
+      const { error } = await supabase.from('staff_leaves').upsert({
+        ...row,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' });
+      if (error) throw error;
+
+      setLeaveForm(blankLeaveForm());
+      setEditingLeaveId(null);
+      setIsLeaveFormOpen(false);
+      await refresh(false);
+      toast(editingLeaveId ? 'Leave updated' : 'Leave added', 'success');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to save leave', 'error');
+    } finally {
+      setIsSavingLeave(false);
+    }
+  };
+
+  const deleteLeave = async (leave: StaffLeave) => {
+    if (!confirm(`Delete ${leave.leave_type} leave for ${leave.staff_name || 'staff'}?`)) return;
+    const { error } = await supabase.from('staff_leaves').delete().eq('id', leave.id);
+    if (error) {
+      toast(error.message || 'Failed to delete leave', 'error');
+      return;
+    }
+    setStaffLeaves(items => items.filter(item => item.id !== leave.id));
+    toast('Leave deleted', 'success');
+  };
+
   const buildPayslipPdf = async (payslip: PayrollPayslip) => {
     const selectedStaff = staff.find(item => item.id === payslip.staff_user_id);
     const selectedDepartment = departments.find(dept => dept.id === selectedStaff?.profile?.department_id);
@@ -1302,6 +1608,36 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       </div>
     );
   };
+  const updateLeaveEntitlementType = (type: LeaveType, patch: Partial<LeaveEntitlementRule>) => {
+    setStaffForm(form => {
+      const entitlements = normalizeLeaveEntitlements(form.leaveEntitlements);
+      return {
+        ...form,
+        leaveEntitlements: {
+          ...entitlements,
+          types: {
+            ...entitlements.types,
+            [type]: { ...entitlements.types[type], ...patch },
+          },
+        },
+      };
+    });
+  };
+  const updateAnnualLeaveLevel = (id: string, patch: Partial<AnnualLeaveLevel>) => {
+    setStaffForm(form => {
+      const entitlements = normalizeLeaveEntitlements(form.leaveEntitlements);
+      return {
+        ...form,
+        leaveEntitlements: {
+          ...entitlements,
+          annualLevels: entitlements.annualLevels.map(level => level.id === id ? { ...level, ...patch } : level),
+        },
+      };
+    });
+  };
+  const updateLeaveEntitlements = (patch: Partial<StaffLeaveEntitlements>) => {
+    setStaffForm(form => ({ ...form, leaveEntitlements: { ...normalizeLeaveEntitlements(form.leaveEntitlements), ...patch } }));
+  };
   const renderFloatingActionMenu = () => {
     if (!floatingActionMenu) return null;
 
@@ -1309,6 +1645,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     const menuStaff = floatingActionMenu.type === 'staff' ? staff.find(item => item.id === floatingActionMenu.id) : null;
     const menuPayslip = floatingActionMenu.type === 'payslip' ? payslips.find(item => item.id === floatingActionMenu.id) : null;
     const menuClaim = floatingActionMenu.type === 'claim' ? staffClaims.find(item => item.id === floatingActionMenu.id) : null;
+    const menuLeave = floatingActionMenu.type === 'leave' ? staffLeaves.find(item => item.id === floatingActionMenu.id) : null;
     const itemClass = 'flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-50 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 dark:hover:text-white';
 
     return renderModalPortal(
@@ -1328,6 +1665,9 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               </button>
               <button type="button" onClick={() => { closeMenu(); setSubTab('claims'); openClaimForm(menuStaff); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-sky-50 hover:text-sky-700 dark:text-gray-200 dark:hover:bg-sky-900/20 dark:hover:text-sky-300">
                 <FileText size={14} /> Create Claim
+              </button>
+              <button type="button" onClick={() => { closeMenu(); setSubTab('leave'); openLeaveForm(menuStaff); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-violet-50 hover:text-violet-700 dark:text-gray-200 dark:hover:bg-violet-900/20 dark:hover:text-violet-300">
+                <CalendarPlus size={14} /> Add Leave
               </button>
               <button type="button" onClick={() => { closeMenu(); deleteStaff(menuStaff); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-900/20">
                 <Trash2 size={14} /> Remove
@@ -1360,6 +1700,16 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               </button>
             </>
           )}
+          {floatingActionMenu.type === 'leave' && menuLeave && (
+            <>
+              <button type="button" onClick={() => { closeMenu(); editLeave(menuLeave); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-amber-50 hover:text-amber-700 dark:text-gray-200 dark:hover:bg-amber-900/20 dark:hover:text-amber-300">
+                <Edit3 size={14} /> Edit Leave
+              </button>
+              <button type="button" onClick={() => { closeMenu(); deleteLeave(menuLeave); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-900/20">
+                <Trash2 size={14} /> Delete
+              </button>
+            </>
+          )}
         </div>
       </>,
     );
@@ -1382,27 +1732,64 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Total Staff', value: staff.length, icon: <Users size={20} className="text-blue-500" />, tone: 'bg-blue-500/10' },
-          { label: 'Departments', value: departments.length, icon: <Building2 size={20} className="text-amber-500" />, tone: 'bg-amber-500/10' },
-          { label: 'Monthly Payroll', value: fmt(staff.reduce((sum, item) => sum + n(item.profile?.salary_amount), 0)), icon: <CreditCard size={20} className="text-emerald-500" />, tone: 'bg-emerald-500/10' },
-          { label: 'Payslips', value: payslips.length, icon: <FileText size={20} className="text-rose-500" />, tone: 'bg-rose-500/10' },
-        ].map(card => (
-          <div key={card.label} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="mb-3 flex items-center gap-3">
-              <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.tone}`}>{card.icon}</div>
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-400">{card.label}</span>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(320px,1.15fr)_minmax(420px,1fr)]">
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10"><CalendarDays size={20} className="text-violet-500" /></div>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-gray-400">People On Leave</span>
+                <p className="text-2xl font-black text-gray-950 dark:text-white">{peopleOnLeaveToday.length}</p>
+              </div>
             </div>
-            <p className="text-2xl font-black text-gray-950 dark:text-white">{card.value}</p>
+            <button onClick={() => { setSubTab('leave'); openLeaveForm(); }} className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 text-[10px] font-black uppercase tracking-wider text-white transition hover:bg-violet-700">
+              <CalendarPlus size={13} /> Add
+            </button>
           </div>
-        ))}
+          {peopleOnLeaveToday.length ? (
+            <div className="space-y-2">
+              {peopleOnLeaveToday.slice(0, 4).map(leave => (
+                <div key={leave.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/50">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-gray-900 dark:text-white">{leave.staff_name || 'Staff'}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{leave.leave_type} - {n(leave.total_days)} day{n(leave.total_days) === 1 ? '' : 's'}</p>
+                  </div>
+                  <span className="rounded-lg bg-violet-100 px-2 py-1 text-[10px] font-black uppercase text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">{leave.status}</span>
+                </div>
+              ))}
+              {peopleOnLeaveToday.length > 4 && <p className="text-[11px] font-bold text-gray-400">+{peopleOnLeaveToday.length - 4} more on leave today</p>}
+            </div>
+          ) : (
+            <div className="flex min-h-32 flex-col justify-center rounded-xl border border-dashed border-gray-200 px-4 text-gray-400 dark:border-gray-700">
+              <p className="text-sm font-bold">No one is on leave today</p>
+              <p className="mt-1 text-xs">Approved and scheduled leave for today will appear here.</p>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {[
+            { label: 'Total Staff', value: staff.length, icon: <Users size={20} className="text-blue-500" />, tone: 'bg-blue-500/10' },
+            { label: 'Departments', value: departments.length, icon: <Building2 size={20} className="text-amber-500" />, tone: 'bg-amber-500/10' },
+            { label: 'Monthly Payroll', value: fmt(staff.reduce((sum, item) => sum + n(item.profile?.salary_amount), 0)), icon: <CreditCard size={20} className="text-emerald-500" />, tone: 'bg-emerald-500/10' },
+            { label: 'Payslips', value: payslips.length, icon: <FileText size={20} className="text-rose-500" />, tone: 'bg-rose-500/10' },
+          ].map(card => (
+            <div key={card.label} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+              <div className="mb-3 flex items-center gap-3">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.tone}`}>{card.icon}</div>
+                <span className="text-xs font-bold uppercase tracking-wider text-gray-400">{card.label}</span>
+              </div>
+              <p className="text-2xl font-black text-gray-950 dark:text-white">{card.value}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="min-w-0">
         <div className="relative flex gap-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {([
             ['directory', 'Staff Directory', <Users size={14} />],
+            ['leave', 'Leave', <CalendarDays size={14} />],
             ['payroll', 'Staff Payslip', <Receipt size={14} />],
             ['claims', 'Staff Claim', <FileText size={14} />],
             ['departments', 'Departments', <Building2 size={14} />],
@@ -1464,6 +1851,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                             <p className="text-sm font-black text-gray-900 dark:text-white">{item.profile?.full_name || item.username}</p>
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{item.profile?.employee_code || item.username}</p>
                             {item.profile?.nationality && <p className="mt-1 text-[10px] font-semibold text-gray-400">Citizen: {item.profile.nationality}</p>}
+                            <p className="mt-1 text-[10px] font-semibold text-gray-400">Annual Leave: {getLeaveEntitlementLabel(item, 'Annual')}</p>
                           </div>
                         </td>
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p className="font-bold text-gray-700 dark:text-gray-200">{department?.name || 'Unassigned'}</p><p>{item.profile?.job_title || 'No job title'}</p></td>
@@ -1507,6 +1895,140 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
             <div className="flex h-56 flex-col items-center justify-center text-gray-400 dark:text-gray-600"><Users size={40} className="mb-3 opacity-30" /><p className="text-sm font-bold">No staff records found</p><button onClick={() => openStaffModal()} className="mt-4 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">Add First Staff</button></div>
           )}
         </div>
+        )}
+
+        {subTab === 'leave' && (
+        isLeaveFormOpen ? (
+          <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h3 className="text-sm font-black text-gray-900 dark:text-white">{editingLeaveId ? 'Edit Staff Leave' : 'Staff Leave'}</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Record MC, hospitalization, paternity, annual or other leave for staff.</p>
+              </div>
+              <span className="inline-flex w-fit items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2 text-xs font-black uppercase tracking-wider text-violet-700 dark:border-violet-900/40 dark:bg-violet-900/20 dark:text-violet-300">
+                <CalendarDays size={14} /> Leave
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <PayrollSectionDivider title="Leave Details" />
+              <div className="md:col-span-2">
+                <label className={labelClass}>Staff</label>
+                <select value={leaveForm.staffUserId} onChange={event => setLeaveForm(form => ({ ...form, staffUserId: event.target.value }))} className={fieldClass}>
+                  <option value="">Select staff</option>
+                  {staff.map(item => <option key={item.id} value={item.id}>{item.profile?.full_name || item.username} ({item.role})</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Leave Type</label>
+                <select value={leaveForm.leaveType} onChange={event => setLeaveForm(form => ({ ...form, leaveType: event.target.value as LeaveType }))} className={fieldClass}>
+                  {leaveTypes.map(type => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Status</label>
+                <select value={leaveForm.status} onChange={event => setLeaveForm(form => ({ ...form, status: event.target.value as LeaveStatus }))} className={fieldClass}>
+                  {leaveStatusOptions.map(status => <option key={status} className={statusOptionClass} value={status}>{status}</option>)}
+                </select>
+              </div>
+              <Field label="Start Date" type="date" value={leaveForm.startDate} onChange={value => setLeaveForm(form => ({ ...form, startDate: value, totalDays: inclusiveLeaveDays(value, form.endDate) }))} />
+              <Field label="End Date" type="date" value={leaveForm.endDate} onChange={value => setLeaveForm(form => ({ ...form, endDate: value, totalDays: inclusiveLeaveDays(form.startDate, value) }))} />
+              <Field label="Total Days" type="number" value={leaveForm.totalDays} onChange={value => setLeaveForm(form => ({ ...form, totalDays: n(value) }))} />
+              <div className="md:col-span-2 xl:col-span-4">
+                <label className={labelClass}>Notes</label>
+                <textarea value={leaveForm.notes} onChange={event => setLeaveForm(form => ({ ...form, notes: event.target.value }))} className={`${fieldClass} min-h-[92px]`} placeholder="Certificate ref, reason, handover notes, or approval reference" />
+              </div>
+            </div>
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button onClick={() => { setIsLeaveFormOpen(false); setEditingLeaveId(null); }} className="rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">Back to List</button>
+              <button onClick={saveLeave} disabled={isSavingLeave || !leaveForm.staffUserId} className="rounded-xl bg-amber-600 px-5 py-3 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700 disabled:opacity-40">{isSavingLeave ? 'Saving...' : editingLeaveId ? 'Save Changes' : 'Save Leave'}</button>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <h3 className="text-sm font-black text-gray-900 dark:text-white">Staff Leave</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">See who is on leave and manage leave records by type.</p>
+              </div>
+              <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
+                <div className="relative sm:w-72">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input value={leaveSearch} onChange={event => setLeaveSearch(event.target.value)} placeholder="Search leave..." className="h-[38px] w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+                </div>
+                <button onClick={() => openLeaveForm()} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                  <CalendarPlus size={14} /> Add Leave
+                </button>
+              </div>
+            </div>
+            {staffLeaves.length > 0 && (
+              <div className="grid grid-cols-1 gap-3 border-b border-gray-100 p-4 dark:border-gray-700 sm:grid-cols-3">
+                {[
+                  { label: 'Leave Records', value: String(staffLeaves.length) },
+                  { label: 'On Leave Today', value: String(peopleOnLeaveToday.length) },
+                  { label: 'Visible Days', value: String(visibleLeaves.reduce((sum, leave) => sum + n(leave.total_days), 0)) },
+                ].map(card => (
+                  <div key={card.label} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/50">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{card.label}</p>
+                    <p className="mt-1 text-lg font-black text-gray-900 dark:text-white">{card.value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {visibleLeaves.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px] text-left">
+                  <thead className="bg-gray-50 dark:bg-gray-900/50">
+                    <tr>{['Staff', 'Leave Type', 'Dates', 'Days', 'Entitlement', 'Status', 'Notes', 'Actions'].map(head => <th key={head} className={`px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 ${head === 'Actions' ? 'text-center' : ''}`}>{head}</th>)}</tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                    {visibleLeaves.map(leave => {
+                      const item = staff.find(staffItem => staffItem.id === leave.staff_user_id);
+                      return (
+                        <tr key={leave.id} className="transition">
+                          <td className="px-5 py-4">
+                            <p className="text-sm font-black text-gray-900 dark:text-white">{leave.staff_name || item?.profile?.full_name || item?.username || 'Staff'}</p>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{leave.staff_role || item?.role || 'Leave'}</p>
+                          </td>
+                          <td className="px-5 py-4"><span className="rounded-lg bg-violet-100 px-2 py-1 text-[10px] font-black text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">{leave.leave_type}</span></td>
+                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p className="font-bold text-gray-700 dark:text-gray-200">{new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()}</p></td>
+                          <td className="px-5 py-4 text-xs font-black text-gray-900 dark:text-white">{n(leave.total_days)}</td>
+                          <td className="px-5 py-4 text-xs font-bold text-gray-500 dark:text-gray-400">{item ? getLeaveEntitlementLabel(item, leave.leave_type) : '-'}</td>
+                          <td className="px-5 py-4">
+                            <select
+                              value={leave.status}
+                              disabled={updatingStatusId === `leave_${leave.id}`}
+                              onChange={event => void updateLeaveStatus(leave, event.target.value as LeaveStatus)}
+                              className="rounded-lg border-0 bg-gray-100 px-2 py-1 text-[10px] font-black uppercase text-gray-600 outline-none ring-1 ring-transparent transition focus:ring-amber-300 disabled:cursor-wait disabled:opacity-60 dark:bg-gray-700 dark:text-gray-300"
+                            >
+                              {leaveStatusOptions.map(status => <option key={status} className={statusOptionClass} value={status}>{status}</option>)}
+                            </select>
+                          </td>
+                          <td className="max-w-[220px] truncate px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{leave.notes || '-'}</td>
+                          <td className="px-5 py-4 text-center">
+                            <div className="inline-flex justify-center">
+                              <button
+                                type="button"
+                                onClick={event => openFloatingActionMenu(event, 'leave', leave.id)}
+                                className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white"
+                                title="Leave actions"
+                                aria-label={`Actions for ${leave.staff_name || 'leave'}`}
+                                aria-expanded={isFloatingMenuOpen('leave', leave.id)}
+                              >
+                                <MoreVertical size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="flex h-56 flex-col items-center justify-center text-gray-400 dark:text-gray-600"><CalendarDays size={40} className="mb-3 opacity-30" /><p className="text-sm font-bold">{staffLeaves.length ? 'No matching leave records' : 'No leave records found'}</p><button onClick={() => openLeaveForm()} className="mt-4 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">Add Leave</button></div>
+            )}
+          </div>
+        )
         )}
 
         {subTab === 'payroll' && (
@@ -1977,7 +2499,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <SectionDivider title="User Access" />
               <Field label="Username *" value={staffForm.username} onChange={value => setStaffForm(form => ({ ...form, username: value }))} />
               <Field label={editingStaffId ? 'Password (leave blank)' : 'Password *'} type="password" value={staffForm.password} onChange={value => setStaffForm(form => ({ ...form, password: value }))} />
-              <div><label className={labelClass}>Role</label><select value={staffForm.role} onChange={event => setStaffForm(form => ({ ...form, role: event.target.value as StaffRole }))} className={fieldClass}><option value="CASHIER">Cashier</option><option value="KITCHEN">Kitchen</option><option value="ORDER_TAKER">Order Taker</option><option value="MANAGER">Manager</option></select></div>
+              <div><label className={labelClass}>Role</label><select value={staffForm.role} onChange={event => setStaffForm(form => ({ ...form, role: event.target.value as StaffRole }))} className={fieldClass}><option value="CASHIER">Cashier</option><option value="KITCHEN">Kitchen</option><option value="ORDER_TAKER">Order Taker</option><option value="MANAGER">Manager</option><option value="HR">Human Resources</option></select></div>
               <SectionDivider title="User Details" />
               <Field label="Full Name" value={staffForm.fullName} onChange={value => setStaffForm(form => ({ ...form, fullName: value }))} />
               <Field label="Employee Code" value={staffForm.employeeCode} onChange={value => setStaffForm(form => ({ ...form, employeeCode: value }))} />
@@ -1996,6 +2518,77 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <Field label="OT Rate" type="number" value={staffForm.overtimeRate} onChange={value => setStaffForm(form => ({ ...form, overtimeRate: n(value) }))} />
               <Field label="Default Allowance" type="number" value={staffForm.defaultAllowance} onChange={value => setStaffForm(form => ({ ...form, defaultAllowance: n(value) }))} />
               <Field label="Default Deduction" type="number" value={staffForm.defaultDeduction} onChange={value => setStaffForm(form => ({ ...form, defaultDeduction: n(value) }))} />
+              <SectionDivider title="Leave Entitlement" />
+              <div className="md:col-span-3 rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/60">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+                  {leaveTypes.map(type => {
+                    const rule = normalizeLeaveEntitlements(staffForm.leaveEntitlements).types[type];
+                    return (
+                      <div key={type} className="rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">{type}</span>
+                          <label className="relative inline-flex cursor-pointer items-center">
+                            <input type="checkbox" checked={rule.enabled} onChange={event => updateLeaveEntitlementType(type, { enabled: event.target.checked })} className="peer sr-only" />
+                            <span className="h-5 w-9 rounded-full bg-gray-200 transition peer-checked:bg-amber-500 dark:bg-gray-700" />
+                            <span className="absolute left-0.5 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-4" />
+                          </label>
+                        </div>
+                        <label className={labelClass}>Days</label>
+                        <input type="number" min="0" step="0.5" disabled={!rule.enabled} value={rule.days || ''} onChange={event => updateLeaveEntitlementType(type, { days: n(event.target.value) })} className={`${fieldClass} disabled:opacity-50`} placeholder="0" />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider text-gray-700 dark:text-gray-200">Annual Leave Levels</p>
+                      <p className="text-[11px] text-gray-400">Set entitlement by service year when company policy needs year-based levels.</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-gray-500">
+                        <input type="checkbox" checked={staffForm.leaveEntitlements.annualLevelsEnabled} onChange={event => updateLeaveEntitlements({ annualLevelsEnabled: event.target.checked })} className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
+                        Use levels
+                      </label>
+                      <button type="button" onClick={() => updateLeaveEntitlements({ annualLevels: [...normalizeLeaveEntitlements(staffForm.leaveEntitlements).annualLevels, { id: crypto.randomUUID(), serviceYear: 1, days: 0 }] })} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500 transition hover:border-amber-300 hover:text-amber-600 dark:border-gray-700">
+                        <Plus size={12} /> Level
+                      </button>
+                    </div>
+                  </div>
+                  {staffForm.leaveEntitlements.annualLevelsEnabled && (
+                    <div className="mt-3 space-y-2">
+                      {normalizeLeaveEntitlements(staffForm.leaveEntitlements).annualLevels.map(level => (
+                        <div key={level.id} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                          <input type="number" min="1" value={level.serviceYear || ''} onChange={event => updateAnnualLeaveLevel(level.id, { serviceYear: Math.max(1, Math.round(n(event.target.value) || 1)) })} className={fieldClass} placeholder="Service year" />
+                          <input type="number" min="0" step="0.5" value={level.days || ''} onChange={event => updateAnnualLeaveLevel(level.id, { days: n(event.target.value) })} className={fieldClass} placeholder="Annual days" />
+                          <button type="button" onClick={() => updateLeaveEntitlements({ annualLevels: normalizeLeaveEntitlements(staffForm.leaveEntitlements).annualLevels.filter(item => item.id !== level.id) })} disabled={staffForm.leaveEntitlements.annualLevels.length === 1} className="rounded-xl p-3 text-gray-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-rose-900/20">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider text-gray-700 dark:text-gray-200">Auto Annual Increment</p>
+                      <p className="text-[11px] text-gray-400">Example: after 1 year, add 1 annual leave every year.</p>
+                    </div>
+                    <label className="relative inline-flex cursor-pointer items-center">
+                      <input type="checkbox" checked={staffForm.leaveEntitlements.annualIncrementEnabled} onChange={event => updateLeaveEntitlements({ annualIncrementEnabled: event.target.checked })} className="peer sr-only" />
+                      <span className="h-5 w-9 rounded-full bg-gray-200 transition peer-checked:bg-amber-500 dark:bg-gray-700" />
+                      <span className="absolute left-0.5 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-4" />
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Field label="Start After Year" type="number" value={staffForm.leaveEntitlements.annualIncrementStartYear} onChange={value => updateLeaveEntitlements({ annualIncrementStartYear: Math.max(1, Math.round(n(value) || 1)) })} />
+                    <Field label="Add Days / Year" type="number" value={staffForm.leaveEntitlements.annualIncrementDays} onChange={value => updateLeaveEntitlements({ annualIncrementDays: n(value) })} />
+                  </div>
+                </div>
+              </div>
               <SectionDivider title="Bank & Statutory" />
               <Field label="Bank Name" value={staffForm.bankName} onChange={value => setStaffForm(form => ({ ...form, bankName: value }))} />
               <Field label="Bank Account" value={staffForm.bankAccountNo} onChange={value => setStaffForm(form => ({ ...form, bankAccountNo: value }))} />

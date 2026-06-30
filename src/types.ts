@@ -2,7 +2,7 @@
 
 export const QS_DEFAULT_HUB = 'QuickServe Hub';
 
-export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN' | 'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' | 'MANAGER';
+export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN' | 'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' | 'MANAGER' | 'HR';
 
 export enum OrderStatus {
   PENDING = 'PENDING',
