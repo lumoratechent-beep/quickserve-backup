@@ -149,6 +149,10 @@ interface StaffLeave {
   staff_name?: string | null;
   staff_role?: string | null;
   created_at?: string;
+  approved_at?: string | null;
+  completed_at?: string | null;
+  cancelled_at?: string | null;
+  status_changed_at?: string | null;
 }
 
 interface StaffForm {
@@ -269,6 +273,7 @@ const overtimeMultipliers = [1, 1.5, 2, 2.5, 3];
 const claimTypes = ['Meals', 'Travel', 'Mileage', 'Medical', 'Supplies', 'Training', 'Other'];
 const leaveTypes: LeaveType[] = ['MC', 'Hospitalization', 'Paternity', 'Annual', 'Other'];
 const leaveStatusOptions: LeaveStatus[] = ['scheduled', 'approved', 'completed', 'cancelled'];
+const balanceDeductingLeaveStatuses: LeaveStatus[] = ['approved', 'completed'];
 const periodMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const currentYear = new Date().getFullYear();
 const periodYears = Array.from({ length: 9 }, (_, index) => currentYear - 4 + index);
@@ -369,6 +374,17 @@ const getCurrentLeaveEntitlement = (profile: StaffProfile | undefined, type: Lea
     if (matchedLevel) annualDays = n(matchedLevel.days);
   }
   return annualDays;
+};
+
+const leaveStatusAuditPatch = (status: LeaveStatus, current?: Partial<StaffLeave> | null) => {
+  const now = new Date().toISOString();
+  const statusChanged = !current || current.status !== status;
+  return {
+    status_changed_at: statusChanged ? now : (current?.status_changed_at || now),
+    approved_at: status === 'approved' ? (current?.approved_at || now) : (current?.approved_at || null),
+    completed_at: status === 'completed' ? (current?.completed_at || now) : (current?.completed_at || null),
+    cancelled_at: status === 'cancelled' ? (current?.cancelled_at || now) : (current?.cancelled_at || null),
+  };
 };
 
 const blankStaffForm = (): StaffForm => ({
@@ -604,6 +620,10 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         staff_name: item?.profile?.full_name || item?.username || null,
         staff_role: item?.role || null,
         created_at: row.created_at,
+        approved_at: row.approved_at || null,
+        completed_at: row.completed_at || null,
+        cancelled_at: row.cancelled_at || null,
+        status_changed_at: row.status_changed_at || null,
       } as StaffLeave;
     }));
     cacheStaff(mapped);
@@ -676,7 +696,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const peopleOnLeaveToday = useMemo(() => {
     const today = dateOnlyTime(new Date().toISOString().split('T')[0]);
     return staffLeaves
-      .filter(leave => leave.status !== 'cancelled' && dateOnlyTime(leave.start_date) <= today && dateOnlyTime(leave.end_date) >= today)
+      .filter(leave => balanceDeductingLeaveStatuses.includes(leave.status) && dateOnlyTime(leave.start_date) <= today && dateOnlyTime(leave.end_date) >= today)
       .sort((a, b) => a.staff_name?.localeCompare(b.staff_name || '') || 0);
   }, [staffLeaves]);
 
@@ -691,7 +711,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       .filter(leave => (
         leave.staff_user_id === staffUserId
         && leave.leave_type === type
-        && leave.status !== 'cancelled'
+        && balanceDeductingLeaveStatuses.includes(leave.status)
         && new Date(`${leave.start_date}T00:00:00`).getFullYear() === currentYear
       ))
       .reduce((sum, leave) => sum + n(leave.total_days), 0);
@@ -1333,13 +1353,14 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     const statusKey = `leave_${leave.id}`;
     setUpdatingStatusId(statusKey);
     try {
+      const auditPatch = leaveStatusAuditPatch(status, leave);
       const { error } = await supabase
         .from('staff_leaves')
-        .update({ status, updated_at: new Date().toISOString() })
+        .update({ status, ...auditPatch, updated_at: new Date().toISOString() })
         .eq('id', leave.id);
       if (error) throw error;
 
-      setStaffLeaves(items => items.map(item => item.id === leave.id ? { ...item, status } : item));
+      setStaffLeaves(items => items.map(item => item.id === leave.id ? { ...item, status, ...auditPatch } : item));
       toast('Leave status updated', 'success');
     } catch (err: any) {
       toast(err?.message || 'Failed to update leave status', 'error');
@@ -1362,6 +1383,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     setIsSavingLeave(true);
     try {
       const id = editingLeaveId || crypto.randomUUID();
+      const currentLeave = editingLeaveId ? staffLeaves.find(item => item.id === editingLeaveId) : null;
+      const auditPatch = leaveStatusAuditPatch(leaveForm.status, currentLeave);
       const row: StaffLeave = {
         id,
         restaurant_id: restaurant.id,
@@ -1377,6 +1400,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
 
       const { error } = await supabase.from('staff_leaves').upsert({
         ...row,
+        ...auditPatch,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'id' });
       if (error) throw error;
