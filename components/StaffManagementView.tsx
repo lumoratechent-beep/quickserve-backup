@@ -2565,13 +2565,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                   <p className="truncate text-[10px] font-semibold text-rose-500/80">Other leave - Year</p>
                 </div>
               </div>
-              <div className="grid min-h-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.42fr)]">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <SummaryTile label="Date Joined" value={formatDate(item.profile?.hire_date)} />
-                  <SummaryTile label="Service" value={`${serviceYearsCompleted(item.profile?.hire_date)} year(s)`} />
-                  <SummaryTile label="Department" value={department?.name || 'Unassigned'} />
-                  <SummaryTile label="Employment" value={currentStatus} positive={currentStatus === 'Active'} />
-                </div>
+              <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)]">
                 <div className="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
                   <div className="mb-3 flex items-center justify-between">
                     <p className="text-xs font-black uppercase tracking-wider text-gray-700 dark:text-gray-200">Recent Leave</p>
@@ -2588,6 +2582,12 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                       </div>
                     )) : <p className="rounded-xl bg-gray-50 px-3 py-6 text-center text-xs font-bold text-gray-400 dark:bg-gray-900/60">No leave recorded</p>}
                   </div>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 lg:grid-rows-4">
+                  <SummaryTile label="Date Joined" value={formatDate(item.profile?.hire_date)} />
+                  <SummaryTile label="Service" value={`${serviceYearsCompleted(item.profile?.hire_date)} year(s)`} />
+                  <SummaryTile label="Department" value={department?.name || 'Unassigned'} />
+                  <SummaryTile label="Employment" value={currentStatus} positive={currentStatus === 'Active'} />
                 </div>
               </div>
             </div>
