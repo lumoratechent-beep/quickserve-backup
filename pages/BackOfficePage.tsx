@@ -13,6 +13,7 @@ import {
   ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, Eye, Archive, RotateCcw,
   Briefcase, Box, Tag, Layers, Activity, Warehouse, FileBarChart, Contact,
   CreditCard, Percent, FileText, Truck, ArrowUpDown, ClipboardList, Factory, History, Building2, Loader2, LogOut, Sun, Moon, Mail, MoreVertical,
+  Calendar,
 } from 'lucide-react';
 import InventoryManagement from '../components/InventoryManagement';
 import ReportsView from '../components/ReportsView';
@@ -205,6 +206,17 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       endDate: now,
     };
   };
+
+  useEffect(() => {
+    if (dateRange === 'custom') return;
+
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const { startDate: quickStart, endDate: quickEnd } = getQuickDateRange(dateRange);
+
+    setCustomStart(toLocal(quickStart));
+    setCustomEnd(toLocal(quickEnd));
+  }, [dateRange]);
 
   // â”€â”€â”€ Date filtering â”€â”€â”€
   const { startDate, endDate } = useMemo(() => {
@@ -954,34 +966,56 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
   // â”€â”€â”€ Date Range Picker â”€â”€â”€
   const DateRangePicker = () => (
-    <div className="flex items-center gap-2 flex-wrap">
-      {([
-        { value: 'today', label: 'Today' },
-        { value: 'week', label: 'This Week' },
-        { value: 'month', label: 'This Month' },
-        { value: 'lastMonth', label: 'Last Month' },
-      ] as { value: Exclude<DateRange, 'custom'>; label: string }[]).map(option => (
-        <button
-          key={option.value}
-          onClick={() => setDateRange(option.value)}
-          className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-            dateRange === option.value ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-white'
-          }`}
-        >
-          {option.label}
-        </button>
-      ))}
-      <button
-        onClick={() => setDateRange('custom')}
-        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${dateRange === 'custom' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-white'}`}
-      >Custom Range</button>
-      {dateRange === 'custom' && (
-        <div className="flex items-center gap-2">
-          <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-          <span className="text-gray-500 text-xs">to</span>
-          <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+    <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col md:flex-row md:items-end gap-4 mb-6">
+      <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full">
+        <div>
+          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
+          <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+            {([
+              { value: 'today', label: 'Today' },
+              { value: 'week', label: 'This Week' },
+              { value: 'month', label: 'This Month' },
+            ] as { value: Exclude<DateRange, 'custom' | 'lastMonth'>; label: string }[]).map(option => (
+              <button
+                key={option.value}
+                onClick={() => setDateRange(option.value)}
+                className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                  dateRange === option.value
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
+        <div className="flex-1">
+          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Custom Range</label>
+          <div className="flex items-center gap-2">
+            <Calendar size={14} className="text-amber-500 shrink-0" />
+            <input
+              type="date"
+              value={customStart}
+              onChange={e => {
+                setCustomStart(e.target.value);
+                setDateRange('custom');
+              }}
+              className="min-w-0 flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black text-gray-900 dark:text-white p-1.5"
+            />
+            <span className="text-gray-400 font-black">to</span>
+            <input
+              type="date"
+              value={customEnd}
+              onChange={e => {
+                setCustomEnd(e.target.value);
+                setDateRange('custom');
+              }}
+              className="min-w-0 flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black text-gray-900 dark:text-white p-1.5"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 
@@ -1273,10 +1307,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
         {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'DASHBOARD' && (
           <div>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div className="mb-4">
               <h2 className="text-lg font-black">Sales Overview</h2>
-              <DateRangePicker />
             </div>
+            <DateRangePicker />
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
