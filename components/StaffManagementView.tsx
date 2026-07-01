@@ -478,21 +478,32 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const [leaveSearch, setLeaveSearch] = useState('');
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [floatingActionMenu, setFloatingActionMenu] = useState<FloatingActionMenu | null>(null);
+  const [staffDetailId, setStaffDetailId] = useState<string | null>(null);
+  const [staffDetailPage, setStaffDetailPage] = useState(0);
 
   const fmt = (value: number) => `${currencySymbol}${n(value).toFixed(2)}`;
   const statusOptionClass = 'bg-white text-gray-900';
   const getPayFrequencyLabel = (frequency?: string | null) => (frequency === 'Monthly' || !frequency ? 'mo' : frequency);
+  const formatDate = (value?: string | null) => {
+    if (!value) return '-';
+    const date = new Date(`${value}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
   const getStaffStatusClass = (status: StaffEmploymentStatus) => {
     if (status === 'Active') return 'bg-emerald-100 text-emerald-700 focus:ring-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300';
     if (status === 'Probation') return 'bg-amber-100 text-amber-700 focus:ring-amber-300 dark:bg-amber-500/20 dark:text-amber-300';
     return 'bg-rose-100 text-rose-700 focus:ring-rose-300 dark:bg-rose-500/20 dark:text-rose-300';
   };
   const isFloatingMenuOpen = (type: FloatingActionMenuType, id: string) => floatingActionMenu?.type === type && floatingActionMenu.id === id;
+  const openStaffDetail = (item: StaffMember) => {
+    setStaffDetailId(item.id);
+    setStaffDetailPage(0);
+  };
   const openFloatingActionMenu = (event: React.MouseEvent<HTMLButtonElement>, type: FloatingActionMenuType, id: string) => {
     event.stopPropagation();
     const rect = event.currentTarget.getBoundingClientRect();
     const width = type === 'claim' || type === 'leave' ? 160 : 176;
-    const estimatedHeight = type === 'claim' || type === 'leave' ? 92 : 190;
+    const estimatedHeight = type === 'claim' || type === 'leave' ? 92 : 224;
     const left = Math.min(Math.max(8, rect.right - width), Math.max(8, window.innerWidth - width - 8));
     const opensUp = rect.bottom + estimatedHeight > window.innerHeight - 8;
     const top = opensUp ? Math.max(8, rect.top - estimatedHeight - 6) : Math.min(rect.bottom + 6, window.innerHeight - estimatedHeight - 8);
@@ -671,6 +682,28 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const getLeaveEntitlementLabel = (item: StaffMember, type: LeaveType) => {
     const entitlement = getCurrentLeaveEntitlement(item.profile, type);
     return entitlement === null ? 'Not set' : `${entitlement} days`;
+  };
+
+  const getLeaveTakenForStaff = (staffUserId: string, type: LeaveType) => {
+    const currentYear = new Date().getFullYear();
+    return staffLeaves
+      .filter(leave => (
+        leave.staff_user_id === staffUserId
+        && leave.leave_type === type
+        && leave.status !== 'cancelled'
+        && new Date(`${leave.start_date}T00:00:00`).getFullYear() === currentYear
+      ))
+      .reduce((sum, leave) => sum + n(leave.total_days), 0);
+  };
+
+  const getLeaveBalanceForStaff = (item: StaffMember, type: LeaveType) => {
+    const entitlement = getCurrentLeaveEntitlement(item.profile, type);
+    const taken = getLeaveTakenForStaff(item.id, type);
+    return {
+      entitlement,
+      taken,
+      balance: entitlement === null ? null : Math.max(0, n(entitlement) - taken),
+    };
   };
 
   const claimFormTotal = useMemo(() => (
@@ -1575,6 +1608,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     }
   };
 
+  const selectedDetailStaff = staffDetailId ? staff.find(item => item.id === staffDetailId) || null : null;
   const selectedPreviewStaff = previewPayslip ? staff.find(item => item.id === previewPayslip.staff_user_id) : null;
   const renderModalPortal = (node: React.ReactNode) => (typeof document === 'undefined' ? node : createPortal(node, document.body));
 
@@ -1645,6 +1679,9 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         >
           {floatingActionMenu.type === 'staff' && menuStaff && (
             <>
+              <button type="button" onClick={() => { closeMenu(); openStaffDetail(menuStaff); }} className={itemClass}>
+                <Eye size={14} /> View Details
+              </button>
               <button type="button" onClick={() => { closeMenu(); openStaffModal(menuStaff); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-amber-50 hover:text-amber-700 dark:text-gray-200 dark:hover:bg-amber-900/20 dark:hover:text-amber-300">
                 <Edit3 size={14} /> Edit Profile
               </button>
@@ -1816,13 +1853,12 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
           </div>
           {visibleStaff.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[940px] text-left">
+              <table className="w-full min-w-[820px] text-left">
                 <thead className="bg-gray-50 dark:bg-gray-900/50">
                   <tr>
-                    <th className="w-[30%] min-w-[260px] px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Staff</th>
+                    <th className="w-[34%] min-w-[260px] px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Staff</th>
                     <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Department</th>
                     <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Login Role</th>
-                    <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Salary</th>
                     <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Contact</th>
                     <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Status</th>
                     <th className="w-12 px-2 py-2 text-center text-[10px] font-black uppercase tracking-widest text-gray-400">Actions</th>
@@ -1834,17 +1870,17 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                     const currentStatus = (item.profile?.employment_status || (item.is_active === false ? 'Inactive' : 'Active')) as StaffEmploymentStatus;
                     return (
                       <tr key={item.id} className="transition">
-                        <td className="w-[30%] min-w-[260px] px-5 py-4">
+                        <td className="w-[34%] min-w-[260px] px-5 py-4">
                           <div>
-                            <p className="text-sm font-black text-gray-900 dark:text-white">{item.profile?.full_name || item.username}</p>
+                            <button type="button" onClick={() => openStaffDetail(item)} className="text-left text-sm font-black text-gray-900 transition hover:text-amber-600 hover:underline dark:text-white dark:hover:text-amber-300">
+                              {item.profile?.full_name || item.username}
+                            </button>
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{item.profile?.employee_code || item.username}</p>
                             {item.profile?.nationality && <p className="mt-1 text-[10px] font-semibold text-gray-400">Citizen: {item.profile.nationality}</p>}
-                            <p className="mt-1 text-[10px] font-semibold text-gray-400">Annual Leave: {getLeaveEntitlementLabel(item, 'Annual')}</p>
                           </div>
                         </td>
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p className="font-bold text-gray-700 dark:text-gray-200">{department?.name || 'Unassigned'}</p><p>{item.profile?.job_title || 'No job title'}</p></td>
                         <td className="px-5 py-4"><span className="rounded-lg bg-gray-100 px-2 py-1 text-[10px] font-black text-gray-600 dark:bg-gray-700 dark:text-gray-300">{item.role}</span></td>
-                        <td className="whitespace-nowrap px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{fmt(n(item.profile?.salary_amount))} <span className="font-normal text-gray-400">/{getPayFrequencyLabel(item.profile?.pay_frequency)}</span></td>
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p>{item.email || '-'}</p><p>{item.phone || '-'}</p></td>
                         <td className="px-5 py-4">
                           <select
@@ -2478,6 +2514,160 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       </div>
 
       {renderFloatingActionMenu()}
+
+      {selectedDetailStaff && renderModalPortal((() => {
+        const item = selectedDetailStaff;
+        const department = departments.find(dept => dept.id === item.profile?.department_id);
+        const currentStatus = (item.profile?.employment_status || (item.is_active === false ? 'Inactive' : 'Active')) as StaffEmploymentStatus;
+        const displayName = item.profile?.full_name || item.username;
+        const leaveBalanceCards = (['Annual', 'MC', 'Paternity', 'Hospitalization'] as LeaveType[]).map(type => ({ type, ...getLeaveBalanceForStaff(item, type) }));
+        const otherTaken = getLeaveTakenForStaff(item.id, 'Other');
+        const recentLeaves = staffLeaves.filter(leave => leave.staff_user_id === item.id && leave.status !== 'cancelled').slice(0, 4);
+        const pages = [
+          (
+            <div key="dashboard" className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
+                  {leaveBalanceCards.map(card => (
+                    <div key={card.type} className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{card.type === 'Hospitalization' ? 'Hospital' : card.type}</p>
+                      <p className="mt-1 text-2xl font-black text-gray-900 dark:text-white">{card.balance === null ? '-' : card.balance}</p>
+                      <p className="text-[10px] font-semibold text-gray-400">Taken {card.taken} / {card.entitlement ?? '-'}</p>
+                    </div>
+                  ))}
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/40 dark:bg-rose-900/20">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-rose-500">Unpaid / Other</p>
+                    <p className="mt-1 text-2xl font-black text-rose-700 dark:text-rose-300">{otherTaken}</p>
+                    <p className="text-[10px] font-semibold text-rose-500/80">Taken this year</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <SummaryTile label="Date Joined" value={formatDate(item.profile?.hire_date)} />
+                  <SummaryTile label="Service" value={`${serviceYearsCompleted(item.profile?.hire_date)} year(s)`} />
+                  <SummaryTile label="Department" value={department?.name || 'Unassigned'} />
+                  <SummaryTile label="Employment" value={currentStatus} positive={currentStatus === 'Active'} />
+                </div>
+              </div>
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-xs font-black uppercase tracking-wider text-gray-700 dark:text-gray-200">Recent Leave</p>
+                  <CalendarDays size={16} className="text-violet-500" />
+                </div>
+                <div className="space-y-2">
+                  {recentLeaves.length > 0 ? recentLeaves.map(leave => (
+                    <div key={leave.id} className="rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-900/60">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs font-black text-gray-800 dark:text-gray-100">{leave.leave_type}</p>
+                        <span className="text-[10px] font-black uppercase text-gray-400">{leave.status}</span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] font-semibold text-gray-400">{formatDate(leave.start_date)} - {formatDate(leave.end_date)} · {n(leave.total_days)} day(s)</p>
+                    </div>
+                  )) : <p className="rounded-xl bg-gray-50 px-3 py-6 text-center text-xs font-bold text-gray-400 dark:bg-gray-900/60">No leave recorded</p>}
+                </div>
+              </div>
+            </div>
+          ),
+          (
+            <div key="profile" className="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-3">
+              {[
+                ['Username', item.username],
+                ['Role', item.role],
+                ['Employee Code', item.profile?.employee_code || '-'],
+                ['Email', item.email || '-'],
+                ['Phone', item.phone || '-'],
+                ['IC / Passport', item.profile?.ic_number || '-'],
+                ['Nationality', item.profile?.nationality || '-'],
+                ['Job Title', item.profile?.job_title || '-'],
+                ['Employment Type', item.profile?.employment_type || '-'],
+                ['Emergency Name', item.profile?.emergency_contact_name || '-'],
+                ['Emergency Phone', item.profile?.emergency_contact_phone || '-'],
+                ['Notes', item.profile?.notes || '-'],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{label}</p>
+                  <p className="mt-1 break-words text-sm font-bold text-gray-800 dark:text-gray-100">{value}</p>
+                </div>
+              ))}
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 md:col-span-3 dark:border-gray-700 dark:bg-gray-900/60">
+                <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Address</p>
+                <p className="mt-1 break-words text-sm font-bold text-gray-800 dark:text-gray-100">{item.profile?.address || '-'}</p>
+              </div>
+            </div>
+          ),
+          (
+            <div key="payroll" className="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-3">
+              {[
+                ['Basic Salary', `${fmt(n(item.profile?.salary_amount))} / ${getPayFrequencyLabel(item.profile?.pay_frequency)}`],
+                ['OT Rate', fmt(n(item.profile?.overtime_rate))],
+                ['Default Allowance', fmt(n(item.profile?.default_allowances?.fixed))],
+                ['Default Deduction', fmt(n(item.profile?.default_deductions?.fixed))],
+                ['Bank Name', item.profile?.bank_name || '-'],
+                ['Bank Account', item.profile?.bank_account_no || '-'],
+                ['EPF No.', item.profile?.epf_no || '-'],
+                ['SOCSO No.', item.profile?.socso_no || '-'],
+                ['Tax No.', item.profile?.tax_no || '-'],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{label}</p>
+                  <p className="mt-1 break-words text-sm font-bold text-gray-800 dark:text-gray-100">{value}</p>
+                </div>
+              ))}
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 md:col-span-3 dark:border-gray-700 dark:bg-gray-900/60">
+                <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Leave Entitlement Setup</p>
+                <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-5">
+                  {leaveTypes.map(type => (
+                    <div key={type} className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                      {type}: {getLeaveEntitlementLabel(item, type)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ),
+        ];
+        const pageLabels = ['Dashboard', 'Profile', 'Payroll'];
+
+        return (
+          <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setStaffDetailId(null)}>
+            <div className="flex h-[92vh] max-h-[760px] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-800" onClick={event => event.stopPropagation()}>
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-600">Employee Profile</p>
+                  <h3 className="mt-1 truncate text-2xl font-black text-gray-900 dark:text-white">{displayName}</h3>
+                  <p className="text-xs font-semibold text-gray-400">{item.profile?.employee_code || item.username} · {department?.name || 'Unassigned'} · {item.role}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button type="button" onClick={() => { setStaffDetailId(null); openStaffModal(item); }} className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                    <Edit3 size={14} /> Edit
+                  </button>
+                  <button type="button" onClick={() => setStaffDetailId(null)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={18} /></button>
+                </div>
+              </div>
+              <div className="mb-4 flex gap-2">
+                {pageLabels.map((label, index) => (
+                  <button key={label} type="button" onClick={() => setStaffDetailPage(index)} className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-wider transition ${staffDetailPage === index ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-500 hover:text-gray-900 dark:bg-gray-900 dark:text-gray-400 dark:hover:text-white'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="min-h-0 flex-1 overflow-hidden">{pages[staffDetailPage]}</div>
+              <div className="mt-4 flex items-center justify-between">
+                <button type="button" onClick={() => setStaffDetailPage(page => Math.max(0, page - 1))} disabled={staffDetailPage === 0} className="rounded-xl border border-gray-200 px-4 py-2 text-xs font-black uppercase tracking-wider text-gray-500 transition hover:border-amber-300 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-30 dark:border-gray-700">
+                  Back
+                </button>
+                <div className="flex items-center gap-2">
+                  {pages.map((_, index) => (
+                    <button key={index} type="button" aria-label={`Go to ${pageLabels[index]}`} onClick={() => setStaffDetailPage(index)} className={`h-2.5 rounded-full transition-all ${staffDetailPage === index ? 'w-8 bg-amber-600' : 'w-2.5 bg-gray-300 dark:bg-gray-600'}`} />
+                  ))}
+                </div>
+                <button type="button" onClick={() => setStaffDetailPage(page => Math.min(pages.length - 1, page + 1))} disabled={staffDetailPage === pages.length - 1} className="rounded-xl border border-gray-200 px-4 py-2 text-xs font-black uppercase tracking-wider text-gray-500 transition hover:border-amber-300 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-30 dark:border-gray-700">
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })())}
 
       {staffModalOpen && renderModalPortal(
         <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setStaffModalOpen(false)}>
