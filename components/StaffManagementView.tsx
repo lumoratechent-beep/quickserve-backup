@@ -480,6 +480,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const [floatingActionMenu, setFloatingActionMenu] = useState<FloatingActionMenu | null>(null);
   const [staffDetailId, setStaffDetailId] = useState<string | null>(null);
   const [staffDetailPage, setStaffDetailPage] = useState(0);
+  const [staffDetailDrag, setStaffDetailDrag] = useState<{ startX: number; deltaX: number } | null>(null);
 
   const fmt = (value: number) => `${currencySymbol}${n(value).toFixed(2)}`;
   const statusOptionClass = 'bg-white text-gray-900';
@@ -2525,20 +2526,21 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         const recentLeaves = staffLeaves.filter(leave => leave.staff_user_id === item.id && leave.status !== 'cancelled').slice(0, 4);
         const pages = [
           (
-            <div key="dashboard" className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <div key="dashboard" className="grid h-full min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1.1fr_0.9fr]">
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
                   {leaveBalanceCards.map(card => (
                     <div key={card.type} className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{card.type === 'Hospitalization' ? 'Hospital' : card.type}</p>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{card.type === 'Hospitalization' ? 'Hospital' : card.type} Balance</p>
                       <p className="mt-1 text-2xl font-black text-gray-900 dark:text-white">{card.balance === null ? '-' : card.balance}</p>
-                      <p className="text-[10px] font-semibold text-gray-400">Taken {card.taken} / {card.entitlement ?? '-'}</p>
+                      <p className="text-[10px] font-semibold text-gray-400">{card.entitlement === null ? 'No entitlement set' : `from ${card.entitlement} day entitlement`}</p>
+                      <p className="text-[10px] font-semibold text-gray-400">Taken {card.taken} day(s) this year</p>
                     </div>
                   ))}
                   <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/40 dark:bg-rose-900/20">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-rose-500">Unpaid / Other</p>
+                    <p className="text-[10px] font-black uppercase tracking-wider text-rose-500">Unpaid / Other Taken</p>
                     <p className="mt-1 text-2xl font-black text-rose-700 dark:text-rose-300">{otherTaken}</p>
-                    <p className="text-[10px] font-semibold text-rose-500/80">Taken this year</p>
+                    <p className="text-[10px] font-semibold text-rose-500/80">Red-zone leave this year</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -2560,7 +2562,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                         <p className="text-xs font-black text-gray-800 dark:text-gray-100">{leave.leave_type}</p>
                         <span className="text-[10px] font-black uppercase text-gray-400">{leave.status}</span>
                       </div>
-                      <p className="mt-0.5 text-[11px] font-semibold text-gray-400">{formatDate(leave.start_date)} - {formatDate(leave.end_date)} · {n(leave.total_days)} day(s)</p>
+                      <p className="mt-0.5 text-[11px] font-semibold text-gray-400">{formatDate(leave.start_date)} - {formatDate(leave.end_date)} - {n(leave.total_days)} day(s)</p>
                     </div>
                   )) : <p className="rounded-xl bg-gray-50 px-3 py-6 text-center text-xs font-bold text-gray-400 dark:bg-gray-900/60">No leave recorded</p>}
                 </div>
@@ -2568,7 +2570,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
             </div>
           ),
           (
-            <div key="profile" className="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-3">
+            <div key="profile" className="grid h-full min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-3">
               {[
                 ['Username', item.username],
                 ['Role', item.role],
@@ -2595,7 +2597,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
             </div>
           ),
           (
-            <div key="payroll" className="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-3">
+            <div key="payroll" className="grid h-full min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-3">
               {[
                 ['Basic Salary', `${fmt(n(item.profile?.salary_amount))} / ${getPayFrequencyLabel(item.profile?.pay_frequency)}`],
                 ['OT Rate', fmt(n(item.profile?.overtime_rate))],
@@ -2626,15 +2628,23 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
           ),
         ];
         const pageLabels = ['Dashboard', 'Profile', 'Payroll'];
+        const dragDelta = staffDetailDrag?.deltaX || 0;
+        const resistedDragDelta = (staffDetailPage === 0 && dragDelta > 0) || (staffDetailPage === pages.length - 1 && dragDelta < 0) ? dragDelta * 0.28 : dragDelta;
+        const closeStaffDetailSwipe = (deltaX: number) => {
+          if (Math.abs(deltaX) > 70) {
+            setStaffDetailPage(page => Math.min(pages.length - 1, Math.max(0, page + (deltaX < 0 ? 1 : -1))));
+          }
+          setStaffDetailDrag(null);
+        };
 
         return (
           <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setStaffDetailId(null)}>
-            <div className="flex h-[92vh] max-h-[760px] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-800" onClick={event => event.stopPropagation()}>
+            <div className="flex h-[94vh] max-h-[820px] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-800" onClick={event => event.stopPropagation()}>
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-600">Employee Profile</p>
                   <h3 className="mt-1 truncate text-2xl font-black text-gray-900 dark:text-white">{displayName}</h3>
-                  <p className="text-xs font-semibold text-gray-400">{item.profile?.employee_code || item.username} · {department?.name || 'Unassigned'} · {item.role}</p>
+                  <p className="text-xs font-semibold text-gray-400">{item.profile?.employee_code || item.username} - {department?.name || 'Unassigned'} - {item.role}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <button type="button" onClick={() => { setStaffDetailId(null); openStaffModal(item); }} className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
@@ -2650,7 +2660,39 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                   </button>
                 ))}
               </div>
-              <div className="min-h-0 flex-1 overflow-hidden">{pages[staffDetailPage]}</div>
+              <div
+                className="min-h-0 flex-1 overflow-hidden"
+                style={{ touchAction: 'pan-y' }}
+                onPointerDown={event => {
+                  if ((event.target as HTMLElement).closest('button, a, input, select, textarea')) return;
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  setStaffDetailDrag({ startX: event.clientX, deltaX: 0 });
+                }}
+                onPointerMove={event => {
+                  if (!staffDetailDrag) return;
+                  setStaffDetailDrag({ ...staffDetailDrag, deltaX: event.clientX - staffDetailDrag.startX });
+                }}
+                onPointerUp={event => {
+                  if (!staffDetailDrag) return;
+                  event.currentTarget.releasePointerCapture(event.pointerId);
+                  closeStaffDetailSwipe(staffDetailDrag.deltaX);
+                }}
+                onPointerCancel={() => setStaffDetailDrag(null)}
+              >
+                <div
+                  className="flex h-full"
+                  style={{
+                    transform: `translateX(calc(-${staffDetailPage * 100}% + ${resistedDragDelta}px))`,
+                    transition: staffDetailDrag ? 'none' : 'transform 260ms ease',
+                  }}
+                >
+                  {pages.map((page, index) => (
+                    <div key={pageLabels[index]} className="h-full min-w-full shrink-0 overflow-hidden" aria-hidden={staffDetailPage !== index}>
+                      {page}
+                    </div>
+                  ))}
+                </div>
+              </div>
               <div className="mt-4 flex items-center justify-between">
                 <button type="button" onClick={() => setStaffDetailPage(page => Math.max(0, page - 1))} disabled={staffDetailPage === 0} className="rounded-xl border border-gray-200 px-4 py-2 text-xs font-black uppercase tracking-wider text-gray-500 transition hover:border-amber-300 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-30 dark:border-gray-700">
                   Back
