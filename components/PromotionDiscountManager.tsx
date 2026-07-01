@@ -257,8 +257,8 @@ const PromotionDiscountManager: React.FC<Props> = ({ restaurant, currencySymbol,
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        <div className="relative order-1 w-full sm:w-auto">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative w-full sm:w-auto">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={search}
@@ -268,7 +268,7 @@ const PromotionDiscountManager: React.FC<Props> = ({ restaurant, currencySymbol,
           />
         </div>
 
-        <div className="order-2 flex flex-wrap items-center justify-end gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <div className="flex h-9 rounded-lg border border-gray-200 bg-gray-50 p-1 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <button
               type="button"

@@ -16,6 +16,8 @@ interface Props {
   kitchenConfig?: KitchenTicketConfig;
   initialTab?: SettingsTab;
   visibleTabs?: SettingsTab[];
+  initialConnectionType?: ConnectionType;
+  addPrinterRequestKey?: number;
   onPrinterConnected?: (device: PrinterDevice) => void;
   onReceiptConfigChange?: (config: ReceiptConfig) => void;
   onOrderListConfigChange?: (config: OrderListConfig) => void;
@@ -36,6 +38,8 @@ const PrinterSettings: React.FC<Props> = ({
   kitchenConfig: propKitchenConfig,
   initialTab = 'printers',
   visibleTabs,
+  initialConnectionType,
+  addPrinterRequestKey,
   onPrinterConnected,
   onReceiptConfigChange,
   onOrderListConfigChange,
@@ -132,6 +136,39 @@ const PrinterSettings: React.FC<Props> = ({
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  useEffect(() => {
+    if (!initialConnectionType || addPrinterRequestKey == null) return;
+
+    setActiveTab('printers');
+    setEditingPrinterId(null);
+    setShowAdvancedSettings(false);
+    setIsAddingPrinter(true);
+    setPrinterForm(() => {
+      const base = createDefaultPrinter(
+        initialConnectionType === 'wifi' ? 'WiFi/LAN Printer'
+          : initialConnectionType === 'usb' ? 'USB Printer'
+            : initialConnectionType === 'sunmi' ? 'SUNMI Built-in Printer'
+              : 'Bluetooth Printer'
+      );
+
+      if (initialConnectionType === 'sunmi') {
+        const sunmi = applyModelPreset(base, 'sunmi_v2');
+        return {
+          ...sunmi,
+          connectionType: 'sunmi',
+          deviceId: 'sunmi-inner-printer',
+          deviceName: 'SUNMI Built-in Printer',
+          autoCut: false,
+        };
+      }
+
+      return {
+        ...base,
+        connectionType: initialConnectionType,
+      };
+    });
+  }, [addPrinterRequestKey, initialConnectionType]);
 
   useEffect(() => {
     const currentSunmiStatus = printerService.getSunmiIntegrationStatus();
@@ -235,6 +272,32 @@ const PrinterSettings: React.FC<Props> = ({
     setErrorMessage(status.likelySunmiDevice
       ? 'SUNMI printer bridge not found. Install or open QuickServe through the SUNMI WebView wrapper.'
       : 'SUNMI bridge not available on this browser.');
+  };
+
+  const handleConnectUsb = async () => {
+    setPrinterStatus('connecting');
+    setErrorMessage('');
+
+    const device = await printerService.connectUsbPrinter();
+    if (device) {
+      setConnectedDevice(device);
+      setPrinterStatus('connected');
+      setRealPrinterConnected(true);
+      setPrinterForm(f => ({
+        ...f,
+        connectionType: 'usb',
+        deviceId: device.id,
+        deviceName: device.name,
+        name: f.name.trim() ? f.name : device.name,
+      }));
+      localStorage.setItem(`printer_${restaurantId}`, JSON.stringify(device));
+      onPrinterConnected?.(device);
+      return;
+    }
+
+    setPrinterStatus('error');
+    setRealPrinterConnected(false);
+    setErrorMessage('USB printer connection failed. Use a Chromium browser with WebUSB and allow device access.');
   };
 
   // ─── Printer CRUD ──────────────────────────────────────────────
@@ -694,8 +757,27 @@ const PrinterSettings: React.FC<Props> = ({
 
               {/* USB: device selection info */}
               {printerForm.connectionType === 'usb' && (
-                <div className="mt-2 p-2.5 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <p className="text-[9px] text-blue-600 dark:text-blue-400 font-bold">USB printers connect via your system dialog. Select your USB device when prompted by the browser.</p>
+                <div className="mt-2 space-y-2">
+                  <div className="p-2.5 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-[9px] text-blue-600 dark:text-blue-400 font-bold">USB printers use the browser WebUSB permission dialog. Select your ESC/POS printer when prompted.</p>
+                  </div>
+                  <button
+                    onClick={handleConnectUsb}
+                    disabled={printerStatus === 'connecting'}
+                    className="w-full py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {printerStatus === 'connecting' ? (
+                      <><div className="w-3 h-3 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin" /> Connecting...</>
+                    ) : (
+                      <><Usb size={12} /> Connect USB Printer</>
+                    )}
+                  </button>
+                  {printerForm.deviceName && (
+                    <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-800">
+                      <CheckCircle2 size={12} className="text-green-500" />
+                      <span className="text-[10px] font-bold text-green-700 dark:text-green-400">{printerForm.deviceName}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

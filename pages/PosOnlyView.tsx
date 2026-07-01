@@ -9,7 +9,7 @@ import { isSubscriptionAccessLocked } from '../lib/subscriptionService';
 import { calculateNextSubscriptionPeriod } from '../lib/subscriptionPeriod';
 import * as counterOrdersCache from '../lib/counterOrdersCache';
 import printerService, { PrinterDevice, ReceiptPrintOptions, SavedPrinter, ReceiptConfig, OrderListConfig, KitchenTicketConfig, DEFAULT_RECEIPT_CONFIG, DEFAULT_ORDER_LIST_CONFIG, DEFAULT_KITCHEN_TICKET_CONFIG, createDefaultPrinter } from '../services/printerService';
-import type { PaperSize } from '../services/printerService';
+import type { ConnectionType, PaperSize } from '../services/printerService';
 import PrinterSettings from '../components/PrinterSettings';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 import PromotionDiscountManager from '../components/PromotionDiscountManager';
@@ -26,7 +26,7 @@ import {
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid,
   List, ListTree, Clock, CheckCircle, CheckCircle2, BarChart3, Hash, Menu, Settings, BookOpen,
   X, Edit3, Archive, RotateCcw, Upload, Eye,
-  AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon,
+  AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon, Smartphone, Usb,
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeftRight, RotateCw, Wifi, WifiOff,
   Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
   ArrowLeft, Star, Package, Monitor, Info, ExternalLink,
@@ -814,6 +814,9 @@ const PosOnlyView: React.FC<Props> = ({
 
   // Settings panel navigation
   const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('builtin');
+  const [printerModeMenuOpen, setPrinterModeMenuOpen] = useState(false);
+  const [printerSetupConnectionType, setPrinterSetupConnectionType] = useState<ConnectionType | undefined>(undefined);
+  const [printerSetupRequestKey, setPrinterSetupRequestKey] = useState(0);
   const [paymentTaxAccordion, setPaymentTaxAccordion] = useState({ paymentTypes: false, taxes: false });
   const [builtInFeatureSections, setBuiltInFeatureSections] = useState({ cashier: true, dining: false });
 
@@ -3645,6 +3648,15 @@ const PosOnlyView: React.FC<Props> = ({
       setRealPrinterConnected(pickSuccess);
     }
     setIsAutoReconnecting(false);
+  };
+
+  const openPrinterSetupMode = (connectionType: ConnectionType) => {
+    setPrinterModeMenuOpen(false);
+    setPrinterSetupConnectionType(connectionType);
+    setPrinterSetupRequestKey(prev => prev + 1);
+    setSettingsPanel('printer');
+    setActiveTab('SETTINGS');
+    setIsMobileMenuOpen(false);
   };
 
   const handleAddCategory = () => {
@@ -7099,41 +7111,71 @@ const PosOnlyView: React.FC<Props> = ({
 
         {/* Printer Connection Status */}
         <div className={`relative z-[121] mt-auto border-t dark:border-gray-700 space-y-1.5 ${isSidebarCollapsed ? 'p-2' : 'px-3 py-2'}`}>
-          <button
-            onClick={handlePrinterButtonClick}
-            disabled={isAutoReconnecting}
-            className={`w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg ${
-              isAutoReconnecting
-                ? 'bg-blue-500 text-white cursor-wait'
-                : hasPrintableTransport
-                  ? 'bg-green-500 text-white hover:bg-green-600'
-                  : connectedDevice
-                    ? 'bg-red-500 text-white hover:bg-red-600'
-                    : 'bg-red-500 text-white hover:bg-red-600'
-            }`}
-          >
-            {isAutoReconnecting ? (
-              <>
-                <Bluetooth size={18} className="animate-pulse" />
-                {!isSidebarCollapsed && 'Connecting...'}
-              </>
-            ) : hasPrintableTransport ? (
-              <>
-                <BluetoothConnected size={18} />
-                {!isSidebarCollapsed && (hasConfiguredNetworkPrinter ? 'WiFi/LAN Printer Ready' : 'Printer Connected')}
-              </>
-            ) : connectedDevice ? (
-              <>
-                <Bluetooth size={18} />
-                {!isSidebarCollapsed && 'Printer Offline'}
-              </>
-            ) : (
-              <>
-                <Bluetooth size={18} />
-                {!isSidebarCollapsed && 'No Printer'}
-              </>
+          <div className="relative flex items-stretch gap-1.5">
+            <button
+              onClick={handlePrinterButtonClick}
+              disabled={isAutoReconnecting}
+              className={`min-w-0 flex-1 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg ${
+                isAutoReconnecting
+                  ? 'bg-blue-500 text-white cursor-wait'
+                  : hasPrintableTransport
+                    ? 'bg-green-500 text-white hover:bg-green-600'
+                    : connectedDevice
+                      ? 'bg-red-500 text-white hover:bg-red-600'
+                      : 'bg-red-500 text-white hover:bg-red-600'
+              }`}
+            >
+              {isAutoReconnecting ? (
+                <>
+                  <Bluetooth size={18} className="animate-pulse" />
+                  {!isSidebarCollapsed && 'Connecting...'}
+                </>
+              ) : hasPrintableTransport ? (
+                <>
+                  <BluetoothConnected size={18} />
+                  {!isSidebarCollapsed && (hasConfiguredNetworkPrinter ? 'WiFi/LAN Printer Ready' : 'Printer Connected')}
+                </>
+              ) : connectedDevice ? (
+                <>
+                  <Bluetooth size={18} />
+                  {!isSidebarCollapsed && 'Printer Offline'}
+                </>
+              ) : (
+                <>
+                  <Bluetooth size={18} />
+                  {!isSidebarCollapsed && 'No Printer'}
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPrinterModeMenuOpen(prev => !prev)}
+              title="Printer mode"
+              className="flex h-auto w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 shadow-lg transition hover:border-orange-200 hover:text-orange-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            >
+              <MoreVertical size={17} />
+            </button>
+            {printerModeMenuOpen && (
+              <div className={`absolute bottom-full mb-2 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white p-1 shadow-2xl dark:border-gray-700 dark:bg-gray-800 ${isSidebarCollapsed ? 'left-0' : 'right-0'}`}>
+                {([
+                  { type: 'bluetooth' as ConnectionType, label: 'Bluetooth', icon: Bluetooth },
+                  { type: 'wifi' as ConnectionType, label: 'WiFi/LAN', icon: Wifi },
+                  { type: 'usb' as ConnectionType, label: 'USB', icon: Usb },
+                  { type: 'sunmi' as ConnectionType, label: 'SUNMI Built-in', icon: Smartphone },
+                ]).map(({ type, label, icon: Icon }) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => openPrinterSetupMode(type)}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-gray-600 transition hover:bg-orange-50 hover:text-orange-600 dark:text-gray-300 dark:hover:bg-orange-900/20"
+                  >
+                    <Icon size={14} />
+                    {label}
+                  </button>
+                ))}
+              </div>
             )}
-          </button>
+          </div>
           {onNavigateBackOffice && (
             <button
               onClick={onNavigateBackOffice}
@@ -8636,6 +8678,8 @@ const PosOnlyView: React.FC<Props> = ({
                                 departments={kitchenDivisions}
                                 initialTab="printers"
                                 visibleTabs={['printers', 'help']}
+                                initialConnectionType={printerSetupConnectionType}
+                                addPrinterRequestKey={printerSetupRequestKey}
                                 savedPrinters={savedPrinters}
                                 receiptConfig={receiptConfig}
                                 orderListConfig={orderListConfig}

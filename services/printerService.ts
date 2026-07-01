@@ -604,6 +604,9 @@ class PrinterService {
   private disconnectRequested: boolean = false;
   private sunmiConnected: boolean = false;
   private sunmiBridgeName: string | null = null;
+  private usbDevice: any = null;
+  private usbEndpointNumber: number | null = null;
+  private readonly usbChunkSize: number = 512;
 
   // Reprint support
   private lastPrintedOrder: any = null;
@@ -671,7 +674,7 @@ class PrinterService {
   }
 
   private hasWritableTransport(): boolean {
-    return (this.sunmiConnected && this.isSunmiBridgeAvailable()) || !!this.characteristic || !!this.networkPrinterConfig;
+    return (this.sunmiConnected && this.isSunmiBridgeAvailable()) || !!this.characteristic || !!this.networkPrinterConfig || !!this.usbDevice;
   }
 
   private async connectSunmiBridge(): Promise<boolean> {
@@ -883,6 +886,67 @@ class PrinterService {
     return result;
   }
 
+  async connectUsbPrinter(): Promise<PrinterDevice | null> {
+    try {
+      await this.disconnect();
+      this.disconnectRequested = false;
+
+      const usb = typeof navigator !== 'undefined' ? (navigator as any).usb : null;
+      if (!usb?.requestDevice) throw new Error('WebUSB not supported');
+
+      const device = await usb.requestDevice({
+        filters: [{ classCode: 0x07 }],
+      });
+
+      await this.openUsbDevice(device);
+      return {
+        id: `usb-${device.vendorId || 'printer'}-${device.productId || 'device'}`,
+        name: device.productName || device.manufacturerName || 'USB Printer',
+      };
+    } catch (error) {
+      console.error('USB printer connection error:', error);
+      this.usbDevice = null;
+      this.usbEndpointNumber = null;
+      return null;
+    }
+  }
+
+  private async openUsbDevice(device: any): Promise<void> {
+    await device.open();
+    if (!device.configuration) await device.selectConfiguration(1);
+
+    const interfaces = device.configuration?.interfaces || [];
+    for (const iface of interfaces) {
+      for (const alternate of iface.alternates || []) {
+        const endpoint = (alternate.endpoints || []).find((ep: any) => ep.direction === 'out');
+        if (!endpoint) continue;
+
+        if (device.configuration?.configurationValue && alternate.alternateSetting != null) {
+          try { await device.selectAlternateInterface(iface.interfaceNumber, alternate.alternateSetting); } catch {}
+        }
+        await device.claimInterface(iface.interfaceNumber);
+        this.usbDevice = device;
+        this.usbEndpointNumber = endpoint.endpointNumber;
+        return;
+      }
+    }
+
+    try { await device.close(); } catch {}
+    throw new Error('No writable USB endpoint found');
+  }
+
+  private async writeUsbData(data: Uint8Array): Promise<void> {
+    if (!this.usbDevice || this.usbEndpointNumber == null) throw new Error('USB printer not connected');
+
+    for (let i = 0; i < data.length; i += this.usbChunkSize) {
+      const chunk = data.slice(i, i + this.usbChunkSize);
+      await this.usbDevice.transferOut(this.usbEndpointNumber, chunk);
+      if (i + this.usbChunkSize < data.length) {
+        await new Promise(r => setTimeout(r, 5));
+      }
+    }
+  }
+
   private async _connect(deviceName: string): Promise<boolean> {
     try {
       await this.disconnect();
@@ -1011,7 +1075,7 @@ class PrinterService {
   isConnected(): boolean {
     this.autoConfigureNetworkPrinter();
     if (this.networkPrinterConfig) return true;
-    return (this.sunmiConnected && this.isSunmiBridgeAvailable()) || this.server?.connected === true;
+    return (this.sunmiConnected && this.isSunmiBridgeAvailable()) || this.server?.connected === true || !!this.usbDevice?.opened;
   }
 
   async disconnect() {
@@ -1020,6 +1084,9 @@ class PrinterService {
     this.clearQueue();
     this.sunmiConnected = false;
     this.sunmiBridgeName = null;
+    try { if (this.usbDevice?.opened) await this.usbDevice.close(); } catch {}
+    this.usbDevice = null;
+    this.usbEndpointNumber = null;
     try { if (this.server?.connected) this.server.disconnect(); } catch {}
     await this.cleanup();
     this.device = null;
@@ -1028,10 +1095,10 @@ class PrinterService {
   getConnectionStatus() {
     return {
       connected: this.isConnected(),
-      deviceName: this.sunmiConnected ? SUNMI_INNER_PRINTER.name : this.device?.name,
+      deviceName: this.sunmiConnected ? SUNMI_INNER_PRINTER.name : this.usbDevice?.productName || this.device?.name,
       isPrinting: this.isPrinting,
       queueSize: this.printQueue.length,
-      transport: this.sunmiConnected ? 'sunmi' : this.server?.connected ? 'bluetooth' : 'none',
+      transport: this.sunmiConnected ? 'sunmi' : this.usbDevice?.opened ? 'usb' : this.server?.connected ? 'bluetooth' : this.networkPrinterConfig ? 'wifi' : 'none',
     };
   }
 
@@ -1079,6 +1146,12 @@ class PrinterService {
       return;
     }
 
+    // USB printer via WebUSB
+    if (this.usbDevice?.opened) {
+      await this.writeUsbData(data);
+      return;
+    }
+
     // Bluetooth / BLE printer
     if (!this.characteristic) throw new Error('No writable characteristic');
 
@@ -1101,6 +1174,7 @@ class PrinterService {
     if (this.networkPrinterConfig) return true;
     if (this.sunmiConnected && this.isSunmiBridgeAvailable()) return true;
     if (this.sunmiConnected) return this.connectSunmiBridge();
+    if (this.usbDevice?.opened) return true;
     if (this.isConnected() && this.characteristic) return true;
     if (this.device && !this.disconnectRequested) {
       try { return await this.connectGatt(); } catch { /* fall through */ }
