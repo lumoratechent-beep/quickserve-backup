@@ -31,7 +31,7 @@ import {
   Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
   ArrowLeft, Star, Package, Monitor, Info, ExternalLink,
   Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail,
-  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2, Delete, Percent
+  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2, Delete
 } from 'lucide-react';
 
 type CashierAccessPermissionKey = 'viewOwnSalesOnly' | 'requireManagerApprovalForRefund';
@@ -7715,7 +7715,7 @@ const PosOnlyView: React.FC<Props> = ({
                     { id: 'CATEGORY' as const, label: 'Category', icon: <Layers size={13} /> },
                     { id: 'MODIFIER' as const, label: 'Modifier', icon: <Coffee size={13} /> },
                     { id: 'ADDON' as const, label: 'Add-On Item', icon: <PlusCircle size={13} /> },
-                    { id: 'PROMOTION' as const, label: 'Promotion / Discount', icon: <Percent size={13} /> },
+                    { id: 'PROMOTION' as const, label: 'Promotion', icon: <Tag size={13} /> },
                   ]).map(tab => (
                     <button
                       key={tab.id}
@@ -7737,6 +7737,7 @@ const PosOnlyView: React.FC<Props> = ({
                 <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
 
                   {/* Sub-tab controls — sticky toolbar */}
+                  {menuSubTab !== 'PROMOTION' && (
                   <div
                     ref={menuEditorStickyRef}
                     className={`sticky top-0 z-30 -mx-5 md:-mx-6 px-5 md:px-6 -mt-5 md:-mt-6 pt-3 pb-2 space-y-3 bg-white/95 dark:bg-gray-800/95 backdrop-blur supports-[backdrop-filter]:bg-white/85 supports-[backdrop-filter]:dark:bg-gray-800/85 transition-[box-shadow,border-color] duration-200 ${
@@ -7796,11 +7797,6 @@ const PosOnlyView: React.FC<Props> = ({
                           <Coffee size={14} /> + New Modifier
                         </button>
                       </>
-                    ) : menuSubTab === 'PROMOTION' ? (
-                      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-orange-500">
-                        <Percent size={14} />
-                        {restaurant.menu.filter(item => !item.isArchived && isMenuPromotionActive(item.promotionDiscount)).length} Active Promotions
-                      </div>
                     ) : (
                       <>
                         <div className="flex items-center gap-3">
@@ -7826,6 +7822,7 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                     )}
                   </div>
+                  )}
 
                 {menuSubTab === 'KITCHEN' && (
                   <>

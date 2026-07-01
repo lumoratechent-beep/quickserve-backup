@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Archive, Calendar, Edit3, Percent, Plus, Save, Search, Tag, X } from 'lucide-react';
+import { Archive, Calendar, Edit3, Plus, Save, Search, Tag, X } from 'lucide-react';
 import type { MenuItem, MenuPromotionDiscount, Restaurant } from '../src/types';
 import {
   getDefaultPromotionDiscount,
@@ -257,15 +257,25 @@ const PromotionDiscountManager: React.FC<Props> = ({ restaurant, currencySymbol,
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 border-b border-gray-200 pb-4 dark:border-gray-700 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <div className="relative order-1 w-full sm:w-auto">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={event => setSearch(event.target.value)}
+            placeholder="Search promo..."
+            className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-xs font-bold text-gray-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white sm:w-56"
+          />
+        </div>
+
+        <div className="order-2 flex flex-wrap items-center justify-end gap-3">
           <div className="flex h-9 rounded-lg border border-gray-200 bg-gray-50 p-1 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <button
               type="button"
               onClick={() => setStatusFilter('ACTIVE')}
               className={`inline-flex items-center gap-1.5 rounded-md px-3 text-[10px] font-black uppercase tracking-widest transition ${statusFilter === 'ACTIVE' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
             >
-              <Percent size={13} /> Active
+              Active
             </button>
             <button
               type="button"
@@ -274,23 +284,6 @@ const PromotionDiscountManager: React.FC<Props> = ({ restaurant, currencySymbol,
             >
               <Archive size={13} /> Archived
             </button>
-          </div>
-
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              value={search}
-              onChange={event => setSearch(event.target.value)}
-              placeholder="Search promo..."
-              className="h-9 w-56 rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-xs font-bold text-gray-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-orange-600 dark:border-orange-900/40 dark:bg-orange-900/20 dark:text-orange-300">
-            <Percent size={14} />
-            {activePromos.length} Active Promos
           </div>
           <button
             type="button"

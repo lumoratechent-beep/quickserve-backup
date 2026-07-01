@@ -1512,7 +1512,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             <div className="min-w-0">
               {/* Sub-tab toggle */}
               <div className="relative flex gap-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {([['menu', 'Menu Items'], ['promotions', 'Promotion / Discount'], ['ingredients', 'Ingredients / Supplies'], ['stock', 'Stock Management']] as const).map(([key, label]) => (
+                {([['menu', 'Menu Items'], ['promotions', 'Promotion'], ['ingredients', 'Ingredients / Supplies'], ['stock', 'Stock Management']] as const).map(([key, label]) => (
                   <button
                     key={key}
                     onClick={() => setItemSubTab(key)}
