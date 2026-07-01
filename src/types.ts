@@ -43,6 +43,14 @@ export interface MenuPromotionDiscount {
   label?: string;
   startDate?: string;
   endDate?: string;
+  appliesTo?: 'all' | 'variants';
+  variantDiscounts?: {
+    key: string;
+    label: string;
+    enabled: boolean;
+    type: 'percentage' | 'fixed';
+    value: number;
+  }[];
 }
 
 export interface MenuItem {

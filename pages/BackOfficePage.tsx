@@ -1624,7 +1624,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                           <span className="rounded-lg bg-gray-100 px-2 py-1 text-[10px] font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-300">{item.category}</span>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {isMenuPromotionActive(item.promotionDiscount) ? (
+                          {isMenuPromotionActive(item.promotionDiscount) && getMenuItemEffectivePrice(item) < Number(item.price || 0) ? (
                             <div className="flex flex-col items-end gap-0.5">
                               <span className="text-[10px] font-bold text-gray-400 line-through">{currencySymbol}{item.price.toFixed(2)}</span>
                               <span className="font-bold text-orange-500">{currencySymbol}{getMenuItemEffectivePrice(item).toFixed(2)}</span>

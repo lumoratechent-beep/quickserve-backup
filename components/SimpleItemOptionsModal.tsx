@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { MenuItem, CartItem, SelectedAddOn, ModifierData } from '../src/types';
 import { X, Plus, Minus, Delete } from 'lucide-react';
 import { toast } from './Toast';
+import { getMenuItemEffectivePrice, getMenuPromotionVariantKey } from '../lib/menuPricing';
 
 interface Props {
   item: MenuItem | null;
@@ -74,30 +75,31 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
   };
 
   const calculateTotal = () => {
-    let total = item.price || 0;
+    let menuTotal = item.price || 0;
+    let addOnTotal = 0;
 
     // Add size price
     if (size) {
       const s = sizes.find(x => x.name === size);
-      if (s) total += s.price;
+      if (s) menuTotal += s.price;
     }
 
     // Add legacy variant price
     if (variant) {
       const v = variants.find(x => x.name === variant);
-      if (v) total += v.price;
+      if (v) menuTotal += v.price;
     }
 
     // Add temp price from options array
     if (temp && item.tempOptions?.options) {
       const t = item.tempOptions.options.find(x => x.name === temp);
-      if (t) total += t.price;
+      if (t) menuTotal += t.price;
     }
 
     // Add variant option price
     if (variantOption && item.variantOptions?.options) {
       const v = item.variantOptions.options.find(x => x.name === variantOption);
-      if (v) total += v.price;
+      if (v) menuTotal += v.price;
     }
 
     // Add modifier prices
@@ -105,14 +107,14 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
       const modifier = activeModifiers.find(m => m.name === modifierName);
       if (modifier) {
         const option = modifier.options.find(o => o.name === optionName);
-        if (option) total += option.price;
+        if (option) menuTotal += option.price;
       }
     });
 
     // Add add-ons total
     Object.entries(addOns).forEach(([name, qty]) => {
       const addon = addOnList.find(x => x.name === name);
-      if (addon) total += addon.price * qty;
+      if (addon) addOnTotal += addon.price * qty;
     });
 
     // Add mix & match price modifiers
@@ -122,12 +124,20 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
         const sel = mixMatchSelections[selIdx];
         if (sel) {
           const opt = sel.options.find(o => o.name === choiceName);
-          if (opt) total += opt.priceModifier;
+          if (opt) menuTotal += opt.priceModifier;
         }
       });
     }
 
-    return total;
+    const variantKey = getMenuPromotionVariantKey({
+      selectedSize: size,
+      selectedTemp: temp,
+      selectedOtherVariant: variant,
+      selectedVariantOption: variantOption,
+    });
+    const discountedMenuTotal = getMenuItemEffectivePrice({ price: menuTotal, promotionDiscount: item.promotionDiscount }, new Date(), variantKey);
+
+    return discountedMenuTotal + addOnTotal;
   };
 
   const handleConfirm = () => {

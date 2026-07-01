@@ -1745,6 +1745,8 @@ const PosOnlyView: React.FC<Props> = ({
   const renderPosMenuItemButton = (item: MenuItem) => {
     const hasPromotion = isMenuPromotionActive(item.promotionDiscount);
     const effectivePrice = getMenuItemEffectivePrice(item);
+    const basePrice = Number(item.price || 0);
+    const promotionChangesBasePrice = hasPromotion && effectivePrice < basePrice;
 
     return (
       <button
@@ -1785,7 +1787,7 @@ const PosOnlyView: React.FC<Props> = ({
         </div>
         <div className={`${mobileMenuLayout === 'list' ? 'flex-1' : 'mt-3'} ${menuLayout === 'list' ? 'lg:flex-1 lg:mt-0' : 'lg:flex-none lg:mt-3'}`}>
           <h4 className="font-black text-xs dark:text-white uppercase tracking-tighter mb-1 line-clamp-1">{item.name}</h4>
-          {hasPromotion ? (
+          {promotionChangesBasePrice ? (
             <div className="flex items-baseline gap-2">
               <p className="text-[10px] text-gray-400 line-through font-black">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <p className="text-orange-500 font-black text-sm">{currencySymbol}{effectivePrice.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -1868,7 +1870,7 @@ const PosOnlyView: React.FC<Props> = ({
     
     const sanitizedItem: MenuItem = {
       ...item,
-      price: getMenuItemEffectivePrice(item),
+      price: Number(item.price || 0),
       sizes: Array.isArray(item.sizes) ? item.sizes.filter(size => size && typeof size.name === 'string' && typeof size.price === 'number') : [],
       otherVariants: Array.isArray(item.otherVariants) ? item.otherVariants.filter(variant => variant && typeof variant.name === 'string' && typeof variant.price === 'number') : [],
       addOns: Array.isArray(item.addOns) ? item.addOns.filter(addon => addon && typeof addon.name === 'string' && typeof addon.price === 'number') : [],
@@ -1913,7 +1915,7 @@ const PosOnlyView: React.FC<Props> = ({
     }
 
     console.log('PosOnlyView: No options, adding directly to cart');
-    addToPosCart({ ...sanitizedItem, quantity: 1, restaurantId: restaurant.id });
+    addToPosCart({ ...sanitizedItem, price: getMenuItemEffectivePrice(item), quantity: 1, restaurantId: restaurant.id });
   };
 
   const removeFromPosCart = (cartIndex: number) => {
