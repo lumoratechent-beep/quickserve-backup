@@ -853,6 +853,7 @@ const PosOnlyView: React.FC<Props> = ({
   // Settings panel navigation
   const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('builtin');
   const [printerModeMenuOpen, setPrinterModeMenuOpen] = useState(false);
+  const printerModeMenuRef = useRef<HTMLDivElement | null>(null);
   const [printerSetupConnectionType, setPrinterSetupConnectionType] = useState<ConnectionType | undefined>(undefined);
   const [printerSetupRequestKey, setPrinterSetupRequestKey] = useState(0);
   const [paymentTaxAccordion, setPaymentTaxAccordion] = useState({ paymentTypes: false, taxes: false });
@@ -3652,6 +3653,23 @@ const PosOnlyView: React.FC<Props> = ({
     return () => clearInterval(interval);
   }, [connectedDevice, hasConfiguredNetworkPrinter]);
 
+  useEffect(() => {
+    if (!printerModeMenuOpen) return;
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (target && printerModeMenuRef.current?.contains(target)) return;
+      setPrinterModeMenuOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+    };
+  }, [printerModeMenuOpen]);
+
   const openPrinterSetupMode = (connectionType: ConnectionType, showSetupToast = false) => {
     setPrinterModeMenuOpen(false);
     setPrinterSetupConnectionType(connectionType);
@@ -3665,6 +3683,36 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const handlePrinterButtonClick = async () => {
+    if (selectedPrinterConnectionType === 'bluetooth' && !selectedPrinterProfile) {
+      setIsAutoReconnecting(true);
+      try {
+        const found = await printerService.scanForPrinters();
+        if (found.length > 0) {
+          const device = found.find(printer => !/sunmi/i.test(printer.name));
+          if (!device) {
+            toast('No Bluetooth printer selected.', 'warning');
+            return;
+          }
+          const success = await printerService.connect(device.name);
+          if (success) {
+            setConnectedDevice(device);
+            setActivePrinterTransport('bluetooth');
+            setRealPrinterConnected(true);
+            localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
+            await supabase
+              .from('restaurants')
+              .update({ printer_settings: { connected: true, deviceId: device.id, deviceName: device.name } })
+              .eq('id', restaurant.id);
+          } else {
+            toast('Unable to connect Bluetooth printer.', 'error');
+          }
+        }
+      } finally {
+        setIsAutoReconnecting(false);
+      }
+      return;
+    }
+
     if (selectedPrinterConnectionType === 'wifi') {
       const networkPrinter = primaryNetworkPrinter;
       if (!networkPrinter) {
@@ -7197,7 +7245,7 @@ const PosOnlyView: React.FC<Props> = ({
 
         {/* Printer Connection Status */}
         <div className={`relative z-[121] mt-auto border-t dark:border-gray-700 space-y-1.5 ${isSidebarCollapsed ? 'p-2' : 'px-3 py-2'}`}>
-          <div className="relative flex items-stretch gap-1.5">
+          <div ref={printerModeMenuRef} className="relative flex items-stretch gap-1.5">
             <button
               onClick={handlePrinterButtonClick}
               disabled={isAutoReconnecting}

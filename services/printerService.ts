@@ -871,6 +871,7 @@ class PrinterService {
         acceptAllDevices: true,
         optionalServices: PrinterService.SERVICE_UUIDS,
       });
+      this.device = device;
       return [...devices, { id: device.id, name: device.name || 'Unknown Printer' }];
     } catch (error) {
       console.error('Scan error:', error);
@@ -949,6 +950,7 @@ class PrinterService {
 
   private async _connect(deviceName: string): Promise<boolean> {
     try {
+      const selectedDevice = this.device?.name === deviceName ? this.device : null;
       await this.disconnect();
       this.disconnectRequested = false;
 
@@ -960,7 +962,7 @@ class PrinterService {
         throw new Error('Web Bluetooth not supported');
       }
 
-      this.device = await navigator.bluetooth.requestDevice({
+      this.device = selectedDevice || await navigator.bluetooth.requestDevice({
         filters: [{ name: deviceName }],
         optionalServices: PrinterService.SERVICE_UUIDS,
       });

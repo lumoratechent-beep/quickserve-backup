@@ -408,6 +408,17 @@ const PrinterSettings: React.FC<Props> = ({
         <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Connect printers and manage printer profiles.</p>
       </div>
       <div className="min-w-0 space-y-4">
+      <div className="flex items-center">
+        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Printers</p>
+        <div className="flex-1" />
+        <button
+          onClick={handleDownloadPrintServer}
+          className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-[8px] font-black text-gray-500 hover:text-orange-500 transition-all"
+          title="Download print-server.js for WiFi/LAN printing"
+        >
+          <Download size={10} /> Proxy Script
+        </button>
+      </div>
       {printerStatus === 'connected' && (
         <>
           <div className="p-4 rounded-xl border-2 transition-all bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800">
@@ -463,18 +474,7 @@ const PrinterSettings: React.FC<Props> = ({
       )}
 
       {/* ── Saved Printers List ── */}
-      <div className="pt-4">
-        <div className="flex items-center mb-3">
-          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Printers</p>
-          <div className="flex-1" />
-          <button
-            onClick={handleDownloadPrintServer}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-[8px] font-black text-gray-500 hover:text-orange-500 transition-all"
-            title="Download print-server.js for WiFi/LAN printing"
-          >
-            <Download size={10} /> Proxy Script
-          </button>
-        </div>
+      <div>
 
         {savedPrinters.length === 0 && !isAddingPrinter && (
           <div className="text-center py-8 border border-dashed dark:border-gray-700 rounded-xl">
