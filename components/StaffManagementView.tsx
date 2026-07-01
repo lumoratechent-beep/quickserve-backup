@@ -274,6 +274,7 @@ const claimTypes = ['Meals', 'Travel', 'Mileage', 'Medical', 'Supplies', 'Traini
 const leaveTypes: LeaveType[] = ['MC', 'Hospitalization', 'Paternity', 'Annual', 'Other'];
 const leaveStatusOptions: LeaveStatus[] = ['scheduled', 'approved', 'completed', 'cancelled'];
 const balanceDeductingLeaveStatuses: LeaveStatus[] = ['approved', 'completed'];
+const ADD_DEPARTMENT_VALUE = '__add_department__';
 const periodMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const currentYear = new Date().getFullYear();
 const periodYears = Array.from({ length: 9 }, (_, index) => currentYear - 4 + index);
@@ -468,6 +469,12 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const [isSavingStaff, setIsSavingStaff] = useState(false);
   const [departmentName, setDepartmentName] = useState('');
   const [departmentCode, setDepartmentCode] = useState('');
+  const [departmentSearch, setDepartmentSearch] = useState('');
+  const [isDepartmentFormOpen, setIsDepartmentFormOpen] = useState(false);
+  const [isAddingStaffDepartment, setIsAddingStaffDepartment] = useState(false);
+  const [staffDepartmentName, setStaffDepartmentName] = useState('');
+  const [staffDepartmentCode, setStaffDepartmentCode] = useState('');
+  const [isSavingDepartment, setIsSavingDepartment] = useState(false);
   const [isPayslipFormOpen, setIsPayslipFormOpen] = useState(false);
   const [payrollForm, setPayrollForm] = useState<PayrollForm>(() => blankPayrollForm());
   const [overtimeRate, setOvertimeRate] = useState(0);
@@ -644,6 +651,17 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     });
   }, [departments, search, staff]);
 
+  const visibleDepartments = useMemo(() => {
+    const q = departmentSearch.trim().toLowerCase();
+    if (!q) return departments;
+    return departments.filter(department => [
+      department.name,
+      department.code,
+      department.is_active === false ? 'inactive' : 'active',
+      `${staff.filter(item => item.profile?.department_id === department.id).length} staff`,
+    ].some(value => (value || '').toLowerCase().includes(q)));
+  }, [departmentSearch, departments, staff]);
+
   const visiblePayslips = useMemo(() => {
     const q = payslipSearch.trim().toLowerCase();
     return payslips.filter(payslip => {
@@ -762,6 +780,9 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   }, [epfEmployerMode, epfEmployerPercent, payrollForm.basicSalary]);
 
   const openStaffModal = (item?: StaffMember) => {
+    setIsAddingStaffDepartment(false);
+    setStaffDepartmentName('');
+    setStaffDepartmentCode('');
     if (!item) {
       setEditingStaffId(null);
       setStaffForm(blankStaffForm());
@@ -963,25 +984,55 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     toast('Staff removed', 'success');
   };
 
-  const addDepartment = async () => {
-    if (!departmentName.trim()) {
+  const createDepartment = async (name: string, code = '') => {
+    const cleanName = name.trim();
+    if (!cleanName) {
       toast('Department name is required', 'warning');
-      return;
+      return null;
     }
-    const { error } = await supabase.from('staff_departments').insert({
+    const { data, error } = await supabase.from('staff_departments').insert({
       restaurant_id: restaurant.id,
-      name: departmentName.trim(),
-      code: departmentCode.trim() || null,
+      name: cleanName,
+      code: code.trim() || null,
       is_active: true,
-    });
+    }).select('*').single();
     if (error) {
       toast(error.message || 'Failed to add department', 'error');
-      return;
+      return null;
     }
-    setDepartmentName('');
-    setDepartmentCode('');
-    await refresh(false);
-    toast('Department added', 'success');
+
+    const created = data as StaffDepartment;
+    setDepartments(items => [...items, created].sort((a, b) => a.name.localeCompare(b.name)));
+    return created;
+  };
+
+  const addDepartment = async () => {
+    setIsSavingDepartment(true);
+    try {
+      const created = await createDepartment(departmentName, departmentCode);
+      if (!created) return;
+      setDepartmentName('');
+      setDepartmentCode('');
+      setIsDepartmentFormOpen(false);
+      toast('Department added', 'success');
+    } finally {
+      setIsSavingDepartment(false);
+    }
+  };
+
+  const addStaffDepartment = async () => {
+    setIsSavingDepartment(true);
+    try {
+      const created = await createDepartment(staffDepartmentName, staffDepartmentCode);
+      if (!created) return;
+      setStaffDepartmentName('');
+      setStaffDepartmentCode('');
+      setIsAddingStaffDepartment(false);
+      setStaffForm(form => ({ ...form, departmentId: created.id }));
+      toast('Department added', 'success');
+    } finally {
+      setIsSavingDepartment(false);
+    }
   };
 
   const resetEpfContributionModes = () => {
@@ -1797,14 +1848,14 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
             </button>
           </div>
           {peopleOnLeaveToday.length ? (
-            <div className="space-y-2">
+            <div className="space-y-1.5 overflow-x-auto">
               {peopleOnLeaveToday.slice(0, 4).map(leave => (
-                <div key={leave.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/50">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-gray-900 dark:text-white">{leave.staff_name || 'Staff'}</p>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{leave.leave_type} - {n(leave.total_days)} day{n(leave.total_days) === 1 ? '' : 's'}</p>
-                  </div>
-                  <span className="rounded-lg bg-violet-100 px-2 py-1 text-[10px] font-black uppercase text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">{leave.status}</span>
+                <div key={leave.id} className="grid min-w-[430px] grid-cols-[minmax(110px,1.4fr)_minmax(80px,0.8fr)_92px_92px_auto] items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-1.5 text-[11px] dark:border-gray-700 dark:bg-gray-900/50">
+                  <span className="truncate font-black text-gray-900 dark:text-white">{leave.staff_name || 'Staff'}</span>
+                  <span className="truncate font-bold uppercase text-violet-600 dark:text-violet-300">{leave.leave_type}</span>
+                  <span className="whitespace-nowrap font-semibold text-gray-500 dark:text-gray-400">{formatDate(leave.start_date)}</span>
+                  <span className="whitespace-nowrap font-semibold text-gray-500 dark:text-gray-400">{formatDate(leave.end_date)}</span>
+                  <span className="rounded-md bg-violet-100 px-2 py-0.5 text-[9px] font-black uppercase text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">{leave.status}</span>
                 </div>
               ))}
               {peopleOnLeaveToday.length > 4 && <p className="text-[11px] font-bold text-gray-400">+{peopleOnLeaveToday.length - 4} more on leave today</p>}
@@ -2489,51 +2540,83 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         )}
 
         {subTab === 'departments' && (
-        <div className="grid grid-cols-1 gap-5 rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800 lg:grid-cols-[420px_1fr]">
-          <div>
-            <h3 className="text-sm font-black text-gray-900 dark:text-white">Add Department</h3>
-            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">Departments connect employees to branches, job groups or kitchen sections.</p>
-            <div className="space-y-3">
-              <input value={departmentName} onChange={event => setDepartmentName(event.target.value)} placeholder="Department name" className={fieldClass} />
-              <input value={departmentCode} onChange={event => setDepartmentCode(event.target.value)} placeholder="Code, e.g. FOH" className={fieldClass} />
-              <button onClick={addDepartment} className="w-full rounded-xl bg-amber-600 px-4 py-3 text-xs font-black uppercase tracking-wider text-white">Save Department</button>
+        <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-sm font-black text-gray-900 dark:text-white">Departments</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Departments connect employees to branches, job groups or kitchen sections.</p>
+            </div>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <div className="relative sm:w-72">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input value={departmentSearch} onChange={event => setDepartmentSearch(event.target.value)} placeholder="Search departments..." className="h-[38px] w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+              </div>
+              <button onClick={() => setIsDepartmentFormOpen(open => !open)} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                <Plus size={14} /> Add Department
+              </button>
             </div>
           </div>
-          <div className="min-w-0">
-            <h3 className="mb-4 text-sm font-black text-gray-900 dark:text-white">Departments</h3>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {departments.length ? departments.map(department => {
-                const isActive = department.is_active !== false;
-                return (
-                  <div key={department.id} className="rounded-xl border border-gray-100 p-4 dark:border-gray-700">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-black text-gray-900 dark:text-white">{department.name}</p>
-                        <p className="text-xs text-gray-400">{department.code || 'No code'}</p>
-                      </div>
-                      <span className="rounded-lg bg-emerald-100 px-2 py-1 text-[10px] font-black text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">{staff.filter(item => item.profile?.department_id === department.id).length} staff</span>
-                    </div>
-                    <div className="mt-4 flex items-center justify-between gap-3 border-t border-gray-100 pt-3 dark:border-gray-700">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Status</span>
-                      <select
-                        value={isActive ? 'active' : 'inactive'}
-                        disabled={updatingStatusId === `department_${department.id}`}
-                        onChange={event => void updateDepartmentStatus(department, event.target.value === 'active')}
-                        className={`rounded-lg border-0 px-2 py-1 text-[10px] font-black uppercase outline-none ring-1 ring-transparent transition disabled:cursor-wait disabled:opacity-60 ${
-                          isActive
-                            ? 'bg-emerald-100 text-emerald-700 focus:ring-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300'
-                            : 'bg-rose-100 text-rose-700 focus:ring-rose-300 dark:bg-rose-500/20 dark:text-rose-300'
-                        }`}
-                      >
-                        <option className={statusOptionClass} value="active">Active</option>
-                        <option className={statusOptionClass} value="inactive">Inactive</option>
-                      </select>
-                    </div>
-                  </div>
-                );
-              }) : <p className="text-xs text-gray-400">No departments yet.</p>}
+          {isDepartmentFormOpen && (
+            <div className="grid grid-cols-1 gap-3 border-b border-gray-100 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40 md:grid-cols-[minmax(0,1fr)_180px_auto] md:items-end">
+              <div>
+                <label className={labelClass}>Department Name</label>
+                <input value={departmentName} onChange={event => setDepartmentName(event.target.value)} placeholder="Department name" className={fieldClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Code</label>
+                <input value={departmentCode} onChange={event => setDepartmentCode(event.target.value)} placeholder="FOH" className={fieldClass} />
+              </div>
+              <button onClick={addDepartment} disabled={isSavingDepartment} className="inline-flex h-[42px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-black uppercase tracking-wider text-white transition hover:bg-amber-700 disabled:opacity-50">
+                <Plus size={14} /> Save
+              </button>
             </div>
-          </div>
+          )}
+          {visibleDepartments.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-left">
+                <thead className="bg-gray-50 dark:bg-gray-900/50">
+                  <tr>
+                    <th className="w-[40%] px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Department</th>
+                    <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Code</th>
+                    <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Staff</th>
+                    <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                  {visibleDepartments.map(department => {
+                    const isActive = department.is_active !== false;
+                    const staffCount = staff.filter(item => item.profile?.department_id === department.id).length;
+                    return (
+                      <tr key={department.id} className="transition">
+                        <td className="w-[40%] px-5 py-4">
+                          <p className="text-sm font-black text-gray-900 dark:text-white">{department.name}</p>
+                        </td>
+                        <td className="px-5 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">{department.code || '-'}</td>
+                        <td className="px-5 py-4"><span className="rounded-lg bg-gray-100 px-2 py-1 text-[10px] font-black text-gray-600 dark:bg-gray-700 dark:text-gray-300">{staffCount} staff</span></td>
+                        <td className="px-5 py-4">
+                          <select
+                            value={isActive ? 'active' : 'inactive'}
+                            disabled={updatingStatusId === `department_${department.id}`}
+                            onChange={event => void updateDepartmentStatus(department, event.target.value === 'active')}
+                            className={`rounded-lg border-0 px-2 py-1 text-[10px] font-black uppercase outline-none ring-1 ring-transparent transition disabled:cursor-wait disabled:opacity-60 ${
+                              isActive
+                                ? 'bg-emerald-100 text-emerald-700 focus:ring-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300'
+                                : 'bg-rose-100 text-rose-700 focus:ring-rose-300 dark:bg-rose-500/20 dark:text-rose-300'
+                            }`}
+                          >
+                            <option className={statusOptionClass} value="active">Active</option>
+                            <option className={statusOptionClass} value="inactive">Inactive</option>
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="flex h-56 flex-col items-center justify-center text-gray-400 dark:text-gray-600"><Building2 size={40} className="mb-3 opacity-30" /><p className="text-sm font-bold">{departments.length ? 'No matching departments' : 'No departments found'}</p><button onClick={() => setIsDepartmentFormOpen(true)} className="mt-4 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">Add Department</button></div>
+          )}
         </div>
         )}
       </div>
@@ -2746,7 +2829,37 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <SectionDivider title="User Details" />
               <Field label="Full Name" value={staffForm.fullName} onChange={value => setStaffForm(form => ({ ...form, fullName: value }))} />
               <Field label="Employee Code" value={staffForm.employeeCode} onChange={value => setStaffForm(form => ({ ...form, employeeCode: value }))} />
-              <div><label className={labelClass}>Department</label><select value={staffForm.departmentId} onChange={event => setStaffForm(form => ({ ...form, departmentId: event.target.value }))} className={fieldClass}><option value="">Unassigned</option>{departments.map(department => <option key={department.id} value={department.id}>{department.name}</option>)}</select></div>
+              <div>
+                <label className={labelClass}>Department</label>
+                <select
+                  value={staffForm.departmentId}
+                  onChange={event => {
+                    const value = event.target.value;
+                    if (value === ADD_DEPARTMENT_VALUE) {
+                      setStaffForm(form => ({ ...form, departmentId: '' }));
+                      setIsAddingStaffDepartment(true);
+                      return;
+                    }
+                    setIsAddingStaffDepartment(false);
+                    setStaffForm(form => ({ ...form, departmentId: value }));
+                  }}
+                  className={fieldClass}
+                >
+                  <option value="">Unassigned</option>
+                  {departments.map(department => <option key={department.id} value={department.id}>{department.name}</option>)}
+                  <option value={ADD_DEPARTMENT_VALUE}>Add Department</option>
+                </select>
+                {isAddingStaffDepartment && (
+                  <div className="mt-2 space-y-2 rounded-xl border border-amber-100 bg-amber-50 p-3 dark:border-amber-900/40 dark:bg-amber-900/20">
+                    <input value={staffDepartmentName} onChange={event => setStaffDepartmentName(event.target.value)} placeholder="Department name" className={fieldClass} />
+                    <input value={staffDepartmentCode} onChange={event => setStaffDepartmentCode(event.target.value)} placeholder="Code, e.g. FOH" className={fieldClass} />
+                    <div className="flex justify-end gap-2">
+                      <button type="button" onClick={() => { setIsAddingStaffDepartment(false); setStaffDepartmentName(''); setStaffDepartmentCode(''); }} className="rounded-lg px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500 transition hover:bg-white dark:hover:bg-gray-800">Cancel</button>
+                      <button type="button" onClick={addStaffDepartment} disabled={isSavingDepartment} className="rounded-lg bg-amber-600 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white transition hover:bg-amber-700 disabled:opacity-50">Save</button>
+                    </div>
+                  </div>
+                )}
+              </div>
               <Field label="Job Title" value={staffForm.jobTitle} onChange={value => setStaffForm(form => ({ ...form, jobTitle: value }))} />
               <Field label="Email" value={staffForm.email} onChange={value => setStaffForm(form => ({ ...form, email: value }))} />
               <Field label="Phone" value={staffForm.phone} onChange={value => setStaffForm(form => ({ ...form, phone: value }))} />
