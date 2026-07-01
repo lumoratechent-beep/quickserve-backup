@@ -5,7 +5,7 @@ CREATE TABLE public.users (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   username text NOT NULL UNIQUE,
   password text NOT NULL,
-  role text NOT NULL CHECK (role = ANY (ARRAY['CUSTOMER'::text, 'VENDOR'::text, 'ADMIN'::text, 'CASHIER'::text, 'KITCHEN'::text, 'ORDER_TAKER'::text, 'MANAGER'::text])),
+  role text NOT NULL CHECK (role = ANY (ARRAY['CUSTOMER'::text, 'VENDOR'::text, 'ADMIN'::text, 'CASHIER'::text, 'KITCHEN'::text, 'ORDER_TAKER'::text, 'MANAGER'::text, 'HR'::text])),
   restaurant_id uuid,
   is_active boolean DEFAULT true,
   email text,
@@ -404,6 +404,7 @@ CREATE TABLE public.staff_profiles (
   overtime_rate numeric NOT NULL DEFAULT 0,
   default_allowances jsonb NOT NULL DEFAULT '{}'::jsonb,
   default_deductions jsonb NOT NULL DEFAULT '{}'::jsonb,
+  leave_entitlements jsonb NOT NULL DEFAULT '{}'::jsonb,
   notes text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -469,6 +470,27 @@ CREATE TABLE public.staff_claim_items (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT staff_claim_items_pkey PRIMARY KEY (id),
   CONSTRAINT staff_claim_items_claim_id_fkey FOREIGN KEY (claim_id) REFERENCES public.staff_claims(id)
+);
+CREATE TABLE public.staff_leaves (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  restaurant_id text NOT NULL,
+  staff_user_id text NOT NULL,
+  staff_profile_id uuid,
+  leave_type text NOT NULL CHECK (leave_type = ANY (ARRAY['MC'::text, 'Hospitalization'::text, 'Paternity'::text, 'Annual'::text, 'Other'::text])),
+  start_date date NOT NULL,
+  end_date date NOT NULL,
+  total_days numeric(8, 2) NOT NULL DEFAULT 1,
+  status text NOT NULL DEFAULT 'scheduled'::text CHECK (status = ANY (ARRAY['scheduled'::text, 'approved'::text, 'completed'::text, 'cancelled'::text])),
+  notes text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  approved_at timestamp with time zone,
+  completed_at timestamp with time zone,
+  cancelled_at timestamp with time zone,
+  status_changed_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT staff_leaves_pkey PRIMARY KEY (id),
+  CONSTRAINT staff_leaves_staff_profile_id_fkey FOREIGN KEY (staff_profile_id) REFERENCES public.staff_profiles(id),
+  CONSTRAINT staff_leaves_date_check CHECK (end_date >= start_date)
 );
 CREATE TABLE public.subscription_expiry_history (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

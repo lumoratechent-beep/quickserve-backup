@@ -2550,9 +2550,9 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         const recentLeaves = staffLeaves.filter(leave => leave.staff_user_id === item.id && leave.status !== 'cancelled').slice(0, 4);
         const pages = [
           (
-            <div key="dashboard" className="grid h-full min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
+            <div key="dashboard" className="grid h-full min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto overflow-x-hidden pr-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(240px,0.9fr)]">
+              <div className="min-w-0 space-y-4">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(132px,1fr))] gap-3">
                   {leaveBalanceCards.map(card => (
                     <div key={card.type} className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
                       <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{card.type === 'Hospitalization' ? 'Hospital' : card.type} Balance</p>
@@ -2567,14 +2567,14 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                     <p className="text-[10px] font-semibold text-rose-500/80">Red-zone leave this year</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <SummaryTile label="Date Joined" value={formatDate(item.profile?.hire_date)} />
                   <SummaryTile label="Service" value={`${serviceYearsCompleted(item.profile?.hire_date)} year(s)`} />
                   <SummaryTile label="Department" value={department?.name || 'Unassigned'} />
                   <SummaryTile label="Employment" value={currentStatus} positive={currentStatus === 'Active'} />
                 </div>
               </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+              <div className="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
                 <div className="mb-3 flex items-center justify-between">
                   <p className="text-xs font-black uppercase tracking-wider text-gray-700 dark:text-gray-200">Recent Leave</p>
                   <CalendarDays size={16} className="text-violet-500" />
@@ -2594,7 +2594,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
             </div>
           ),
           (
-            <div key="profile" className="grid h-full min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-3">
+            <div key="profile" className="grid h-full min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto overflow-x-hidden pr-1 md:grid-cols-3">
               {[
                 ['Username', item.username],
                 ['Role', item.role],
@@ -2609,7 +2609,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                 ['Emergency Phone', item.profile?.emergency_contact_phone || '-'],
                 ['Notes', item.profile?.notes || '-'],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
+                <div key={label} className="min-w-0 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
                   <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{label}</p>
                   <p className="mt-1 break-words text-sm font-bold text-gray-800 dark:text-gray-100">{value}</p>
                 </div>
@@ -2621,7 +2621,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
             </div>
           ),
           (
-            <div key="payroll" className="grid h-full min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-3">
+            <div key="payroll" className="grid h-full min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto overflow-x-hidden pr-1 md:grid-cols-3">
               {[
                 ['Basic Salary', `${fmt(n(item.profile?.salary_amount))} / ${getPayFrequencyLabel(item.profile?.pay_frequency)}`],
                 ['OT Rate', fmt(n(item.profile?.overtime_rate))],
@@ -2633,7 +2633,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                 ['SOCSO No.', item.profile?.socso_no || '-'],
                 ['Tax No.', item.profile?.tax_no || '-'],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
+                <div key={label} className="min-w-0 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
                   <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{label}</p>
                   <p className="mt-1 break-words text-sm font-bold text-gray-800 dark:text-gray-100">{value}</p>
                 </div>
@@ -2711,7 +2711,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                   }}
                 >
                   {pages.map((page, index) => (
-                    <div key={pageLabels[index]} className="h-full min-w-full shrink-0 overflow-hidden" aria-hidden={staffDetailPage !== index}>
+                    <div key={pageLabels[index]} className="h-full w-full min-w-full max-w-full flex-none overflow-hidden" aria-hidden={staffDetailPage !== index}>
                       {page}
                     </div>
                   ))}
