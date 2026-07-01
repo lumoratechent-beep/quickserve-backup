@@ -2550,51 +2550,50 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         const recentLeaves = staffLeaves.filter(leave => leave.staff_user_id === item.id && leave.status !== 'cancelled').slice(0, 4);
         const pages = [
           (
-            <div key="dashboard" className="grid h-full min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto overflow-x-hidden pr-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(240px,0.9fr)]">
-              <div className="min-w-0 space-y-4">
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(132px,1fr))] gap-3">
-                  {leaveBalanceCards.map(card => (
-                    <div key={card.type} className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{card.type === 'Hospitalization' ? 'Hospital' : card.type} Balance</p>
-                      <p className="mt-1 text-2xl font-black text-gray-900 dark:text-white">{card.balance === null ? '-' : card.balance}</p>
-                      <p className="text-[10px] font-semibold text-gray-400">{card.entitlement === null ? 'No entitlement set' : `from ${card.entitlement} day entitlement`}</p>
-                      <p className="text-[10px] font-semibold text-gray-400">Taken {card.taken} day(s) this year</p>
-                    </div>
-                  ))}
-                  <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/40 dark:bg-rose-900/20">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-rose-500">Unpaid / Other Taken</p>
-                    <p className="mt-1 text-2xl font-black text-rose-700 dark:text-rose-300">{otherTaken}</p>
-                    <p className="text-[10px] font-semibold text-rose-500/80">Red-zone leave this year</p>
+            <div key="dashboard" className="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden pr-1">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                {leaveBalanceCards.map(card => (
+                  <div key={card.type} className="min-w-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-900/60">
+                    <p className="truncate text-[10px] font-black uppercase tracking-wider text-gray-400">{card.type === 'Hospitalization' ? 'Hospital' : card.type} Balance</p>
+                    <p className="mt-1 text-2xl font-black text-gray-900 dark:text-white">{card.balance === null ? '-' : card.balance}</p>
+                    <p className="truncate text-[10px] font-semibold text-gray-400">{card.entitlement === null ? 'No setup' : `${card.entitlement}d total`} - Used {card.taken}d</p>
                   </div>
+                ))}
+                <div className="min-w-0 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 dark:border-rose-900/40 dark:bg-rose-900/20">
+                  <p className="truncate text-[10px] font-black uppercase tracking-wider text-rose-500">Unpaid / Other Taken</p>
+                  <p className="mt-1 text-2xl font-black text-rose-700 dark:text-rose-300">{otherTaken}</p>
+                  <p className="truncate text-[10px] font-semibold text-rose-500/80">Other leave - Year</p>
                 </div>
+              </div>
+              <div className="grid min-h-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.42fr)]">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <SummaryTile label="Date Joined" value={formatDate(item.profile?.hire_date)} />
                   <SummaryTile label="Service" value={`${serviceYearsCompleted(item.profile?.hire_date)} year(s)`} />
                   <SummaryTile label="Department" value={department?.name || 'Unassigned'} />
                   <SummaryTile label="Employment" value={currentStatus} positive={currentStatus === 'Active'} />
                 </div>
-              </div>
-              <div className="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-xs font-black uppercase tracking-wider text-gray-700 dark:text-gray-200">Recent Leave</p>
-                  <CalendarDays size={16} className="text-violet-500" />
-                </div>
-                <div className="space-y-2">
-                  {recentLeaves.length > 0 ? recentLeaves.map(leave => (
-                    <div key={leave.id} className="rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-900/60">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-xs font-black text-gray-800 dark:text-gray-100">{leave.leave_type}</p>
-                        <span className="text-[10px] font-black uppercase text-gray-400">{leave.status}</span>
+                <div className="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-xs font-black uppercase tracking-wider text-gray-700 dark:text-gray-200">Recent Leave</p>
+                    <CalendarDays size={16} className="text-violet-500" />
+                  </div>
+                  <div className="space-y-2">
+                    {recentLeaves.length > 0 ? recentLeaves.map(leave => (
+                      <div key={leave.id} className="rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-900/60">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-xs font-black text-gray-800 dark:text-gray-100">{leave.leave_type}</p>
+                          <span className="text-[10px] font-black uppercase text-gray-400">{leave.status}</span>
+                        </div>
+                        <p className="mt-0.5 text-[11px] font-semibold text-gray-400">{formatDate(leave.start_date)} - {formatDate(leave.end_date)} - {n(leave.total_days)} day(s)</p>
                       </div>
-                      <p className="mt-0.5 text-[11px] font-semibold text-gray-400">{formatDate(leave.start_date)} - {formatDate(leave.end_date)} - {n(leave.total_days)} day(s)</p>
-                    </div>
-                  )) : <p className="rounded-xl bg-gray-50 px-3 py-6 text-center text-xs font-bold text-gray-400 dark:bg-gray-900/60">No leave recorded</p>}
+                    )) : <p className="rounded-xl bg-gray-50 px-3 py-6 text-center text-xs font-bold text-gray-400 dark:bg-gray-900/60">No leave recorded</p>}
+                  </div>
                 </div>
               </div>
             </div>
           ),
           (
-            <div key="profile" className="grid h-full min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto overflow-x-hidden pr-1 md:grid-cols-3">
+            <div key="profile" className="grid h-full min-h-0 flex-1 auto-rows-min grid-cols-1 content-start items-start gap-3 overflow-y-auto overflow-x-hidden pr-1 md:grid-cols-3">
               {[
                 ['Username', item.username],
                 ['Role', item.role],
@@ -2609,19 +2608,19 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                 ['Emergency Phone', item.profile?.emergency_contact_phone || '-'],
                 ['Notes', item.profile?.notes || '-'],
               ].map(([label, value]) => (
-                <div key={label} className="min-w-0 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
+                <div key={label} className="min-w-0 self-start rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-900/60">
                   <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{label}</p>
                   <p className="mt-1 break-words text-sm font-bold text-gray-800 dark:text-gray-100">{value}</p>
                 </div>
               ))}
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 md:col-span-3 dark:border-gray-700 dark:bg-gray-900/60">
+              <div className="self-start rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 md:col-span-3 dark:border-gray-700 dark:bg-gray-900/60">
                 <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Address</p>
                 <p className="mt-1 break-words text-sm font-bold text-gray-800 dark:text-gray-100">{item.profile?.address || '-'}</p>
               </div>
             </div>
           ),
           (
-            <div key="payroll" className="grid h-full min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto overflow-x-hidden pr-1 md:grid-cols-3">
+            <div key="payroll" className="grid h-full min-h-0 flex-1 auto-rows-min grid-cols-1 content-start items-start gap-3 overflow-y-auto overflow-x-hidden pr-1 md:grid-cols-3">
               {[
                 ['Basic Salary', `${fmt(n(item.profile?.salary_amount))} / ${getPayFrequencyLabel(item.profile?.pay_frequency)}`],
                 ['OT Rate', fmt(n(item.profile?.overtime_rate))],
@@ -2633,12 +2632,12 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                 ['SOCSO No.', item.profile?.socso_no || '-'],
                 ['Tax No.', item.profile?.tax_no || '-'],
               ].map(([label, value]) => (
-                <div key={label} className="min-w-0 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
+                <div key={label} className="min-w-0 self-start rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-900/60">
                   <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{label}</p>
                   <p className="mt-1 break-words text-sm font-bold text-gray-800 dark:text-gray-100">{value}</p>
                 </div>
               ))}
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 md:col-span-3 dark:border-gray-700 dark:bg-gray-900/60">
+              <div className="self-start rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 md:col-span-3 dark:border-gray-700 dark:bg-gray-900/60">
                 <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Leave Entitlement Setup</p>
                 <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-5">
                   {leaveTypes.map(type => (
