@@ -13,7 +13,7 @@ import {
   ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, Eye, Archive, RotateCcw,
   Briefcase, Box, Tag, Layers, Activity, Warehouse, FileBarChart, Contact,
   CreditCard, Percent, FileText, Truck, ArrowUpDown, ClipboardList, Factory, History, Building2, Loader2, LogOut, Sun, Moon, Mail, MoreVertical,
-  Calendar,
+  Calendar, Download,
 } from 'lucide-react';
 import InventoryManagement from '../components/InventoryManagement';
 import ReportsView from '../components/ReportsView';
@@ -280,6 +280,197 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       return t >= prevStart && t <= prevEnd;
     });
   }, [sourceOrders, startDate, endDate]);
+
+  const formatExportDateTime = (timestamp: number) => new Date(timestamp).toLocaleString('en-MY', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  const getItemOptionsText = (item: Order['items'][number]) => {
+    const parts = [
+      item.selectedSize ? `Size: ${item.selectedSize}` : '',
+      item.selectedTemp ? `Temp: ${item.selectedTemp}` : '',
+      item.selectedOtherVariant ? `${item.otherVariantName || 'Variant'}: ${item.selectedOtherVariant}` : '',
+      item.selectedVariantOption ? `Variant: ${item.selectedVariantOption}` : '',
+      item.selectedMixMatch?.length ? item.selectedMixMatch.map(m => `${m.label}: ${m.choice}`).join('; ') : '',
+    ].filter(Boolean);
+    return parts.join('; ') || '-';
+  };
+
+  const getItemModifiersText = (item: Order['items'][number]) => (
+    item.selectedModifiers && Object.keys(item.selectedModifiers).length > 0
+      ? Object.entries(item.selectedModifiers).map(([name, value]) => `${name}: ${value}`).join('; ')
+      : '-'
+  );
+
+  const getItemAddOnsText = (item: Order['items'][number]) => (
+    item.selectedAddOns?.length
+      ? item.selectedAddOns.map(addOn => `${addOn.name} x${addOn.quantity} (${currencySymbol}${addOn.price.toFixed(2)})`).join('; ')
+      : '-'
+  );
+
+  const getItemLineTotal = (item: Order['items'][number]) => {
+    const addOnsTotal = item.selectedAddOns?.reduce((sum, addOn) => sum + (Number(addOn.price) || 0) * (Number(addOn.quantity) || 0), 0) || 0;
+    return ((Number(item.price) || 0) + addOnsTotal) * (Number(item.quantity) || 0);
+  };
+
+  const csvCell = (value: string | number | undefined | null) => {
+    const text = value === undefined || value === null || value === '' ? '-' : String(value);
+    return `"${text.replace(/"/g, '""')}"`;
+  };
+
+  const handleDashboardExportCSV = () => {
+    if (filteredOrders.length === 0) {
+      toast('No orders to export for this date range.', 'warning');
+      return;
+    }
+
+    const headers = [
+      'Order ID', 'Date Time', 'Status', 'Order Source', 'Dining Type', 'Table Number', 'Location',
+      'Payment Method', 'Cashier', 'Customer ID', 'Item ID', 'Item Name', 'SKU', 'Category',
+      'Quantity', 'Unit Price', 'Line Total', 'Item Options', 'Modifiers', 'Add-ons',
+      'Item Remark', 'Order Total', 'Amount Received', 'Change Amount', 'Order Remark',
+      'Rejection Reason', 'Rejection Note',
+    ];
+
+    const rows = [...filteredOrders]
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .flatMap(order => {
+        const items = order.items.length > 0 ? order.items : [null];
+        return items.map(item => [
+          order.id,
+          formatExportDateTime(order.timestamp),
+          order.status,
+          order.orderSource || '-',
+          order.diningType || '-',
+          order.tableNumber || '-',
+          order.locationName || '-',
+          order.paymentMethod || '-',
+          order.cashierName || '-',
+          order.customerId || '-',
+          item?.id || '-',
+          item?.name || '-',
+          item?.sku || '-',
+          item?.category || '-',
+          item?.quantity ?? '-',
+          item ? (Number(item.price) || 0).toFixed(2) : '-',
+          item ? getItemLineTotal(item).toFixed(2) : '-',
+          item ? getItemOptionsText(item) : '-',
+          item ? getItemModifiersText(item) : '-',
+          item ? getItemAddOnsText(item) : '-',
+          item?.remark || '-',
+          (Number(order.total) || 0).toFixed(2),
+          order.amountReceived !== undefined ? order.amountReceived.toFixed(2) : '-',
+          order.changeAmount !== undefined ? order.changeAmount.toFixed(2) : '-',
+          order.remark || '-',
+          order.rejectionReason || '-',
+          order.rejectionNote || '-',
+        ]);
+      });
+
+    const csv = [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dashboard_orders_${customStart}_${customEnd}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDashboardExportPDF = async () => {
+    if (filteredOrders.length === 0) {
+      toast('No orders to export for this date range.', 'warning');
+      return;
+    }
+
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 12;
+    const completed = filteredOrders.filter(o => o.status !== OrderStatus.CANCELLED);
+    const cancelled = filteredOrders.filter(o => o.status === OrderStatus.CANCELLED);
+    const totalSales = completed.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
+    const darkGray = [55, 65, 81] as [number, number, number];
+    const amber = [217, 119, 6] as [number, number, number];
+
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...darkGray);
+    doc.text(restaurant.name || 'Dashboard Orders Report', margin, 14);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Dashboard Orders: ${customStart} to ${customEnd}`, margin, 21);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - margin, 21, { align: 'right' });
+    doc.setDrawColor(...amber);
+    doc.setLineWidth(0.5);
+    doc.line(margin, 25, pageWidth - margin, 25);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [['Total Orders', 'Completed / Active', 'Cancelled', 'Total Sales']],
+      body: [[
+        filteredOrders.length.toString(),
+        completed.length.toString(),
+        cancelled.length.toString(),
+        `${currencySymbol}${totalSales.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      ]],
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 8, cellPadding: 2.5 },
+      headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+      theme: 'grid',
+    });
+
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 8,
+      head: [['Date Time', 'Order ID', 'Status', 'Source', 'Table', 'Payment', 'Cashier', 'Items', 'Total']],
+      body: [...filteredOrders]
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .map(order => [
+          formatExportDateTime(order.timestamp),
+          order.id,
+          order.status,
+          order.orderSource || '-',
+          order.tableNumber || order.locationName || '-',
+          order.paymentMethod || '-',
+          order.cashierName || '-',
+          order.items.map(item => `${item.name} x${item.quantity}`).join('; ') || '-',
+          `${currencySymbol}${(Number(order.total) || 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        ]),
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 7, cellPadding: 2, overflow: 'linebreak' },
+      headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [254, 243, 199] },
+      columnStyles: {
+        0: { cellWidth: 26 },
+        1: { cellWidth: 34 },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 22 },
+        5: { cellWidth: 24 },
+        6: { cellWidth: 24 },
+        7: { cellWidth: 82 },
+        8: { cellWidth: 24, halign: 'right' },
+      },
+      theme: 'grid',
+    });
+
+    const pageCount = (doc as any).getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setTextColor(160, 160, 160);
+      doc.text('QuickServe Dashboard Orders Report', margin, doc.internal.pageSize.getHeight() - 7);
+      doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 7, { align: 'right' });
+    }
+
+    doc.save(`dashboard_orders_${customStart}_${customEnd}.pdf`);
+  };
 
   // â”€â”€â”€ Staff State â”€â”€â”€
   const [staffList, setStaffList] = useState<StaffMember[]>(() =>
@@ -1015,6 +1206,20 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             />
           </div>
         </div>
+      </div>
+      <div className="flex gap-2 w-full md:w-auto">
+        <button
+          onClick={handleDashboardExportCSV}
+          className="flex-1 md:flex-none px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-amber-600 transition-all"
+        >
+          <Download size={16} /> Export CSV
+        </button>
+        <button
+          onClick={handleDashboardExportPDF}
+          className="flex-1 md:flex-none px-6 py-2 bg-red-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-700 transition-all"
+        >
+          <FileText size={16} /> Download PDF
+        </button>
       </div>
     </div>
   );
