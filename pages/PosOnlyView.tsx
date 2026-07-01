@@ -669,12 +669,50 @@ const PosOnlyView: React.FC<Props> = ({
     const saved = localStorage.getItem(`printers_${restaurant.id}`);
     return saved ? JSON.parse(saved) : [];
   });
+  const [selectedPrinterConnectionType, setSelectedPrinterConnectionType] = useState<ConnectionType>(() => {
+    const dbSaved = restaurant.settings?.printers;
+    const profiles = Array.isArray(dbSaved) && dbSaved.length > 0
+      ? dbSaved as SavedPrinter[]
+      : (() => {
+          const saved = localStorage.getItem(`printers_${restaurant.id}`);
+          return saved ? JSON.parse(saved) as SavedPrinter[] : [];
+        })();
+    return profiles[0]?.connectionType || 'bluetooth';
+  });
+  const [activePrinterTransport, setActivePrinterTransport] = useState<string>('none');
   const hasConfiguredNetworkPrinter = savedPrinters.some(printer =>
     printer.connectionType === 'wifi' &&
     Boolean(printer.printServerUrl?.trim()) &&
     Boolean(printer.ipAddress?.trim())
   );
   const hasPrintableTransport = realPrinterConnected || hasConfiguredNetworkPrinter;
+  const configuredPrintersForSelectedMode = savedPrinters.filter(printer => printer.connectionType === selectedPrinterConnectionType);
+  const configuredNetworkPrinters = savedPrinters.filter(printer =>
+    printer.connectionType === 'wifi' &&
+    Boolean(printer.printServerUrl?.trim()) &&
+    Boolean(printer.ipAddress?.trim())
+  );
+  const primaryNetworkPrinter = configuredNetworkPrinters.find(printer => printer.printJobs.includes('receipt')) || configuredNetworkPrinters[0] || null;
+  const selectedPrinterProfile = configuredPrintersForSelectedMode[0] || null;
+  const selectedPrinterModeConnected = selectedPrinterConnectionType === 'wifi'
+    ? configuredNetworkPrinters.length > 0
+    : activePrinterTransport === selectedPrinterConnectionType && realPrinterConnected;
+  const selectedPrinterModeLabel = selectedPrinterConnectionType === 'wifi'
+    ? 'WiFi/LAN'
+    : selectedPrinterConnectionType === 'sunmi'
+      ? 'SUNMI'
+      : selectedPrinterConnectionType === 'usb'
+        ? 'USB'
+        : 'Bluetooth';
+  const SelectedPrinterModeIcon = selectedPrinterConnectionType === 'wifi'
+    ? Wifi
+    : selectedPrinterConnectionType === 'sunmi'
+      ? Smartphone
+      : selectedPrinterConnectionType === 'usb'
+        ? Usb
+        : selectedPrinterModeConnected
+          ? BluetoothConnected
+          : Bluetooth;
 
   const normalizeReceiptConfig = (config: Partial<ReceiptConfig> | null | undefined): ReceiptConfig => {
     const legacyAddress = typeof (config as (Partial<ReceiptConfig> & { businessAddress?: string }) | null | undefined)?.businessAddress === 'string'
@@ -3607,56 +3645,104 @@ const PosOnlyView: React.FC<Props> = ({
   useEffect(() => {
     const interval = setInterval(() => {
       const connected = printerService.isConnected();
+      const status = printerService.getConnectionStatus();
+      setActivePrinterTransport(status.transport);
       setRealPrinterConnected(connected || hasConfiguredNetworkPrinter);
     }, 3000);
     return () => clearInterval(interval);
   }, [connectedDevice, hasConfiguredNetworkPrinter]);
 
-  const handlePrinterButtonClick = async () => {
-    if (hasConfiguredNetworkPrinter) {
-      setRealPrinterConnected(true);
-      return;
-    }
-    if (!connectedDevice) {
-      // No saved printer - scan and connect in one go
-      setIsAutoReconnecting(true);
-      const found = await printerService.scanForPrinters();
-      if (found.length > 0) {
-        const device = found[0];
-        const success = await printerService.connect(device.name);
-        if (success) {
-          setConnectedDevice(device);
-          setRealPrinterConnected(true);
-          localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
-          await supabase
-            .from('restaurants')
-            .update({ printer_settings: { connected: true, deviceId: device.id, deviceName: device.name } })
-            .eq('id', restaurant.id);
-        }
-      }
-      setIsAutoReconnecting(false);
-      return;
-    }
-    if (realPrinterConnected) return;
-    // Has saved printer but disconnected - try reconnect
-    setIsAutoReconnecting(true);
-    const success = await printerService.autoReconnect(connectedDevice.name);
-    if (success) {
-      setRealPrinterConnected(true);
-    } else {
-      const pickSuccess = await printerService.connect(connectedDevice.name);
-      setRealPrinterConnected(pickSuccess);
-    }
-    setIsAutoReconnecting(false);
-  };
-
-  const openPrinterSetupMode = (connectionType: ConnectionType) => {
+  const openPrinterSetupMode = (connectionType: ConnectionType, showSetupToast = false) => {
     setPrinterModeMenuOpen(false);
     setPrinterSetupConnectionType(connectionType);
     setPrinterSetupRequestKey(prev => prev + 1);
     setSettingsPanel('printer');
     setActiveTab('SETTINGS');
     setIsMobileMenuOpen(false);
+    if (showSetupToast) {
+      toast(`Please add or setup a ${connectionType === 'wifi' ? 'WiFi/LAN' : connectionType.toUpperCase()} printer first.`, 'warning');
+    }
+  };
+
+  const handlePrinterButtonClick = async () => {
+    if (selectedPrinterConnectionType === 'wifi') {
+      const networkPrinter = primaryNetworkPrinter;
+      if (!networkPrinter) {
+        openPrinterSetupMode('wifi', true);
+        return;
+      }
+
+      printerService.setActiveNetworkPrinter({
+        printServerUrl: networkPrinter.printServerUrl || '',
+        printerIp: networkPrinter.ipAddress || '',
+        printerPort: networkPrinter.printerPort || 9100,
+      });
+      setActivePrinterTransport('wifi');
+      setRealPrinterConnected(true);
+      toast(
+        configuredNetworkPrinters.length > 1
+          ? `${configuredNetworkPrinters.length} WiFi/LAN printers ready. Manage print routing in Printer settings.`
+          : 'WiFi/LAN printer ready.',
+        'success'
+      );
+      return;
+    }
+
+    if (!selectedPrinterProfile) {
+      openPrinterSetupMode(selectedPrinterConnectionType, true);
+      return;
+    }
+
+    if (selectedPrinterModeConnected) return;
+
+    setIsAutoReconnecting(true);
+    try {
+      if (selectedPrinterConnectionType === 'usb') {
+        const device = await printerService.connectUsbPrinter();
+        if (device) {
+          setConnectedDevice(device);
+          setActivePrinterTransport('usb');
+          setRealPrinterConnected(true);
+          localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
+          return;
+        }
+        toast('USB printer connection failed. Check browser permission and printer cable.', 'error');
+        return;
+      }
+
+      const deviceName = selectedPrinterConnectionType === 'sunmi'
+        ? 'SUNMI Built-in Printer'
+        : selectedPrinterProfile?.deviceName || connectedDevice?.name || selectedPrinterProfile?.name || '';
+
+      if (!deviceName) {
+        openPrinterSetupMode(selectedPrinterConnectionType, true);
+        return;
+      }
+
+      const success = selectedPrinterConnectionType === 'bluetooth'
+        ? await printerService.autoReconnect(deviceName) || await printerService.connect(deviceName)
+        : await printerService.connect(deviceName);
+
+      if (success) {
+        const device: PrinterDevice = {
+          id: selectedPrinterProfile?.deviceId || connectedDevice?.id || `${selectedPrinterConnectionType}-${deviceName}`,
+          name: deviceName,
+        };
+        setConnectedDevice(device);
+        setActivePrinterTransport(selectedPrinterConnectionType);
+        setRealPrinterConnected(true);
+        localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
+        await supabase
+          .from('restaurants')
+          .update({ printer_settings: { connected: true, deviceId: device.id, deviceName: device.name } })
+          .eq('id', restaurant.id);
+        return;
+      }
+
+      toast(`Unable to connect ${selectedPrinterModeLabel} printer.`, 'error');
+    } finally {
+      setIsAutoReconnecting(false);
+    }
   };
 
   const handleAddCategory = () => {
@@ -7118,32 +7204,32 @@ const PosOnlyView: React.FC<Props> = ({
               className={`min-w-0 flex-1 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg ${
                 isAutoReconnecting
                   ? 'bg-blue-500 text-white cursor-wait'
-                  : hasPrintableTransport
+                  : selectedPrinterModeConnected
                     ? 'bg-green-500 text-white hover:bg-green-600'
-                    : connectedDevice
+                    : selectedPrinterProfile
                       ? 'bg-red-500 text-white hover:bg-red-600'
                       : 'bg-red-500 text-white hover:bg-red-600'
               }`}
             >
               {isAutoReconnecting ? (
                 <>
-                  <Bluetooth size={18} className="animate-pulse" />
+                  <SelectedPrinterModeIcon size={18} className="animate-pulse" />
                   {!isSidebarCollapsed && 'Connecting...'}
                 </>
-              ) : hasPrintableTransport ? (
+              ) : selectedPrinterModeConnected ? (
                 <>
-                  <BluetoothConnected size={18} />
-                  {!isSidebarCollapsed && (hasConfiguredNetworkPrinter ? 'WiFi/LAN Printer Ready' : 'Printer Connected')}
+                  <SelectedPrinterModeIcon size={18} />
+                  {!isSidebarCollapsed && `${selectedPrinterModeLabel} Ready`}
                 </>
-              ) : connectedDevice ? (
+              ) : selectedPrinterProfile ? (
                 <>
-                  <Bluetooth size={18} />
-                  {!isSidebarCollapsed && 'Printer Offline'}
+                  <SelectedPrinterModeIcon size={18} />
+                  {!isSidebarCollapsed && `${selectedPrinterModeLabel} Offline`}
                 </>
               ) : (
                 <>
-                  <Bluetooth size={18} />
-                  {!isSidebarCollapsed && 'No Printer'}
+                  <SelectedPrinterModeIcon size={18} />
+                  {!isSidebarCollapsed && `No ${selectedPrinterModeLabel}`}
                 </>
               )}
             </button>
@@ -7166,13 +7252,29 @@ const PosOnlyView: React.FC<Props> = ({
                   <button
                     key={type}
                     type="button"
-                    onClick={() => openPrinterSetupMode(type)}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-gray-600 transition hover:bg-orange-50 hover:text-orange-600 dark:text-gray-300 dark:hover:bg-orange-900/20"
+                    onClick={() => {
+                      setSelectedPrinterConnectionType(type);
+                      setPrinterModeMenuOpen(false);
+                    }}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest transition ${
+                      selectedPrinterConnectionType === type
+                        ? 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300'
+                        : 'text-gray-600 hover:bg-orange-50 hover:text-orange-600 dark:text-gray-300 dark:hover:bg-orange-900/20'
+                    }`}
                   >
                     <Icon size={14} />
                     {label}
                   </button>
                 ))}
+                <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
+                <button
+                  type="button"
+                  onClick={() => openPrinterSetupMode(selectedPrinterConnectionType)}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-gray-500 transition hover:bg-gray-50 hover:text-orange-600 dark:text-gray-300 dark:hover:bg-gray-700/60"
+                >
+                  <Settings size={14} />
+                  Manage Printers
+                </button>
               </div>
             )}
           </div>
