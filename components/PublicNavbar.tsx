@@ -50,7 +50,7 @@ const PublicNavbar: React.FC<PublicNavbarProps> = ({
       const target = document.getElementById(sectionId);
       if (target) {
         target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        window.history.replaceState({}, '', `${window.location.pathname}#${sectionId}`);
+        window.history.replaceState({}, '', `/#${sectionId}`);
       }
       return;
     }

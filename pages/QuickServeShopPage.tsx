@@ -55,6 +55,7 @@ interface Props {
 
 const DEFAULT_CATEGORY = 'All';
 const CATEGORY_QUERY_KEY = 'category';
+const SHOP_PATH = '/shop';
 const SHOP_STATUS_VALUES = new Set(['success', 'cancelled']);
 
 const normalizeCategoryKey = (value: string) => value.trim().toLowerCase();
@@ -126,14 +127,14 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
             setViewMode('invoice');
           }
           setMessage({ type: 'success', text: 'Payment successful. Your invoice is ready. We will contact you shortly.' });
-          window.history.replaceState({}, '', window.location.pathname);
+          window.history.replaceState({}, '', SHOP_PATH);
         })
         .catch((error: any) => {
           setMessage({ type: 'error', text: error?.message || 'Payment was received, but order confirmation needs support review.' });
         });
     } else if (shopStatus === 'cancelled') {
       setMessage({ type: 'error', text: 'Checkout was cancelled. Your cart is still here when you are ready.' });
-      window.history.replaceState({}, '', window.location.pathname);
+      window.history.replaceState({}, '', SHOP_PATH);
     }
   }, []);
 
@@ -173,10 +174,15 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
     const shopStatus = params.get('shop');
     if (SHOP_STATUS_VALUES.has(String(shopStatus))) return;
 
-    params.set('shop', shopStatus || '1');
-    params.set(CATEGORY_QUERY_KEY, normalizeCategoryKey(category));
+    params.delete('shop');
+    if (category === DEFAULT_CATEGORY) {
+      params.delete(CATEGORY_QUERY_KEY);
+    } else {
+      params.set(CATEGORY_QUERY_KEY, normalizeCategoryKey(category));
+    }
 
-    const nextUrl = `${window.location.pathname}?${params.toString()}`;
+    const search = params.toString();
+    const nextUrl = `${SHOP_PATH}${search ? `?${search}` : ''}`;
     if (nextUrl !== `${window.location.pathname}${window.location.search}`) {
       window.history.replaceState({}, '', nextUrl);
     }

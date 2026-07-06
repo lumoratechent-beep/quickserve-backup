@@ -75,6 +75,27 @@ const getLoginTargetView = (role: Role, portalMode: 'staff' | 'backoffice'): 'AP
   portalMode === 'backoffice' ? 'BACK_OFFICE' : 'APP'
 );
 
+type AppView = 'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE' | 'ONLINE_SHOP' | 'COMPANY' | 'COMPARE_PLANS' | 'QS_SHOP' | 'HELP';
+
+const HOME_PATH = '/';
+const COMPANY_PATH = '/our-company';
+const SHOP_PATH = '/shop';
+const HELP_PATH = '/help';
+const PUBLIC_VIEWS = new Set<AppView>(['MARKETING', 'COMPANY', 'QS_SHOP', 'HELP', 'COMPARE_PLANS']);
+
+const normalizePublicPath = (pathname: string): string => {
+  const normalized = pathname.replace(/\/+$/, '');
+  return normalized || HOME_PATH;
+};
+
+const getPublicViewFromLocation = (): AppView | null => {
+  const path = normalizePublicPath(window.location.pathname);
+  if (path === SHOP_PATH) return 'QS_SHOP';
+  if (path === COMPANY_PATH) return 'COMPANY';
+  if (path === HELP_PATH) return 'HELP';
+  return null;
+};
+
 const isMobilePhoneDevice = (): boolean => {
   if (typeof window === 'undefined') return false;
 
@@ -249,7 +270,9 @@ const App: React.FC = () => {
     try {
       const params = new URLSearchParams(window.location.search);
       const savedView = localStorage.getItem('qs_view');
+      const publicPathView = getPublicViewFromLocation();
       // If marketing, we don't need to load anything initially
+      if (publicPathView || params.get('shop') || params.get('help')) return false;
       if (!savedView && !params.get('loc')) return false;
 
       const hasRes = localStorage.getItem('qs_cache_restaurants');
@@ -460,9 +483,10 @@ const App: React.FC = () => {
   const [stripeRedirect] = useState(() => stripeRedirectRef.current());
 
   const [onlineShopSlug, setOnlineShopSlug] = useState<string | null>(null);
-  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE' | 'ONLINE_SHOP' | 'COMPANY' | 'COMPARE_PLANS' | 'QS_SHOP' | 'HELP'>(() => {
+  const [view, setView] = useState<AppView>(() => {
     const savedView = localStorage.getItem('qs_view') as any;
     const storedRole = getStoredRole();
+    const publicPathView = getPublicViewFromLocation();
     
     // Handle Stripe payment redirect
     if (stripeRedirect.payment === 'success') {
@@ -480,6 +504,10 @@ const App: React.FC = () => {
     // Handle Stripe card setup redirect — stay on current view
     if (stripeRedirect.setup) {
       return savedView || 'APP';
+    }
+
+    if (publicPathView) {
+      return publicPathView;
     }
 
     if (isBackOfficeOnlyRole(storedRole)) {
@@ -500,6 +528,27 @@ const App: React.FC = () => {
 
     return savedView || 'MARKETING';
   });
+  const viewRef = useRef<AppView>(view);
+
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+
+  useEffect(() => {
+    const handlePublicPopState = () => {
+      const publicPathView = getPublicViewFromLocation();
+      if (publicPathView) {
+        setView(publicPathView);
+        return;
+      }
+      if (PUBLIC_VIEWS.has(viewRef.current)) {
+        setView('MARKETING');
+      }
+    };
+
+    window.addEventListener('popstate', handlePublicPopState);
+    return () => window.removeEventListener('popstate', handlePublicPopState);
+  }, []);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -2812,13 +2861,13 @@ const App: React.FC = () => {
   }
 
   const showMarketing = () => {
-    window.history.replaceState({}, '', window.location.pathname);
+    window.history.pushState({}, '', HOME_PATH);
     setView('MARKETING');
     window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 0);
   };
 
   const showMarketingSection = (sectionId: string) => {
-    window.history.replaceState({}, '', `${window.location.pathname}#${sectionId}`);
+    window.history.pushState({}, '', `${HOME_PATH}#${sectionId}`);
     setView('MARKETING');
     window.setTimeout(() => {
       document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2826,19 +2875,19 @@ const App: React.FC = () => {
   };
 
   const showShop = () => {
-    window.history.pushState({}, '', `${window.location.pathname}?shop=1`);
+    window.history.pushState({}, '', SHOP_PATH);
     setView('QS_SHOP');
     window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 0);
   };
 
   const showHelp = () => {
-    window.history.pushState({}, '', `${window.location.pathname}?help=1`);
+    window.history.pushState({}, '', HELP_PATH);
     setView('HELP');
     window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 0);
   };
 
   const showCompany = () => {
-    window.history.replaceState({}, '', window.location.pathname);
+    window.history.pushState({}, '', COMPANY_PATH);
     setView('COMPANY');
     window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 0);
   };
