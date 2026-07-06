@@ -51,6 +51,29 @@ const generateDefaultOrderCode = (restaurantName: string): string => {
 };
 
 const BACK_OFFICE_DEVICE_MESSAGE = 'Back Office can only be accessed through a tablet, laptop, or desktop.';
+const BACK_OFFICE_ROLES: Role[] = ['VENDOR', 'ADMIN', 'HR'];
+const BACK_OFFICE_ONLY_ROLES: Role[] = ['HR'];
+
+const getStoredRole = (): Role | null => {
+  try {
+    const savedUser = localStorage.getItem('qs_user');
+    if (savedUser) {
+      const parsed = JSON.parse(savedUser) as Partial<User>;
+      if (parsed.role) return parsed.role;
+    }
+  } catch {
+    // Fall back to the legacy role key below.
+  }
+  return localStorage.getItem('qs_role') as Role | null;
+};
+
+const isBackOfficeOnlyRole = (role: Role | null | undefined): boolean => (
+  !!role && BACK_OFFICE_ONLY_ROLES.includes(role)
+);
+
+const getLoginTargetView = (role: Role, portalMode: 'staff' | 'backoffice'): 'APP' | 'BACK_OFFICE' => (
+  isBackOfficeOnlyRole(role) || portalMode === 'backoffice' ? 'BACK_OFFICE' : 'APP'
+);
 
 const isMobilePhoneDevice = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -262,7 +285,7 @@ const App: React.FC = () => {
   });
   
   const [currentRole, setCurrentRole] = useState<Role | null>(() => {
-    return localStorage.getItem('qs_role') as Role | null;
+    return getStoredRole();
   });
   
   const [globalError, setGlobalError] = useState<{
@@ -439,6 +462,7 @@ const App: React.FC = () => {
   const [onlineShopSlug, setOnlineShopSlug] = useState<string | null>(null);
   const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE' | 'ONLINE_SHOP' | 'COMPANY' | 'COMPARE_PLANS' | 'QS_SHOP' | 'HELP'>(() => {
     const savedView = localStorage.getItem('qs_view') as any;
+    const storedRole = getStoredRole();
     
     // Handle Stripe payment redirect
     if (stripeRedirect.payment === 'success') {
@@ -456,6 +480,10 @@ const App: React.FC = () => {
     // Handle Stripe card setup redirect — stay on current view
     if (stripeRedirect.setup) {
       return savedView || 'APP';
+    }
+
+    if (isBackOfficeOnlyRole(storedRole)) {
+      return 'BACK_OFFICE';
     }
 
     // If no session and no params, show marketing page as the first impression
@@ -481,10 +509,17 @@ const App: React.FC = () => {
   }, [currentUser, view]);
 
   useEffect(() => {
+    if (!isBackOfficeOnlyRole(currentUser?.role) || view === 'BACK_OFFICE') return;
+    setView('BACK_OFFICE');
+    localStorage.setItem('qs_view', 'BACK_OFFICE');
+  }, [currentUser?.role, view]);
+
+  useEffect(() => {
     if (view !== 'BACK_OFFICE' || !isMobilePhoneDevice()) return;
+    if (isBackOfficeOnlyRole(currentRole)) return;
     toast(BACK_OFFICE_DEVICE_MESSAGE, 'warning');
     setView('APP');
-  }, [view]);
+  }, [currentRole, view]);
 
   // Show toast for Stripe payment redirect on mount
   useEffect(() => {
@@ -1031,7 +1066,7 @@ const App: React.FC = () => {
           isFetchingRef.current = false;
           return;
         }
-      } else if (currentRole === 'VENDOR' && currentUser?.restaurantId) {
+      } else if ((currentRole === 'VENDOR' || currentRole === 'HR') && currentUser?.restaurantId) {
         query = query.eq('restaurant_id', currentUser.restaurantId);
       }
 
@@ -1636,13 +1671,12 @@ const App: React.FC = () => {
   };
 
   const handleLogin = async (user: User, portalMode: 'staff' | 'backoffice' = 'staff') => {
-    const effectivePortalMode = user.role === 'HR' ? 'backoffice' : portalMode;
-    const allowedBackOfficeRoles: User['role'][] = ['VENDOR', 'ADMIN', 'HR'];
-    if (effectivePortalMode === 'backoffice' && !allowedBackOfficeRoles.includes(user.role)) {
+    const targetView = getLoginTargetView(user.role, portalMode);
+    if (targetView === 'BACK_OFFICE' && !BACK_OFFICE_ROLES.includes(user.role)) {
       toast('This account is not allowed to access Back Office Portal.', 'error');
       return;
     }
-    if (effectivePortalMode === 'backoffice' && isMobilePhoneDevice()) {
+    if (targetView === 'BACK_OFFICE' && !isBackOfficeOnlyRole(user.role) && isMobilePhoneDevice()) {
       toast(BACK_OFFICE_DEVICE_MESSAGE, 'warning');
       return;
     }
@@ -1650,10 +1684,10 @@ const App: React.FC = () => {
     setIsLoading(true);
     setCurrentUser(user); 
     setCurrentRole(user.role); 
-    setView(effectivePortalMode === 'backoffice' ? 'BACK_OFFICE' : 'APP');
+    setView(targetView);
     localStorage.setItem('qs_user', JSON.stringify(user));
     localStorage.setItem('qs_role', user.role);
-    localStorage.setItem('qs_view', effectivePortalMode === 'backoffice' ? 'BACK_OFFICE' : 'APP');
+    localStorage.setItem('qs_view', targetView);
     precacheBasicPwaShell();
 
     let loginSubscription: Subscription | null = user.restaurantId ? (vendorSubscriptions[user.restaurantId] || null) : null;
@@ -2947,7 +2981,7 @@ const App: React.FC = () => {
         batteryMeta={batteryMeta}
         batteryCharging={batteryStatus?.charging ?? false}
         unreadMailCount={unreadMailCount}
-        onOpenMail={() => { setView('APP'); fetchAnnouncements(); setOpenMailInPOS(true); }}
+        onOpenMail={currentRole === 'HR' ? undefined : () => { setView('APP'); fetchAnnouncements(); setOpenMailInPOS(true); }}
       />
     );
   }
@@ -2965,7 +2999,7 @@ const App: React.FC = () => {
 
   const handleBrandClick = () => {
     if (currentUser) {
-      setView(currentUser.role === 'ADMIN' ? 'BACK_OFFICE' : 'APP');
+      setView(currentUser.role === 'ADMIN' || isBackOfficeOnlyRole(currentUser.role) ? 'BACK_OFFICE' : 'APP');
       return;
     }
     setView('MARKETING');

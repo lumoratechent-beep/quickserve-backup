@@ -1290,16 +1290,18 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   </div>
                 </div>
               )}
-              <button
-                onClick={onOpenMail}
-                className="relative flex h-6 w-7 items-center justify-center rounded-full text-gray-700 transition-colors hover:bg-white dark:text-white dark:hover:bg-gray-600"
-                title="Mail"
-              >
-                <Mail size={16} />
-                {unreadMailCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">{unreadMailCount}</span>
-                )}
-              </button>
+              {onOpenMail && (
+                <button
+                  onClick={onOpenMail}
+                  className="relative flex h-6 w-7 items-center justify-center rounded-full text-gray-700 transition-colors hover:bg-white dark:text-white dark:hover:bg-gray-600"
+                  title="Mail"
+                >
+                  <Mail size={16} />
+                  {unreadMailCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">{unreadMailCount}</span>
+                  )}
+                </button>
+              )}
             </div>
           )}
           {onToggleTheme && (
