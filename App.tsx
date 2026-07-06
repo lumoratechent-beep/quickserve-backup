@@ -72,7 +72,7 @@ const isBackOfficeOnlyRole = (role: Role | null | undefined): boolean => (
 );
 
 const getLoginTargetView = (role: Role, portalMode: 'staff' | 'backoffice'): 'APP' | 'BACK_OFFICE' => (
-  isBackOfficeOnlyRole(role) || portalMode === 'backoffice' ? 'BACK_OFFICE' : 'APP'
+  portalMode === 'backoffice' ? 'BACK_OFFICE' : 'APP'
 );
 
 const isMobilePhoneDevice = (): boolean => {
@@ -1672,6 +1672,10 @@ const App: React.FC = () => {
 
   const handleLogin = async (user: User, portalMode: 'staff' | 'backoffice' = 'staff') => {
     const targetView = getLoginTargetView(user.role, portalMode);
+    if (targetView === 'APP' && isBackOfficeOnlyRole(user.role)) {
+      toast('Human Resources accounts can only access Back Office Portal.', 'error');
+      return;
+    }
     if (targetView === 'BACK_OFFICE' && !BACK_OFFICE_ROLES.includes(user.role)) {
       toast('This account is not allowed to access Back Office Portal.', 'error');
       return;

@@ -101,7 +101,7 @@ interface StockItem {
 
 const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, networkMeta, batteryMeta, batteryCharging = false, unreadMailCount = 0, onOpenMail, userRole = 'VENDOR' }) => {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<BackOfficeTab>(userRole === 'HR' ? 'STAFF' : 'DASHBOARD');
+  const [activeTab, setActiveTab] = useState<BackOfficeTab>('DASHBOARD');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [reportSubTab, setReportSubTab] = useState<string | undefined>(undefined);
   const [inventorySubTab, setInventorySubTab] = useState<string | undefined>(undefined);
@@ -1059,22 +1059,19 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   };
 
   // â”€â”€â”€ Tab buttons â”€â”€â”€
-  const isHrBackOffice = userRole === 'HR';
-  const simpleTabs: { key: BackOfficeTab; label: string; icon: React.ReactNode }[] = (isHrBackOffice ? [
-    { key: 'STAFF', label: 'Staff Management', icon: <Users size={18} /> },
-  ] : [
+  const simpleTabs: { key: BackOfficeTab; label: string; icon: React.ReactNode }[] = [
     { key: 'DASHBOARD', label: 'Dashboard', icon: <BarChart3 size={18} /> },
     { key: 'ITEMS', label: 'Items & Stock', icon: <ShoppingBag size={18} /> },
     { key: 'STAFF', label: 'Staff Management', icon: <Users size={18} /> },
     { key: 'SHIFTS', label: 'Cashier Shifts', icon: <Clock size={18} /> },
-  ]);
+  ];
 
   const expandableTabs: {
     key: BackOfficeTab;
     label: string;
     icon: React.ReactNode;
     subItems: { key: string; label: string; icon: React.ReactNode }[];
-  }[] = isHrBackOffice ? [] : [
+  }[] = [
     {
       key: 'INVENTORY', label: 'Inventory', icon: <Warehouse size={18} />,
       subItems: [
@@ -1116,13 +1113,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       subItems: [],
     },
   ];
-
-  useEffect(() => {
-    if (isHrBackOffice && activeTab !== 'STAFF') {
-      setActiveTab('STAFF');
-      setExpandedMenus(new Set());
-    }
-  }, [activeTab, isHrBackOffice]);
 
   const toggleExpanded = (key: string) => {
     setExpandedMenus(prev => {
@@ -1333,7 +1323,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             </button>
           )}
           <div className="text-right hidden sm:block">
-            <p className="text-[9px] text-gray-400 font-bold uppercase leading-tight">{isHrBackOffice ? 'HUMAN RESOURCES' : 'VENDOR'}</p>
+            <p className="text-[9px] text-gray-400 font-bold uppercase leading-tight">{userRole === 'HR' ? 'HUMAN RESOURCES' : 'VENDOR'}</p>
             <p className="text-[11px] font-black dark:text-white leading-tight">{restaurant.name}</p>
           </div>
           {onLogout && (
