@@ -1418,56 +1418,124 @@ const AdminView: React.FC<Props> = ({
       },
     });
 
-    const finalY = (doc as any).lastAutoTable?.finalY || 120;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const bottomMargin = 18;
+    const topMargin = 18;
+    const ensurePdfSpace = (currentY: number, requiredHeight: number) => {
+      if (currentY + requiredHeight <= pageHeight - bottomMargin) return currentY;
+      doc.addPage();
+      return topMargin;
+    };
+
+    let cursorY = ensurePdfSpace(((doc as any).lastAutoTable?.finalY || 120), 52);
     doc.setFontSize(10);
     doc.setTextColor(75, 85, 99);
-    doc.text('Subtotal', 150, finalY + 12);
-    doc.text(`RM ${totals.subtotal.toFixed(2)}`, 196, finalY + 12, { align: 'right' });
-    doc.text('Item Discounts', 150, finalY + 18);
-    doc.text(`- RM ${totals.itemDiscount.toFixed(2)}`, 196, finalY + 18, { align: 'right' });
-    doc.text('Document Discount', 150, finalY + 24);
-    doc.text(`- RM ${totals.documentDiscount.toFixed(2)}`, 196, finalY + 24, { align: 'right' });
-    doc.text('Tax', 150, finalY + 30);
-    doc.text(`RM ${totals.tax.toFixed(2)}`, 196, finalY + 30, { align: 'right' });
+    doc.text('Subtotal', 150, cursorY + 12);
+    doc.text(`RM ${totals.subtotal.toFixed(2)}`, 196, cursorY + 12, { align: 'right' });
+    doc.text('Item Discounts', 150, cursorY + 18);
+    doc.text(`- RM ${totals.itemDiscount.toFixed(2)}`, 196, cursorY + 18, { align: 'right' });
+    doc.text('Document Discount', 150, cursorY + 24);
+    doc.text(`- RM ${totals.documentDiscount.toFixed(2)}`, 196, cursorY + 24, { align: 'right' });
+    doc.text('Tax', 150, cursorY + 30);
+    doc.text(`RM ${totals.tax.toFixed(2)}`, 196, cursorY + 30, { align: 'right' });
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(31, 41, 55);
-    doc.text('Total', 150, finalY + 38);
+    doc.text('Total', 150, cursorY + 38);
     doc.setTextColor(...accentRgb);
-    doc.text(`RM ${totals.total.toFixed(2)}`, 196, finalY + 38, { align: 'right' });
+    doc.text(`RM ${totals.total.toFixed(2)}`, 196, cursorY + 38, { align: 'right' });
 
-    let notesY = finalY + 52;
-    if (quote.qrEnabled && quote.qrImage) {
-      try {
-        const qrDataUrl = await imageUrlToPngDataUrl(quote.qrImage);
-        doc.setDrawColor(...accentRgb);
-        doc.roundedRect(14, notesY - 6, 182, 40, 2, 2, 'S');
-        doc.addImage(qrDataUrl, 'PNG', 18, notesY - 2, 30, 30);
+    cursorY += 54;
+    const noteLines = quote.notes ? doc.splitTextToSize(quote.notes, 82) : [];
+    const termLines = quote.terms ? doc.splitTextToSize(quote.terms, 82) : [];
+    const hasNotes = noteLines.length > 0 || termLines.length > 0;
+    const hasPaymentQr = Boolean(quote.qrEnabled && quote.qrImage);
+
+    if (hasPaymentQr || hasNotes) {
+      const rightContentHeight = (noteLines.length ? 8 + noteLines.length * 4.5 : 0)
+        + (termLines.length ? 8 + termLines.length * 4.5 : 0);
+      const sectionHeight = Math.max(hasPaymentQr ? 50 : 0, hasNotes ? Math.min(74, rightContentHeight + 8) : 0, 44);
+      cursorY = ensurePdfSpace(cursorY, sectionHeight + 8);
+
+      const sectionTop = cursorY;
+      doc.setDrawColor(229, 231, 235);
+      doc.roundedRect(14, sectionTop, 182, sectionHeight, 2, 2, 'S');
+      if (hasPaymentQr) doc.line(105, sectionTop, 105, sectionTop + sectionHeight);
+
+      doc.setFontSize(9);
+      if (hasPaymentQr) {
+        try {
+          const qrDataUrl = await imageUrlToPngDataUrl(quote.qrImage);
+          doc.addImage(qrDataUrl, 'PNG', 18, sectionTop + 8, 30, 30);
+        } catch {
+          doc.setTextColor(156, 163, 175);
+          doc.text('QR unavailable', 18, sectionTop + 22);
+        }
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
         doc.setTextColor(31, 41, 55);
-        doc.text(quote.qrPayeeName || 'Lumora HQ', 54, notesY + 4);
+        doc.text(quote.qrPayeeName || 'Lumora HQ', 54, sectionTop + 14);
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
         doc.setTextColor(75, 85, 99);
-        const qrLines = doc.splitTextToSize(quote.qrNote || 'Scan to pay Lumora HQ', 130);
-        doc.text(qrLines, 54, notesY + 11);
-        notesY += 46;
-      } catch {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.setTextColor(75, 85, 99);
-        doc.text(`Payment QR: ${quote.qrPayeeName || 'Lumora HQ'}`, 14, notesY);
-        notesY += 8;
+        const qrLines = doc.splitTextToSize(quote.qrNote || 'Scan to pay Lumora HQ', 45);
+        doc.text(qrLines, 54, sectionTop + 21);
       }
-    }
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(75, 85, 99);
-    const notesLines = quote.notes ? doc.splitTextToSize(`Notes: ${quote.notes}`, 180) : [];
-    const termsLines = quote.terms ? doc.splitTextToSize(`Terms: ${quote.terms}`, 180) : [];
-    if (notesLines.length > 0) doc.text(notesLines, 14, notesY);
-    if (termsLines.length > 0) doc.text(termsLines, 14, notesLines.length > 0 ? notesY + notesLines.length * 4.5 + 4 : notesY);
+      let visibleNoteCount = 0;
+      let visibleTermCount = 0;
+      if (hasNotes) {
+        let rightY = sectionTop + 9;
+        const rightX = hasPaymentQr ? 110 : 18;
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(31, 41, 55);
+        if (noteLines.length > 0) {
+          doc.text('Notes', rightX, rightY);
+          rightY += 5;
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(75, 85, 99);
+          visibleNoteCount = Math.min(noteLines.length, Math.max(1, Math.floor((sectionTop + sectionHeight - rightY - 4) / 4.5)));
+          const visibleNotes = noteLines.slice(0, visibleNoteCount);
+          doc.text(visibleNotes, rightX, rightY);
+          rightY += visibleNotes.length * 4.5 + 5;
+        }
+        if (termLines.length > 0 && rightY < sectionTop + sectionHeight - 8) {
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(31, 41, 55);
+          doc.text('Terms', rightX, rightY);
+          rightY += 5;
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(75, 85, 99);
+          visibleTermCount = Math.min(termLines.length, Math.max(1, Math.floor((sectionTop + sectionHeight - rightY - 4) / 4.5)));
+          const visibleTerms = termLines.slice(0, visibleTermCount);
+          doc.text(visibleTerms, rightX, rightY);
+        }
+      }
+
+      cursorY = sectionTop + sectionHeight + 8;
+
+      const remainingNotes = noteLines.slice(visibleNoteCount);
+      const remainingTerms = termLines.slice(visibleTermCount);
+      const writeLongBlock = (title: string, lines: string[], startY: number) => {
+        let y = startY;
+        let index = 0;
+        while (index < lines.length) {
+          y = ensurePdfSpace(y, 18);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(31, 41, 55);
+          doc.text(title, 14, y);
+          y += 5;
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(75, 85, 99);
+          const capacity = Math.max(1, Math.floor((pageHeight - bottomMargin - y) / 4.5));
+          const chunk = lines.slice(index, index + capacity);
+          doc.text(chunk, 14, y);
+          y += chunk.length * 4.5 + 5;
+          index += chunk.length;
+          title = `${title} continued`;
+        }
+        return y;
+      };
+      if (remainingNotes.length > 0) cursorY = writeLongBlock('Notes continued', remainingNotes, cursorY);
+      if (remainingTerms.length > 0) cursorY = writeLongBlock('Terms continued', remainingTerms, cursorY);
+    }
 
     return doc;
   };
@@ -5133,25 +5201,34 @@ const AdminView: React.FC<Props> = ({
                         <div className="flex justify-between text-gray-500 dark:text-gray-400"><span>Tax</span><span>RM {quotationTotals.tax.toFixed(2)}</span></div>
                         <div className="flex justify-between text-lg font-black dark:text-white border-t border-gray-200 dark:border-gray-700 pt-2"><span>Total</span><span style={{ color: quotationTheme.themeColor }}>RM {quotationTotals.total.toFixed(2)}</span></div>
                       </div>
-                      {quotationForm.qrEnabled && (
-                        <div className="grid grid-cols-[74px_1fr] gap-3 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
-                          <div className="h-[74px] rounded-lg bg-gray-50 dark:bg-gray-900 flex items-center justify-center overflow-hidden">
-                            {quotationForm.qrImage ? (
-                              <img src={quotationForm.qrImage} alt="Payment QR" className="max-h-full max-w-full object-contain" />
+                      {(quotationForm.qrEnabled || quotationForm.notes || quotationForm.terms) && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                          <div className="p-3 border-b sm:border-b-0 sm:border-r border-gray-200 dark:border-gray-700">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Payment QR</p>
+                            {quotationForm.qrEnabled ? (
+                              <div className="mt-2 grid grid-cols-[64px_1fr] gap-3">
+                                <div className="h-16 rounded-lg bg-gray-50 dark:bg-gray-900 flex items-center justify-center overflow-hidden">
+                                  {quotationForm.qrImage ? (
+                                    <img src={quotationForm.qrImage} alt="Payment QR" className="max-h-full max-w-full object-contain" />
+                                  ) : (
+                                    <QrCode size={26} className="text-gray-300" />
+                                  )}
+                                </div>
+                                <div className="text-xs">
+                                  <p className="font-black dark:text-white">{quotationForm.qrPayeeName || 'Lumora HQ'}</p>
+                                  <p className="mt-1 text-gray-500 dark:text-gray-400">{quotationForm.qrNote || 'Scan to pay Lumora HQ'}</p>
+                                </div>
+                              </div>
                             ) : (
-                              <QrCode size={28} className="text-gray-300" />
+                              <p className="mt-2 text-[11px] text-gray-400">Payment QR not enabled.</p>
                             )}
                           </div>
-                          <div className="text-xs">
-                            <p className="font-black dark:text-white">{quotationForm.qrPayeeName || 'Lumora HQ'}</p>
-                            <p className="mt-1 text-gray-500 dark:text-gray-400">{quotationForm.qrNote || 'Scan to pay Lumora HQ'}</p>
+                          <div className="p-3 text-[11px] text-gray-500 dark:text-gray-400 space-y-2">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Notes</p>
+                            {quotationForm.notes && <p className="whitespace-pre-line">{quotationForm.notes}</p>}
+                            {quotationForm.terms && <p className="whitespace-pre-line">{quotationForm.terms}</p>}
+                            {!quotationForm.notes && !quotationForm.terms && <p className="text-gray-400">No notes added.</p>}
                           </div>
-                        </div>
-                      )}
-                      {(quotationForm.notes || quotationForm.terms) && (
-                        <div className="text-[11px] text-gray-500 dark:text-gray-400 space-y-2">
-                          {quotationForm.notes && <p>{quotationForm.notes}</p>}
-                          {quotationForm.terms && <p>{quotationForm.terms}</p>}
                         </div>
                       )}
                     </div>
