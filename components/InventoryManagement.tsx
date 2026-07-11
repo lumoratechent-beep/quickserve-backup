@@ -5,7 +5,7 @@ import {
   Package, Truck, ArrowUpDown, ClipboardList, Factory,
   History, DollarSign, Plus, Search, Edit3, Trash2, Check, X, ChevronRight,
   ArrowLeft, Eye, Send, Download, Upload, XCircle,
-  Clock, FileText, BarChart3, ShoppingBag, Info,
+  Clock, FileText, BarChart3, ShoppingBag, Info, MoreVertical, Copy, FileSpreadsheet,
 } from 'lucide-react';
 
 // ─── Inventory Types ───
@@ -37,7 +37,7 @@ interface PurchaseOrder {
   supplierId: string;
   supplierName: string;
   items: PurchaseOrderItem[];
-  status: 'draft' | 'sent' | 'partial' | 'received' | 'cancelled';
+  status: 'draft' | 'sent' | 'partial' | 'received' | 'cancelled' | 'returned';
   createdAt: number;
   expectedDate: string;
   receivedDate?: string;
@@ -287,6 +287,9 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const [showProductionInfoModal, setShowProductionInfoModal] = useState(false);
   const [showQuantityProducedInfoModal, setShowQuantityProducedInfoModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [poSearch, setPoSearch] = useState('');
+  const [poStatusFilter, setPoStatusFilter] = useState<'ALL' | PurchaseOrder['status']>('ALL');
+  const [openPOActionMenuId, setOpenPOActionMenuId] = useState<string | null>(null);
   const [productionSearch, setProductionSearch] = useState('');
   const [productionCategoryFilter, setProductionCategoryFilter] = useState('ALL');
   const [productionEntriesPerPage, setProductionEntriesPerPage] = useState(30);
@@ -398,6 +401,19 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     const categories = ingredientItems.map(item => item.category || 'Uncategorized');
     return ['ALL', ...Array.from(new Set(categories)).sort((a, b) => a.localeCompare(b))];
   }, [ingredientItems]);
+  const filteredPurchaseOrders = useMemo(() => {
+    const q = poSearch.trim().toLowerCase();
+    return purchaseOrders.filter(po => {
+      if (poStatusFilter !== 'ALL' && po.status !== poStatusFilter) return false;
+      if (!q) return true;
+      return (
+        `po-${po.id.slice(-6)}`.toLowerCase().includes(q) ||
+        po.supplierName.toLowerCase().includes(q) ||
+        (po.notes || '').toLowerCase().includes(q) ||
+        po.items.some(item => item.name.toLowerCase().includes(q))
+      );
+    });
+  }, [purchaseOrders, poSearch, poStatusFilter]);
   const filteredProductions = useMemo(() => {
     const q = productionSearch.trim().toLowerCase();
     return productions.filter(prod => {
@@ -674,6 +690,124 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   };
 
   // ════════════════════════════════════════
+  const getPOCostSign = (po: PurchaseOrder) => po.status === 'returned' ? -1 : 1;
+  const getPOTotal = (po: PurchaseOrder, receivedOnly = false) => {
+    const total = po.items.reduce((sum, item) => {
+      const qty = receivedOnly ? item.receivedQuantity : item.quantity;
+      return sum + qty * item.costPerUnit;
+    }, 0);
+    return total * getPOCostSign(po);
+  };
+  const formatMoney = (value: number) => `${value < 0 ? '-' : ''}${currencySymbol}${Math.abs(value).toFixed(2)}`;
+  const downloadTextFile = (filename: string, content: string, type: string) => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+  const buildPOCsv = (po: PurchaseOrder) => {
+    const csvValue = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const rows = [
+      ['Order #', `PO-${po.id.slice(-6)}`],
+      ['Supplier', po.supplierName],
+      ['Status', po.status],
+      ['Created', formatDate(po.createdAt)],
+      ['Expected', po.expectedDate || '-'],
+      ['Received Date', po.receivedDate || '-'],
+      ['Notes', po.notes || '-'],
+      [],
+      ['Item', 'Ordered Qty', 'Received Qty', 'Purchase Unit', 'Stock Added', 'Stock Unit', 'Cost Per Unit', 'Line Total'],
+      ...po.items.map(item => [
+        item.name,
+        item.quantity,
+        item.receivedQuantity,
+        getUnitLabel(getPOPurchaseUnit(item)),
+        getPOStockQuantity(item, item.receivedQuantity),
+        getUnitLabel(getPOStockUnit(item)),
+        item.costPerUnit,
+        item.quantity * item.costPerUnit * getPOCostSign(po),
+      ]),
+      [],
+      ['Order Total', getPOTotal(po)],
+      ['Received Total', getPOTotal(po, true)],
+    ];
+    return rows.map(row => row.map(csvValue).join(',')).join('\n');
+  };
+  const downloadPOExcel = (po: PurchaseOrder) => {
+    downloadTextFile(`PO-${po.id.slice(-6)}.csv`, buildPOCsv(po), 'text/csv;charset=utf-8');
+  };
+  const downloadPOPdf = async (po: PurchaseOrder) => {
+    const jsPDFModule = await import('jspdf');
+    const doc = new jsPDFModule.default();
+    let y = 16;
+    doc.setFontSize(16);
+    doc.text(`PO-${po.id.slice(-6)}`, 14, y);
+    y += 8;
+    doc.setFontSize(10);
+    [
+      `Supplier: ${po.supplierName}`,
+      `Status: ${po.status}`,
+      `Created: ${formatDate(po.createdAt)}`,
+      `Expected: ${po.expectedDate || '-'}`,
+      `Order Total: ${formatMoney(getPOTotal(po))}`,
+      `Received Total: ${formatMoney(getPOTotal(po, true))}`,
+    ].forEach(line => {
+      doc.text(line, 14, y);
+      y += 6;
+    });
+    if (po.notes) {
+      y += 2;
+      doc.text(`Notes: ${po.notes}`, 14, y);
+      y += 8;
+    }
+    y += 4;
+    doc.setFontSize(9);
+    po.items.forEach(item => {
+      if (y > 276) {
+        doc.addPage();
+        y = 16;
+      }
+      const purchaseUnit = getUnitLabel(getPOPurchaseUnit(item));
+      const stockUnit = getUnitLabel(getPOStockUnit(item));
+      doc.text(item.name, 14, y);
+      y += 5;
+      doc.text(`Ordered: ${item.quantity} ${purchaseUnit} | Received: ${item.receivedQuantity} ${purchaseUnit} | Stock: ${getPOStockQuantity(item, item.receivedQuantity)} ${stockUnit} | Cost: ${formatMoney(item.costPerUnit)} | Total: ${formatMoney(item.quantity * item.costPerUnit * getPOCostSign(po))}`, 18, y);
+      y += 7;
+    });
+    doc.save(`PO-${po.id.slice(-6)}.pdf`);
+  };
+  const copyAndCreatePO = (po: PurchaseOrder) => {
+    setPoForm({
+      supplierId: po.supplierId,
+      expectedDate: '',
+      notes: po.notes ? `Copied from PO-${po.id.slice(-6)}. ${po.notes}` : `Copied from PO-${po.id.slice(-6)}`,
+      items: po.items.map(item => ({ ...item, receivedQuantity: 0 })),
+    });
+    setShowForm(true);
+    setOpenPOActionMenuId(null);
+    setViewingPOId(null);
+  };
+  const markPOReturned = (poId: string) => {
+    const po = purchaseOrders.find(order => order.id === poId);
+    if (!po || po.status === 'returned') return;
+    po.items.forEach(item => {
+      if (item.receivedQuantity > 0) {
+        const stockQuantity = getPOStockQuantity(item, item.receivedQuantity);
+        updateStockItem(item.menuItemId, -stockQuantity, true);
+        addHistory({ action: 'Purchase return', itemName: item.name, quantity: stockQuantity, unit: getPOStockUnit(item), type: 'out', reference: po.id });
+      }
+    });
+    const updated = purchaseOrders.map(order => order.id === poId ? { ...order, status: 'returned' as const } : order);
+    setPurchaseOrders(updated);
+    saveState('purchase_orders', updated);
+    setOpenPOActionMenuId(null);
+  };
+
   // TRANSFER ORDER HANDLERS
   // ════════════════════════════════════════
   const handleSaveTransferOrder = () => {
@@ -951,6 +1085,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       partial: 'bg-amber-500/20 text-amber-400',
       received: 'bg-green-500/20 text-green-400',
       cancelled: 'bg-red-500/20 text-red-400',
+      returned: 'bg-purple-500/20 text-purple-400',
       pending: 'bg-amber-500/20 text-amber-400',
       in_transit: 'bg-blue-500/20 text-blue-400',
       completed: 'bg-green-500/20 text-green-400',
@@ -958,9 +1093,17 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       increase: 'bg-green-500/20 text-green-400',
       decrease: 'bg-red-500/20 text-red-400',
     };
+    const labels: Record<string, string> = {
+      draft: 'Planned',
+      sent: 'Ordered',
+      partial: 'Partially Delivered',
+      received: 'Delivered',
+      cancelled: 'Cancelled',
+      returned: 'Returned',
+    };
     return (
       <span className={`text-[10px] font-bold px-2 py-1 rounded-md capitalize ${colors[status] || 'bg-gray-500/20 text-gray-400'}`}>
-        {status.replace('_', ' ')}
+        {labels[status] || status.replace('_', ' ')}
       </span>
     );
   };
@@ -978,7 +1121,10 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       {subTab === 'purchase_orders' && (
         <div>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-            <h2 className="text-lg font-black">Purchase Orders</h2>
+            <div>
+              <h2 className="text-lg font-black text-gray-900 dark:text-white">Purchase Orders</h2>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Plan supplier purchases, track ordered and delivered quantities, and keep returns visible as negative value movements.</p>
+            </div>
             <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20">
               <Plus size={14} /> New Purchase Order
             </button>
@@ -1086,54 +1232,92 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
           )}
 
           {/* PO List */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            {purchaseOrders.length > 0 ? (
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-sm font-black text-gray-900 dark:text-white">Purchase Order List</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Planned means not sent yet; Ordered is sent to supplier; Delivered is fully received; Returned shows negative value.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <input
+                    type="text"
+                    placeholder="Search PO, supplier, item..."
+                    value={poSearch}
+                    onChange={e => setPoSearch(e.target.value)}
+                    className="w-64 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  />
+                </div>
+                <select value={poStatusFilter} onChange={e => setPoStatusFilter(e.target.value as 'ALL' | PurchaseOrder['status'])} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                  <option value="ALL">All Status</option>
+                  <option value="draft">Planned</option>
+                  <option value="sent">Ordered</option>
+                  <option value="partial">Partially Delivered</option>
+                  <option value="received">Delivered</option>
+                  <option value="returned">Returned</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40">
+              <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                Showing {filteredPurchaseOrders.length} of {purchaseOrders.length}
+              </span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Stored purchase orders</span>
+            </div>
+            {filteredPurchaseOrders.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                      <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Order #</th>
-                      <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Supplier</th>
-                      <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Items</th>
-                      <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Expected</th>
-                      <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Total Cost</th>
-                      <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                <table className="w-full min-w-[820px] text-left">
+                  <thead className="bg-gray-50 dark:bg-gray-900/40">
+                    <tr>
+                      <th className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-gray-400">Order #</th>
+                      <th className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-gray-400">Supplier</th>
+                      <th className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-gray-400">Items</th>
+                      <th className="hidden px-4 py-2 text-[10px] font-black uppercase tracking-wider text-gray-400 md:table-cell">Expected</th>
+                      <th className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-gray-400">Status</th>
+                      <th className="hidden px-4 py-2 text-right text-[10px] font-black uppercase tracking-wider text-gray-400 sm:table-cell">Value</th>
+                      <th className="px-4 py-2 text-right text-[10px] font-black uppercase tracking-wider text-gray-400">Actions</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {purchaseOrders.map(po => (
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                    {filteredPurchaseOrders.map(po => (
                       <tr
                         key={po.id}
-                        onClick={() => setViewingPOId(po.id)}
-                        className="cursor-pointer border-b border-gray-100 transition-colors hover:bg-gray-50 dark:border-gray-700/50 dark:hover:bg-gray-700/30"
-                        title="View purchase order"
+                        className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30"
                       >
-                        <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">
-                          <span className="inline-flex items-center gap-2">
+                        <td className="px-4 py-2 text-xs font-bold">
+                          <button onClick={() => setViewingPOId(po.id)} className="font-black text-amber-500 transition hover:text-amber-600 hover:underline">
                             PO-{po.id.slice(-6)}
-                            <Eye size={12} className="text-gray-400" />
-                          </span>
+                          </button>
                         </td>
-                        <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{po.supplierName}</td>
-                        <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{po.items.length} items</td>
-                        <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{po.expectedDate || '-'}</td>
-                        <td className="px-5 py-4"><StatusBadge status={po.status} /></td>
-                        <td className="px-5 py-4 text-xs font-bold text-amber-400 hidden sm:table-cell">{currencySymbol}{po.items.reduce((s, i) => s + i.quantity * i.costPerUnit, 0).toFixed(2)}</td>
-                        <td className="px-5 py-4 text-right">
-                          <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-                            <button onClick={() => setViewingPOId(po.id)} className="px-2 py-1 rounded-lg bg-gray-500/10 text-gray-400 text-[10px] font-bold hover:bg-gray-500/20" title="View Details"><Eye size={12} /></button>
-                            {po.status === 'draft' && (
-                              <button onClick={() => handleUpdatePOStatus(po.id, 'sent')} className="px-2 py-1 rounded-lg bg-blue-500/20 text-blue-400 text-[10px] font-bold hover:bg-blue-500/30" title="Mark as Sent"><Send size={12} /></button>
-                            )}
-                            {(po.status === 'sent' || po.status === 'partial') && (
-                              <>
-                                <button onClick={() => handleOpenReceiveModal(po.id)} className="px-2 py-1 rounded-lg bg-amber-500/20 text-amber-400 text-[10px] font-bold hover:bg-amber-500/30" title="Receive Items"><Download size={12} /></button>
-                                <button onClick={() => handleUpdatePOStatus(po.id, 'received')} className="px-2 py-1 rounded-lg bg-green-500/20 text-green-400 text-[10px] font-bold hover:bg-green-500/30" title="Receive All"><Check size={12} /></button>
-                              </>
-                            )}
-                            {po.status !== 'received' && po.status !== 'cancelled' && (
-                              <button onClick={() => handleUpdatePOStatus(po.id, 'cancelled')} className="px-2 py-1 rounded-lg bg-red-500/20 text-red-400 text-[10px] font-bold hover:bg-red-500/30" title="Cancel"><X size={12} /></button>
+                        <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-300">{po.supplierName}</td>
+                        <td className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">{po.items.length} items</td>
+                        <td className="hidden px-4 py-2 text-xs text-gray-500 dark:text-gray-400 md:table-cell">{po.expectedDate || '-'}</td>
+                        <td className="px-4 py-2"><StatusBadge status={po.status} /></td>
+                        <td className={`hidden px-4 py-2 text-right text-xs font-bold sm:table-cell ${po.status === 'returned' ? 'text-red-400' : 'text-amber-400'}`}>{formatMoney(getPOTotal(po))}</td>
+                        <td className="px-4 py-2 text-right">
+                          <div className="relative inline-flex">
+                            <button
+                              type="button"
+                              onClick={() => setOpenPOActionMenuId(openPOActionMenuId === po.id ? null : po.id)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-amber-500 dark:hover:bg-gray-700"
+                              title="Purchase order actions"
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+                            {openPOActionMenuId === po.id && (
+                              <div className="absolute right-0 top-9 z-30 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-left shadow-xl dark:border-gray-700 dark:bg-gray-900">
+                                <button onClick={() => { setViewingPOId(po.id); setOpenPOActionMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"><Eye size={13} /> View</button>
+                                <button onClick={() => { downloadPOExcel(po); setOpenPOActionMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"><FileSpreadsheet size={13} /> Download Excel</button>
+                                <button onClick={() => { void downloadPOPdf(po); setOpenPOActionMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"><FileText size={13} /> Download PDF</button>
+                                <button onClick={() => copyAndCreatePO(po)} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"><Copy size={13} /> Copy & Create New</button>
+                                {po.status === 'draft' && <button onClick={() => { handleUpdatePOStatus(po.id, 'sent'); setOpenPOActionMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"><Send size={13} /> Mark Ordered</button>}
+                                {(po.status === 'sent' || po.status === 'partial') && <button onClick={() => { handleOpenReceiveModal(po.id); setOpenPOActionMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20"><Download size={13} /> Receive Items</button>}
+                                {(po.status === 'sent' || po.status === 'partial') && <button onClick={() => { handleUpdatePOStatus(po.id, 'received'); setOpenPOActionMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20"><Check size={13} /> Mark Delivered</button>}
+                                {(po.status === 'partial' || po.status === 'received') && <button onClick={() => markPOReturned(po.id)} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20"><ArrowUpDown size={13} /> Mark Returned</button>}
+                                {po.status !== 'received' && po.status !== 'cancelled' && po.status !== 'returned' && <button onClick={() => { handleUpdatePOStatus(po.id, 'cancelled'); setOpenPOActionMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"><X size={13} /> Cancel</button>}
+                              </div>
                             )}
                           </div>
                         </td>
@@ -1145,8 +1329,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
             ) : (
               <div className="h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
                 <FileText size={40} className="mb-3 opacity-30" />
-                <p className="text-sm font-bold">No purchase orders yet</p>
-                <p className="text-xs text-gray-500 mt-1">Create a purchase order to start tracking stock receipts</p>
+                <p className="text-sm font-bold">{purchaseOrders.length === 0 ? 'No purchase orders yet' : 'No purchase orders match the filters'}</p>
+                <p className="text-xs text-gray-500 mt-1">{purchaseOrders.length === 0 ? 'Create a purchase order to start tracking stock receipts' : 'Try changing the search or status filter'}</p>
               </div>
             )}
           </div>
@@ -2207,10 +2391,11 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
         const po = purchaseOrders.find(p => p.id === viewingPOId);
         if (!po) return null;
         const supplier = suppliers.find(s => s.id === po.supplierId);
-        const orderedTotal = po.items.reduce((sum, item) => sum + item.quantity * item.costPerUnit, 0);
-        const receivedTotal = po.items.reduce((sum, item) => sum + item.receivedQuantity * item.costPerUnit, 0);
+        const orderedTotal = getPOTotal(po);
+        const receivedTotal = getPOTotal(po, true);
         const orderedQuantity = po.items.reduce((sum, item) => sum + item.quantity, 0);
         const receivedQuantity = po.items.reduce((sum, item) => sum + item.receivedQuantity, 0);
+        const poSign = getPOCostSign(po);
         return (
           <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setViewingPOId(null)} />
@@ -2223,9 +2408,17 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                   </div>
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Purchase order details, item quantities, prices, and receipt progress.</p>
                 </div>
-                <button onClick={() => setViewingPOId(null)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-white transition-all">
-                  <X size={16} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => downloadPOExcel(po)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 px-3 text-[10px] font-bold uppercase tracking-wider text-gray-500 transition hover:border-amber-300 hover:text-amber-600 dark:border-gray-700 dark:text-gray-300">
+                    <FileSpreadsheet size={13} /> Excel
+                  </button>
+                  <button onClick={() => void downloadPOPdf(po)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 px-3 text-[10px] font-bold uppercase tracking-wider text-gray-500 transition hover:border-amber-300 hover:text-amber-600 dark:border-gray-700 dark:text-gray-300">
+                    <FileText size={13} /> PDF
+                  </button>
+                  <button onClick={() => setViewingPOId(null)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-white transition-all">
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -2247,8 +2440,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                 </div>
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/40 dark:bg-amber-900/10">
                   <p className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">Cost</p>
-                  <p className="mt-1 text-sm font-bold text-amber-700 dark:text-amber-300">{currencySymbol}{orderedTotal.toFixed(2)}</p>
-                  <p className="mt-1 text-[10px] text-amber-700/80 dark:text-amber-200/80">Received: {currencySymbol}{receivedTotal.toFixed(2)}</p>
+                  <p className="mt-1 text-sm font-bold text-amber-700 dark:text-amber-300">{formatMoney(orderedTotal)}</p>
+                  <p className="mt-1 text-[10px] text-amber-700/80 dark:text-amber-200/80">Received: {formatMoney(receivedTotal)}</p>
                 </div>
               </div>
 
@@ -2276,8 +2469,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                       {po.items.map((item, index) => {
                         const purchaseUnit = getUnitLabel(getPOPurchaseUnit(item));
                         const stockUnit = getUnitLabel(getPOStockUnit(item));
-                        const stockAdded = getPOStockQuantity(item, item.receivedQuantity);
-                        const lineTotal = item.quantity * item.costPerUnit;
+                        const stockAdded = getPOStockQuantity(item, item.receivedQuantity) * poSign;
+                        const lineTotal = item.quantity * item.costPerUnit * poSign;
                         return (
                           <tr key={`${item.menuItemId}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                             <td className="px-4 py-3">
@@ -2287,8 +2480,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                             <td className="px-4 py-3 text-right text-xs text-gray-600 dark:text-gray-300">{item.quantity.toLocaleString()} {purchaseUnit}</td>
                             <td className="px-4 py-3 text-right text-xs text-gray-600 dark:text-gray-300">{item.receivedQuantity.toLocaleString()} {purchaseUnit}</td>
                             <td className="px-4 py-3 text-right text-xs text-gray-600 dark:text-gray-300">{stockAdded.toLocaleString()} {stockUnit}</td>
-                            <td className="px-4 py-3 text-right text-xs font-bold text-gray-900 dark:text-white">{currencySymbol}{item.costPerUnit.toFixed(2)}</td>
-                            <td className="px-4 py-3 text-right text-xs font-bold text-amber-500">{currencySymbol}{lineTotal.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-right text-xs font-bold text-gray-900 dark:text-white">{formatMoney(item.costPerUnit)}</td>
+                            <td className={`px-4 py-3 text-right text-xs font-bold ${lineTotal < 0 ? 'text-red-400' : 'text-amber-500'}`}>{formatMoney(lineTotal)}</td>
                           </tr>
                         );
                       })}
