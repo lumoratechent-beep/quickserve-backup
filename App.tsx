@@ -1889,6 +1889,7 @@ const App: React.FC = () => {
       });
 
     const deltas = new Map<string, { delta: number; name: string; unit: string; detail: string }>();
+    const plannedStockBalances = new Map<string, number>();
     const addDelta = (itemId: string, delta: number, name: string, unit: string, detail: string) => {
       if (!itemId || delta <= 0) return;
       const current = deltas.get(itemId);
@@ -1899,12 +1900,40 @@ const App: React.FC = () => {
         deltas.set(itemId, { delta, name, unit, detail });
       }
     };
+    const getPlannedStockBalance = (itemId: string) => {
+      if (!plannedStockBalances.has(itemId)) {
+        const stockRecord = stockItems.find(stock => stock.menuItemId === itemId);
+        plannedStockBalances.set(itemId, Number(stockRecord?.currentStock || 0));
+      }
+      return plannedStockBalances.get(itemId) || 0;
+    };
+    const reserveFinishedStock = (item: CartItem, quantity: number) => {
+      const stockRecord = stockItems.find(stock => stock.menuItemId === item.id);
+      if (!stockRecord?.stockEnabled || quantity <= 0) return 0;
+      const availableStock = getPlannedStockBalance(item.id);
+      const reservedQty = Math.min(availableStock, quantity);
+      if (reservedQty <= 0) return 0;
+
+      plannedStockBalances.set(item.id, availableStock - reservedQty);
+      addDelta(
+        item.id,
+        reservedQty,
+        item.name,
+        stockRecord.unit || 'pcs',
+        `${reservedQty} x ${item.name} from produced stock`
+      );
+      return reservedQty;
+    };
 
     order.items.forEach(item => {
       const soldQty = Number(item.quantity) || 0;
       if (soldQty <= 0) return;
       const variantKey = getCartItemProductionVariantKey(item);
       const recipe = (variantKey ? latestProductionByMenuVariant.get(`${item.id}::${variantKey}`) : undefined) || latestProductionByMenu.get(item.id);
+      const finishedStockQty = reserveFinishedStock(item, soldQty);
+      const recipeQty = Math.max(0, soldQty - finishedStockQty);
+      if (recipeQty <= 0) return;
+
       if (recipe && recipe.quantityProduced > 0 && Array.isArray(recipe.ingredients) && recipe.ingredients.length > 0) {
         recipe.ingredients.forEach(ingredientLine => {
           const ingredient = ingredients.find(i => i.id === ingredientLine.menuItemId);
@@ -1913,16 +1942,16 @@ const App: React.FC = () => {
           const stockQtyPerProduced = Number(ingredientLine.stockQuantityUsed ?? ingredientLine.quantityUsed) / recipe.quantityProduced;
           addDelta(
             ingredientLine.menuItemId,
-            stockQtyPerProduced * soldQty,
+            stockQtyPerProduced * recipeQty,
             ingredientLine.name,
             ingredientLine.stockUnit || getIngredientStockUnit(ingredient),
-            `${soldQty} x ${item.name}`
+            `${recipeQty} x ${item.name} from recipe`
           );
         });
       } else {
         const stockRecord = stockItems.find(stock => stock.menuItemId === item.id);
         if (!stockRecord?.stockEnabled) return;
-        addDelta(item.id, soldQty, item.name, 'pcs', `${soldQty} sold`);
+        addDelta(item.id, recipeQty, item.name, stockRecord.unit || 'pcs', `${recipeQty} sold`);
       }
     });
 

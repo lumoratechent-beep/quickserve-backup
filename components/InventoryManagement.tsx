@@ -230,6 +230,7 @@ const convertIngredientUsageToStock = (ingredient: IngredientItem | undefined, q
 
 const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, initialSubTab, onNavigateToItemsStock }) => {
   const [subTab, setSubTab] = useState<InventorySubTab>(initialSubTab || 'purchase_orders');
+  const [productionTab, setProductionTab] = useState<'batch_stock' | 'recipe_checkout'>('batch_stock');
 
   useEffect(() => {
     if (initialSubTab) setSubTab(initialSubTab);
@@ -314,6 +315,31 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const getIngredientById = (itemId: string) => ingredientItems.find(i => i.id === itemId);
   const selectedProducedMenuItem = useMemo(() => activeMenuItems.find(item => item.id === prodForm.producedItemId), [activeMenuItems, prodForm.producedItemId]);
   const selectedProductionVariantOptions = useMemo(() => getProductionVariantOptions(selectedProducedMenuItem), [selectedProducedMenuItem]);
+  const productionRecipeRows = useMemo(() => {
+    const latestByScope = new Map<string, Production>();
+    [...productions]
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      .forEach(prod => {
+        const scopeKey = prod.appliesTo === 'variants' && prod.variantKey
+          ? `${prod.producedItemId}::${prod.variantKey}`
+          : `${prod.producedItemId}::all`;
+        if (!latestByScope.has(scopeKey)) latestByScope.set(scopeKey, prod);
+      });
+
+    return Array.from(latestByScope.values()).map(prod => {
+      const totalIngredientCost = prod.ingredients.reduce((sum, ingredientLine) => {
+        const ingredient = getIngredientById(ingredientLine.menuItemId);
+        const unitCost = ingredient?.cost ? ingredient.cost / getIngredientPurchaseRatio(ingredient) : 0;
+        const stockQuantity = ingredientLine.stockQuantityUsed ?? convertIngredientUsageToStock(ingredient, ingredientLine.quantityUsed, ingredientLine.unit);
+        return sum + (unitCost * stockQuantity);
+      }, 0);
+      const quantityProduced = Number(prod.quantityProduced || 0);
+      return {
+        ...prod,
+        costPerUnit: quantityProduced > 0 ? totalIngredientCost / quantityProduced : 0,
+      };
+    });
+  }, [productions, ingredientItems]);
 
   const getPOPurchaseUnit = (item: PurchaseOrderItem) => item.purchaseUnit || getIngredientPurchaseUnit(getIngredientById(item.menuItemId));
   const getPOStockUnit = (item: PurchaseOrderItem) => item.stockUnit || getIngredientStockUnit(getIngredientById(item.menuItemId));
@@ -1271,10 +1297,62 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       {subTab === 'productions' && (
         <div>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-            <h2 className="text-lg font-black">Productions</h2>
-            <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20">
-              <Plus size={14} /> Record Production
-            </button>
+            <div>
+              <h2 className="text-lg font-black">Productions</h2>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Use produced stock first, then fall back to recipe ingredients when stock runs out.</p>
+            </div>
+            {productionTab === 'batch_stock' && (
+              <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20">
+                <Plus size={14} /> Record Production
+              </button>
+            )}
+          </div>
+
+          <div className="mb-5 grid grid-cols-1 gap-2 rounded-2xl border border-gray-200 bg-gray-100 p-1 dark:border-gray-700 dark:bg-gray-900 sm:grid-cols-2">
+            {([
+              { key: 'batch_stock' as const, label: 'Batch Stock', description: 'Produce stock before selling' },
+              { key: 'recipe_checkout' as const, label: 'Recipe at Checkout', description: 'Deduct ingredients when sold' },
+            ]).map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => {
+                  setProductionTab(tab.key);
+                  if (tab.key !== 'batch_stock') setShowForm(false);
+                }}
+                className={`rounded-xl px-4 py-3 text-left transition-all ${
+                  productionTab === tab.key
+                    ? 'bg-white text-amber-700 shadow-sm dark:bg-gray-800 dark:text-amber-300'
+                    : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                }`}
+              >
+                <span className="block text-xs font-black uppercase tracking-wider">{tab.label}</span>
+                <span className="mt-1 block text-[10px] font-semibold">{tab.description}</span>
+              </button>
+            ))}
+          </div>
+
+          {productionTab === 'batch_stock' ? (
+            <>
+          <div className="mb-5 grid grid-cols-1 gap-3 lg:grid-cols-3">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-900/10 lg:col-span-2">
+              <div className="flex items-start gap-3">
+                <Factory size={18} className="mt-0.5 text-amber-600 dark:text-amber-400" />
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">Batch Stock</p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">Use this when you prepare finished menu stock before selling, for example making 100 portions of Menu A. Recording a batch increases the menu item's stock and deducts ingredient stock immediately.</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-green-200 bg-green-50 p-4 dark:border-green-900/40 dark:bg-green-900/10">
+              <div className="flex items-start gap-3">
+                <CheckCircle size={18} className="mt-0.5 text-green-600 dark:text-green-400" />
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-green-700 dark:text-green-300">Checkout Rule</p>
+                  <p className="mt-1 text-xs leading-relaxed text-green-700/80 dark:text-green-200/80">Sales deduct this produced balance first. If the balance is not enough, only the remaining quantity uses the recipe ingredients.</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {showForm && (
@@ -1403,6 +1481,73 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               </div>
             )}
           </div>
+            </>
+          ) : (
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/40 dark:bg-blue-900/10 lg:col-span-2">
+                  <div className="flex items-start gap-3">
+                    <ShoppingBag size={18} className="mt-0.5 text-blue-600 dark:text-blue-400" />
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">Recipe at Checkout</p>
+                      <p className="mt-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">Use this when produced stock is empty or not enough. Checkout deducts ingredients only for the sold quantity that is not covered by produced stock.</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                  <p className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">How it differs</p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">This does not create menu stock. It defines the ingredient usage and cost for the fallback deduction.</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-900/10">
+                <div className="flex items-start gap-3">
+                  <AlertCircle size={18} className="mt-0.5 text-amber-600 dark:text-amber-400" />
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">Current Recipe Source</p>
+                    <p className="mt-1 text-xs leading-relaxed text-amber-800/80 dark:text-amber-200/80">Checkout reads the latest production record for each menu item or variant as the fallback recipe. The table below shows which recipe is currently used.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                {productionRecipeRows.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                          <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Menu Item</th>
+                          <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Scope</th>
+                          <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Ingredients per Batch</th>
+                          <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Recipe Cost</th>
+                          <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Updated</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {productionRecipeRows.map(recipe => (
+                          <tr key={`${recipe.producedItemId}-${recipe.variantKey || 'all'}`} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                            <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{recipe.producedItemName}</td>
+                            <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{recipe.appliesTo === 'variants' ? recipe.variantLabel || 'Adjusted variant' : 'All variants'}</td>
+                            <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate max-w-[260px]">
+                              {recipe.ingredients.map(i => `${i.name} (${i.quantityUsed} ${getUnitLabel(i.unit)})`).join(', ') || '-'}
+                            </td>
+                            <td className="px-5 py-4 text-xs font-bold text-amber-500">{currencySymbol}{recipe.costPerUnit.toFixed(2)} / item</td>
+                            <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell">{formatDate(recipe.timestamp)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
+                    <FileText size={40} className="mb-3 opacity-30" />
+                    <p className="text-sm font-bold">No recipe source yet</p>
+                    <p className="text-xs text-gray-500 mt-1">Record a production batch to create the current recipe reference</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
