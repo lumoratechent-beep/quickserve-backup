@@ -102,6 +102,8 @@ interface InventoryHistoryEntry {
   action: string;
   itemName: string;
   quantity: number;
+  unit?: string;
+  detail?: string;
   type: 'in' | 'out' | 'adjust';
   timestamp: number;
   reference: string;
@@ -293,7 +295,12 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
 
   const addHistory = (entry: Omit<InventoryHistoryEntry, 'id' | 'timestamp'>) => {
     const newEntry: InventoryHistoryEntry = { ...entry, id: crypto.randomUUID(), timestamp: Date.now() };
-    const updated = [newEntry, ...historyLog].slice(0, 500);
+    let current = historyLog;
+    try {
+      const saved = localStorage.getItem(storeKey('history'));
+      if (saved) current = JSON.parse(saved) as InventoryHistoryEntry[];
+    } catch { /* keep current state */ }
+    const updated = [newEntry, ...current].slice(0, 500);
     setHistoryLog(updated);
     saveState('history', updated);
   };
@@ -383,7 +390,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
           if (remaining > 0) {
             const stockQuantity = getPOStockQuantity(item, remaining);
             updateStockItem(item.menuItemId, stockQuantity);
-            addHistory({ action: 'Stock received (PO)', itemName: item.name, quantity: stockQuantity, type: 'in', reference: poId });
+            addHistory({ action: 'Stock received (PO)', itemName: item.name, quantity: stockQuantity, unit: getPOStockUnit(item), type: 'in', reference: poId });
           }
         });
       }
@@ -411,7 +418,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
         if (receiving > 0) {
           const stockQuantity = getPOStockQuantity(item, receiving);
           updateStockItem(item.menuItemId, stockQuantity);
-          addHistory({ action: 'Stock received (PO)', itemName: item.name, quantity: stockQuantity, type: 'in', reference: receivingPOId });
+          addHistory({ action: 'Stock received (PO)', itemName: item.name, quantity: stockQuantity, unit: getPOStockUnit(item), type: 'in', reference: receivingPOId });
         }
         return { ...item, receivedQuantity: item.receivedQuantity + receiving };
       });
@@ -598,13 +605,21 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     };
     // Credit stock to produced item
     updateStockItem(prodForm.producedItemId, qty);
-    addHistory({ action: 'Production output', itemName: producedMenuItem.name, quantity: qty, type: 'in', reference: prod.id });
+    addHistory({ action: 'Production output', itemName: producedMenuItem.name, quantity: qty, unit: 'pcs', detail: `Produced from ${validIngredients.length} ingredient${validIngredients.length === 1 ? '' : 's'}`, type: 'in', reference: prod.id });
     // Deduct stock from each ingredient
     validIngredients.forEach(ing => {
       if (ing.quantityUsed > 0) {
         const stockQuantityUsed = ing.stockQuantityUsed ?? ing.quantityUsed;
         updateStockItem(ing.menuItemId, -stockQuantityUsed);
-        addHistory({ action: 'Production ingredient used', itemName: ing.name, quantity: stockQuantityUsed, type: 'out', reference: prod.id });
+        addHistory({
+          action: 'Production ingredient used',
+          itemName: ing.name,
+          quantity: stockQuantityUsed,
+          unit: ing.stockUnit,
+          detail: `Used for ${producedMenuItem.name}`,
+          type: 'out',
+          reference: prod.id,
+        });
       }
     });
     const updated = [prod, ...productions];
@@ -717,10 +732,10 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
           {showForm && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 mb-6">
               <h3 className="text-sm font-black mb-4">Create Purchase Order</h3>
-              <div className="mb-4 flex flex-col gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">
-                <span>If an ingredient or supply is missing, create it first in Items & Stock so purchase and production units match.</span>
+              <div className="mb-4 flex flex-col gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] text-blue-700 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">
+                <span className="leading-tight">If an ingredient or supply is missing, create it first in Items & Stock so purchase and production units match.</span>
                 {onNavigateToItemsStock && (
-                  <button onClick={onNavigateToItemsStock} className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-blue-700 shadow-sm transition hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-950/70">
+                  <button onClick={onNavigateToItemsStock} className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-white px-2.5 text-[9px] font-bold uppercase tracking-wider text-blue-700 shadow-sm transition hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-950/70">
                     <ShoppingBag size={12} /> Items & Stock
                   </button>
                 )}
@@ -752,18 +767,18 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
 
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">Items *</label>
               {poForm.items.length > 0 && (
-                <div className="flex items-center gap-2 mb-2 px-1">
-                  <span className="flex-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Product</span>
-                  <span className="w-16 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">In Stock</span>
-                  <span className="w-16 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">Incoming</span>
-                  <span className="w-20 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">Qty</span>
-                  <span className="w-24 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">Stock Added</span>
-                  <span className="w-24 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">Cost/Unit</span>
-                  <span className="w-8"></span>
+                <div className="grid grid-cols-[minmax(240px,1fr)_72px_72px_88px_132px_100px_32px] items-end gap-2 mb-2 px-1">
+                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Product</span>
+                  <span className="text-center text-[9px] font-bold text-gray-400 uppercase tracking-wider">In Stock</span>
+                  <span className="text-center text-[9px] font-bold text-gray-400 uppercase tracking-wider">Incoming</span>
+                  <span className="text-center text-[9px] font-bold text-gray-400 uppercase tracking-wider">Qty</span>
+                  <span className="text-center text-[9px] font-bold text-gray-400 uppercase tracking-wider">Stock Added</span>
+                  <span className="text-center text-[9px] font-bold text-gray-400 uppercase tracking-wider">Cost/Unit</span>
+                  <span></span>
                 </div>
               )}
               {poForm.items.map((item, i) => (
-                <div key={i} className="flex items-center gap-2 mb-2">
+                <div key={i} className="grid grid-cols-[minmax(240px,1fr)_72px_72px_88px_132px_100px_32px] items-start gap-2 mb-2">
                   <select value={item.menuItemId} onChange={e => {
                     const mi = allSelectableItems.find(m => m.id === e.target.value);
                     const ingredient = getIngredientById(e.target.value);
@@ -789,21 +804,21 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                       </optgroup>
                     )}
                   </select>
-                  <span className={`w-16 text-center text-xs font-bold ${item.menuItemId ? (getStockLevel(item.menuItemId) === 0 ? 'text-red-400' : getStockLevel(item.menuItemId) <= 10 ? 'text-amber-400' : 'text-green-400') : 'text-gray-500'}`}>
+                  <span className={`flex h-10 items-center justify-center text-xs font-bold ${item.menuItemId ? (getStockLevel(item.menuItemId) === 0 ? 'text-red-400' : getStockLevel(item.menuItemId) <= 10 ? 'text-amber-400' : 'text-green-400') : 'text-gray-500'}`}>
                     {item.menuItemId ? getStockLevel(item.menuItemId) : '-'}
                   </span>
-                  <span className={`w-16 text-center text-xs font-bold ${item.menuItemId && getIncomingQuantity(item.menuItemId) > 0 ? 'text-blue-400' : 'text-gray-500'}`}>
+                  <span className={`flex h-10 items-center justify-center text-xs font-bold ${item.menuItemId && getIncomingQuantity(item.menuItemId) > 0 ? 'text-blue-400' : 'text-gray-500'}`}>
                     {item.menuItemId ? getIncomingQuantity(item.menuItemId) : '-'}
                   </span>
-                  <div className="w-20">
+                  <div>
                     <input type="number" value={item.quantity || ''} onChange={e => { const items = [...poForm.items]; items[i] = { ...items[i], quantity: parseFloat(e.target.value) || 0 }; setPoForm(f => ({ ...f, items })); }} placeholder="Qty" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none" />
                     {item.menuItemId && <p className="mt-1 text-center text-[9px] font-bold text-gray-400">{getUnitLabel(getPOPurchaseUnit(item))}</p>}
                   </div>
-                  <span className="w-24 text-center text-[9px] font-semibold text-gray-400">
+                  <span className="flex h-10 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 px-2 text-center text-xs font-bold text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
                     {item.menuItemId ? `= ${getPOStockQuantity(item).toLocaleString()} ${getUnitLabel(getPOStockUnit(item))}` : '-'}
                   </span>
-                  <input type="number" step="0.01" value={item.costPerUnit || ''} onChange={e => { const items = [...poForm.items]; items[i] = { ...items[i], costPerUnit: parseFloat(e.target.value) || 0 }; setPoForm(f => ({ ...f, items })); }} placeholder="Cost/Unit" className="w-24 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none" />
-                  <button onClick={() => { const items = poForm.items.filter((_, idx) => idx !== i); setPoForm(f => ({ ...f, items })); }} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg"><X size={14} /></button>
+                  <input type="number" step="0.01" value={item.costPerUnit || ''} onChange={e => { const items = [...poForm.items]; items[i] = { ...items[i], costPerUnit: parseFloat(e.target.value) || 0 }; setPoForm(f => ({ ...f, items })); }} placeholder="Cost/Unit" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none" />
+                  <button onClick={() => { const items = poForm.items.filter((_, idx) => idx !== i); setPoForm(f => ({ ...f, items })); }} className="flex h-10 items-center justify-center text-red-400 hover:bg-red-500/20 rounded-lg"><X size={14} /></button>
                 </div>
               ))}
               <button onClick={() => setPoForm(f => ({ ...f, items: [...f.items, { menuItemId: '', name: '', quantity: 0, costPerUnit: 0, receivedQuantity: 0, purchaseUnit: 'pcs', stockUnit: 'pcs', stockQuantityPerUnit: 1 }] }))} className="text-xs text-amber-400 font-bold flex items-center gap-1 mt-2 hover:text-amber-300"><Plus size={12} /> Add Item</button>
@@ -1332,6 +1347,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                       <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Action</th>
                       <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Item</th>
                       <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Quantity</th>
+                      <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Detail</th>
                       <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Type</th>
                     </tr>
                   </thead>
@@ -1343,7 +1359,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                           <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{formatDate(entry.timestamp)}</td>
                           <td className="px-5 py-4 text-xs text-gray-900 dark:text-white">{entry.action}</td>
                           <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{entry.itemName}</td>
-                          <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{entry.quantity}</td>
+                          <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{entry.quantity.toLocaleString()} {entry.unit ? getUnitLabel(entry.unit) : ''}</td>
+                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{entry.detail || '-'}</td>
                           <td className="px-5 py-4">
                             <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
                               entry.type === 'in' ? 'bg-green-500/20 text-green-400' :

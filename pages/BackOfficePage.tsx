@@ -127,6 +127,22 @@ const getIngredientPurchaseRatio = (item: Partial<IngredientItem>) => {
   const ratio = Number(item.purchase_to_stock_quantity);
   return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
 };
+const UNIT_LABELS: Record<string, string> = {
+  pcs: 'pcs',
+  bottle: 'bottle',
+  box: 'box',
+  pack: 'pack',
+  bag: 'bag',
+  can: 'can',
+  roll: 'roll',
+  kg: 'kg',
+  g: 'g',
+  litre: 'L',
+  l: 'L',
+  ml: 'ml',
+};
+const getUnitLabel = (unit?: string) => UNIT_LABELS[(unit || 'pcs').toLowerCase()] || unit || 'pcs';
+const formatStockNumber = (value: number) => Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 3 });
 
 const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, networkMeta, batteryMeta, batteryCharging = false, unreadMailCount = 0, onOpenMail, userRole = 'VENDOR' }) => {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -2312,6 +2328,12 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                       {paginatedStock.map(item => {
                         const status = !item.stockEnabled ? 'disabled' : item.currentStock === 0 ? 'out' : item.currentStock <= item.lowStockThreshold ? 'low' : 'ok';
+                        const ingredient = ingredientItems.find(i => i.id === item.menuItemId);
+                        const stockUnit = ingredient ? getIngredientStockUnit(ingredient) : item.unit;
+                        const purchaseUnit = ingredient ? getIngredientPurchaseUnit(ingredient) : item.unit;
+                        const purchaseRatio = ingredient ? getIngredientPurchaseRatio(ingredient) : 1;
+                        const purchaseBalance = purchaseRatio > 0 ? item.currentStock / purchaseRatio : 0;
+                        const showPurchaseBalance = Boolean(ingredient && purchaseUnit !== stockUnit && purchaseRatio !== 1);
                         return (
                           <tr key={item.menuItemId} className={`transition-colors ${!item.stockEnabled ? 'opacity-50' : ''}`}>
                             <td className="px-3 py-4">
@@ -2331,9 +2353,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                               {item.stockEnabled ? (
                               <div className="flex items-center gap-2">
                                 <button onClick={() => handleSetStock(item.menuItemId, item.currentStock - 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Minus size={12} /></button>
-                                <span className={`text-sm font-black min-w-[40px] text-center ${
-                                  status === 'out' ? 'text-red-600 dark:text-red-400' : status === 'low' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'
-                                }`}>{item.currentStock}</span>
+                                <div className="min-w-[92px] text-center">
+                                  <span className={`block text-sm font-black ${
+                                    status === 'out' ? 'text-red-600 dark:text-red-400' : status === 'low' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'
+                                  }`}>{formatStockNumber(item.currentStock)} {getUnitLabel(stockUnit)}</span>
+                                  {showPurchaseBalance && (
+                                    <span className="block text-[10px] font-semibold text-gray-400">{formatStockNumber(purchaseBalance)} {getUnitLabel(purchaseUnit)}</span>
+                                  )}
+                                </div>
                                 <button onClick={() => handleSetStock(item.menuItemId, item.currentStock + 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Plus size={12} /></button>
                               </div>
                               ) : <span className="text-xs text-gray-400">-</span>}
