@@ -338,6 +338,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const [selectedCountCategories, setSelectedCountCategories] = useState<string[]>([]);
 
   // PO Receive modal
+  const [viewingPOId, setViewingPOId] = useState<string | null>(null);
   const [receivingPOId, setReceivingPOId] = useState<string | null>(null);
   const [receiveQuantities, setReceiveQuantities] = useState<Record<string, number>>({});
 
@@ -1102,15 +1103,26 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                   </thead>
                   <tbody>
                     {purchaseOrders.map(po => (
-                      <tr key={po.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                        <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">PO-{po.id.slice(-6)}</td>
+                      <tr
+                        key={po.id}
+                        onClick={() => setViewingPOId(po.id)}
+                        className="cursor-pointer border-b border-gray-100 transition-colors hover:bg-gray-50 dark:border-gray-700/50 dark:hover:bg-gray-700/30"
+                        title="View purchase order"
+                      >
+                        <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">
+                          <span className="inline-flex items-center gap-2">
+                            PO-{po.id.slice(-6)}
+                            <Eye size={12} className="text-gray-400" />
+                          </span>
+                        </td>
                         <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{po.supplierName}</td>
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{po.items.length} items</td>
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{po.expectedDate || '-'}</td>
                         <td className="px-5 py-4"><StatusBadge status={po.status} /></td>
                         <td className="px-5 py-4 text-xs font-bold text-amber-400 hidden sm:table-cell">{currencySymbol}{po.items.reduce((s, i) => s + i.quantity * i.costPerUnit, 0).toFixed(2)}</td>
                         <td className="px-5 py-4 text-right">
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                            <button onClick={() => setViewingPOId(po.id)} className="px-2 py-1 rounded-lg bg-gray-500/10 text-gray-400 text-[10px] font-bold hover:bg-gray-500/20" title="View Details"><Eye size={12} /></button>
                             {po.status === 'draft' && (
                               <button onClick={() => handleUpdatePOStatus(po.id, 'sent')} className="px-2 py-1 rounded-lg bg-blue-500/20 text-blue-400 text-[10px] font-bold hover:bg-blue-500/30" title="Mark as Sent"><Send size={12} /></button>
                             )}
@@ -1479,17 +1491,20 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       {subTab === 'productions' && (
         <div>
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-gray-900 dark:text-white">Productions</h2>
-              <button
-                type="button"
-                onClick={() => setShowProductionInfoModal(true)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-400 transition hover:border-amber-300 hover:text-amber-500 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-amber-700"
-                aria-label="How productions work"
-                title="How productions work"
-              >
-                <Info size={15} />
-              </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-black text-gray-900 dark:text-white">Productions</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowProductionInfoModal(true)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-400 transition hover:border-amber-300 hover:text-amber-500 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-amber-700"
+                  aria-label="How productions work"
+                  title="How productions work"
+                >
+                  <Info size={15} />
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Use produced stock first, then fall back to recipe ingredients when stock runs out.</p>
             </div>
             <button onClick={() => setShowForm(true)} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
               <Plus size={14} /> Add
@@ -1523,8 +1538,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
           <div className="overflow-hidden rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
             <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
               <div>
-                <h2 className="text-sm font-black text-gray-900 dark:text-white">Productions</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Use produced stock first, then fall back to recipe ingredients when stock runs out.</p>
+                <h2 className="text-sm font-black text-gray-900 dark:text-white">Batch Stock</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Record finished items produced before selling. Quantity above zero adds finished stock and deducts ingredients immediately.</p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <div className="relative">
@@ -1614,8 +1629,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               <div className="overflow-hidden rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
                 <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <h2 className="text-sm font-black text-gray-900 dark:text-white">Productions</h2>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Use produced stock first, then fall back to recipe ingredients when stock runs out.</p>
+                    <h2 className="text-sm font-black text-gray-900 dark:text-white">Recipe at Checkout</h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Auto based on the latest previous production record. Checkout uses this recipe only when produced stock is not enough.</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     <div className="relative">
@@ -2186,6 +2201,112 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
           </div>
         </div>
       )}
+
+      {/* ─── PO Detail Modal ─── */}
+      {viewingPOId && (() => {
+        const po = purchaseOrders.find(p => p.id === viewingPOId);
+        if (!po) return null;
+        const supplier = suppliers.find(s => s.id === po.supplierId);
+        const orderedTotal = po.items.reduce((sum, item) => sum + item.quantity * item.costPerUnit, 0);
+        const receivedTotal = po.items.reduce((sum, item) => sum + item.receivedQuantity * item.costPerUnit, 0);
+        const orderedQuantity = po.items.reduce((sum, item) => sum + item.quantity, 0);
+        const receivedQuantity = po.items.reduce((sum, item) => sum + item.receivedQuantity, 0);
+        return (
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setViewingPOId(null)} />
+            <div className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-base font-black text-gray-900 dark:text-white">PO-{po.id.slice(-6)}</h3>
+                    <StatusBadge status={po.status} />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Purchase order details, item quantities, prices, and receipt progress.</p>
+                </div>
+                <button onClick={() => setViewingPOId(null)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-white transition-all">
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Supplier</p>
+                  <p className="mt-1 text-sm font-bold text-gray-900 dark:text-white">{po.supplierName}</p>
+                  {supplier?.phone && <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">{supplier.phone}</p>}
+                  {supplier?.email && <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">{supplier.email}</p>}
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Created</p>
+                  <p className="mt-1 text-sm font-bold text-gray-900 dark:text-white">{formatDate(po.createdAt)}</p>
+                  <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">Expected: {po.expectedDate || '-'}</p>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Quantity</p>
+                  <p className="mt-1 text-sm font-bold text-gray-900 dark:text-white">{receivedQuantity.toLocaleString()} / {orderedQuantity.toLocaleString()}</p>
+                  <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">Received / ordered</p>
+                </div>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/40 dark:bg-amber-900/10">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">Cost</p>
+                  <p className="mt-1 text-sm font-bold text-amber-700 dark:text-amber-300">{currencySymbol}{orderedTotal.toFixed(2)}</p>
+                  <p className="mt-1 text-[10px] text-amber-700/80 dark:text-amber-200/80">Received: {currencySymbol}{receivedTotal.toFixed(2)}</p>
+                </div>
+              </div>
+
+              {po.notes && (
+                <div className="mt-4 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Notes</p>
+                  <p className="mt-1 text-sm text-gray-700 dark:text-gray-200">{po.notes}</p>
+                </div>
+              )}
+
+              <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[820px] text-left">
+                    <thead className="bg-gray-50 dark:bg-gray-900/40">
+                      <tr>
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-gray-400">Item</th>
+                        <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-wider text-gray-400">Ordered</th>
+                        <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-wider text-gray-400">Received</th>
+                        <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-wider text-gray-400">Stock Added</th>
+                        <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-wider text-gray-400">Cost / Unit</th>
+                        <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-wider text-gray-400">Line Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                      {po.items.map((item, index) => {
+                        const purchaseUnit = getUnitLabel(getPOPurchaseUnit(item));
+                        const stockUnit = getUnitLabel(getPOStockUnit(item));
+                        const stockAdded = getPOStockQuantity(item, item.receivedQuantity);
+                        const lineTotal = item.quantity * item.costPerUnit;
+                        return (
+                          <tr key={`${item.menuItemId}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                            <td className="px-4 py-3">
+                              <p className="text-xs font-bold text-gray-900 dark:text-white">{item.name}</p>
+                              <p className="mt-1 text-[10px] text-gray-400">1 {purchaseUnit} = {getPOStockQuantityPerUnit(item).toLocaleString()} {stockUnit}</p>
+                            </td>
+                            <td className="px-4 py-3 text-right text-xs text-gray-600 dark:text-gray-300">{item.quantity.toLocaleString()} {purchaseUnit}</td>
+                            <td className="px-4 py-3 text-right text-xs text-gray-600 dark:text-gray-300">{item.receivedQuantity.toLocaleString()} {purchaseUnit}</td>
+                            <td className="px-4 py-3 text-right text-xs text-gray-600 dark:text-gray-300">{stockAdded.toLocaleString()} {stockUnit}</td>
+                            <td className="px-4 py-3 text-right text-xs font-bold text-gray-900 dark:text-white">{currencySymbol}{item.costPerUnit.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-right text-xs font-bold text-amber-500">{currencySymbol}{lineTotal.toFixed(2)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <button onClick={() => setViewingPOId(null)} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Close</button>
+                {(po.status === 'sent' || po.status === 'partial') && (
+                  <button onClick={() => { setViewingPOId(null); handleOpenReceiveModal(po.id); }} className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20">Receive Items</button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ─── PO Receive Items Modal ─── */}
       {receivingPOId && (() => {
