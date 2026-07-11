@@ -1470,56 +1470,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       {/* ═══════════════════════════════════════ */}
       {subTab === 'productions' && (
         <div>
-          <div className="rounded-t-2xl border-x border-t border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-sm font-black text-gray-900 dark:text-white">Productions</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Use produced stock first, then fall back to recipe ingredients when stock runs out.</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                  <input
-                    type="text"
-                    placeholder="Search item, ingredient, notes..."
-                    value={productionSearch}
-                    onChange={e => setProductionSearch(e.target.value)}
-                    className="w-64 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                  />
-                </div>
-                <select value={productionCategoryFilter} onChange={e => setProductionCategoryFilter(e.target.value)} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                  {productionCategories.map(category => <option key={category} value={category}>{category === 'ALL' ? 'All Categories' : category}</option>)}
-                </select>
-                <button
-                  type="button"
-                  className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
-                >
-                  {productionTab === 'batch_stock' ? 'Batch Stock' : 'Recipe'}
-                </button>
-                {productionTab === 'batch_stock' && (
-                  <button onClick={() => setShowForm(!showForm)} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
-                    <Plus size={14} /> Add
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-800/50">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                Showing {activeProductionCount === 0 ? 0 : (productionCurrentPage - 1) * productionEntriesPerPage + 1}-{Math.min(productionCurrentPage * productionEntriesPerPage, activeProductionCount)} of {activeProductionCount}
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Show</span>
-                <select value={productionEntriesPerPage} onChange={e => setProductionEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border-none bg-gray-100 p-1 text-[10px] font-bold outline-none dark:bg-gray-700 dark:text-white">
-                  <option value={30}>30</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Entries</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-2 border-x border-t border-gray-200 bg-gray-100 p-1 dark:border-gray-700 dark:bg-gray-900 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 rounded-t-2xl border-x border-t border-gray-200 bg-gray-100 p-1 dark:border-gray-700 dark:bg-gray-900 sm:grid-cols-2">
             {([
               { key: 'batch_stock' as const, label: 'Batch Stock', description: 'Produce stock before selling' },
               { key: 'recipe_checkout' as const, label: 'Recipe at Checkout', description: 'Deduct ingredients when sold' },
@@ -1668,6 +1619,50 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
 
           {/* Productions List */}
           <div className="overflow-hidden rounded-b-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-sm font-black text-gray-900 dark:text-white">Productions</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Use produced stock first, then fall back to recipe ingredients when stock runs out.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <input
+                    type="text"
+                    placeholder="Search item, ingredient, notes..."
+                    value={productionSearch}
+                    onChange={e => setProductionSearch(e.target.value)}
+                    className="w-64 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  />
+                </div>
+                <select value={productionCategoryFilter} onChange={e => setProductionCategoryFilter(e.target.value)} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                  {productionCategories.map(category => <option key={category} value={category}>{category === 'ALL' ? 'All Categories' : category}</option>)}
+                </select>
+                <button
+                  type="button"
+                  className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
+                >
+                  Batch Stock
+                </button>
+                <button onClick={() => setShowForm(!showForm)} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                  <Plus size={14} /> Add
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-800/50">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                Showing {activeProductionCount === 0 ? 0 : (productionCurrentPage - 1) * productionEntriesPerPage + 1}-{Math.min(productionCurrentPage * productionEntriesPerPage, activeProductionCount)} of {activeProductionCount}
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Show</span>
+                <select value={productionEntriesPerPage} onChange={e => setProductionEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border-none bg-gray-100 p-1 text-[10px] font-bold outline-none dark:bg-gray-700 dark:text-white">
+                  <option value={30}>30</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Entries</span>
+              </div>
+            </div>
             {paginatedProductions.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
@@ -1752,6 +1747,47 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               </div>
 
               <div className="overflow-hidden rounded-b-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h2 className="text-sm font-black text-gray-900 dark:text-white">Productions</h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Use produced stock first, then fall back to recipe ingredients when stock runs out.</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                      <input
+                        type="text"
+                        placeholder="Search item, ingredient, notes..."
+                        value={productionSearch}
+                        onChange={e => setProductionSearch(e.target.value)}
+                        className="w-64 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                      />
+                    </div>
+                    <select value={productionCategoryFilter} onChange={e => setProductionCategoryFilter(e.target.value)} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                      {productionCategories.map(category => <option key={category} value={category}>{category === 'ALL' ? 'All Categories' : category}</option>)}
+                    </select>
+                    <button
+                      type="button"
+                      className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
+                    >
+                      Recipe
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-800/50">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    Showing {activeProductionCount === 0 ? 0 : (productionCurrentPage - 1) * productionEntriesPerPage + 1}-{Math.min(productionCurrentPage * productionEntriesPerPage, activeProductionCount)} of {activeProductionCount}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Show</span>
+                    <select value={productionEntriesPerPage} onChange={e => setProductionEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border-none bg-gray-100 p-1 text-[10px] font-bold outline-none dark:bg-gray-700 dark:text-white">
+                      <option value={30}>30</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Entries</span>
+                  </div>
+                </div>
                 {paginatedProductionRecipeRows.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
