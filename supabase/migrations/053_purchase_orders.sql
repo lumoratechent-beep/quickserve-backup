@@ -4,6 +4,7 @@
 
 CREATE TABLE IF NOT EXISTS purchase_orders (
   id TEXT PRIMARY KEY,
+  order_number TEXT,
   restaurant_id TEXT NOT NULL,
   supplier_id TEXT NOT NULL DEFAULT '',
   supplier_name TEXT NOT NULL DEFAULT 'Unknown',
@@ -20,6 +21,13 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
 
 ALTER TABLE purchase_orders
   ADD COLUMN IF NOT EXISTS status_log JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+ALTER TABLE purchase_orders
+  ADD COLUMN IF NOT EXISTS order_number TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_purchase_orders_restaurant_order_number
+  ON purchase_orders(restaurant_id, order_number)
+  WHERE order_number IS NOT NULL AND order_number <> '';
 
 CREATE INDEX IF NOT EXISTS idx_purchase_orders_restaurant_created
   ON purchase_orders(restaurant_id, created_at DESC);

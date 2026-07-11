@@ -45,6 +45,7 @@ interface PurchaseOrderStatusLogEntry {
 
 interface PurchaseOrder {
   id: string;
+  orderNumber: string;
   supplierId: string;
   supplierName: string;
   items: PurchaseOrderItem[];
@@ -110,6 +111,7 @@ const normalizePurchaseOrder = (po: Partial<PurchaseOrder>): PurchaseOrder => {
     : 'draft';
   return {
     id: po.id || crypto.randomUUID(),
+    orderNumber: po.orderNumber || '',
     supplierId: po.supplierId || '',
     supplierName: po.supplierName || 'Unknown',
     items: (po.items || []).map(item => ({
@@ -130,6 +132,8 @@ const normalizePurchaseOrder = (po: Partial<PurchaseOrder>): PurchaseOrder => {
     statusLog: Array.isArray(po.statusLog) ? po.statusLog.map(normalizePOStatusLogEntry) : [],
   };
 };
+
+const getPODisplayNumber = (po: Partial<PurchaseOrder>) => po.orderNumber || `PO-${(po.id || '').slice(-6)}`;
 
 interface TransferOrder {
   id: string;
@@ -560,7 +564,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       if (!matchesPOStatusFilter(po, poStatusFilter)) return false;
       if (!q) return true;
       return (
-        `po-${po.id.slice(-6)}`.toLowerCase().includes(q) ||
+        getPODisplayNumber(po).toLowerCase().includes(q) ||
         po.supplierName.toLowerCase().includes(q) ||
         (po.notes || '').toLowerCase().includes(q) ||
         po.items.some(item => item.name.toLowerCase().includes(q))
@@ -635,6 +639,24 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     return getIngredientPurchaseRatio(getIngredientById(item.menuItemId));
   };
   const getPOStockQuantity = (item: PurchaseOrderItem, quantity = item.quantity) => quantity * getPOStockQuantityPerUnit(item);
+  const getRestaurantPOPrefix = () => {
+    const words = (restaurant.name || 'PO')
+      .replace(/[^a-zA-Z0-9\s]/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    const raw = words.length > 1 ? words.map(word => word[0]).join('') : (words[0] || 'PO').slice(0, 3);
+    return (raw || 'PO').toUpperCase();
+  };
+  const getPOSequenceNumber = (orderNumber?: string) => {
+    const match = (orderNumber || '').match(/PO-(\d+)$/i);
+    return match ? Number(match[1]) : 0;
+  };
+  const getNextPOOrderNumber = () => {
+    const prefix = `${getRestaurantPOPrefix()}PO`;
+    const maxExisting = purchaseOrders.reduce((max, po) => Math.max(max, getPOSequenceNumber(po.orderNumber)), 0);
+    return `${prefix}-${maxExisting + 1}`;
+  };
   const getCurrentStaffName = () => {
     try {
       const saved = localStorage.getItem('qs_user');
@@ -746,6 +768,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     const supplier = suppliers.find(s => s.id === poForm.supplierId);
     const newPO: PurchaseOrder = {
       id: crypto.randomUUID(),
+      orderNumber: getNextPOOrderNumber(),
       supplierId: poForm.supplierId,
       supplierName: supplier?.name || 'Unknown',
       items: validItems,
@@ -757,7 +780,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     };
     const updated = [newPO, ...purchaseOrders];
     savePurchaseOrders(updated, newPO);
-    addHistory({ action: 'Purchase order created', itemName: `PO-${newPO.id.slice(-6)}`, quantity: validItems.reduce((s, i) => s + i.quantity, 0), type: 'in', reference: newPO.id });
+    addHistory({ action: 'Purchase order created', itemName: getPODisplayNumber(newPO), quantity: validItems.reduce((s, i) => s + i.quantity, 0), type: 'in', reference: newPO.id });
     setPoForm({ supplierId: '', expectedDate: '', notes: '', items: [] });
     setShowForm(false);
   };
@@ -962,7 +985,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const buildPOCsv = (po: PurchaseOrder) => {
     const csvValue = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
     const rows = [
-      ['Order #', `PO-${po.id.slice(-6)}`],
+      ['Order #', getPODisplayNumber(po)],
       ['Supplier', po.supplierName],
       ['Status', po.status],
       ['Created', formatDate(po.createdAt)],
@@ -988,7 +1011,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     return rows.map(row => row.map(csvValue).join(',')).join('\n');
   };
   const downloadPOExcel = (po: PurchaseOrder) => {
-    downloadTextFile(`PO-${po.id.slice(-6)}.csv`, buildPOCsv(po), 'text/csv;charset=utf-8');
+    downloadTextFile(`${getPODisplayNumber(po)}.csv`, buildPOCsv(po), 'text/csv;charset=utf-8');
   };
   const downloadPOPdf = async (po: PurchaseOrder) => {
     const { default: jsPDF } = await import('jspdf');
@@ -1005,7 +1028,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
     doc.setTextColor(...titleColor);
-    doc.text(`Purchase Order PO-${po.id.slice(-6)}`, margin, y);
+    doc.text(`Purchase Order ${getPODisplayNumber(po)}`, margin, y);
     doc.setFontSize(10);
     doc.setTextColor(...accent);
     doc.text(PO_STATUS_LABELS[po.status], pageWidth - margin, y, { align: 'right' });
@@ -1034,7 +1057,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
           [supplier?.postcode, supplier?.state, supplier?.country].filter(Boolean).join(', '),
         ].filter(Boolean).join('\n'),
         [
-          `Order No: PO-${po.id.slice(-6)}`,
+          `Order No: ${getPODisplayNumber(po)}`,
           `Status: ${PO_STATUS_LABELS[po.status]}`,
           `Created: ${formatDate(po.createdAt)}`,
           `Expected Delivery: ${po.expectedDate || '-'}`,
@@ -1117,15 +1140,15 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       doc.setPage(page);
       doc.setFontSize(8);
       doc.setTextColor(156, 163, 175);
-      doc.text(`PO-${po.id.slice(-6)} | Page ${page} of ${pageCount}`, pageWidth - margin, 291, { align: 'right' });
+      doc.text(`${getPODisplayNumber(po)} | Page ${page} of ${pageCount}`, pageWidth - margin, 291, { align: 'right' });
     }
-    doc.save(`PO-${po.id.slice(-6)}.pdf`);
+    doc.save(`${getPODisplayNumber(po)}.pdf`);
   };
   const copyAndCreatePO = (po: PurchaseOrder) => {
     setPoForm({
       supplierId: po.supplierId,
       expectedDate: '',
-      notes: po.notes ? `Copied from PO-${po.id.slice(-6)}. ${po.notes}` : `Copied from PO-${po.id.slice(-6)}`,
+      notes: po.notes ? `Copied from ${getPODisplayNumber(po)}. ${po.notes}` : `Copied from ${getPODisplayNumber(po)}`,
       items: po.items.map(item => ({ ...item, receivedQuantity: 0 })),
     });
     setShowForm(true);
@@ -1596,11 +1619,11 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
 
           {/* PO List */}
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-2 border-b border-gray-200 px-3 py-2.5 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
               <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
                 Showing {filteredPurchaseOrders.length === 0 ? 0 : (poCurrentPage - 1) * poEntriesPerPage + 1}-{Math.min(poCurrentPage * poEntriesPerPage, filteredPurchaseOrders.length)} of {filteredPurchaseOrders.length}
               </span>
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                   <input
@@ -1608,16 +1631,16 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                     placeholder="Search PO, supplier, item..."
                     value={poSearch}
                     onChange={e => setPoSearch(e.target.value)}
-                    className="h-10 w-64 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    className="h-8 w-64 rounded-lg border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-3 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   />
                 </div>
-                <div className="flex h-10 rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-900">
+                <div className="flex h-8 rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-700 dark:bg-gray-900">
                   {PO_STATUS_FILTER_TABS.map(tab => (
                     <button
                       key={tab.key}
                       type="button"
                       onClick={() => setPoStatusFilter(tab.key)}
-                      className={`h-8 rounded-lg px-3 text-[10px] font-black uppercase tracking-wider transition ${
+                      className={`h-7 rounded-md px-2.5 text-[9px] font-black uppercase tracking-wider transition ${
                         poStatusFilter === tab.key
                           ? tab.activeClass
                           : 'text-gray-500 hover:bg-white hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white'
@@ -1629,7 +1652,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Show</span>
-                  <select value={poEntriesPerPage} onChange={e => setPoEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border border-gray-200 bg-white p-1 text-[10px] font-bold text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                  <select value={poEntriesPerPage} onChange={e => setPoEntriesPerPage(Number(e.target.value))} className="h-8 cursor-pointer rounded-lg border border-gray-200 bg-white px-2 text-[10px] font-bold text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                     <option value={30}>30</option>
                     <option value={50}>50</option>
                     <option value={100}>100</option>
@@ -1660,7 +1683,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                       >
                         <td className="px-4 py-2 text-xs font-bold">
                           <button onClick={() => { setOpenPOActionMenuId(null); setPoActionMenuPosition(null); setViewingPOId(po.id); }} className="font-black text-amber-500 transition hover:text-amber-600 hover:underline">
-                            PO-{po.id.slice(-6)}
+                            {getPODisplayNumber(po)}
                           </button>
                         </td>
                         <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-300">{po.supplierName}</td>
@@ -2832,7 +2855,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-base font-black text-gray-900 dark:text-white">Notes for status change to {PO_STATUS_LABELS[pendingPOStatusChange.newStatus]} (optional)</h3>
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">PO-{po.id.slice(-6)} from {PO_STATUS_LABELS[po.status]} to {PO_STATUS_LABELS[pendingPOStatusChange.newStatus]}.</p>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{getPODisplayNumber(po)} from {PO_STATUS_LABELS[po.status]} to {PO_STATUS_LABELS[pendingPOStatusChange.newStatus]}.</p>
                 </div>
                 <button onClick={closePOStatusNotesModal} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-white transition-all">
                   <X size={16} />
@@ -2869,7 +2892,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-base font-black text-gray-900 dark:text-white">PO-{po.id.slice(-6)}</h3>
+                    <h3 className="text-base font-black text-gray-900 dark:text-white">{getPODisplayNumber(po)}</h3>
                     <StatusBadge status={po.status} />
                     <select
                       value={po.status}
@@ -3020,7 +3043,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setReceivingPOId(null)} />
             <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6">
               <div className="flex items-center justify-between mb-5">
-                <h3 className="text-base font-black text-gray-900 dark:text-white">Receive Items — PO-{po.id.slice(-6)}</h3>
+                <h3 className="text-base font-black text-gray-900 dark:text-white">Receive Items — {getPODisplayNumber(po)}</h3>
                 <button onClick={() => setReceivingPOId(null)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-white transition-all">
                   <X size={16} />
                 </button>

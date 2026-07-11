@@ -22,6 +22,7 @@ export interface PurchaseOrderStatusLogEntry {
 
 export interface PurchaseOrderRecord {
   id: string;
+  orderNumber: string;
   supplierId: string;
   supplierName: string;
   items: PurchaseOrderLine[];
@@ -35,6 +36,7 @@ export interface PurchaseOrderRecord {
 
 type PurchaseOrderRow = {
   id: string;
+  order_number: string | null;
   restaurant_id: string;
   supplier_id: string | null;
   supplier_name: string | null;
@@ -77,6 +79,7 @@ const normalizeStatusLogEntry = (entry: Partial<PurchaseOrderStatusLogEntry>): P
 
 const fromRow = (row: PurchaseOrderRow): PurchaseOrderRecord => ({
   id: row.id,
+  orderNumber: row.order_number || '',
   supplierId: row.supplier_id || '',
   supplierName: row.supplier_name || 'Unknown',
   items: Array.isArray(row.items) ? row.items.map(normalizeLine) : [],
@@ -90,6 +93,7 @@ const fromRow = (row: PurchaseOrderRow): PurchaseOrderRecord => ({
 
 const toRow = (restaurantId: string, po: PurchaseOrderRecord) => ({
   id: po.id,
+  order_number: po.orderNumber || null,
   restaurant_id: restaurantId,
   supplier_id: po.supplierId || '',
   supplier_name: po.supplierName || 'Unknown',
