@@ -1470,7 +1470,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       {/* ═══════════════════════════════════════ */}
       {subTab === 'productions' && (
         <div>
-          <div className="mb-5 rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="rounded-t-2xl border-x border-t border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-sm font-black text-gray-900 dark:text-white">Productions</h2>
@@ -1519,7 +1519,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
             </div>
           </div>
 
-          <div className="mb-5 grid grid-cols-1 gap-2 rounded-2xl border border-gray-200 bg-gray-100 p-1 dark:border-gray-700 dark:bg-gray-900 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 border-x border-t border-gray-200 bg-gray-100 p-1 dark:border-gray-700 dark:bg-gray-900 sm:grid-cols-2">
             {([
               { key: 'batch_stock' as const, label: 'Batch Stock', description: 'Produce stock before selling' },
               { key: 'recipe_checkout' as const, label: 'Recipe at Checkout', description: 'Deduct ingredients when sold' },
@@ -1545,8 +1545,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
 
           {productionTab === 'batch_stock' ? (
             <>
-          <div className="mb-5 grid grid-cols-1 gap-3 lg:grid-cols-3">
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-900/10 lg:col-span-2">
+          <div className="grid grid-cols-1 gap-3 border-x border-t border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800 lg:grid-cols-3">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-900/10 lg:col-span-2">
               <div className="flex items-start gap-3">
                 <Factory size={18} className="mt-0.5 text-amber-600 dark:text-amber-400" />
                 <div>
@@ -1555,7 +1555,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                 </div>
               </div>
             </div>
-            <div className="rounded-2xl border border-green-200 bg-green-50 p-4 dark:border-green-900/40 dark:bg-green-900/10">
+            <div className="rounded-xl border border-green-200 bg-green-50 p-4 dark:border-green-900/40 dark:bg-green-900/10">
               <div className="flex items-start gap-3">
                 <CheckCircle size={18} className="mt-0.5 text-green-600 dark:text-green-400" />
                 <div>
@@ -1567,7 +1567,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
           </div>
 
           {showForm && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 mb-6">
+            <div className="border-x border-t border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
               <h3 className="text-sm font-black mb-4">Record Production</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
@@ -1667,7 +1667,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
           )}
 
           {/* Productions List */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="overflow-hidden rounded-b-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
             {paginatedProductions.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
@@ -1722,9 +1722,9 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
           )}
             </>
           ) : (
-            <div className="space-y-5">
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-                <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/40 dark:bg-blue-900/10 lg:col-span-2">
+            <div>
+              <div className="grid grid-cols-1 gap-3 border-x border-t border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800 lg:grid-cols-3">
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/40 dark:bg-blue-900/10 lg:col-span-2">
                   <div className="flex items-start gap-3">
                     <ShoppingBag size={18} className="mt-0.5 text-blue-600 dark:text-blue-400" />
                     <div>
@@ -1733,13 +1733,14 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                     </div>
                   </div>
                 </div>
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
                   <p className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">How it differs</p>
                   <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">This does not create menu stock. It defines the ingredient usage and cost for the fallback deduction.</p>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-900/10">
+              <div className="border-x border-t border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-900/10">
                 <div className="flex items-start gap-3">
                   <AlertCircle size={18} className="mt-0.5 text-amber-600 dark:text-amber-400" />
                   <div>
@@ -1748,8 +1749,9 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                   </div>
                 </div>
               </div>
+              </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="overflow-hidden rounded-b-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
                 {paginatedProductionRecipeRows.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
