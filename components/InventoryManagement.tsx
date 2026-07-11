@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Restaurant, MenuItem, IngredientItem } from '../src/types';
 import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
+import { fetchPurchaseOrdersFromDb, savePurchaseOrderToDb, savePurchaseOrdersToDb } from '../lib/purchaseOrders';
 import {
   Package, Truck, ArrowUpDown, ClipboardList, Factory,
   History, DollarSign, Plus, Search, Edit3, Trash2, Check, X, ChevronRight,
@@ -294,10 +295,25 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     localStorage.setItem(storeKey(key), JSON.stringify(data));
     syncBackofficeToDb(restaurant.id);
   };
+  const loadPurchaseOrders = (): PurchaseOrder[] => {
+    try {
+      const local = localStorage.getItem(storeKey('purchase_orders'));
+      if (local) return (JSON.parse(local) as Partial<PurchaseOrder>[]).map(normalizePurchaseOrder);
+    } catch { /* ignore corrupt cache */ }
+
+    const legacyOrders = restaurant.settings?.backoffice?.purchase_orders;
+    if (Array.isArray(legacyOrders)) {
+      const normalized = legacyOrders.map(normalizePurchaseOrder);
+      try { localStorage.setItem(storeKey('purchase_orders'), JSON.stringify(normalized)); } catch { /* ignore */ }
+      return normalized;
+    }
+    return [];
+  };
 
   // ─── State ───
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => loadState('suppliers', []));
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => loadState<Partial<PurchaseOrder>[]>('purchase_orders', []).map(normalizePurchaseOrder));
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => subTab === 'purchase_orders' ? loadPurchaseOrders() : []);
+  const [purchaseOrdersLoaded, setPurchaseOrdersLoaded] = useState(false);
   const [transferOrders, setTransferOrders] = useState<TransferOrder[]>(() => loadState('transfer_orders', []));
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>(() => loadState('adjustments', []));
   const [inventoryCounts, setInventoryCounts] = useState<InventoryCount[]>(() => loadState('counts', []));
@@ -376,6 +392,45 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const [viewingPOId, setViewingPOId] = useState<string | null>(null);
   const [receivingPOId, setReceivingPOId] = useState<string | null>(null);
   const [receiveQuantities, setReceiveQuantities] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    setPurchaseOrdersLoaded(false);
+    if (subTab !== 'purchase_orders') setPurchaseOrders([]);
+  }, [restaurant.id]);
+
+  const savePurchaseOrders = (orders: PurchaseOrder[], changedOrder?: PurchaseOrder) => {
+    setPurchaseOrders(orders);
+    localStorage.setItem(storeKey('purchase_orders'), JSON.stringify(orders));
+    if (changedOrder) savePurchaseOrderToDb(restaurant.id, changedOrder).catch(() => {});
+  };
+
+  useEffect(() => {
+    if (subTab !== 'purchase_orders' || purchaseOrdersLoaded) return;
+
+    const cachedOrders = loadPurchaseOrders();
+    setPurchaseOrders(cachedOrders);
+    setPurchaseOrdersLoaded(true);
+
+    let cancelled = false;
+    fetchPurchaseOrdersFromDb(restaurant.id).then(remoteOrders => {
+      if (cancelled || !remoteOrders) return;
+
+      const merged = new Map<string, PurchaseOrder>();
+      remoteOrders.forEach(po => merged.set(po.id, normalizePurchaseOrder(po)));
+      cachedOrders.forEach(po => {
+        if (!merged.has(po.id)) merged.set(po.id, normalizePurchaseOrder(po));
+      });
+
+      const nextOrders = Array.from(merged.values()).sort((a, b) => b.createdAt - a.createdAt);
+      setPurchaseOrders(nextOrders);
+      localStorage.setItem(storeKey('purchase_orders'), JSON.stringify(nextOrders));
+
+      const hasLocalOnlyOrders = cachedOrders.some(po => !remoteOrders.some(remote => remote.id === po.id));
+      if (hasLocalOnlyOrders) savePurchaseOrdersToDb(restaurant.id, nextOrders).catch(() => {});
+    });
+
+    return () => { cancelled = true; };
+  }, [subTab, purchaseOrdersLoaded, restaurant.id]);
 
   const activeMenuItems = useMemo(() => restaurant.menu.filter(m => !m.isArchived), [restaurant.menu]);
 
@@ -607,8 +662,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       notes: poForm.notes,
     };
     const updated = [newPO, ...purchaseOrders];
-    setPurchaseOrders(updated);
-    saveState('purchase_orders', updated);
+    savePurchaseOrders(updated, newPO);
     addHistory({ action: 'Purchase order created', itemName: `PO-${newPO.id.slice(-6)}`, quantity: validItems.reduce((s, i) => s + i.quantity, 0), type: 'in', reference: newPO.id });
     setPoForm({ supplierId: '', expectedDate: '', notes: '', items: [] });
     setShowForm(false);
@@ -712,8 +766,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       }
       return updatedPO;
     });
-    setPurchaseOrders(updated);
-    saveState('purchase_orders', updated);
+    const changedOrder = updated.find(po => po.id === poId);
+    savePurchaseOrders(updated, changedOrder);
   };
 
   const handleOpenReceiveModal = (poId: string) => {
@@ -743,8 +797,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       const newStatus: PurchaseOrder['status'] = allReceived ? 'received' : anyReceived ? 'partial' : po.status;
       return { ...po, items: updatedItems, status: newStatus, ...(allReceived ? { receivedDate: new Date().toISOString().split('T')[0] } : {}) };
     });
-    setPurchaseOrders(updated);
-    saveState('purchase_orders', updated);
+    const changedOrder = updated.find(po => po.id === receivingPOId);
+    savePurchaseOrders(updated, changedOrder);
     setReceivingPOId(null);
     setReceiveQuantities({});
   };
@@ -863,8 +917,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       }
     });
     const updated = purchaseOrders.map(order => order.id === poId ? { ...order, status: 'returned' as const } : order);
-    setPurchaseOrders(updated);
-    saveState('purchase_orders', updated);
+    const changedOrder = updated.find(po => po.id === poId);
+    savePurchaseOrders(updated, changedOrder);
     setOpenPOActionMenuId(null);
   };
 

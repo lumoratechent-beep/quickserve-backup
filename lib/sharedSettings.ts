@@ -320,8 +320,10 @@ export function expandPosSettings(
 }
 
 // ─── Back Office Data Sync ─────────────────────────────────────────────────
-// Keeps localStorage as primary (fast) store; syncs to restaurants.settings.backoffice
-// as a durable cross-device backup. Zero new tables, zero new queries.
+// Keeps localStorage as primary (fast) store; syncs compact back-office data to
+// restaurants.settings.backoffice as a durable cross-device backup.
+// Bulky transactional ledgers such as purchase orders live in dedicated tables
+// and are loaded only from their own screens.
 
 const _pendingSync: Record<string, ReturnType<typeof setTimeout>> = {};
 const SYNC_DELAY = 3000; // ms debounce
@@ -329,7 +331,6 @@ const SYNC_DELAY = 3000; // ms debounce
 const BACKOFFICE_LS_KEYS: { local: (id: string) => string; remote: string }[] = [
   // expenses moved to dedicated Supabase table (031_expenses.sql)
   { local: id => `inv_${id}_suppliers`, remote: 'suppliers' },
-  { local: id => `inv_${id}_purchase_orders`, remote: 'purchase_orders' },
   { local: id => `inv_${id}_transfer_orders`, remote: 'transfer_orders' },
   { local: id => `inv_${id}_adjustments`, remote: 'adjustments' },
   { local: id => `inv_${id}_counts`, remote: 'counts' },

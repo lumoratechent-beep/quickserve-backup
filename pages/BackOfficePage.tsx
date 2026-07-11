@@ -874,9 +874,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return { total, low, out, healthy };
   }, [stockItems]);
 
-  const purchaseOrdersForCost = useMemo<any[]>(() => (
-    loadBackofficeData<any[]>(`inv_${restaurant.id}_purchase_orders`, restaurant.settings, 'purchase_orders', [])
-  ), [restaurant.id, restaurant.settings]);
+  const purchaseOrdersForCost = useMemo<any[]>(() => {
+    try {
+      const saved = localStorage.getItem(`inv_${restaurant.id}_purchase_orders`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  }, [restaurant.id, activeTab, itemSubTab]);
 
   const productionsForCost = useMemo<any[]>(() => (
     loadBackofficeData<any[]>(`inv_${restaurant.id}_productions`, restaurant.settings, 'productions', [])
