@@ -179,6 +179,28 @@ const UNIT_LABELS: Record<string, string> = {
   ml: 'ml',
 };
 
+const PURCHASE_UNIT_OPTIONS = [
+  { value: 'pcs', label: 'Pieces' },
+  { value: 'bottle', label: 'Bottle' },
+  { value: 'box', label: 'Box' },
+  { value: 'pack', label: 'Pack' },
+  { value: 'bag', label: 'Bag' },
+  { value: 'can', label: 'Can' },
+  { value: 'roll', label: 'Roll' },
+  { value: 'kg', label: 'Kilogram (kg)' },
+  { value: 'g', label: 'Gram (g)' },
+  { value: 'litre', label: 'Litre' },
+  { value: 'ml', label: 'Millilitre (ml)' },
+];
+
+const STOCK_UNIT_OPTIONS = [
+  { value: 'pcs', label: 'Pieces' },
+  { value: 'kg', label: 'Kilogram (kg)' },
+  { value: 'g', label: 'Gram (g)' },
+  { value: 'litre', label: 'Litre' },
+  { value: 'ml', label: 'Millilitre (ml)' },
+];
+
 const normalizeUnit = (unit?: string) => {
   const normalized = (unit || 'pcs').toLowerCase();
   return normalized === 'l' ? 'litre' : normalized;
@@ -253,10 +275,20 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const [inventoryCounts, setInventoryCounts] = useState<InventoryCount[]>(() => loadState('counts', []));
   const [productions, setProductions] = useState<Production[]>(() => loadState('productions', []));
   const [historyLog, setHistoryLog] = useState<InventoryHistoryEntry[]>(() => loadState('history', []));
+  const [ingredientItems, setIngredientItems] = useState<IngredientItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(`ingredients_${restaurant.id}`);
+      return saved ? (JSON.parse(saved) as IngredientItem[]).filter(i => !i.is_archived) : [];
+    } catch { return []; }
+  });
 
   // ─── Modal/Form States ───
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [productionSearch, setProductionSearch] = useState('');
+  const [productionCategoryFilter, setProductionCategoryFilter] = useState('ALL');
+  const [productionEntriesPerPage, setProductionEntriesPerPage] = useState(30);
+  const [productionCurrentPage, setProductionCurrentPage] = useState(1);
 
   // ─── Quick Add Supplier Modal ───
   const blankSupplierForm = (): Omit<Supplier, 'id'> => ({
@@ -264,6 +296,20 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   });
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
   const [newSupplierForm, setNewSupplierForm] = useState<Omit<Supplier, 'id'>>(blankSupplierForm());
+  const blankIngredientForm = (): Partial<IngredientItem> => ({
+    name: '',
+    category: '',
+    cost: 0,
+    unit: 'pcs',
+    purchase_unit: 'pcs',
+    purchase_to_stock_quantity: 1,
+    sku: '',
+    barcode: '',
+    notes: '',
+    is_archived: false,
+  });
+  const [quickAddIngredientRow, setQuickAddIngredientRow] = useState<number | null>(null);
+  const [quickAddIngredientForm, setQuickAddIngredientForm] = useState<Partial<IngredientItem>>(blankIngredientForm());
 
   // Purchase order form
   const [poForm, setPoForm] = useState<{ supplierId: string; expectedDate: string; notes: string; items: PurchaseOrderItem[] }>({
@@ -295,12 +341,13 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
 
   const activeMenuItems = useMemo(() => restaurant.menu.filter(m => !m.isArchived), [restaurant.menu]);
 
-  // Load ingredient items from localStorage (same key as BackOfficePage)
-  const ingredientItems = useMemo<IngredientItem[]>(() => {
+  useEffect(() => {
     try {
       const saved = localStorage.getItem(`ingredients_${restaurant.id}`);
-      return saved ? (JSON.parse(saved) as IngredientItem[]).filter(i => !i.is_archived) : [];
-    } catch { return []; }
+      setIngredientItems(saved ? (JSON.parse(saved) as IngredientItem[]).filter(i => !i.is_archived) : []);
+    } catch {
+      setIngredientItems([]);
+    }
   }, [restaurant.id]);
 
   // Combined list of menu items + ingredient items for selectors in PO, transfers, etc.
@@ -340,6 +387,54 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       };
     });
   }, [productions, ingredientItems]);
+  const productionCategories = useMemo(() => {
+    const categories = activeMenuItems.map(item => item.category || 'Uncategorized');
+    return ['ALL', ...Array.from(new Set(categories)).sort((a, b) => a.localeCompare(b))];
+  }, [activeMenuItems]);
+  const filteredProductions = useMemo(() => {
+    const q = productionSearch.trim().toLowerCase();
+    return productions.filter(prod => {
+      const producedMenuItem = activeMenuItems.find(item => item.id === prod.producedItemId);
+      const category = producedMenuItem?.category || 'Uncategorized';
+      if (productionCategoryFilter !== 'ALL' && category !== productionCategoryFilter) return false;
+      if (!q) return true;
+      return (
+        prod.producedItemName.toLowerCase().includes(q) ||
+        (prod.variantLabel || '').toLowerCase().includes(q) ||
+        (prod.notes || '').toLowerCase().includes(q) ||
+        prod.ingredients.some(ingredient => ingredient.name.toLowerCase().includes(q))
+      );
+    });
+  }, [productions, activeMenuItems, productionSearch, productionCategoryFilter]);
+  const filteredProductionRecipeRows = useMemo(() => {
+    const q = productionSearch.trim().toLowerCase();
+    return productionRecipeRows.filter(recipe => {
+      const producedMenuItem = activeMenuItems.find(item => item.id === recipe.producedItemId);
+      const category = producedMenuItem?.category || 'Uncategorized';
+      if (productionCategoryFilter !== 'ALL' && category !== productionCategoryFilter) return false;
+      if (!q) return true;
+      return (
+        recipe.producedItemName.toLowerCase().includes(q) ||
+        (recipe.variantLabel || '').toLowerCase().includes(q) ||
+        (recipe.notes || '').toLowerCase().includes(q) ||
+        recipe.ingredients.some(ingredient => ingredient.name.toLowerCase().includes(q))
+      );
+    });
+  }, [productionRecipeRows, activeMenuItems, productionSearch, productionCategoryFilter]);
+  const activeProductionCount = productionTab === 'batch_stock' ? filteredProductions.length : filteredProductionRecipeRows.length;
+  const productionTotalPages = useMemo(() => Math.max(1, Math.ceil(activeProductionCount / productionEntriesPerPage)), [activeProductionCount, productionEntriesPerPage]);
+  const paginatedProductions = useMemo(() => {
+    const start = (productionCurrentPage - 1) * productionEntriesPerPage;
+    return filteredProductions.slice(start, start + productionEntriesPerPage);
+  }, [filteredProductions, productionCurrentPage, productionEntriesPerPage]);
+  const paginatedProductionRecipeRows = useMemo(() => {
+    const start = (productionCurrentPage - 1) * productionEntriesPerPage;
+    return filteredProductionRecipeRows.slice(start, start + productionEntriesPerPage);
+  }, [filteredProductionRecipeRows, productionCurrentPage, productionEntriesPerPage]);
+
+  useEffect(() => {
+    setProductionCurrentPage(1);
+  }, [productionSearch, productionCategoryFilter, productionEntriesPerPage, productionTab]);
 
   const getPOPurchaseUnit = (item: PurchaseOrderItem) => item.purchaseUnit || getIngredientPurchaseUnit(getIngredientById(item.menuItemId));
   const getPOStockUnit = (item: PurchaseOrderItem) => item.stockUnit || getIngredientStockUnit(getIngredientById(item.menuItemId));
@@ -368,6 +463,17 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       const saved = localStorage.getItem(`stock_${restaurant.id}`);
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
+  };
+
+  const saveIngredientItems = (items: IngredientItem[]) => {
+    setIngredientItems(items.filter(item => !item.is_archived));
+    localStorage.setItem(`ingredients_${restaurant.id}`, JSON.stringify(items));
+    syncBackofficeToDb(restaurant.id);
+  };
+
+  const saveStockItems = (items: any[]) => {
+    localStorage.setItem(`stock_${restaurant.id}`, JSON.stringify(items));
+    syncBackofficeToDb(restaurant.id);
   };
 
   const updateStockItem = (menuItemId: string, delta: number, requireTracking = false) => {
@@ -435,6 +541,74 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     setPoForm(f => ({ ...f, supplierId: newSupplier.id }));
     setNewSupplierForm(blankSupplierForm());
     setShowAddSupplierModal(false);
+  };
+
+  const openQuickAddIngredient = (rowIndex: number) => {
+    setQuickAddIngredientRow(rowIndex);
+    setQuickAddIngredientForm(blankIngredientForm());
+  };
+
+  const closeQuickAddIngredient = () => {
+    setQuickAddIngredientRow(null);
+    setQuickAddIngredientForm(blankIngredientForm());
+  };
+
+  const handleQuickAddIngredient = () => {
+    const name = quickAddIngredientForm.name?.trim();
+    if (!name || quickAddIngredientRow === null) return;
+
+    const newIngredient: IngredientItem = {
+      id: crypto.randomUUID(),
+      restaurant_id: restaurant.id,
+      name,
+      category: quickAddIngredientForm.category?.trim() || 'Uncategorized',
+      cost: Number(quickAddIngredientForm.cost || 0),
+      unit: getIngredientStockUnit(quickAddIngredientForm),
+      purchase_unit: getIngredientPurchaseUnit(quickAddIngredientForm),
+      purchase_to_stock_quantity: getIngredientPurchaseRatio(quickAddIngredientForm),
+      sku: quickAddIngredientForm.sku || '',
+      barcode: quickAddIngredientForm.barcode || '',
+      notes: quickAddIngredientForm.notes || '',
+      is_archived: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    let storedIngredients: IngredientItem[] = ingredientItems;
+    try {
+      const saved = localStorage.getItem(`ingredients_${restaurant.id}`);
+      if (saved) storedIngredients = JSON.parse(saved) as IngredientItem[];
+    } catch { /* keep active ingredient state */ }
+    saveIngredientItems([...storedIngredients, newIngredient]);
+    const stockItems = getStockItems();
+    const hasStockRecord = stockItems.some((item: any) => item.menuItemId === newIngredient.id);
+    if (!hasStockRecord) {
+      saveStockItems([
+        ...stockItems,
+        {
+          menuItemId: newIngredient.id,
+          name: newIngredient.name,
+          category: newIngredient.category,
+          currentStock: 0,
+          lowStockThreshold: 10,
+          unit: newIngredient.unit,
+          lastRestocked: Date.now(),
+          stockEnabled: true,
+        },
+      ]);
+    }
+
+    setProdForm(form => {
+      const ingredients = [...form.ingredients];
+      ingredients[quickAddIngredientRow] = {
+        ...ingredients[quickAddIngredientRow],
+        menuItemId: newIngredient.id,
+        name: newIngredient.name,
+        unit: getIngredientStockUnit(newIngredient),
+      };
+      return { ...form, ingredients };
+    });
+    closeQuickAddIngredient();
   };
 
   const handleUpdatePOStatus = (poId: string, newStatus: PurchaseOrder['status']) => {
@@ -1296,16 +1470,53 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       {/* ═══════════════════════════════════════ */}
       {subTab === 'productions' && (
         <div>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-            <div>
-              <h2 className="text-lg font-black">Productions</h2>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Use produced stock first, then fall back to recipe ingredients when stock runs out.</p>
+          <div className="mb-5 rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-sm font-black text-gray-900 dark:text-white">Productions</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Use produced stock first, then fall back to recipe ingredients when stock runs out.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <input
+                    type="text"
+                    placeholder="Search item, ingredient, notes..."
+                    value={productionSearch}
+                    onChange={e => setProductionSearch(e.target.value)}
+                    className="w-64 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  />
+                </div>
+                <select value={productionCategoryFilter} onChange={e => setProductionCategoryFilter(e.target.value)} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                  {productionCategories.map(category => <option key={category} value={category}>{category === 'ALL' ? 'All Categories' : category}</option>)}
+                </select>
+                <button
+                  type="button"
+                  className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
+                >
+                  {productionTab === 'batch_stock' ? 'Batch Stock' : 'Recipe'}
+                </button>
+                {productionTab === 'batch_stock' && (
+                  <button onClick={() => setShowForm(!showForm)} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                    <Plus size={14} /> Add
+                  </button>
+                )}
+              </div>
             </div>
-            {productionTab === 'batch_stock' && (
-              <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20">
-                <Plus size={14} /> Record Production
-              </button>
-            )}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-800/50">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                Showing {activeProductionCount === 0 ? 0 : (productionCurrentPage - 1) * productionEntriesPerPage + 1}-{Math.min(productionCurrentPage * productionEntriesPerPage, activeProductionCount)} of {activeProductionCount}
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Show</span>
+                <select value={productionEntriesPerPage} onChange={e => setProductionEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border-none bg-gray-100 p-1 text-[10px] font-bold outline-none dark:bg-gray-700 dark:text-white">
+                  <option value={30}>30</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Entries</span>
+              </div>
+            </div>
           </div>
 
           <div className="mb-5 grid grid-cols-1 gap-2 rounded-2xl border border-gray-200 bg-gray-100 p-1 dark:border-gray-700 dark:bg-gray-900 sm:grid-cols-2">
@@ -1402,15 +1613,34 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Notes</label>
                 <input type="text" value={prodForm.notes} onChange={e => setProdForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
               </div>
+              <div className="mb-2 flex flex-col gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] text-blue-700 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">
+                <span className="leading-tight">Ingredients missing from the list can be added from the dropdown, or managed with full details in Items & Stock.</span>
+                {onNavigateToItemsStock && (
+                  <button onClick={onNavigateToItemsStock} className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-white px-2.5 text-[9px] font-bold uppercase tracking-wider text-blue-700 shadow-sm transition hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-950/70">
+                    <ShoppingBag size={12} /> Items & Stock
+                  </button>
+                )}
+              </div>
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">Ingredients Used</label>
               {prodForm.ingredients.map((ing, i) => (
                 <div key={i} className="flex items-center gap-2 mb-2">
-                  <select value={ing.menuItemId} onChange={e => { const mi = ingredientSelectableItems.find(m => m.id === e.target.value); const ingredient = getIngredientById(e.target.value); const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], menuItemId: e.target.value, name: mi?.name || '', unit: getIngredientStockUnit(ingredient) }; setProdForm(f => ({ ...f, ingredients })); }} className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                  <select value={ing.menuItemId} onChange={e => {
+                    if (e.target.value === '__add_ingredient__') {
+                      openQuickAddIngredient(i);
+                      return;
+                    }
+                    const mi = ingredientSelectableItems.find(m => m.id === e.target.value);
+                    const ingredient = getIngredientById(e.target.value);
+                    const ingredients = [...prodForm.ingredients];
+                    ingredients[i] = { ...ingredients[i], menuItemId: e.target.value, name: mi?.name || '', unit: getIngredientStockUnit(ingredient) };
+                    setProdForm(f => ({ ...f, ingredients }));
+                  }} className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
                     <option value="">Select ingredient</option>
                     {ingredientSelectableItems.map(m => {
                       const ingredient = getIngredientById(m.id);
                       return <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)} {getUnitLabel(getIngredientStockUnit(ingredient))})</option>;
                     })}
+                    <option value="__add_ingredient__">+ Add Ingredient / Supply</option>
                   </select>
                   <input type="number" step="0.001" value={ing.quantityUsed} onChange={e => { const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], quantityUsed: e.target.value }; setProdForm(f => ({ ...f, ingredients })); }} placeholder="Qty" className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none" />
                   <select value={ing.unit} onChange={e => { const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], unit: e.target.value }; setProdForm(f => ({ ...f, ingredients })); }} className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-2 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
@@ -1438,7 +1668,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
 
           {/* Productions List */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            {productions.length > 0 ? (
+            {paginatedProductions.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
@@ -1451,7 +1681,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                     </tr>
                   </thead>
                   <tbody>
-                    {productions.map(prod => (
+                    {paginatedProductions.map(prod => (
                       <tr key={prod.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{formatDate(prod.timestamp)}</td>
                         <td className="px-5 py-4">
@@ -1476,11 +1706,20 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
             ) : (
               <div className="h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
                 <Factory size={40} className="mb-3 opacity-30" />
-                <p className="text-sm font-bold">No productions recorded</p>
-                <p className="text-xs text-gray-500 mt-1">Track items produced from ingredients</p>
+                <p className="text-sm font-bold">{productions.length === 0 ? 'No productions recorded' : 'No productions match the filters'}</p>
+                <p className="text-xs text-gray-500 mt-1">{productions.length === 0 ? 'Track items produced from ingredients' : 'Try changing the search or category filter'}</p>
               </div>
             )}
           </div>
+          {productionTotalPages > 1 && (
+            <div className="mt-6 flex items-center justify-center gap-2 overflow-x-auto py-2">
+              <button onClick={() => setProductionCurrentPage(1)} disabled={productionCurrentPage === 1} className="px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-[10px] font-black text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">First</button>
+              <button onClick={() => setProductionCurrentPage(page => Math.max(1, page - 1))} disabled={productionCurrentPage === 1} className="px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-[10px] font-black text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">Prev</button>
+              <span className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Page {productionCurrentPage} / {productionTotalPages}</span>
+              <button onClick={() => setProductionCurrentPage(page => Math.min(productionTotalPages, page + 1))} disabled={productionCurrentPage === productionTotalPages} className="px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-[10px] font-black text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">Next</button>
+              <button onClick={() => setProductionCurrentPage(productionTotalPages)} disabled={productionCurrentPage === productionTotalPages} className="px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-[10px] font-black text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">Last</button>
+            </div>
+          )}
             </>
           ) : (
             <div className="space-y-5">
@@ -1511,7 +1750,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               </div>
 
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                {productionRecipeRows.length > 0 ? (
+                {paginatedProductionRecipeRows.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
                       <thead>
@@ -1524,7 +1763,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                         </tr>
                       </thead>
                       <tbody>
-                        {productionRecipeRows.map(recipe => (
+                        {paginatedProductionRecipeRows.map(recipe => (
                           <tr key={`${recipe.producedItemId}-${recipe.variantKey || 'all'}`} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                             <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{recipe.producedItemName}</td>
                             <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{recipe.appliesTo === 'variants' ? recipe.variantLabel || 'Adjusted variant' : 'All variants'}</td>
@@ -1541,11 +1780,20 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                 ) : (
                   <div className="h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
                     <FileText size={40} className="mb-3 opacity-30" />
-                    <p className="text-sm font-bold">No recipe source yet</p>
-                    <p className="text-xs text-gray-500 mt-1">Record a production batch to create the current recipe reference</p>
+                    <p className="text-sm font-bold">{productionRecipeRows.length === 0 ? 'No recipe source yet' : 'No recipes match the filters'}</p>
+                    <p className="text-xs text-gray-500 mt-1">{productionRecipeRows.length === 0 ? 'Record a production batch to create the current recipe reference' : 'Try changing the search or category filter'}</p>
                   </div>
                 )}
               </div>
+              {productionTotalPages > 1 && (
+                <div className="mt-6 flex items-center justify-center gap-2 overflow-x-auto py-2">
+                  <button onClick={() => setProductionCurrentPage(1)} disabled={productionCurrentPage === 1} className="px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-[10px] font-black text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">First</button>
+                  <button onClick={() => setProductionCurrentPage(page => Math.max(1, page - 1))} disabled={productionCurrentPage === 1} className="px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-[10px] font-black text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">Prev</button>
+                  <span className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Page {productionCurrentPage} / {productionTotalPages}</span>
+                  <button onClick={() => setProductionCurrentPage(page => Math.min(productionTotalPages, page + 1))} disabled={productionCurrentPage === productionTotalPages} className="px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-[10px] font-black text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">Next</button>
+                  <button onClick={() => setProductionCurrentPage(productionTotalPages)} disabled={productionCurrentPage === productionTotalPages} className="px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-[10px] font-black text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">Last</button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1737,6 +1985,67 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       )}
 
       {/* ─── Partial Count Category Modal ─── */}
+      {quickAddIngredientRow !== null && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeQuickAddIngredient} />
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="text-base font-black text-gray-900 dark:text-white">Add Ingredient / Supply</h3>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Create it here and use it in this production immediately.</p>
+              </div>
+              <button onClick={closeQuickAddIngredient} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-white transition-all">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Name *</label>
+                <input type="text" value={quickAddIngredientForm.name || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, name: e.target.value }))} placeholder="e.g. Chicken, Rice, Sauce" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Category</label>
+                  <input type="text" value={quickAddIngredientForm.category || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, category: e.target.value }))} placeholder="Ingredients" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Cost per Purchase Unit ({currencySymbol})</label>
+                  <input type="number" step="0.01" value={quickAddIngredientForm.cost || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, cost: parseFloat(e.target.value) || 0 }))} placeholder="0.00" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Purchase Unit</label>
+                  <select value={getIngredientPurchaseUnit(quickAddIngredientForm)} onChange={e => setQuickAddIngredientForm(form => ({ ...form, purchase_unit: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                    {PURCHASE_UNIT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Stock Unit</label>
+                  <select value={getIngredientStockUnit(quickAddIngredientForm)} onChange={e => setQuickAddIngredientForm(form => ({ ...form, unit: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                    {STOCK_UNIT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">1 Purchase Unit Equals</label>
+                  <input type="number" step="0.001" value={quickAddIngredientForm.purchase_to_stock_quantity || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, purchase_to_stock_quantity: parseFloat(e.target.value) || 0 }))} placeholder="1" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Notes</label>
+                <input type="text" value={quickAddIngredientForm.notes || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, notes: e.target.value }))} placeholder="Optional notes" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={closeQuickAddIngredient} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
+              <button onClick={handleQuickAddIngredient} className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20">Add Ingredient</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPartialCountModal && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowPartialCountModal(false)} />
