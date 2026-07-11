@@ -910,7 +910,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     const candidates = [...productionsForCost]
       .filter(production => (
         production.producedItemId === menuItemId &&
-        Number(production.quantityProduced) > 0 &&
+        Number(production.quantityProduced) >= 0 &&
         (variantKey
           ? production.appliesTo === 'variants' && production.variantKey === variantKey
           : production.appliesTo !== 'variants')
@@ -922,7 +922,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       const stockQuantity = Number(ingredient.stockQuantityUsed ?? ingredient.quantityUsed) || 0;
       return sum + stockQuantity * getLatestStockUnitCost(ingredient.menuItemId);
     }, 0);
-    return totalCost / Number(production.quantityProduced || 1);
+    const quantityProduced = Number(production.quantityProduced || 0);
+    return totalCost / (quantityProduced > 0 ? quantityProduced : 1);
   };
 
   const getDisplayedMenuItemCost = (item: MenuItem) => (

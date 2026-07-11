@@ -4,8 +4,8 @@ import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
 import {
   Package, Truck, ArrowUpDown, ClipboardList, Factory,
   History, DollarSign, Plus, Search, Edit3, Trash2, Check, X, ChevronRight,
-  ArrowLeft, Eye, Send, Download, Upload, AlertCircle, CheckCircle, XCircle,
-  Clock, FileText, BarChart3, ShoppingBag,
+  ArrowLeft, Eye, Send, Download, Upload, XCircle,
+  Clock, FileText, BarChart3, ShoppingBag, Info,
 } from 'lucide-react';
 
 // ─── Inventory Types ───
@@ -284,6 +284,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
 
   // ─── Modal/Form States ───
   const [showForm, setShowForm] = useState(false);
+  const [showProductionInfoModal, setShowProductionInfoModal] = useState(false);
+  const [showQuantityProducedInfoModal, setShowQuantityProducedInfoModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [productionSearch, setProductionSearch] = useState('');
   const [productionCategoryFilter, setProductionCategoryFilter] = useState('ALL');
@@ -383,7 +385,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       const quantityProduced = Number(prod.quantityProduced || 0);
       return {
         ...prod,
-        costPerUnit: quantityProduced > 0 ? totalIngredientCost / quantityProduced : 0,
+        costPerUnit: quantityProduced > 0 ? totalIngredientCost / quantityProduced : totalIngredientCost,
       };
     });
   }, [productions, ingredientItems]);
@@ -812,7 +814,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   // ════════════════════════════════════════
   const handleSaveProduction = () => {
     const qty = parseFloat(prodForm.quantityProduced);
-    if (!prodForm.producedItemId || isNaN(qty) || qty <= 0) return;
+    if (!prodForm.producedItemId || isNaN(qty) || qty < 0) return;
     if (prodForm.appliesTo === 'variants' && !prodForm.variantKey) return;
     const producedMenuItem = menuSelectableItems.find(m => m.id === prodForm.producedItemId);
     if (!producedMenuItem) return;
@@ -840,34 +842,36 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       timestamp: Date.now(),
       notes: prodForm.notes,
     };
-    // Credit stock to produced item
-    updateStockItem(prodForm.producedItemId, qty);
-    addHistory({
-      action: 'Production output',
-      itemName: producedMenuItem.name,
-      quantity: qty,
-      unit: 'pcs',
-      detail: `${prod.appliesTo === 'variants' && prod.variantLabel ? `${prod.variantLabel}: ` : ''}Produced from ${validIngredients.length} ingredient${validIngredients.length === 1 ? '' : 's'}`,
-      type: 'in',
-      reference: prod.id,
-    });
-    // Deduct stock from each ingredient
-    validIngredients.forEach(ing => {
-      if (ing.quantityUsed > 0) {
-        const stockQuantityUsed = ing.stockQuantityUsed ?? ing.quantityUsed;
-        const deducted = updateStockItem(ing.menuItemId, -stockQuantityUsed, true);
-        if (!deducted) return;
-        addHistory({
-          action: 'Production ingredient used',
-          itemName: ing.name,
-          quantity: stockQuantityUsed,
-          unit: ing.stockUnit,
-          detail: `Used for ${producedMenuItem.name}`,
-          type: 'out',
-          reference: prod.id,
-        });
-      }
-    });
+    if (qty > 0) {
+      // Credit stock to produced item
+      updateStockItem(prodForm.producedItemId, qty);
+      addHistory({
+        action: 'Production output',
+        itemName: producedMenuItem.name,
+        quantity: qty,
+        unit: 'pcs',
+        detail: `${prod.appliesTo === 'variants' && prod.variantLabel ? `${prod.variantLabel}: ` : ''}Produced from ${validIngredients.length} ingredient${validIngredients.length === 1 ? '' : 's'}`,
+        type: 'in',
+        reference: prod.id,
+      });
+      // Deduct stock from each ingredient
+      validIngredients.forEach(ing => {
+        if (ing.quantityUsed > 0) {
+          const stockQuantityUsed = ing.stockQuantityUsed ?? ing.quantityUsed;
+          const deducted = updateStockItem(ing.menuItemId, -stockQuantityUsed, true);
+          if (!deducted) return;
+          addHistory({
+            action: 'Production ingredient used',
+            itemName: ing.name,
+            quantity: stockQuantityUsed,
+            unit: ing.stockUnit,
+            detail: `Used for ${producedMenuItem.name}`,
+            type: 'out',
+            reference: prod.id,
+          });
+        }
+      });
+    }
     const updated = [prod, ...productions];
     setProductions(updated);
     saveState('productions', updated);
@@ -1470,155 +1474,49 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       {/* ═══════════════════════════════════════ */}
       {subTab === 'productions' && (
         <div>
-          <div className="grid grid-cols-1 gap-2 rounded-t-2xl border-x border-t border-gray-200 bg-gray-100 p-1 dark:border-gray-700 dark:bg-gray-900 sm:grid-cols-2">
+          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-black text-gray-900 dark:text-white">Productions</h2>
+              <button
+                type="button"
+                onClick={() => setShowProductionInfoModal(true)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-400 transition hover:border-amber-300 hover:text-amber-500 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-amber-700"
+                aria-label="How productions work"
+                title="How productions work"
+              >
+                <Info size={15} />
+              </button>
+            </div>
+            <button onClick={() => setShowForm(true)} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+              <Plus size={14} /> Add
+            </button>
+          </div>
+
+          <div className="flex gap-0 relative overflow-x-auto overflow-y-hidden hide-scrollbar">
             {([
-              { key: 'batch_stock' as const, label: 'Batch Stock', description: 'Produce stock before selling' },
-              { key: 'recipe_checkout' as const, label: 'Recipe at Checkout', description: 'Deduct ingredients when sold' },
+              { key: 'batch_stock' as const, label: 'Batch Stock', icon: <Factory size={13} /> },
+              { key: 'recipe_checkout' as const, label: 'Recipe at Checkout', icon: <ShoppingBag size={13} /> },
             ]).map(tab => (
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => {
-                  setProductionTab(tab.key);
-                  if (tab.key !== 'batch_stock') setShowForm(false);
-                }}
-                className={`rounded-xl px-4 py-3 text-left transition-all ${
+                onClick={() => setProductionTab(tab.key)}
+                className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
                   productionTab === tab.key
-                    ? 'bg-white text-amber-700 shadow-sm dark:bg-gray-800 dark:text-amber-300'
-                    : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                    ? 'bg-white dark:bg-gray-800 text-amber-600 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-amber-500 z-10'
+                    : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
                 }`}
               >
-                <span className="block text-xs font-black uppercase tracking-wider">{tab.label}</span>
-                <span className="mt-1 block text-[10px] font-semibold">{tab.description}</span>
+                {tab.icon}
+                {tab.label}
               </button>
             ))}
           </div>
 
           {productionTab === 'batch_stock' ? (
             <>
-          <div className="grid grid-cols-1 gap-3 rounded-b-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800 lg:grid-cols-3">
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-900/10 lg:col-span-2">
-              <div className="flex items-start gap-3">
-                <Factory size={18} className="mt-0.5 text-amber-600 dark:text-amber-400" />
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">Batch Stock</p>
-                  <p className="mt-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">Use this when you prepare finished menu stock before selling, for example making 100 portions of Menu A. Recording a batch increases the menu item's stock and deducts ingredient stock immediately.</p>
-                </div>
-              </div>
-            </div>
-            <div className="rounded-xl border border-green-200 bg-green-50 p-4 dark:border-green-900/40 dark:bg-green-900/10">
-              <div className="flex items-start gap-3">
-                <CheckCircle size={18} className="mt-0.5 text-green-600 dark:text-green-400" />
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wider text-green-700 dark:text-green-300">Checkout Rule</p>
-                  <p className="mt-1 text-xs leading-relaxed text-green-700/80 dark:text-green-200/80">Sales deduct this produced balance first. If the balance is not enough, only the remaining quantity uses the recipe ingredients.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {showForm && (
-            <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
-              <h3 className="text-sm font-black mb-4">Record Production</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Produced Item *</label>
-                  <select value={prodForm.producedItemId} onChange={e => { const mi = menuSelectableItems.find(m => m.id === e.target.value); setProdForm(f => ({ ...f, producedItemId: e.target.value, producedItemName: mi?.name || '', appliesTo: 'all', variantKey: '', variantLabel: '' })); }} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                    <option value="">Select menu item to produce</option>
-                    {menuSelectableItems.map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Quantity Produced *</label>
-                  <input type="number" step="0.001" value={prodForm.quantityProduced} onChange={e => setProdForm(f => ({ ...f, quantityProduced: e.target.value }))} placeholder="0" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Applicable</label>
-                  <div className="flex rounded-xl border border-gray-200 bg-gray-100 p-1 dark:border-gray-700 dark:bg-gray-900">
-                    {([['all', 'All Variants'], ['variants', 'Adjust Variant']] as const).map(([key, label]) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setProdForm(f => ({ ...f, appliesTo: key, variantKey: key === 'all' ? '' : f.variantKey, variantLabel: key === 'all' ? '' : f.variantLabel }))}
-                        className={`flex-1 rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors ${prodForm.appliesTo === key ? 'bg-white text-amber-600 shadow-sm dark:bg-gray-800 dark:text-amber-400' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'}`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {prodForm.appliesTo === 'variants' && (
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Variant</label>
-                    <select value={prodForm.variantKey} onChange={e => { const option = selectedProductionVariantOptions.find(v => v.key === e.target.value); setProdForm(f => ({ ...f, variantKey: e.target.value, variantLabel: option?.label || '' })); }} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                      <option value="">Select variant</option>
-                      {selectedProductionVariantOptions.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}
-                    </select>
-                    {selectedProductionVariantOptions.length === 0 && <p className="mt-1 text-[10px] font-semibold text-gray-400">This menu item has no variants yet.</p>}
-                  </div>
-                )}
-              </div>
-              <div className="mb-4">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Notes</label>
-                <input type="text" value={prodForm.notes} onChange={e => setProdForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-              </div>
-              <div className="mb-2 flex flex-col gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] text-blue-700 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">
-                <span className="leading-tight">Ingredients missing from the list can be added from the dropdown, or managed with full details in Items & Stock.</span>
-                {onNavigateToItemsStock && (
-                  <button onClick={onNavigateToItemsStock} className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-white px-2.5 text-[9px] font-bold uppercase tracking-wider text-blue-700 shadow-sm transition hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-950/70">
-                    <ShoppingBag size={12} /> Items & Stock
-                  </button>
-                )}
-              </div>
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">Ingredients Used</label>
-              {prodForm.ingredients.map((ing, i) => (
-                <div key={i} className="flex items-center gap-2 mb-2">
-                  <select value={ing.menuItemId} onChange={e => {
-                    if (e.target.value === '__add_ingredient__') {
-                      openQuickAddIngredient(i);
-                      return;
-                    }
-                    const mi = ingredientSelectableItems.find(m => m.id === e.target.value);
-                    const ingredient = getIngredientById(e.target.value);
-                    const ingredients = [...prodForm.ingredients];
-                    ingredients[i] = { ...ingredients[i], menuItemId: e.target.value, name: mi?.name || '', unit: getIngredientStockUnit(ingredient) };
-                    setProdForm(f => ({ ...f, ingredients }));
-                  }} className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                    <option value="">Select ingredient</option>
-                    {ingredientSelectableItems.map(m => {
-                      const ingredient = getIngredientById(m.id);
-                      return <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)} {getUnitLabel(getIngredientStockUnit(ingredient))})</option>;
-                    })}
-                    <option value="__add_ingredient__">+ Add Ingredient / Supply</option>
-                  </select>
-                  <input type="number" step="0.001" value={ing.quantityUsed} onChange={e => { const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], quantityUsed: e.target.value }; setProdForm(f => ({ ...f, ingredients })); }} placeholder="Qty" className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none" />
-                  <select value={ing.unit} onChange={e => { const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], unit: e.target.value }; setProdForm(f => ({ ...f, ingredients })); }} className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-2 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                    {getRelatedUnits(getIngredientById(ing.menuItemId)).map(unit => (
-                      <option key={unit} value={unit}>{getUnitLabel(unit)}</option>
-                    ))}
-                  </select>
-                  <button onClick={() => { const ingredients = prodForm.ingredients.filter((_, idx) => idx !== i); setProdForm(f => ({ ...f, ingredients })); }} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg"><X size={14} /></button>
-                </div>
-              ))}
-              <button onClick={() => setProdForm(f => ({ ...f, ingredients: [...f.ingredients, { menuItemId: '', name: '', quantityUsed: '', unit: 'pcs' }] }))} className="text-xs text-amber-400 font-bold flex items-center gap-1 mt-2 hover:text-amber-300"><Plus size={12} /> Add Ingredient</button>
-
-              <div className="flex gap-3 mt-6">
-                <button onClick={() => setShowForm(false)} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
-                <button
-                  onClick={handleSaveProduction}
-                  disabled={prodForm.appliesTo === 'variants' && !prodForm.variantKey}
-                  className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Save Production
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Productions List */}
-          <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+          <div className="overflow-hidden rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
             <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-sm font-black text-gray-900 dark:text-white">Productions</h2>
@@ -1638,15 +1536,6 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                 <select value={productionCategoryFilter} onChange={e => setProductionCategoryFilter(e.target.value)} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                   {productionCategories.map(category => <option key={category} value={category}>{category === 'ALL' ? 'All Categories' : category}</option>)}
                 </select>
-                <button
-                  type="button"
-                  className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
-                >
-                  Batch Stock
-                </button>
-                <button onClick={() => setShowForm(!showForm)} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
-                  <Plus size={14} /> Add
-                </button>
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40">
@@ -1718,35 +1607,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
             </>
           ) : (
             <div>
-              <div className="grid grid-cols-1 gap-3 border-x border-t border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800 lg:grid-cols-3">
-                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/40 dark:bg-blue-900/10 lg:col-span-2">
-                  <div className="flex items-start gap-3">
-                    <ShoppingBag size={18} className="mt-0.5 text-blue-600 dark:text-blue-400" />
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">Recipe at Checkout</p>
-                      <p className="mt-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">Use this when produced stock is empty or not enough. Checkout deducts ingredients only for the sold quantity that is not covered by produced stock.</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                  <p className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">How it differs</p>
-                  <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">This does not create menu stock. It defines the ingredient usage and cost for the fallback deduction.</p>
-                </div>
-              </div>
-
-              <div className="rounded-b-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-900/10">
-                <div className="flex items-start gap-3">
-                  <AlertCircle size={18} className="mt-0.5 text-amber-600 dark:text-amber-400" />
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">Current Recipe Source</p>
-                    <p className="mt-1 text-xs leading-relaxed text-amber-800/80 dark:text-amber-200/80">Checkout reads the latest production record for each menu item or variant as the fallback recipe. The table below shows which recipe is currently used.</p>
-                  </div>
-                </div>
-              </div>
-              </div>
-
-              <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+              <div className="overflow-hidden rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
                 <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
                   <div>
                     <h2 className="text-sm font-black text-gray-900 dark:text-white">Productions</h2>
@@ -1766,12 +1627,6 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                     <select value={productionCategoryFilter} onChange={e => setProductionCategoryFilter(e.target.value)} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                       {productionCategories.map(category => <option key={category} value={category}>{category === 'ALL' ? 'All Categories' : category}</option>)}
                     </select>
-                    <button
-                      type="button"
-                      className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
-                    >
-                      Recipe
-                    </button>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40">
@@ -2080,6 +1935,188 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               <button onClick={closeQuickAddIngredient} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
               <button onClick={handleQuickAddIngredient} className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20">Add Ingredient</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {subTab === 'productions' && showForm && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
+          <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-black text-gray-900 dark:text-white">Add Production</h3>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Record finished stock or save a recipe cost reference.</p>
+              </div>
+              <button onClick={() => setShowForm(false)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-white transition-all">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Produced Item *</label>
+                <select value={prodForm.producedItemId} onChange={e => { const mi = menuSelectableItems.find(m => m.id === e.target.value); setProdForm(f => ({ ...f, producedItemId: e.target.value, producedItemName: mi?.name || '', appliesTo: 'all', variantKey: '', variantLabel: '' })); }} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                  <option value="">Select menu item to produce</option>
+                  {menuSelectableItems.map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
+                </select>
+              </div>
+              <div>
+                <div className="mb-1 flex items-center gap-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Quantity Produced *</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowQuantityProducedInfoModal(true)}
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-200 text-gray-400 transition hover:border-amber-300 hover:text-amber-500 dark:border-gray-700"
+                    aria-label="Quantity produced information"
+                    title="Quantity produced information"
+                  >
+                    <Info size={12} />
+                  </button>
+                </div>
+                <input type="number" step="0.001" min="0" value={prodForm.quantityProduced} onChange={e => setProdForm(f => ({ ...f, quantityProduced: e.target.value }))} placeholder="0" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Applicable</label>
+                <div className="flex rounded-xl border border-gray-200 bg-gray-100 p-1 dark:border-gray-700 dark:bg-gray-900">
+                  {([['all', 'All Variants'], ['variants', 'Adjust Variant']] as const).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setProdForm(f => ({ ...f, appliesTo: key, variantKey: key === 'all' ? '' : f.variantKey, variantLabel: key === 'all' ? '' : f.variantLabel }))}
+                      className={`flex-1 rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors ${prodForm.appliesTo === key ? 'bg-white text-amber-600 shadow-sm dark:bg-gray-800 dark:text-amber-400' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {prodForm.appliesTo === 'variants' && (
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Variant</label>
+                  <select value={prodForm.variantKey} onChange={e => { const option = selectedProductionVariantOptions.find(v => v.key === e.target.value); setProdForm(f => ({ ...f, variantKey: e.target.value, variantLabel: option?.label || '' })); }} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                    <option value="">Select variant</option>
+                    {selectedProductionVariantOptions.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}
+                  </select>
+                  {selectedProductionVariantOptions.length === 0 && <p className="mt-1 text-[10px] font-semibold text-gray-400">This menu item has no variants yet.</p>}
+                </div>
+              )}
+            </div>
+
+            <div className="mb-4">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Notes</label>
+              <input type="text" value={prodForm.notes} onChange={e => setProdForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+            </div>
+
+            <div className="mb-2 flex flex-col gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] text-blue-700 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">
+              <span className="leading-tight">Ingredients missing from the list can be added from the dropdown, or managed with full details in Items & Stock.</span>
+              {onNavigateToItemsStock && (
+                <button onClick={onNavigateToItemsStock} className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-white px-2.5 text-[9px] font-bold uppercase tracking-wider text-blue-700 shadow-sm transition hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-950/70">
+                  <ShoppingBag size={12} /> Items & Stock
+                </button>
+              )}
+            </div>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">Ingredients Used</label>
+            {prodForm.ingredients.map((ing, i) => (
+              <div key={i} className="flex flex-col gap-2 mb-2 sm:flex-row sm:items-center">
+                <select value={ing.menuItemId} onChange={e => {
+                  if (e.target.value === '__add_ingredient__') {
+                    openQuickAddIngredient(i);
+                    return;
+                  }
+                  const mi = ingredientSelectableItems.find(m => m.id === e.target.value);
+                  const ingredient = getIngredientById(e.target.value);
+                  const ingredients = [...prodForm.ingredients];
+                  ingredients[i] = { ...ingredients[i], menuItemId: e.target.value, name: mi?.name || '', unit: getIngredientStockUnit(ingredient) };
+                  setProdForm(f => ({ ...f, ingredients }));
+                }} className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                  <option value="">Select ingredient</option>
+                  {ingredientSelectableItems.map(m => {
+                    const ingredient = getIngredientById(m.id);
+                    return <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)} {getUnitLabel(getIngredientStockUnit(ingredient))})</option>;
+                  })}
+                  <option value="__add_ingredient__">+ Add Ingredient / Supply</option>
+                </select>
+                <div className="flex gap-2">
+                  <input type="number" step="0.001" min="0" value={ing.quantityUsed} onChange={e => { const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], quantityUsed: e.target.value }; setProdForm(f => ({ ...f, ingredients })); }} placeholder="Qty" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none sm:w-20" />
+                  <select value={ing.unit} onChange={e => { const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], unit: e.target.value }; setProdForm(f => ({ ...f, ingredients })); }} className="w-24 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-2 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none sm:w-20">
+                    {getRelatedUnits(getIngredientById(ing.menuItemId)).map(unit => (
+                      <option key={unit} value={unit}>{getUnitLabel(unit)}</option>
+                    ))}
+                  </select>
+                  <button onClick={() => { const ingredients = prodForm.ingredients.filter((_, idx) => idx !== i); setProdForm(f => ({ ...f, ingredients })); }} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg"><X size={14} /></button>
+                </div>
+              </div>
+            ))}
+            <button onClick={() => setProdForm(f => ({ ...f, ingredients: [...f.ingredients, { menuItemId: '', name: '', quantityUsed: '', unit: 'pcs' }] }))} className="text-xs text-amber-400 font-bold flex items-center gap-1 mt-2 hover:text-amber-300"><Plus size={12} /> Add Ingredient</button>
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowForm(false)} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
+              <button
+                onClick={handleSaveProduction}
+                disabled={prodForm.appliesTo === 'variants' && !prodForm.variantKey}
+                className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Save Production
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showProductionInfoModal && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowProductionInfoModal(false)} />
+          <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-black text-gray-900 dark:text-white">How Productions Work</h3>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Choose the tab based on how you want stock to move.</p>
+              </div>
+              <button onClick={() => setShowProductionInfoModal(false)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-white transition-all">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-900/10">
+                <p className="text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">Batch Stock</p>
+                <p className="mt-1 text-xs leading-relaxed">Use this when finished menu items are prepared before sale. A quantity above zero increases finished stock and deducts ingredient stock immediately.</p>
+              </div>
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/40 dark:bg-blue-900/10">
+                <p className="text-xs font-black uppercase tracking-wider text-blue-700 dark:text-blue-300">Recipe at Checkout</p>
+                <p className="mt-1 text-xs leading-relaxed">Checkout uses produced stock first. When produced stock is not enough, the latest saved production recipe can be used as the ingredient reference for the remaining sold quantity.</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+                <p className="text-xs font-black uppercase tracking-wider text-gray-700 dark:text-gray-200">Cost Only</p>
+                <p className="mt-1 text-xs leading-relaxed">Enter 0 in Quantity Produced to save the ingredient cost reference without increasing finished stock or deducting ingredients.</p>
+              </div>
+            </div>
+            <button onClick={() => setShowProductionInfoModal(false)} className="mt-6 w-full rounded-xl bg-amber-600 py-3 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-amber-700">
+              Got It
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showQuantityProducedInfoModal && (
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowQuantityProducedInfoModal(false)} />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <h3 className="text-base font-black text-gray-900 dark:text-white">Quantity Produced</h3>
+              <button onClick={() => setShowQuantityProducedInfoModal(false)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-white transition-all">
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+              Enter the number of finished items produced. Enter 0 if you only want to save the recipe cost, without adding finished stock or deducting ingredients.
+            </p>
+            <button onClick={() => setShowQuantityProducedInfoModal(false)} className="mt-6 w-full rounded-xl bg-amber-600 py-3 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-amber-700">
+              Got It
+            </button>
           </div>
         </div>
       )}
