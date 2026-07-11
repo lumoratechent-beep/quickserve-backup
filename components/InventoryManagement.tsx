@@ -75,6 +75,21 @@ const PO_STATUS_FLOW: Record<PurchaseOrder['status'], PurchaseOrder['status'][]>
 };
 
 const getPOStatusOptions = (status: PurchaseOrder['status']) => [status, ...PO_STATUS_FLOW[status]];
+type POStatusFilter = 'ALL' | 'ONGOING' | 'REFUND' | 'CANCELLED';
+
+const matchesPOStatusFilter = (po: PurchaseOrder, filter: POStatusFilter) => {
+  if (filter === 'ALL') return true;
+  if (filter === 'REFUND') return po.status === 'returned';
+  if (filter === 'CANCELLED') return po.status === 'cancelled';
+  return po.status === 'draft' || po.status === 'sent' || po.status === 'partial';
+};
+
+const PO_STATUS_FILTER_TABS: { key: POStatusFilter; label: string }[] = [
+  { key: 'ALL', label: 'All' },
+  { key: 'ONGOING', label: 'Ongoing' },
+  { key: 'REFUND', label: 'Refund' },
+  { key: 'CANCELLED', label: 'Cancelled' },
+];
 
 const normalizePOStatusLogEntry = (entry: Partial<PurchaseOrderStatusLogEntry>): PurchaseOrderStatusLogEntry => ({
   id: entry.id || crypto.randomUUID(),
@@ -376,12 +391,13 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const [showQuantityProducedInfoModal, setShowQuantityProducedInfoModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [poSearch, setPoSearch] = useState('');
-  const [poStatusFilter, setPoStatusFilter] = useState<'ALL' | PurchaseOrder['status']>('ALL');
+  const [poStatusFilter, setPoStatusFilter] = useState<POStatusFilter>('ALL');
   const [openPOActionMenuId, setOpenPOActionMenuId] = useState<string | null>(null);
   const [poActionMenuPosition, setPoActionMenuPosition] = useState<{ top: number; right: number } | null>(null);
   const [poEntriesPerPage, setPoEntriesPerPage] = useState(30);
   const [poCurrentPage, setPoCurrentPage] = useState(1);
   const [poFormError, setPoFormError] = useState('');
+  const [pendingPOStatusChange, setPendingPOStatusChange] = useState<{ poId: string; newStatus: PurchaseOrder['status']; notes: string } | null>(null);
   const [productionSearch, setProductionSearch] = useState('');
   const [productionCategoryFilter, setProductionCategoryFilter] = useState('ALL');
   const [productionEntriesPerPage, setProductionEntriesPerPage] = useState(30);
@@ -438,10 +454,10 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const [receiveQuantities, setReceiveQuantities] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    if (!viewingPOId && !receivingPOId) return;
+    if (!viewingPOId && !receivingPOId && !pendingPOStatusChange) return;
     setOpenPOActionMenuId(null);
     setPoActionMenuPosition(null);
-  }, [viewingPOId, receivingPOId]);
+  }, [viewingPOId, receivingPOId, pendingPOStatusChange]);
 
   useEffect(() => {
     setPurchaseOrdersLoaded(false);
@@ -541,7 +557,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const filteredPurchaseOrders = useMemo(() => {
     const q = poSearch.trim().toLowerCase();
     return purchaseOrders.filter(po => {
-      if (poStatusFilter !== 'ALL' && po.status !== poStatusFilter) return false;
+      if (!matchesPOStatusFilter(po, poStatusFilter)) return false;
       if (!q) return true;
       return (
         `po-${po.id.slice(-6)}`.toLowerCase().includes(q) ||
@@ -551,6 +567,12 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       );
     });
   }, [purchaseOrders, poSearch, poStatusFilter]);
+  const poStatusFilterCounts = useMemo(() => (
+    PO_STATUS_FILTER_TABS.reduce((counts, tab) => {
+      counts[tab.key] = purchaseOrders.filter(po => matchesPOStatusFilter(po, tab.key)).length;
+      return counts;
+    }, {} as Record<POStatusFilter, number>)
+  ), [purchaseOrders]);
   const poTotalPages = useMemo(() => Math.max(1, Math.ceil(filteredPurchaseOrders.length / poEntriesPerPage)), [filteredPurchaseOrders.length, poEntriesPerPage]);
   const paginatedPurchaseOrders = useMemo(() => {
     const start = (poCurrentPage - 1) * poEntriesPerPage;
@@ -855,13 +877,26 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     const po = purchaseOrders.find(order => order.id === poId);
     if (!po || po.status === newStatus) return;
     if (!PO_STATUS_FLOW[po.status].includes(newStatus)) return;
-    const note = window.prompt(`Notes for status change to ${PO_STATUS_LABELS[newStatus]} (optional):`) ?? null;
-    if (note === null) return;
-    if (newStatus === 'returned') {
-      markPOReturned(poId, note);
+    setPendingPOStatusChange({ poId, newStatus, notes: '' });
+  };
+
+  const closePOStatusNotesModal = () => setPendingPOStatusChange(null);
+
+  const confirmPOStatusChange = () => {
+    if (!pendingPOStatusChange) return;
+    const { poId, newStatus, notes } = pendingPOStatusChange;
+    const po = purchaseOrders.find(order => order.id === poId);
+    if (!po || po.status === newStatus || !PO_STATUS_FLOW[po.status].includes(newStatus)) {
+      closePOStatusNotesModal();
       return;
     }
-    handleUpdatePOStatus(poId, newStatus, note);
+    if (newStatus === 'returned') {
+      markPOReturned(poId, notes);
+      closePOStatusNotesModal();
+      return;
+    }
+    handleUpdatePOStatus(poId, newStatus, notes);
+    closePOStatusNotesModal();
   };
 
   const handleOpenReceiveModal = (poId: string) => {
@@ -1485,15 +1520,22 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                     className="w-64 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   />
                 </div>
-                <select value={poStatusFilter} onChange={e => setPoStatusFilter(e.target.value as 'ALL' | PurchaseOrder['status'])} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                  <option value="ALL">All Status</option>
-                  <option value="draft">Planned</option>
-                  <option value="sent">Ordered</option>
-                  <option value="partial">Partially Delivered</option>
-                  <option value="received">Delivered</option>
-                  <option value="returned">Returned</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
+                <div className="flex rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-900">
+                  {PO_STATUS_FILTER_TABS.map(tab => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setPoStatusFilter(tab.key)}
+                      className={`h-8 rounded-lg px-3 text-[10px] font-black uppercase tracking-wider transition ${
+                        poStatusFilter === tab.key
+                          ? 'bg-amber-600 text-white shadow-sm'
+                          : 'text-gray-500 hover:bg-white hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white'
+                      }`}
+                    >
+                      {tab.label} <span className="ml-1 opacity-70">{poStatusFilterCounts[tab.key] || 0}</span>
+                    </button>
+                  ))}
+                </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Show</span>
                   <select value={poEntriesPerPage} onChange={e => setPoEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border border-gray-200 bg-white p-1 text-[10px] font-bold text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
@@ -2679,13 +2721,44 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
             <button onClick={() => { downloadPOExcel(po); closeMenu(); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"><FileSpreadsheet size={13} /> Download Excel</button>
             <button onClick={() => { void downloadPOPdf(po); closeMenu(); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"><FileText size={13} /> Download PDF</button>
             <button onClick={() => copyAndCreatePO(po)} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"><Copy size={13} /> Copy & Create New</button>
-            {po.status === 'draft' && <button onClick={() => { handleUpdatePOStatus(po.id, 'sent', 'Marked ordered'); closeMenu(); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"><Send size={13} /> Mark Ordered</button>}
+            {po.status === 'draft' && <button onClick={() => { handlePOStatusSelect(po.id, 'sent'); closeMenu(); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"><Send size={13} /> Mark Ordered</button>}
             {(po.status === 'sent' || po.status === 'partial') && <button onClick={() => { handleOpenReceiveModal(po.id); closeMenu(); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20"><Download size={13} /> Receive Items</button>}
-            {(po.status === 'sent' || po.status === 'partial') && <button onClick={() => { handleUpdatePOStatus(po.id, 'received', 'Marked delivered'); closeMenu(); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20"><Check size={13} /> Mark Delivered</button>}
-            {(po.status === 'partial' || po.status === 'received') && <button onClick={() => { markPOReturned(po.id, 'Marked returned'); closeMenu(); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20"><ArrowUpDown size={13} /> Mark Returned</button>}
-            {po.status !== 'received' && po.status !== 'cancelled' && po.status !== 'returned' && <button onClick={() => { handleUpdatePOStatus(po.id, 'cancelled', 'Cancelled'); closeMenu(); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"><X size={13} /> Cancel</button>}
+            {(po.status === 'sent' || po.status === 'partial') && <button onClick={() => { handlePOStatusSelect(po.id, 'received'); closeMenu(); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20"><Check size={13} /> Mark Delivered</button>}
+            {(po.status === 'partial' || po.status === 'received') && <button onClick={() => { handlePOStatusSelect(po.id, 'returned'); closeMenu(); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20"><ArrowUpDown size={13} /> Mark Returned</button>}
+            {po.status !== 'received' && po.status !== 'cancelled' && po.status !== 'returned' && <button onClick={() => { handlePOStatusSelect(po.id, 'cancelled'); closeMenu(); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"><X size={13} /> Cancel</button>}
           </div>,
           document.body,
+        );
+      })()}
+
+      {pendingPOStatusChange && (() => {
+        const po = purchaseOrders.find(order => order.id === pendingPOStatusChange.poId);
+        if (!po) return null;
+        return (
+          <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closePOStatusNotesModal} />
+            <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-black text-gray-900 dark:text-white">Notes for status change to {PO_STATUS_LABELS[pendingPOStatusChange.newStatus]} (optional)</h3>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">PO-{po.id.slice(-6)} from {PO_STATUS_LABELS[po.status]} to {PO_STATUS_LABELS[pendingPOStatusChange.newStatus]}.</p>
+                </div>
+                <button onClick={closePOStatusNotesModal} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-white transition-all">
+                  <X size={16} />
+                </button>
+              </div>
+              <textarea
+                value={pendingPOStatusChange.notes}
+                onChange={e => setPendingPOStatusChange(change => change ? { ...change, notes: e.target.value } : change)}
+                placeholder="Optional notes"
+                className="h-28 w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+              <div className="mt-6 flex gap-3">
+                <button onClick={closePOStatusNotesModal} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
+                <button onClick={confirmPOStatusChange} className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20">Save Status</button>
+              </div>
+            </div>
+          </div>
         );
       })()}
 
