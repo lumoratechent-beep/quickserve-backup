@@ -11,7 +11,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, ShoppingBag, Users, Receipt, ChevronRight, ChevronLeft, ChevronDown, ChevronFirst, ChevronLast, Filter,
   BarChart3, Package, UserPlus, UserMinus, Edit3, Trash2, Plus, Minus, Search, AlertCircle, Info,
   ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, Eye, Archive, RotateCcw,
-  Briefcase, Box, Tag, Layers, Activity, Warehouse, FileBarChart, Contact,
+  Briefcase, Tag, Layers, Activity, Warehouse, FileBarChart, Contact,
   CreditCard, Percent, FileText, Truck, ArrowUpDown, ClipboardList, Factory, History, Building2, Loader2, LogOut, Sun, Moon, Mail, MoreVertical,
   Calendar, Download,
 } from 'lucide-react';
@@ -864,15 +864,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     if (stockFilter === 'out') items = items.filter(s => s.currentStock === 0);
     return items;
   }, [stockItems, ingredientItems, stockSubTab, stockSearch, stockFilter]);
-
-  const stockTabCounts = useMemo(() => {
-    const ingredientIds = new Set(ingredientItems.map(item => item.id));
-    return stockItems.reduce((counts, item) => {
-      if (ingredientIds.has(item.menuItemId)) counts.ingredients += 1;
-      else counts.menu += 1;
-      return counts;
-    }, { menu: 0, ingredients: 0 });
-  }, [stockItems, ingredientItems]);
 
   const stockSummary = useMemo(() => {
     const enabled = stockItems.filter(s => s.stockEnabled);
@@ -2174,12 +2165,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                       {paginatedIngredients.map(item => (
                         <tr key={item.id} className={`border-b border-gray-100 transition-colors dark:border-gray-700/50 ${item.is_archived ? 'opacity-50' : ''}`}>
                           <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                                <Box size={14} className="text-amber-600 dark:text-amber-400" />
-                              </div>
-                              <span className="text-sm font-bold dark:text-white">{item.name}</span>
-                            </div>
+                            <span className="text-sm font-bold dark:text-white">{item.name}</span>
                           </td>
                           <td className="px-5 py-4"><span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">{item.category}</span></td>
                           <td className="px-5 py-4 text-sm font-bold dark:text-white">{currencySymbol}{(item.cost || 0).toFixed(2)} / {getIngredientPurchaseUnit(item)}</td>
@@ -2201,7 +2187,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </div>
               ) : (
                 <div className="h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
-                  <Box size={40} className="mb-3 opacity-30" />
                   <p className="text-sm font-bold">{ingredientShowArchived ? 'No archived ingredients' : 'No ingredients yet'}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{ingredientShowArchived ? 'Archived ingredients will appear here' : 'Add ingredients like sugar, ice blocks, packaging, etc.'}</p>
                   {!ingredientShowArchived && (
@@ -2271,26 +2256,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/40">
-              {([
-                ['menu', 'Menu Stock', stockTabCounts.menu],
-                ['ingredients', 'Ingredient Stock', stockTabCounts.ingredients],
-              ] as const).map(([key, label, count]) => (
-                <button
-                  key={key}
-                  onClick={() => setStockSubTab(key)}
-                  className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-[10px] font-black uppercase tracking-wider transition-colors ${
-                    stockSubTab === key
-                      ? 'bg-amber-600 text-white shadow-sm'
-                      : 'bg-white text-gray-500 ring-1 ring-gray-200 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700 dark:hover:text-white'
-                  }`}
-                >
-                  {label}
-                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] ${stockSubTab === key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-300'}`}>{count}</span>
-                </button>
-              ))}
-            </div>
-
             {/* Selection Action Bar */}
             {stockSelectionMode && (
               <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40">
@@ -2306,11 +2271,29 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             {/* Stock Table */}
             <div className="overflow-hidden">
               {/* Filter bar with Show entries */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40">
+              <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40">
+                <div className="flex items-center gap-1">
+                  {([
+                    ['menu', 'Menu Stock'],
+                    ['ingredients', 'Ingredient Stock'],
+                  ] as const).map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => setStockSubTab(key)}
+                      className={`h-8 rounded-lg px-3 text-[10px] font-black uppercase tracking-wider transition-colors ${
+                        stockSubTab === key
+                          ? 'bg-amber-600 text-white shadow-sm'
+                          : 'bg-white text-gray-500 ring-1 ring-gray-200 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700 dark:hover:text-white'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
                   Showing {filteredStock.length === 0 ? 0 : (stockCurrentPage - 1) * stockEntriesPerPage + 1}-{Math.min(stockCurrentPage * stockEntriesPerPage, filteredStock.length)} of {filteredStock.length}
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="ml-auto flex items-center gap-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Show</span>
                   <select value={stockEntriesPerPage} onChange={e => setStockEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border border-gray-200 bg-white p-1 text-[10px] font-bold text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                     <option value={30}>30</option>
