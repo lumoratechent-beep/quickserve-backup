@@ -114,7 +114,7 @@ INSERT INTO stock_items (
   stock_enabled
 )
 SELECT
-  r.id,
+  r.id::TEXT,
   stock."menuItemId",
   CASE
     WHEN ingredient.id IS NOT NULL THEN 'ingredient'
@@ -148,7 +148,7 @@ CROSS JOIN LATERAL jsonb_to_recordset(
   "stockEnabled" BOOLEAN
 )
 LEFT JOIN ingredient_items ingredient
-  ON ingredient.restaurant_id = r.id
+  ON ingredient.restaurant_id = r.id::TEXT
   AND ingredient.id::TEXT = stock."menuItemId"
 WHERE stock."menuItemId" IS NOT NULL
   AND stock."menuItemId" <> ''
