@@ -1351,7 +1351,7 @@ const AdminView: React.FC<Props> = ({
       try {
         const qrDataUrl = await imageUrlToPngDataUrl(quote.qrImage);
         doc.setDrawColor(...accentRgb);
-        doc.roundedRect(14, notesY - 6, 182, 40, 2, 2);
+        doc.roundedRect(14, notesY - 6, 182, 40, 2, 2, 'S');
         doc.addImage(qrDataUrl, 'PNG', 18, notesY - 2, 30, 30);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
