@@ -29,10 +29,23 @@ CREATE INDEX IF NOT EXISTS idx_purchase_orders_restaurant_status
 
 ALTER TABLE purchase_orders ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "purchase_orders_all" ON purchase_orders;
+
 CREATE POLICY "purchase_orders_all"
   ON purchase_orders
   FOR ALL
   USING (true)
   WITH CHECK (true);
 
-ALTER PUBLICATION supabase_realtime ADD TABLE purchase_orders;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'purchase_orders'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE purchase_orders;
+  END IF;
+END $$;
