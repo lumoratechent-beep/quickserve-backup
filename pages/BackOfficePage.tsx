@@ -2,7 +2,7 @@
 import { Order, OrderStatus, MenuItem, Restaurant, Subscription, IngredientItem, Role } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
-import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
+import { fetchSettingsFromServer, loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid,
   LineChart, Line, AreaChart, Area,
@@ -100,6 +100,19 @@ interface StockItem {
   stockEnabled: boolean;
 }
 
+interface ProductionRecord {
+  id: string;
+  producedItemId: string;
+  producedItemName: string;
+  quantityProduced: number;
+  appliesTo?: 'all' | 'variants';
+  variantKey?: string;
+  variantLabel?: string;
+  ingredients: { menuItemId: string; name: string; quantityUsed: number; unit: string; stockQuantityUsed?: number; stockUnit?: string }[];
+  timestamp: number;
+  notes: string;
+}
+
 const PURCHASE_UNIT_OPTIONS = [
   { value: 'pcs', label: 'Pieces' },
   { value: 'bottle', label: 'Bottle' },
@@ -155,6 +168,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [financeSubTab, setFinanceSubTab] = useState<string | undefined>(undefined);
   const [expensesSubTab, setExpensesSubTab] = useState<string | undefined>(undefined);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
+  const [backofficeDataVersion, setBackofficeDataVersion] = useState(0);
 
   // â”€â”€â”€ Items tab state â”€â”€â”€
   const [itemSearch, setItemSearch] = useState('');
@@ -654,6 +668,75 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     syncBackofficeToDb(restaurant.id);
   };
 
+  const readCachedBackofficeArray = <T,>(key: string): T[] => {
+    try {
+      const saved = localStorage.getItem(key);
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const mergeStockItems = (localItems: StockItem[], remoteItems: StockItem[]) => {
+    const merged = new Map<string, StockItem>();
+    remoteItems.forEach(item => {
+      if (item.menuItemId) merged.set(item.menuItemId, { ...item, stockEnabled: item.stockEnabled ?? false });
+    });
+    localItems.forEach(item => {
+      if (item.menuItemId && !merged.has(item.menuItemId)) merged.set(item.menuItemId, { ...item, stockEnabled: item.stockEnabled ?? false });
+    });
+    return Array.from(merged.values());
+  };
+
+  const mergeProductions = (localItems: ProductionRecord[], remoteItems: ProductionRecord[]) => {
+    const merged = new Map<string, ProductionRecord>();
+    remoteItems.forEach(item => {
+      if (item.id) merged.set(item.id, item);
+    });
+    localItems.forEach(item => {
+      if (item.id && !merged.has(item.id)) merged.set(item.id, item);
+    });
+    return Array.from(merged.values()).sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0));
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'ITEMS' && activeTab !== 'INVENTORY') return;
+    let cancelled = false;
+
+    const refreshBackofficeInventoryData = async () => {
+      const latestSettings = await fetchSettingsFromServer(restaurant.id);
+      if (cancelled || !latestSettings?.backoffice) return;
+
+      const remoteStock = Array.isArray(latestSettings.backoffice.stock)
+        ? latestSettings.backoffice.stock as StockItem[]
+        : [];
+      const localStock = readCachedBackofficeArray<StockItem>(`stock_${restaurant.id}`);
+      const mergedStock = mergeStockItems(localStock, remoteStock);
+      if (mergedStock.length > 0) {
+        setStockItems(mergedStock);
+        localStorage.setItem(`stock_${restaurant.id}`, JSON.stringify(mergedStock));
+      }
+
+      const remoteProductions = Array.isArray(latestSettings.backoffice.productions)
+        ? latestSettings.backoffice.productions as ProductionRecord[]
+        : [];
+      const localProductions = readCachedBackofficeArray<ProductionRecord>(`inv_${restaurant.id}_productions`);
+      const mergedProductions = mergeProductions(localProductions, remoteProductions);
+      if (mergedProductions.length > 0) {
+        localStorage.setItem(`inv_${restaurant.id}_productions`, JSON.stringify(mergedProductions));
+      }
+
+      const hasLocalOnlyStock = localStock.some(item => item.menuItemId && !remoteStock.some(remote => remote.menuItemId === item.menuItemId));
+      const hasLocalOnlyProduction = localProductions.some(item => item.id && !remoteProductions.some(remote => remote.id === item.id));
+      if (hasLocalOnlyStock || hasLocalOnlyProduction) syncBackofficeToDb(restaurant.id);
+      setBackofficeDataVersion(version => version + 1);
+    };
+
+    refreshBackofficeInventoryData().catch(() => {});
+    return () => { cancelled = true; };
+  }, [activeTab, restaurant.id]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -1073,7 +1156,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
   const productionsForCost = useMemo<any[]>(() => (
     loadBackofficeData<any[]>(`inv_${restaurant.id}_productions`, restaurant.settings, 'productions', [])
-  ), [restaurant.id, restaurant.settings, activeTab, itemSubTab]);
+  ), [restaurant.id, restaurant.settings, activeTab, itemSubTab, backofficeDataVersion]);
 
   const getLatestStockUnitCost = (itemId: string) => {
     const toComparableTime = (value: unknown) => {

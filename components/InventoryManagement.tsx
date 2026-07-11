@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Restaurant, MenuItem, IngredientItem } from '../src/types';
-import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
+import { fetchSettingsFromServer, loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
 import { fetchPurchaseOrdersFromDb, savePurchaseOrderToDb, savePurchaseOrdersToDb } from '../lib/purchaseOrders';
 import { fetchIngredientItemsFromDb, saveIngredientItemsToDb } from '../lib/ingredientItems';
 import {
@@ -528,8 +528,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     return Array.from(merged.values());
   };
 
-  const reconcileInventoryCacheFromSettings = () => {
-    const backoffice = restaurant.settings?.backoffice || {};
+  const reconcileInventoryCacheFromSettings = (settings: Record<string, any> | undefined = restaurant.settings) => {
+    const backoffice = settings?.backoffice || {};
     let shouldSyncBackoffice = false;
     const reconcile = <T,>(
       localKey: string,
@@ -604,7 +604,10 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       setPoSyncWarning('');
       setPurchaseOrdersLoaded(false);
 
-      const needsBackofficeSync = reconcileInventoryCacheFromSettings();
+      const latestSettings = await fetchSettingsFromServer(restaurant.id);
+      if (cancelled) return;
+
+      const needsBackofficeSync = reconcileInventoryCacheFromSettings(latestSettings || restaurant.settings);
       if (needsBackofficeSync) syncBackofficeToDb(restaurant.id);
 
       const localIngredientItems = readLocalArray<IngredientItem>(`ingredients_${restaurant.id}`);

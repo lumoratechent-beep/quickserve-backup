@@ -14,7 +14,7 @@ import QuickServeShopPage from './pages/QuickServeShopPage';
 import HelpTutorialPage from './pages/HelpTutorialPage';
 import TableSideOrderPage from './pages/TableSideOrderPage';
 import { supabase } from './lib/supabase';
-import { expandPosSettings, syncBackofficeToDb } from './lib/sharedSettings';
+import { expandPosSettings, fetchSettingsFromServer, syncBackofficeToDb } from './lib/sharedSettings';
 import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock, AlertCircle, ShoppingBag } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
 import { getConnectivityMonitor, destroyConnectivityMonitor, type ConnectivityStatus } from './lib/connectivityMonitor';
@@ -23,6 +23,7 @@ import CashierShiftModal from './components/CashierShiftModal';
 import RenewalBanner from './components/RenewalBanner';
 import { isSubscriptionAccessLocked } from './lib/subscriptionService';
 import { getDefaultPromotionDiscount, normalizeMenuPromotionDiscount } from './lib/menuPricing';
+import { fetchIngredientItemsFromDb } from './lib/ingredientItems';
 
 type BatteryStatus = {
   level: number;
@@ -1935,7 +1936,7 @@ const App: React.FC = () => {
     return '';
   };
 
-  const applyPosStockDeduction = useCallback((restaurantId: string, order: Pick<Order, 'id' | 'items'>) => {
+  const applyPosStockDeduction = useCallback(async (restaurantId: string, order: Pick<Order, 'id' | 'items'>) => {
     if (!restaurantId || !order.id || !Array.isArray(order.items) || order.items.length === 0) return;
 
     const markerKey = `inv_${restaurantId}_sales_stock_deductions`;
@@ -1949,6 +1950,20 @@ const App: React.FC = () => {
       deductedOrderIds = JSON.parse(localStorage.getItem(markerKey) || '[]');
     } catch { deductedOrderIds = []; }
     if (deductedOrderIds.includes(order.id)) return;
+
+    try {
+      const [latestSettings, latestIngredients] = await Promise.all([
+        fetchSettingsFromServer(restaurantId),
+        fetchIngredientItemsFromDb(restaurantId),
+      ]);
+      const backoffice = latestSettings?.backoffice;
+      if (Array.isArray(backoffice?.stock)) localStorage.setItem(stockKey, JSON.stringify(backoffice.stock));
+      if (Array.isArray(backoffice?.productions)) localStorage.setItem(productionKey, JSON.stringify(backoffice.productions));
+      if (Array.isArray(backoffice?.history)) localStorage.setItem(historyKey, JSON.stringify(backoffice.history));
+      if (latestIngredients) localStorage.setItem(ingredientsKey, JSON.stringify(latestIngredients));
+    } catch {
+      // Keep the local cache path available for offline POS use.
+    }
 
     let stockItems: StockItemRecord[] = [];
     let productions: ProductionRecord[] = [];
@@ -2082,7 +2097,7 @@ const App: React.FC = () => {
   const updateOrderStatus = async (orderId: string, status: OrderStatus, reason?: string, note?: string, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number }) => {
     const existingOrderForStock = orders.find(o => o.id === orderId);
     if (status === OrderStatus.COMPLETED && existingOrderForStock && existingOrderForStock.status !== OrderStatus.COMPLETED) {
-      applyPosStockDeduction(existingOrderForStock.restaurantId, existingOrderForStock);
+      await applyPosStockDeduction(existingOrderForStock.restaurantId, existingOrderForStock);
     }
 
     // Don't lock if we're just marking as ONGOING (for printing)
@@ -2844,7 +2859,7 @@ const App: React.FC = () => {
       offlineQueue.addOfflineOrder(offlineOrder);
       offlineQueue.rememberOrderId(code, orderId);
       setPendingOfflineOrdersCount(prevCount => prevCount + 1);
-      applyPosStockDeduction(currentUser.restaurantId!, { id: orderId, items });
+      void applyPosStockDeduction(currentUser.restaurantId!, { id: orderId, items });
       console.log(`Order queued for later sync (${reason}): ${orderId}`);
       return orderId;
     };
@@ -2943,7 +2958,7 @@ const App: React.FC = () => {
     } else {
       // Successfully inserted - update tracker to remember this number
       offlineQueue.rememberOrderId(code, orderId);
-      applyPosStockDeduction(currentUser.restaurantId, { id: orderId, items });
+      await applyPosStockDeduction(currentUser.restaurantId, { id: orderId, items });
       console.log(`Order ${orderId} successfully created online`);
     }
     
