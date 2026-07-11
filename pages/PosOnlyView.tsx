@@ -1669,6 +1669,7 @@ const PosOnlyView: React.FC<Props> = ({
       linkedModifiers: linked,
       addOns: formItem.addOns || [],
       cost: Number(formItem.cost || 0),
+      autoCostFromProduction: formItem.autoCostFromProduction || false,
       sku: (formItem.sku || '').trim(),
       barcode: (formItem.barcode || '').trim(),
       soldBy: formItem.soldBy || 'each',
@@ -1907,6 +1908,34 @@ const PosOnlyView: React.FC<Props> = ({
     setTimeout(() => setFlashItemId(null), 500);
   };
 
+  const formatCartPrice = (value: number): string => (
+    `${currencySymbol}${Number(value || 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  );
+
+  const getCartOriginalPrice = (item: CartItem): number | null => {
+    const originalPrice = Number(item.originalPrice || 0);
+    const currentPrice = Number(item.price || 0);
+    return originalPrice > currentPrice + 0.005 ? originalPrice : null;
+  };
+
+  const renderCartItemPrice = (item: CartItem, compact = false) => {
+    const originalPrice = getCartOriginalPrice(item);
+    if (!originalPrice) {
+      return <p className={`${compact ? 'text-[11px]' : 'text-xs'} text-orange-500 font-black`}>{formatCartPrice(item.price)}</p>;
+    }
+
+    return (
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <span className={`${compact ? 'text-[10px]' : 'text-[11px]'} text-gray-400 dark:text-gray-500 line-through font-black`}>
+          {formatCartPrice(originalPrice)}
+        </span>
+        <span className={`${compact ? 'text-[11px]' : 'text-xs'} text-orange-500 font-black`}>
+          {formatCartPrice(item.price)}
+        </span>
+      </div>
+    );
+  };
+
   const handleMenuItemClick = (item: MenuItem) => {
     console.log('PosOnlyView: Menu item clicked', { itemName: item.name, itemId: item.id });
     
@@ -1957,7 +1986,15 @@ const PosOnlyView: React.FC<Props> = ({
     }
 
     console.log('PosOnlyView: No options, adding directly to cart');
-    addToPosCart({ ...sanitizedItem, price: getMenuItemEffectivePrice(item), quantity: 1, restaurantId: restaurant.id });
+    const originalPrice = Number(sanitizedItem.price || 0);
+    const effectivePrice = getMenuItemEffectivePrice(item);
+    addToPosCart({
+      ...sanitizedItem,
+      price: effectivePrice,
+      originalPrice: originalPrice > effectivePrice + 0.005 ? originalPrice : undefined,
+      quantity: 1,
+      restaurantId: restaurant.id,
+    });
   };
 
   const removeFromPosCart = (cartIndex: number) => {
@@ -12098,7 +12135,7 @@ const PosOnlyView: React.FC<Props> = ({
                       <div key={`saved-${item.id}-${idx}`} className="flex items-center gap-4">
                         <div className="flex-1">
                           <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                          <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                          {renderCartItemPrice(item)}
                           <div className="mt-1 space-y-0.5">
                             {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
                             {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temperature: {item.selectedTemp}</p>}
@@ -12184,7 +12221,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <div key={`qr-${item.id}-${idx}`} className="flex items-center gap-4">
                           <div className="flex-1">
                             <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                            <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            {renderCartItemPrice(item)}
                             <div className="mt-1 space-y-0.5">
                               {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
                               {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temp: {item.selectedTemp}</p>}
@@ -12276,7 +12313,7 @@ const PosOnlyView: React.FC<Props> = ({
                     <div key={`${item.id}-${idx}`} className="flex items-center gap-4">
                       <div className="flex-1">
                         <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                        <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        {renderCartItemPrice(item)}
                         <div className="mt-1 space-y-0.5">
                           {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
                           {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temperature: {item.selectedTemp}</p>}
@@ -12457,7 +12494,7 @@ const PosOnlyView: React.FC<Props> = ({
                 <div key={`${item.id}-${idx}`} className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
                   <div className="flex-1 min-w-0">
                     <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter truncate">{item.name}</h4>
-                    <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    {renderCartItemPrice(item, true)}
                     <div className="mt-0.5 space-y-0.5">
                       {item.selectedSize && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• Size: {item.selectedSize}</p>}
                       {item.selectedTemp && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• Temp: {item.selectedTemp}</p>}

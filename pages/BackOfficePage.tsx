@@ -11,7 +11,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, ShoppingBag, Users, Receipt, ChevronRight, ChevronLeft, ChevronDown, ChevronFirst, ChevronLast, Filter,
   BarChart3, Package, UserPlus, UserMinus, Edit3, Trash2, Plus, Minus, Search, AlertCircle, Info,
   ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, Eye, Archive, RotateCcw,
-  Briefcase, Box, Tag, Layers, Activity, Warehouse, FileBarChart, Contact,
+  Briefcase, Tag, Layers, Activity, Warehouse, FileBarChart, Contact,
   CreditCard, Percent, FileText, Truck, ArrowUpDown, ClipboardList, Factory, History, Building2, Loader2, LogOut, Sun, Moon, Mail, MoreVertical,
   Calendar, Download,
 } from 'lucide-react';
@@ -98,6 +98,51 @@ interface StockItem {
   lastRestocked?: number;
   stockEnabled: boolean;
 }
+
+const PURCHASE_UNIT_OPTIONS = [
+  { value: 'pcs', label: 'Pieces' },
+  { value: 'bottle', label: 'Bottle' },
+  { value: 'box', label: 'Box' },
+  { value: 'pack', label: 'Pack' },
+  { value: 'bag', label: 'Bag' },
+  { value: 'can', label: 'Can' },
+  { value: 'roll', label: 'Roll' },
+  { value: 'kg', label: 'Kilogram (kg)' },
+  { value: 'g', label: 'Gram (g)' },
+  { value: 'litre', label: 'Litre' },
+  { value: 'ml', label: 'Millilitre (ml)' },
+];
+
+const STOCK_UNIT_OPTIONS = [
+  { value: 'pcs', label: 'Pieces' },
+  { value: 'kg', label: 'Kilogram (kg)' },
+  { value: 'g', label: 'Gram (g)' },
+  { value: 'litre', label: 'Litre' },
+  { value: 'ml', label: 'Millilitre (ml)' },
+];
+
+const getIngredientPurchaseUnit = (item: Partial<IngredientItem>) => item.purchase_unit || item.unit || 'pcs';
+const getIngredientStockUnit = (item: Partial<IngredientItem>) => item.unit || 'pcs';
+const getIngredientPurchaseRatio = (item: Partial<IngredientItem>) => {
+  const ratio = Number(item.purchase_to_stock_quantity);
+  return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+};
+const UNIT_LABELS: Record<string, string> = {
+  pcs: 'pcs',
+  bottle: 'bottle',
+  box: 'box',
+  pack: 'pack',
+  bag: 'bag',
+  can: 'can',
+  roll: 'roll',
+  kg: 'kg',
+  g: 'g',
+  litre: 'L',
+  l: 'L',
+  ml: 'ml',
+};
+const getUnitLabel = (unit?: string) => UNIT_LABELS[(unit || 'pcs').toLowerCase()] || unit || 'pcs';
+const formatStockNumber = (value: number) => Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 3 });
 
 const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, networkMeta, batteryMeta, batteryCharging = false, unreadMailCount = 0, onOpenMail, userRole = 'VENDOR' }) => {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -504,6 +549,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [stockSelectionMode, setStockSelectionMode] = useState(false);
   const [stockSearch, setStockSearch] = useState('');
   const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'out'>('all');
+  const [stockSubTab, setStockSubTab] = useState<'menu' | 'ingredients'>('menu');
   const [selectedStockIds, setSelectedStockIds] = useState<Set<string>>(new Set());
 
   const saveStock = (items: StockItem[]) => {
@@ -808,7 +854,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   };
 
   const filteredStock = useMemo(() => {
-    let items = stockItems;
+    const ingredientIds = new Set(ingredientItems.map(item => item.id));
+    let items = stockItems.filter(item => stockSubTab === 'ingredients' ? ingredientIds.has(item.menuItemId) : !ingredientIds.has(item.menuItemId));
     if (stockSearch) {
       const q = stockSearch.toLowerCase();
       items = items.filter(s => s.name.toLowerCase().includes(q) || s.category.toLowerCase().includes(q));
@@ -816,7 +863,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     if (stockFilter === 'low') items = items.filter(s => s.currentStock > 0 && s.currentStock <= s.lowStockThreshold);
     if (stockFilter === 'out') items = items.filter(s => s.currentStock === 0);
     return items;
-  }, [stockItems, stockSearch, stockFilter]);
+  }, [stockItems, ingredientItems, stockSubTab, stockSearch, stockFilter]);
 
   const stockSummary = useMemo(() => {
     const enabled = stockItems.filter(s => s.stockEnabled);
@@ -826,6 +873,67 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     const healthy = total - low - out;
     return { total, low, out, healthy };
   }, [stockItems]);
+
+  const purchaseOrdersForCost = useMemo<any[]>(() => {
+    try {
+      const saved = localStorage.getItem(`inv_${restaurant.id}_purchase_orders`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  }, [restaurant.id, activeTab, itemSubTab]);
+
+  const productionsForCost = useMemo<any[]>(() => (
+    loadBackofficeData<any[]>(`inv_${restaurant.id}_productions`, restaurant.settings, 'productions', [])
+  ), [restaurant.id, restaurant.settings, activeTab, itemSubTab]);
+
+  const getLatestStockUnitCost = (itemId: string) => {
+    const toComparableTime = (value: unknown) => {
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') {
+        const parsed = Date.parse(value);
+        return Number.isFinite(parsed) ? parsed : Number(value) || 0;
+      }
+      return 0;
+    };
+    const receivedOrders = [...purchaseOrdersForCost]
+      .filter(po => po.status === 'received' || po.status === 'partial')
+      .sort((a, b) => toComparableTime(b.receivedAt || b.createdAt || b.timestamp) - toComparableTime(a.receivedAt || a.createdAt || a.timestamp));
+
+    for (const po of receivedOrders) {
+      const item = po.items?.find((line: any) => line.menuItemId === itemId);
+      if (item && Number(item.costPerUnit) > 0) {
+        const ratio = Number(item.stockQuantityPerUnit);
+        return Number(item.costPerUnit) / (Number.isFinite(ratio) && ratio > 0 ? ratio : 1);
+      }
+    }
+    const ingredient = ingredientItems.find(item => item.id === itemId);
+    return ingredient?.cost ? ingredient.cost / getIngredientPurchaseRatio(ingredient) : 0;
+  };
+
+  const getProductionUnitCost = (menuItemId: string, variantKey = '') => {
+    const candidates = [...productionsForCost]
+      .filter(production => (
+        production.producedItemId === menuItemId &&
+        Number(production.quantityProduced) >= 0 &&
+        (variantKey
+          ? production.appliesTo === 'variants' && production.variantKey === variantKey
+          : production.appliesTo !== 'variants')
+      ))
+      .sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
+    const production = candidates[0];
+    if (!production) return 0;
+    const totalCost = (production.ingredients || []).reduce((sum: number, ingredient: any) => {
+      const stockQuantity = Number(ingredient.stockQuantityUsed ?? ingredient.quantityUsed) || 0;
+      return sum + stockQuantity * getLatestStockUnitCost(ingredient.menuItemId);
+    }, 0);
+    const quantityProduced = Number(production.quantityProduced || 0);
+    return totalCost / (quantityProduced > 0 ? quantityProduced : 1);
+  };
+
+  const getDisplayedMenuItemCost = (item: MenuItem) => (
+    item.autoCostFromProduction ? getProductionUnitCost(item.id) : Number(item.cost || 0)
+  );
 
   // â”€â”€â”€ Ingredient tab helpers â”€â”€â”€
   const ingredientCategories = useMemo(() => {
@@ -856,13 +964,17 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
   const openAddIngredient = () => {
     setEditingIngredient(null);
-    setIngredientForm({ name: '', category: '', cost: 0, unit: 'pcs', sku: '', barcode: '', notes: '', is_archived: false });
+    setIngredientForm({ name: '', category: '', cost: 0, unit: 'pcs', purchase_unit: 'pcs', purchase_to_stock_quantity: 1, sku: '', barcode: '', notes: '', is_archived: false });
     setIsIngredientFormOpen(true);
   };
 
   const openEditIngredient = (item: IngredientItem) => {
     setEditingIngredient(item);
-    setIngredientForm({ ...item });
+    setIngredientForm({
+      ...item,
+      purchase_unit: getIngredientPurchaseUnit(item),
+      purchase_to_stock_quantity: getIngredientPurchaseRatio(item),
+    });
     setIsIngredientFormOpen(true);
   };
 
@@ -874,9 +986,26 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       if (editingIngredient) {
         // Update existing
         const updated = ingredientItems.map(i =>
-          i.id === editingIngredient.id ? { ...i, ...ingredientForm, updated_at: new Date().toISOString() } as IngredientItem : i
+          i.id === editingIngredient.id ? {
+            ...i,
+            ...ingredientForm,
+            unit: getIngredientStockUnit(ingredientForm),
+            purchase_unit: getIngredientPurchaseUnit(ingredientForm),
+            purchase_to_stock_quantity: getIngredientPurchaseRatio(ingredientForm),
+            updated_at: new Date().toISOString(),
+          } as IngredientItem : i
         );
         saveIngredients(updated);
+        saveStock(stockItems.map(s =>
+          s.menuItemId === editingIngredient.id
+            ? {
+                ...s,
+                name: ingredientForm.name?.trim() || s.name,
+                category: ingredientForm.category?.trim() || 'Uncategorized',
+                unit: getIngredientStockUnit(ingredientForm),
+              }
+            : s
+        ));
         toast(`${ingredientForm.name} updated`, 'success');
       } else {
         // Create new
@@ -886,7 +1015,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           name: ingredientForm.name?.trim() || '',
           category: ingredientForm.category?.trim() || 'Uncategorized',
           cost: ingredientForm.cost || 0,
-          unit: ingredientForm.unit || 'pcs',
+          unit: getIngredientStockUnit(ingredientForm),
+          purchase_unit: getIngredientPurchaseUnit(ingredientForm),
+          purchase_to_stock_quantity: getIngredientPurchaseRatio(ingredientForm),
           sku: ingredientForm.sku,
           barcode: ingredientForm.barcode,
           notes: ingredientForm.notes || '',
@@ -965,7 +1096,11 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
   // Reset page when filters change
   useEffect(() => { setItemCurrentPage(1); }, [itemSearch, itemCategoryFilter, itemShowArchived, itemEntriesPerPage]);
-  useEffect(() => { setStockCurrentPage(1); }, [stockSearch, stockFilter, stockEntriesPerPage]);
+  useEffect(() => {
+    setStockCurrentPage(1);
+    setSelectedStockIds(new Set());
+    setStockSelectionMode(false);
+  }, [stockSearch, stockFilter, stockEntriesPerPage, stockSubTab]);
 
   const stockTotalPages = useMemo(() => Math.max(1, Math.ceil(filteredStock.length / stockEntriesPerPage)), [filteredStock.length, stockEntriesPerPage]);
   const paginatedStock = useMemo(() => {
@@ -975,7 +1110,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
   const openAddItem = () => {
     setEditingItem(null);
-    setFormItem({ name: '', description: '', price: 0, image: '', category: '', soldBy: 'each', cost: 0, sku: '', barcode: '', trackStock: false, isArchived: false, sizes: [], addOns: [], linkedModifiers: [], sizesEnabled: false, promotionDiscount: undefined });
+    setFormItem({ name: '', description: '', price: 0, image: '', category: '', soldBy: 'each', cost: 0, autoCostFromProduction: false, sku: '', barcode: '', trackStock: false, isArchived: false, sizes: [], addOns: [], linkedModifiers: [], sizesEnabled: false, promotionDiscount: undefined });
     setIsItemFormOpen(true);
   };
 
@@ -996,11 +1131,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       toast('Name and category are required', 'warning');
       return;
     }
+    const itemId = editingItem?.id || crypto.randomUUID();
+    const autoProductionCost = formItem.autoCostFromProduction ? getProductionUnitCost(itemId) : 0;
     const linked = formItem.linkedModifiers || [];
     const trimmedImage = (formItem.image || '').trim();
     const fallbackImage = formItem.color ? '' : `${MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX}${encodeURIComponent(formItem.name.trim())}/300/300`;
     const payload: MenuItem = {
-      id: editingItem?.id || crypto.randomUUID(),
+      id: itemId,
       name: formItem.name.trim(),
       description: (formItem.description || '').trim(),
       price: Number(formItem.price || 0),
@@ -1015,7 +1152,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       otherVariantsEnabled: linked.length > 0,
       linkedModifiers: linked,
       addOns: formItem.addOns || [],
-      cost: Number(formItem.cost || 0),
+      cost: formItem.autoCostFromProduction ? autoProductionCost : Number(formItem.cost || 0),
+      autoCostFromProduction: formItem.autoCostFromProduction || false,
       sku: (formItem.sku || '').trim(),
       barcode: (formItem.barcode || '').trim(),
       soldBy: formItem.soldBy || 'each',
@@ -1707,6 +1845,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             setFormItem={setFormItem}
             categories={itemCategories.filter(c => c !== 'ALL')}
             availableModifiers={restaurant.modifiers || []}
+            productionCost={editingItem ? getProductionUnitCost(editingItem.id) : 0}
+            currencySymbol={currencySymbol}
+            showProductionCostLink
             onClose={() => { setIsItemFormOpen(false); setEditingItem(null); }}
             onSubmit={handleItemFormSubmit}
             onImageUpload={onImageUpload}
@@ -1834,7 +1975,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                     {paginatedItems.length === 0 ? (
                       <tr><td colSpan={7} className="py-12 text-center text-sm text-gray-400">No items found</td></tr>
-                    ) : paginatedItems.map(item => (
+                    ) : paginatedItems.map(item => {
+                      const displayedCost = getDisplayedMenuItemCost(item);
+                      return (
                       <tr key={item.id} className="transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
@@ -1864,7 +2007,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                             <span className="font-bold text-gray-900 dark:text-white">{currencySymbol}{item.price.toFixed(2)}</span>
                           )}
                         </td>
-                        <td className="hidden px-4 py-3 text-right text-gray-500 lg:table-cell">{item.cost ? `${currencySymbol}${item.cost.toFixed(2)}` : '-'}</td>
+                        <td className="hidden px-4 py-3 text-right text-gray-500 lg:table-cell">
+                          {displayedCost ? (
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span>{currencySymbol}{displayedCost.toFixed(2)}</span>
+                              {item.autoCostFromProduction && <span className="text-[8px] font-black uppercase tracking-wider text-amber-500">Auto</span>}
+                            </div>
+                          ) : '-'}
+                        </td>
                         <td className="hidden px-4 py-3 font-mono text-xs text-gray-500 lg:table-cell">{item.sku || '-'}</td>
                         <td className="hidden px-4 py-3 text-center md:table-cell">
                           {item.trackStock ? (
@@ -1899,7 +2049,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                           </div>
                         </td>
                       </tr>
-                    ))}
+                    );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1939,11 +2090,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
             {/* Promotion / Discount sub-tab */}
             {itemSubTab === 'promotions' && (
-              <PromotionDiscountManager
-                restaurant={restaurant}
-                currencySymbol={currencySymbol}
-                onUpdateMenu={onUpdateMenu}
-              />
+              <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <PromotionDiscountManager
+                  restaurant={restaurant}
+                  currencySymbol={currencySymbol}
+                  onUpdateMenu={onUpdateMenu}
+                />
+              </div>
             )}
 
             {/* â”€â”€ Ingredients / Supplies sub-tab â”€â”€ */}
@@ -1968,25 +2121,30 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                         </datalist>
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Unit</label>
-                        <select value={ingredientForm.unit || 'pcs'} onChange={e => setIngredientForm(f => ({ ...f, unit: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                          <option value="pcs">Pieces</option>
-                          <option value="kg">Kilogram (kg)</option>
-                          <option value="g">Gram (g)</option>
-                          <option value="litre">Litre</option>
-                          <option value="ml">Millilitre (ml)</option>
-                          <option value="box">Box</option>
-                          <option value="pack">Pack</option>
-                          <option value="bottle">Bottle</option>
-                          <option value="bag">Bag</option>
-                          <option value="can">Can</option>
-                          <option value="roll">Roll</option>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Purchase Unit</label>
+                        <select value={getIngredientPurchaseUnit(ingredientForm)} onChange={e => setIngredientForm(f => ({ ...f, purchase_unit: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                          {PURCHASE_UNIT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                         </select>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Cost per Unit ({currencySymbol})</label>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Stock Unit</label>
+                        <select value={getIngredientStockUnit(ingredientForm)} onChange={e => setIngredientForm(f => ({ ...f, unit: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                          {STOCK_UNIT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">1 {getIngredientPurchaseUnit(ingredientForm)} Equals</label>
+                        <div className="flex overflow-hidden rounded-xl border border-gray-200 bg-white focus-within:ring-2 focus-within:ring-amber-500 dark:border-gray-700 dark:bg-gray-900">
+                          <input type="number" step="0.001" min="0" value={ingredientForm.purchase_to_stock_quantity || ''} onChange={e => setIngredientForm(f => ({ ...f, purchase_to_stock_quantity: parseFloat(e.target.value) || 0 }))} placeholder="1" className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-gray-900 outline-none dark:text-white" />
+                          <span className="flex items-center border-l border-gray-200 px-3 text-xs font-bold text-gray-400 dark:border-gray-700">{getIngredientStockUnit(ingredientForm)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Cost per {getIngredientPurchaseUnit(ingredientForm)} ({currencySymbol})</label>
                         <input type="number" step="0.01" value={ingredientForm.cost || ''} onChange={e => setIngredientForm(f => ({ ...f, cost: parseFloat(e.target.value) || 0 }))} placeholder="0.00" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
                       </div>
                       <div>
@@ -2042,7 +2200,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             {/* Info banner */}
             <div className="flex items-start gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/40">
               <Info size={16} className="mt-0.5 shrink-0 text-blue-500" />
-              <p className="text-xs text-gray-500 dark:text-gray-400">Ingredients & supplies are non-menu items like sugar, ice blocks, ketchup, packaging, etc. They appear in Purchase Orders and Stock Management for P&L tracking.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Ingredients & supplies are non-menu items like sugar, ice blocks, ketchup, packaging, etc. Set a purchase unit and stock unit so Purchase Orders can receive packs while production deducts the matching stock balance.</p>
             </div>
 
             {/* Ingredients Table */}
@@ -2066,8 +2224,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                       <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                         <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Name</th>
                         <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cost/Unit</th>
-                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Unit</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cost/Purchase Unit</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Stock Unit</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Conversion</th>
                         <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">SKU</th>
                         <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Notes</th>
                         <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
@@ -2077,16 +2236,12 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                       {paginatedIngredients.map(item => (
                         <tr key={item.id} className={`border-b border-gray-100 transition-colors dark:border-gray-700/50 ${item.is_archived ? 'opacity-50' : ''}`}>
                           <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                                <Box size={14} className="text-amber-600 dark:text-amber-400" />
-                              </div>
-                              <span className="text-sm font-bold dark:text-white">{item.name}</span>
-                            </div>
+                            <span className="text-sm font-bold dark:text-white">{item.name}</span>
                           </td>
                           <td className="px-5 py-4"><span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">{item.category}</span></td>
-                          <td className="px-5 py-4 text-sm font-bold dark:text-white">{currencySymbol}{(item.cost || 0).toFixed(2)}</td>
-                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{item.unit}</td>
+                          <td className="px-5 py-4 text-sm font-bold dark:text-white">{currencySymbol}{(item.cost || 0).toFixed(2)} / {getIngredientPurchaseUnit(item)}</td>
+                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{getIngredientStockUnit(item)}</td>
+                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden lg:table-cell">1 {getIngredientPurchaseUnit(item)} = {getIngredientPurchaseRatio(item)} {getIngredientStockUnit(item)}</td>
                           <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{item.sku || '-'}</td>
                           <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate max-w-[150px]">{item.notes || '-'}</td>
                           <td className="px-5 py-4 text-right">
@@ -2103,7 +2258,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </div>
               ) : (
                 <div className="h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
-                  <Box size={40} className="mb-3 opacity-30" />
                   <p className="text-sm font-bold">{ingredientShowArchived ? 'No archived ingredients' : 'No ingredients yet'}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{ingredientShowArchived ? 'Archived ingredients will appear here' : 'Add ingredients like sugar, ice blocks, packaging, etc.'}</p>
                   {!ingredientShowArchived && (
@@ -2188,11 +2342,29 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             {/* Stock Table */}
             <div className="overflow-hidden">
               {/* Filter bar with Show entries */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40">
+              <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40">
+                <div className="flex items-center gap-1">
+                  {([
+                    ['menu', 'Menu Stock'],
+                    ['ingredients', 'Ingredient Stock'],
+                  ] as const).map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => setStockSubTab(key)}
+                      className={`h-8 rounded-lg px-3 text-[10px] font-black uppercase tracking-wider transition-colors ${
+                        stockSubTab === key
+                          ? 'bg-amber-600 text-white shadow-sm'
+                          : 'bg-white text-gray-500 ring-1 ring-gray-200 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700 dark:hover:text-white'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
                   Showing {filteredStock.length === 0 ? 0 : (stockCurrentPage - 1) * stockEntriesPerPage + 1}-{Math.min(stockCurrentPage * stockEntriesPerPage, filteredStock.length)} of {filteredStock.length}
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="ml-auto flex items-center gap-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Show</span>
                   <select value={stockEntriesPerPage} onChange={e => setStockEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border border-gray-200 bg-white p-1 text-[10px] font-bold text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                     <option value={30}>30</option>
@@ -2245,6 +2417,12 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                       {paginatedStock.map(item => {
                         const status = !item.stockEnabled ? 'disabled' : item.currentStock === 0 ? 'out' : item.currentStock <= item.lowStockThreshold ? 'low' : 'ok';
+                        const ingredient = ingredientItems.find(i => i.id === item.menuItemId);
+                        const stockUnit = ingredient ? getIngredientStockUnit(ingredient) : item.unit;
+                        const purchaseUnit = ingredient ? getIngredientPurchaseUnit(ingredient) : item.unit;
+                        const purchaseRatio = ingredient ? getIngredientPurchaseRatio(ingredient) : 1;
+                        const purchaseBalance = purchaseRatio > 0 ? item.currentStock / purchaseRatio : 0;
+                        const showPurchaseBalance = Boolean(ingredient && purchaseUnit !== stockUnit && purchaseRatio !== 1);
                         return (
                           <tr key={item.menuItemId} className={`transition-colors ${!item.stockEnabled ? 'opacity-50' : ''}`}>
                             <td className="px-3 py-4">
@@ -2264,9 +2442,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                               {item.stockEnabled ? (
                               <div className="flex items-center gap-2">
                                 <button onClick={() => handleSetStock(item.menuItemId, item.currentStock - 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Minus size={12} /></button>
-                                <span className={`text-sm font-black min-w-[40px] text-center ${
-                                  status === 'out' ? 'text-red-600 dark:text-red-400' : status === 'low' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'
-                                }`}>{item.currentStock}</span>
+                                <div className="min-w-[92px] text-center">
+                                  <span className={`block text-sm font-black ${
+                                    status === 'out' ? 'text-red-600 dark:text-red-400' : status === 'low' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'
+                                  }`}>{formatStockNumber(item.currentStock)} {getUnitLabel(stockUnit)}</span>
+                                  {showPurchaseBalance && (
+                                    <span className="block text-[10px] font-semibold text-gray-400">{formatStockNumber(purchaseBalance)} {getUnitLabel(purchaseUnit)}</span>
+                                  )}
+                                </div>
                                 <button onClick={() => handleSetStock(item.menuItemId, item.currentStock + 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Plus size={12} /></button>
                               </div>
                               ) : <span className="text-xs text-gray-400">-</span>}
@@ -2310,9 +2493,15 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </div>
               ) : (
                 <div className="h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
-                  <Package size={40} className="mb-3 opacity-30" />
-                  <p className="text-sm font-bold">No items found</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{stockFilter !== 'all' ? 'Try changing the filter' : 'Add menu items to track stock'}</p>
+                  {stockSubTab === 'menu' && <Package size={40} className="mb-3 opacity-30" />}
+                  <p className="text-sm font-bold">No {stockSubTab === 'ingredients' ? 'ingredient' : 'menu'} stock items</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    {stockFilter !== 'all'
+                      ? 'Try changing the filter'
+                      : stockSubTab === 'ingredients'
+                        ? 'Add ingredients or supplies to manage their stock here'
+                        : 'Add menu items to track stock'}
+                  </p>
                 </div>
               )}
             </div>
@@ -2359,7 +2548,15 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           <StaffManagementView restaurant={restaurant} currencySymbol={currencySymbol} />
         )}
         {activeTab === 'INVENTORY' && (
-          <InventoryManagement restaurant={restaurant} currencySymbol={currencySymbol} initialSubTab={inventorySubTab as any} />
+          <InventoryManagement
+            restaurant={restaurant}
+            currencySymbol={currencySymbol}
+            initialSubTab={inventorySubTab as any}
+            onNavigateToItemsStock={() => {
+              setItemSubTab('ingredients');
+              setActiveTab('ITEMS');
+            }}
+          />
         )}
 
         {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}

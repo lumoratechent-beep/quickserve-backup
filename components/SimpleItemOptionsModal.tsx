@@ -74,7 +74,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
     }
   };
 
-  const calculateTotal = () => {
+  const calculatePriceBreakdown = () => {
     let menuTotal = item.price || 0;
     let addOnTotal = 0;
 
@@ -137,7 +137,14 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
     });
     const discountedMenuTotal = getMenuItemEffectivePrice({ price: menuTotal, promotionDiscount: item.promotionDiscount }, new Date(), variantKey);
 
-    return discountedMenuTotal + addOnTotal;
+    return {
+      originalTotal: menuTotal + addOnTotal,
+      discountedTotal: discountedMenuTotal + addOnTotal,
+    };
+  };
+
+  const calculateTotal = () => {
+    return calculatePriceBreakdown().discountedTotal;
   };
 
   const handleConfirm = () => {
@@ -202,7 +209,9 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
     const firstModSelection = activeModifiers.length > 0 ? (selectedModifiers[activeModifiers[0].name] || '') : '';
 
     // Use manual price if entered, otherwise use calculated total
+    const { originalTotal } = calculatePriceBreakdown();
     const finalPrice = showPriceEntry ? Number(manualPrice) : total;
+    const originalPrice = !showPriceEntry && originalTotal > finalPrice + 0.005 ? originalTotal : undefined;
 
     const cartItem: CartItem = {
       id: item.id,
@@ -227,6 +236,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
       selectedModifiers: Object.keys(selectedModifiers).length > 0 ? selectedModifiers : undefined,
       selectedAddOns,
       selectedVariantOption: variantOption || undefined,
+      originalPrice,
       selectedMixMatch: hasMixMatch
         ? mixMatchSelections.map((sel, i) => {
             const choiceName = mixMatchChoices[i] || '';

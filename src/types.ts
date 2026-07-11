@@ -63,6 +63,7 @@ export interface MenuItem {
   isArchived?: boolean;
   // Loyverse-style fields
   cost?: number;           // COGS / cost price
+  autoCostFromProduction?: boolean; // derive COGS from latest production recipe
   sku?: string;            // Stock Keeping Unit
   barcode?: string;        // Barcode / EAN / UPC
   soldBy?: 'each' | 'weight'; // Sold by each or weight/volume
@@ -174,6 +175,7 @@ export interface SelectedAddOn {
 export interface CartItem extends MenuItem {
   quantity: number;
   restaurantId: string;
+  originalPrice?: number;
   status?: OrderStatus;
   selectedSize?: string;
   selectedTemp?: string;
@@ -376,8 +378,10 @@ export interface IngredientItem {
   restaurant_id: string;
   name: string;
   category: string;
-  cost: number;         // cost per unit for COGS / P&L
-  unit: string;         // pcs, kg, litre, box, pack …
+  cost: number;         // cost per purchase unit for COGS / P&L
+  unit: string;         // stock/base unit: pcs, g, kg, ml, litre
+  purchase_unit?: string; // supplier pack unit: bottle, box, pack, bag, etc.
+  purchase_to_stock_quantity?: number; // how many stock units are in 1 purchase unit
   sku?: string;
   barcode?: string;
   is_archived?: boolean;

@@ -282,7 +282,7 @@ const PromotionDiscountManager: React.FC<Props> = ({ restaurant, currencySymbol,
               onClick={() => setStatusFilter('ARCHIVED')}
               className={`inline-flex items-center gap-1.5 rounded-md px-3 text-[10px] font-black uppercase tracking-widest transition ${statusFilter === 'ARCHIVED' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
             >
-              <Archive size={13} /> Archived
+              Archived
             </button>
           </div>
           <button

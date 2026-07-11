@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, QS_DEFAULT_HUB, Subscription, KitchenDepartment, OrderSource, CashierShift } from './src/types';
+import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, QS_DEFAULT_HUB, Subscription, KitchenDepartment, OrderSource, CashierShift, IngredientItem } from './src/types';
 import CustomerView from './pages/CustomerView';
 import AdminView from './pages/AdminView';
 import PosOnlyView from './pages/PosOnlyView';
@@ -14,7 +14,7 @@ import QuickServeShopPage from './pages/QuickServeShopPage';
 import HelpTutorialPage from './pages/HelpTutorialPage';
 import TableSideOrderPage from './pages/TableSideOrderPage';
 import { supabase } from './lib/supabase';
-import { expandPosSettings } from './lib/sharedSettings';
+import { expandPosSettings, syncBackofficeToDb } from './lib/sharedSettings';
 import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock, AlertCircle, ShoppingBag } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
 import { getConnectivityMonitor, destroyConnectivityMonitor, type ConnectivityStatus } from './lib/connectivityMonitor';
@@ -1035,6 +1035,7 @@ const App: React.FC = () => {
             linkedModifiers: others.linkedModifiers || (others.enabled && others.name ? [others.name] : []),
             addOns: addOns,
             cost: others.cost ?? 0,
+            autoCostFromProduction: others.autoCostFromProduction ?? false,
             sku: others.sku ?? '',
             barcode: others.barcode ?? '',
             soldBy: others.soldBy ?? 'each',
@@ -1883,12 +1884,207 @@ const App: React.FC = () => {
   }, [currentUser?.role, activeVendorRes?.settings?.features?.tablesideOrderingEnabled]);
 
   // Adapter for POS views — matches their onUpdateOrder prop signature
+  type StockItemRecord = {
+    menuItemId: string;
+    name: string;
+    category: string;
+    currentStock: number;
+    lowStockThreshold: number;
+    unit: string;
+    lastRestocked?: number;
+    stockEnabled: boolean;
+  };
+
+  type ProductionRecord = {
+    id: string;
+    producedItemId: string;
+    producedItemName: string;
+    quantityProduced: number;
+    appliesTo?: 'all' | 'variants';
+    variantKey?: string;
+    variantLabel?: string;
+    ingredients: {
+      menuItemId: string;
+      name: string;
+      quantityUsed: number;
+      unit: string;
+      stockQuantityUsed?: number;
+      stockUnit?: string;
+    }[];
+    timestamp: number;
+  };
+
+  type InventoryHistoryEntry = {
+    id: string;
+    action: string;
+    itemName: string;
+    quantity: number;
+    unit?: string;
+    detail?: string;
+    type: 'in' | 'out' | 'adjust';
+    timestamp: number;
+    reference: string;
+  };
+
+  const getIngredientStockUnit = (item?: Partial<IngredientItem>) => item?.unit || 'pcs';
+  const getCartItemProductionVariantKey = (item: CartItem) => {
+    if (item.selectedSize) return `size:${item.selectedSize}`;
+    if (item.selectedOtherVariant) return `other:${item.selectedOtherVariant}`;
+    if (item.selectedTemp) return `temp:${item.selectedTemp}`;
+    if (item.selectedVariantOption) return `variant:${item.selectedVariantOption}`;
+    return '';
+  };
+
+  const applyPosStockDeduction = useCallback((restaurantId: string, order: Pick<Order, 'id' | 'items'>) => {
+    if (!restaurantId || !order.id || !Array.isArray(order.items) || order.items.length === 0) return;
+
+    const markerKey = `inv_${restaurantId}_sales_stock_deductions`;
+    const stockKey = `stock_${restaurantId}`;
+    const historyKey = `inv_${restaurantId}_history`;
+    const productionKey = `inv_${restaurantId}_productions`;
+    const ingredientsKey = `ingredients_${restaurantId}`;
+
+    let deductedOrderIds: string[] = [];
+    try {
+      deductedOrderIds = JSON.parse(localStorage.getItem(markerKey) || '[]');
+    } catch { deductedOrderIds = []; }
+    if (deductedOrderIds.includes(order.id)) return;
+
+    let stockItems: StockItemRecord[] = [];
+    let productions: ProductionRecord[] = [];
+    let ingredients: IngredientItem[] = [];
+    let history: InventoryHistoryEntry[] = [];
+    try { stockItems = JSON.parse(localStorage.getItem(stockKey) || '[]'); } catch { stockItems = []; }
+    try { productions = JSON.parse(localStorage.getItem(productionKey) || '[]'); } catch { productions = []; }
+    try { ingredients = JSON.parse(localStorage.getItem(ingredientsKey) || '[]'); } catch { ingredients = []; }
+    try { history = JSON.parse(localStorage.getItem(historyKey) || '[]'); } catch { history = []; }
+
+    const latestProductionByMenu = new Map<string, ProductionRecord>();
+    const latestProductionByMenuVariant = new Map<string, ProductionRecord>();
+    [...productions]
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      .forEach(production => {
+        if (production.quantityProduced <= 0) return;
+        if (production.appliesTo === 'variants' && production.variantKey) {
+          const key = `${production.producedItemId}::${production.variantKey}`;
+          if (!latestProductionByMenuVariant.has(key)) latestProductionByMenuVariant.set(key, production);
+          return;
+        }
+        if (!latestProductionByMenu.has(production.producedItemId)) {
+          latestProductionByMenu.set(production.producedItemId, production);
+        }
+      });
+
+    const deltas = new Map<string, { delta: number; name: string; unit: string; detail: string }>();
+    const plannedStockBalances = new Map<string, number>();
+    const addDelta = (itemId: string, delta: number, name: string, unit: string, detail: string) => {
+      if (!itemId || delta <= 0) return;
+      const current = deltas.get(itemId);
+      if (current) {
+        current.delta += delta;
+        current.detail = `${current.detail}; ${detail}`;
+      } else {
+        deltas.set(itemId, { delta, name, unit, detail });
+      }
+    };
+    const getPlannedStockBalance = (itemId: string) => {
+      if (!plannedStockBalances.has(itemId)) {
+        const stockRecord = stockItems.find(stock => stock.menuItemId === itemId);
+        plannedStockBalances.set(itemId, Number(stockRecord?.currentStock || 0));
+      }
+      return plannedStockBalances.get(itemId) || 0;
+    };
+    const reserveFinishedStock = (item: CartItem, quantity: number) => {
+      const stockRecord = stockItems.find(stock => stock.menuItemId === item.id);
+      if (!stockRecord?.stockEnabled || quantity <= 0) return 0;
+      const availableStock = getPlannedStockBalance(item.id);
+      const reservedQty = Math.min(availableStock, quantity);
+      if (reservedQty <= 0) return 0;
+
+      plannedStockBalances.set(item.id, availableStock - reservedQty);
+      addDelta(
+        item.id,
+        reservedQty,
+        item.name,
+        stockRecord.unit || 'pcs',
+        `${reservedQty} x ${item.name} from produced stock`
+      );
+      return reservedQty;
+    };
+
+    order.items.forEach(item => {
+      const soldQty = Number(item.quantity) || 0;
+      if (soldQty <= 0) return;
+      const variantKey = getCartItemProductionVariantKey(item);
+      const recipe = (variantKey ? latestProductionByMenuVariant.get(`${item.id}::${variantKey}`) : undefined) || latestProductionByMenu.get(item.id);
+      const finishedStockQty = reserveFinishedStock(item, soldQty);
+      const recipeQty = Math.max(0, soldQty - finishedStockQty);
+      if (recipeQty <= 0) return;
+
+      if (recipe && recipe.quantityProduced > 0 && Array.isArray(recipe.ingredients) && recipe.ingredients.length > 0) {
+        recipe.ingredients.forEach(ingredientLine => {
+          const ingredient = ingredients.find(i => i.id === ingredientLine.menuItemId);
+          const stockRecord = stockItems.find(stock => stock.menuItemId === ingredientLine.menuItemId);
+          if (!stockRecord?.stockEnabled) return;
+          const stockQtyPerProduced = Number(ingredientLine.stockQuantityUsed ?? ingredientLine.quantityUsed) / recipe.quantityProduced;
+          addDelta(
+            ingredientLine.menuItemId,
+            stockQtyPerProduced * recipeQty,
+            ingredientLine.name,
+            ingredientLine.stockUnit || getIngredientStockUnit(ingredient),
+            `${recipeQty} x ${item.name} from recipe`
+          );
+        });
+      } else {
+        const stockRecord = stockItems.find(stock => stock.menuItemId === item.id);
+        if (!stockRecord?.stockEnabled) return;
+        addDelta(item.id, recipeQty, item.name, stockRecord.unit || 'pcs', `${recipeQty} sold`);
+      }
+    });
+
+    if (deltas.size === 0) {
+      localStorage.setItem(markerKey, JSON.stringify([order.id, ...deductedOrderIds].slice(0, 1000)));
+      return;
+    }
+
+    const now = Date.now();
+    deltas.forEach((deduction, itemId) => {
+      const existing = stockItems.find(stock => stock.menuItemId === itemId);
+      if (existing?.stockEnabled) {
+        existing.currentStock = Math.max(0, Number(existing.currentStock || 0) - deduction.delta);
+      } else {
+        return;
+      }
+      history.unshift({
+        id: crypto.randomUUID(),
+        action: 'POS sale stock used',
+        itemName: deduction.name,
+        quantity: deduction.delta,
+        unit: deduction.unit,
+        detail: deduction.detail,
+        type: 'out',
+        timestamp: now,
+        reference: order.id,
+      });
+    });
+
+    localStorage.setItem(stockKey, JSON.stringify(stockItems));
+    localStorage.setItem(historyKey, JSON.stringify(history.slice(0, 500)));
+    localStorage.setItem(markerKey, JSON.stringify([order.id, ...deductedOrderIds].slice(0, 1000)));
+    syncBackofficeToDb(restaurantId);
+  }, []);
+
   const updateOrderForPos = (orderId: string, status: OrderStatus, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number }) => {
     updateOrderStatus(orderId, status, undefined, undefined, paymentDetails);
   };
 
   // FIXED: Updated updateOrderStatus to handle printing correctly
   const updateOrderStatus = async (orderId: string, status: OrderStatus, reason?: string, note?: string, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number }) => {
+    const existingOrderForStock = orders.find(o => o.id === orderId);
+    if (status === OrderStatus.COMPLETED && existingOrderForStock && existingOrderForStock.status !== OrderStatus.COMPLETED) {
+      applyPosStockDeduction(existingOrderForStock.restaurantId, existingOrderForStock);
+    }
+
     // Don't lock if we're just marking as ONGOING (for printing)
     const shouldLock = status !== OrderStatus.ONGOING;
     
@@ -1955,8 +2151,15 @@ const App: React.FC = () => {
     const res = restaurants.find(r => r.id === item.restaurantId);
     if (res && res.isOnline === false) { toast("This kitchen is currently offline.", 'warning'); return; }
     setCart(prev => {
-      const existing = prev.find(i => i.id === item.id && i.selectedSize === item.selectedSize && i.selectedTemp === item.selectedTemp && i.selectedOtherVariant === item.selectedOtherVariant);
-      if (existing) return prev.map(i => (i.id === item.id && i.selectedSize === item.selectedSize && i.selectedTemp === item.selectedTemp && i.selectedOtherVariant === item.selectedOtherVariant) ? { ...i, quantity: i.quantity + 1 } : i);
+      const matchesCartVariant = (i: CartItem) => (
+        i.id === item.id &&
+        i.selectedSize === item.selectedSize &&
+        i.selectedTemp === item.selectedTemp &&
+        i.selectedOtherVariant === item.selectedOtherVariant &&
+        i.selectedVariantOption === item.selectedVariantOption
+      );
+      const existing = prev.find(matchesCartVariant);
+      if (existing) return prev.map(i => matchesCartVariant(i) ? { ...i, quantity: i.quantity + 1 } : i);
       return [...prev, { ...item, quantity: 1 }];
     });
   };
@@ -1987,6 +2190,7 @@ const App: React.FC = () => {
         linkedModifiers: item.linkedModifiers || [],
         variantOptions: item.variantOptions || { enabled: false, options: [] },
         cost: item.cost ?? 0,
+        autoCostFromProduction: item.autoCostFromProduction ?? false,
         sku: item.sku ?? '',
         barcode: item.barcode ?? '',
         soldBy: item.soldBy ?? 'each',
@@ -2027,6 +2231,7 @@ const App: React.FC = () => {
         linkedModifiers: item.linkedModifiers || [],
         variantOptions: item.variantOptions || { enabled: false, options: [] },
         cost: item.cost ?? 0,
+        autoCostFromProduction: item.autoCostFromProduction ?? false,
         sku: item.sku ?? '',
         barcode: item.barcode ?? '',
         soldBy: item.soldBy ?? 'each',
@@ -2125,6 +2330,7 @@ const App: React.FC = () => {
         linkedModifiers: copyJson(item.linkedModifiers || []),
         variantOptions: copyJson(item.variantOptions || { enabled: false, options: [] }),
         cost: item.cost ?? 0,
+        autoCostFromProduction: item.autoCostFromProduction ?? false,
         sku: item.sku ?? '',
         barcode: item.barcode ?? '',
         soldBy: item.soldBy ?? 'each',
@@ -2638,6 +2844,7 @@ const App: React.FC = () => {
       offlineQueue.addOfflineOrder(offlineOrder);
       offlineQueue.rememberOrderId(code, orderId);
       setPendingOfflineOrdersCount(prevCount => prevCount + 1);
+      applyPosStockDeduction(currentUser.restaurantId!, { id: orderId, items });
       console.log(`Order queued for later sync (${reason}): ${orderId}`);
       return orderId;
     };
@@ -2736,6 +2943,7 @@ const App: React.FC = () => {
     } else {
       // Successfully inserted - update tracker to remember this number
       offlineQueue.rememberOrderId(code, orderId);
+      applyPosStockDeduction(currentUser.restaurantId, { id: orderId, items });
       console.log(`Order ${orderId} successfully created online`);
     }
     

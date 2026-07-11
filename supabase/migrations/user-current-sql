@@ -260,6 +260,8 @@ CREATE TABLE public.ingredient_items (
   category text NOT NULL DEFAULT 'Uncategorized'::text,
   cost numeric NOT NULL DEFAULT 0,
   unit text NOT NULL DEFAULT 'pcs'::text,
+  purchase_unit text NOT NULL DEFAULT 'pcs'::text,
+  purchase_to_stock_quantity numeric NOT NULL DEFAULT 1,
   sku text,
   barcode text,
   is_archived boolean NOT NULL DEFAULT false,
