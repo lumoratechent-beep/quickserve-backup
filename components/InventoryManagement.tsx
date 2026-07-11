@@ -1112,7 +1112,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       theme: 'grid',
     });
 
-    const pageCount = doc.getNumberOfPages();
+    const pageCount = (doc as any).getNumberOfPages();
     for (let page = 1; page <= pageCount; page += 1) {
       doc.setPage(page);
       doc.setFontSize(8);
