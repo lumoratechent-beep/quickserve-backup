@@ -21,6 +21,7 @@ export const normalizeAdminShopItem = (item: any) => ({
   costPrice: Number(item?.costPrice || item?.cost_price) || 0,
   category: String(item?.category || ''),
   isActive: item?.isActive ?? item?.is_active ?? true,
+  hideInQuotation: Boolean(item?.hideInQuotation ?? item?.hide_in_quotation ?? false),
   createdAt: Number(item?.createdAt || Date.now()),
   updatedAt: Number(item?.updatedAt || Date.now()),
 });

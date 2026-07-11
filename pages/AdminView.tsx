@@ -88,6 +88,7 @@ interface AdminSoldItem {
   costPrice: DraftNumber;
   category: string;
   isActive: boolean;
+  hideInQuotation: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -120,15 +121,26 @@ const getQuotationTheme = (quote: Pick<AdminQuotation, 'themeColor' | 'tableColo
   tableColor: normalizeHexColor(quote.tableColor, '#f97316'),
 });
 
+const getCurrentPaymentQrUrl = async () => {
+  const { data, error } = await supabase
+    .from('feature_images')
+    .select('url')
+    .eq('category', 'payment-qr')
+    .order('sort_order', { ascending: true })
+    .limit(1);
+  if (error) return '';
+  return String(data?.[0]?.url || '');
+};
+
 const ADMIN_QUOTATION_SELLER_STORAGE_KEY = 'qs_admin_quotation_seller_defaults';
 
 const getQuotationSellerDefaults = (): QuotationSellerDefaults => {
   const fallback: QuotationSellerDefaults = {
-    sellerLogo: '',
-    sellerCompanyName: 'QuickServe',
-    sellerInfo: '',
-    sellerAddress: '',
-    sellerSsmNumber: '',
+    sellerLogo: '/LOGO/LUMORA-BLACK-LOGO.png',
+    sellerCompanyName: 'Lumora Tech Ent.',
+    sellerInfo: 'QuickServe by Lumora Tech | WhatsApp: +60 11-5403 6303',
+    sellerAddress: 'Jalan Juruanalisis UI/35, Seksyen U1, 40150 Shah Alam, Selangor',
+    sellerSsmNumber: 'JR0174591U',
     themeId: 'orange',
     themeColor: '#f97316',
     tableColor: '#f97316',
@@ -269,6 +281,7 @@ const normalizeAdminSoldItem = (item: any): AdminSoldItem | null => {
     costPrice: item.costPrice ?? item.cost_price ?? 0,
     category: String(item.category || ''),
     isActive: item.isActive ?? item.is_active ?? true,
+    hideInQuotation: Boolean(item.hideInQuotation ?? item.hide_in_quotation ?? false),
     createdAt: Number(item.createdAt || Date.now()),
     updatedAt: Number(item.updatedAt || Date.now()),
   };
@@ -813,6 +826,7 @@ const AdminView: React.FC<Props> = ({
     costPrice: '',
     category: '',
     isActive: true,
+    hideInQuotation: false,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   }));
@@ -1022,8 +1036,13 @@ const AdminView: React.FC<Props> = ({
     } catch { /* local fallback already updated */ }
   };
 
-  const resetQuotationForm = (documentType: QuotationDocumentType = 'quotation') => {
-    setQuotationForm(createBlankQuotation(getQuotationSellerDefaults(), documentType));
+  const resetQuotationForm = async (documentType: QuotationDocumentType = 'quotation') => {
+    const defaults = getQuotationSellerDefaults();
+    const currentQrUrl = await getCurrentPaymentQrUrl();
+    setQuotationForm(createBlankQuotation({
+      ...defaults,
+      qrImage: currentQrUrl || defaults.qrImage,
+    }, documentType));
     setEditingQuotationId(null);
     setQuotationView('form');
   };
@@ -1087,6 +1106,20 @@ const AdminView: React.FC<Props> = ({
       return;
     }
 
+    saveQuotationSellerDefaults({
+      sellerLogo: normalized.sellerLogo,
+      sellerCompanyName: normalized.sellerCompanyName,
+      sellerInfo: normalized.sellerInfo,
+      sellerAddress: normalized.sellerAddress,
+      sellerSsmNumber: normalized.sellerSsmNumber,
+      themeId: normalized.themeId,
+      themeColor: normalized.themeColor,
+      tableColor: normalized.tableColor,
+      qrImage: normalized.qrImage,
+      qrPayeeName: normalized.qrPayeeName,
+      qrNote: normalized.qrNote,
+    });
+
     const exists = quotations.some(q => q.id === normalized.id);
     const next = exists
       ? quotations.map(q => q.id === normalized.id ? normalized : q)
@@ -1137,6 +1170,7 @@ const AdminView: React.FC<Props> = ({
       costPrice: '',
       category: '',
       isActive: true,
+      hideInQuotation: false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
@@ -1154,6 +1188,7 @@ const AdminView: React.FC<Props> = ({
       category: draft.category.trim(),
       price: Math.max(0, Number(draft.price) || 0),
       costPrice: Math.max(0, Number(draft.costPrice) || 0),
+      hideInQuotation: Boolean(draft.hideInQuotation),
       updatedAt: Date.now(),
     };
     if (!normalized.name) {
@@ -1185,6 +1220,7 @@ const AdminView: React.FC<Props> = ({
       costPrice: 0,
       category: '',
       isActive: true,
+      hideInQuotation: false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -4916,7 +4952,7 @@ const AdminView: React.FC<Props> = ({
                       {quotationForm.items.map(item => {
                         const query = (item.lookupQuery ?? item.description).trim().toLowerCase();
                         const matches = query
-                          ? soldItems.filter(shopItem => shopItem.isActive && [shopItem.name, shopItem.sku, shopItem.description].some(value => String(value || '').toLowerCase().includes(query))).slice(0, 5)
+                          ? soldItems.filter(shopItem => !shopItem.hideInQuotation && [shopItem.name, shopItem.sku, shopItem.description].some(value => String(value || '').toLowerCase().includes(query))).slice(0, 5)
                           : [];
                         return (
                         <div key={item.id} className="grid grid-cols-[1fr_70px_95px_34px] gap-2 items-start">
@@ -5189,12 +5225,24 @@ const AdminView: React.FC<Props> = ({
                 </div>
                 <label className="block">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Description</span>
-                  <textarea value={soldItemForm.description} onChange={e => setSoldItemForm(prev => ({ ...prev, description: e.target.value }))} rows={3} className="mt-1 w-full rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                  <textarea
+                    value={soldItemForm.description}
+                    onChange={e => setSoldItemForm(prev => ({ ...prev, description: e.target.value }))}
+                    rows={8}
+                    placeholder="Write product details. Press Enter for a new line."
+                    className="mt-1 min-h-[180px] w-full resize-y rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-3 text-sm leading-relaxed dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                  />
                 </label>
-                <label className="flex items-center justify-between rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-3">
-                  <span className="text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-300">Active</span>
-                  <input type="checkbox" checked={soldItemForm.isActive} onChange={e => setSoldItemForm(prev => ({ ...prev, isActive: e.target.checked }))} className="h-5 w-5 accent-orange-500" />
-                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="flex items-center justify-between rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-3">
+                    <span className="text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-300">Hide In Shop</span>
+                    <input type="checkbox" checked={!soldItemForm.isActive} onChange={e => setSoldItemForm(prev => ({ ...prev, isActive: !e.target.checked }))} className="h-5 w-5 accent-orange-500" />
+                  </label>
+                  <label className="flex items-center justify-between rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-3">
+                    <span className="text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-300">Hide In Quotation</span>
+                    <input type="checkbox" checked={soldItemForm.hideInQuotation} onChange={e => setSoldItemForm(prev => ({ ...prev, hideInQuotation: e.target.checked }))} className="h-5 w-5 accent-orange-500" />
+                  </label>
+                </div>
                 <button onClick={() => saveSoldItemDraft()} className="w-full h-11 rounded-xl bg-orange-500 text-white text-xs font-black uppercase tracking-widest hover:bg-orange-600">
                   Save Item
                 </button>
@@ -5235,7 +5283,10 @@ const AdminView: React.FC<Props> = ({
                         <div className="text-right shrink-0">
                           <p className="text-sm font-black dark:text-white">RM {(Number(item.price) || 0).toFixed(2)}</p>
                           <p className="text-[10px] text-gray-400">Cost RM {(Number(item.costPrice) || 0).toFixed(2)}</p>
-                          <span className={`inline-flex mt-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${item.isActive ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-gray-100 text-gray-400 dark:bg-gray-700'}`}>{item.isActive ? 'Public' : 'Hidden'}</span>
+                          <div className="mt-1 flex flex-col items-end gap-1">
+                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${item.isActive ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-gray-100 text-gray-400 dark:bg-gray-700'}`}>{item.isActive ? 'Shop Visible' : 'Shop Hidden'}</span>
+                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${item.hideInQuotation ? 'bg-gray-100 text-gray-400 dark:bg-gray-700' : 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'}`}>{item.hideInQuotation ? 'Quote Hidden' : 'Quote Visible'}</span>
+                          </div>
                         </div>
                       </div>
                       <div className="mt-3 flex items-center justify-end gap-1">
