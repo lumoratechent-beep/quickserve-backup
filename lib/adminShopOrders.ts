@@ -78,6 +78,7 @@ export const buildAdminShopQuotation = (order: any) => {
       ].filter(Boolean).join('\n'),
       quantity: Math.max(1, Number(item.quantity) || 1),
       unitPrice: Math.max(0, Number(item.price) || 0),
+      discount: 0,
     })),
     createdAt: order?.created_at ? new Date(order.created_at).getTime() : now,
     updatedAt: Date.now(),
@@ -91,7 +92,7 @@ export const buildAdminShopQuotation = (order: any) => {
 export const ensureAdminShopQuotationForOrder = async (supabase: any, order: any) => {
   const quote = buildAdminShopQuotation(order);
   const total = quote.items.reduce((sum: number, item: any) => (
-    sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)
+    sum + Math.max(0, ((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)) - (Number(item.discount) || 0))
   ), 0);
 
   const { error } = await supabase.from('admin_quotations').upsert({

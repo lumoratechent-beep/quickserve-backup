@@ -19,6 +19,7 @@ type InvoiceLine = {
   description: string;
   quantity: number;
   unitPrice: number;
+  discount?: number;
 };
 
 type PaidInvoice = {
@@ -215,7 +216,10 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
     && customer.city.trim()
     && customer.state.trim()
     && customer.postcode.trim();
-  const invoiceTotal = paidInvoice?.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0), 0) || 0;
+  const invoiceTotal = paidInvoice?.items.reduce((sum, item) => {
+    const subtotal = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
+    return sum + Math.max(0, subtotal - (Number(item.discount) || 0));
+  }, 0) || 0;
 
   const getInvoiceLineName = (description: string) => description.split('\n').filter(Boolean)[0] || 'QuickServe item';
 
@@ -292,7 +296,7 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
 
     doc.setFont('helvetica', 'normal');
     paidInvoice.items.forEach(item => {
-      const amount = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
+      const amount = Math.max(0, ((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)) - (Number(item.discount) || 0));
       const nameLines = doc.splitTextToSize(getInvoiceLineName(item.description), 82);
       if (y + nameLines.length * 5 > 260) {
         doc.addPage();
@@ -627,7 +631,7 @@ const QuickServeShopPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark 
                 <span className="text-right">Amount</span>
               </div>
               {paidInvoice.items.map(item => {
-                const amount = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
+                const amount = Math.max(0, ((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)) - (Number(item.discount) || 0));
                 return (
                   <div key={item.id} className="grid grid-cols-[minmax(0,1fr)_70px_110px] gap-3 border-t border-gray-100 px-4 py-4 text-sm dark:border-gray-800">
                     <div className="min-w-0">

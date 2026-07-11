@@ -42,6 +42,7 @@ interface QuotationLineItem {
   description: string;
   quantity: DraftNumber;
   unitPrice: DraftNumber;
+  discount: DraftNumber;
 }
 
 interface AdminQuotation {
@@ -121,6 +122,14 @@ const getQuotationTheme = (quote: Pick<AdminQuotation, 'themeColor' | 'tableColo
   tableColor: normalizeHexColor(quote.tableColor, '#f97316'),
 });
 
+const splitItemDescription = (description: string) => {
+  const lines = String(description || '').split(/\r\n|\r|\n/).map(line => line.trim()).filter(Boolean);
+  return {
+    title: lines[0] || '',
+    details: lines.slice(1),
+  };
+};
+
 const getCurrentPaymentQrUrl = async () => {
   const { data, error } = await supabase
     .from('feature_images')
@@ -197,7 +206,7 @@ const createBlankQuotation = (
     qrImage: sellerDefaults.qrImage || '',
     qrPayeeName: sellerDefaults.qrPayeeName || 'Lumora HQ',
     qrNote: sellerDefaults.qrNote || 'Scan to pay Lumora HQ',
-    items: [{ id: `line_${Date.now()}`, description: '', lookupQuery: '', quantity: '', unitPrice: '' }],
+    items: [{ id: `line_${Date.now()}`, description: '', lookupQuery: '', quantity: '', unitPrice: '', discount: '' }],
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -205,10 +214,15 @@ const createBlankQuotation = (
 
 const calculateQuotationTotals = (quote: Pick<AdminQuotation, 'items' | 'discount' | 'taxRate'>) => {
   const subtotal = quote.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0), 0);
-  const discount = Math.max(0, Number(quote.discount) || 0);
+  const itemDiscount = quote.items.reduce((sum, item) => {
+    const lineAmount = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
+    return sum + Math.min(lineAmount, Math.max(0, Number(item.discount) || 0));
+  }, 0);
+  const documentDiscount = Math.min(Math.max(0, Number(quote.discount) || 0), Math.max(0, subtotal - itemDiscount));
+  const discount = itemDiscount + documentDiscount;
   const taxable = Math.max(0, subtotal - discount);
   const tax = taxable * ((Number(quote.taxRate) || 0) / 100);
-  return { subtotal, discount, tax, total: taxable + tax };
+  return { subtotal, itemDiscount, documentDiscount, discount, tax, total: taxable + tax };
 };
 
 const ADMIN_QUOTATIONS_STORAGE_KEY = 'qs_admin_quotations';
@@ -264,7 +278,7 @@ const normalizeAdminQuotation = (quote: any): AdminQuotation | null => {
     qrPayeeName: String(quote.qrPayeeName || 'Lumora HQ'),
     qrNote: String(quote.qrNote || 'Scan to pay Lumora HQ'),
     items: Array.isArray(quote.items)
-      ? quote.items.map((item: any) => ({ ...item, lookupQuery: item.lookupQuery || item.description || '' }))
+      ? quote.items.map((item: any) => ({ ...item, discount: Math.max(0, Number(item.discount) || 0), lookupQuery: item.lookupQuery || item.description || '' }))
       : [],
   };
 };
@@ -1067,6 +1081,7 @@ const AdminView: React.FC<Props> = ({
       description,
       quantity: 1,
       unitPrice: Number(item.price) || 0,
+      discount: 0,
     });
     setQuotationLookupOpenLineId(null);
   };
@@ -1089,6 +1104,10 @@ const AdminView: React.FC<Props> = ({
           description: item.description.trim(),
           quantity: Math.max(0, Number(item.quantity) || 0),
           unitPrice: Math.max(0, Number(item.unitPrice) || 0),
+          discount: Math.min(
+            Math.max(0, Number(item.discount) || 0),
+            Math.max(0, Number(item.quantity) || 0) * Math.max(0, Number(item.unitPrice) || 0)
+          ),
         })),
       discount: Math.max(0, Number(quotationForm.discount) || 0),
       taxRate: Math.max(0, Number(quotationForm.taxRate) || 0),
@@ -1354,17 +1373,49 @@ const AdminView: React.FC<Props> = ({
 
     autoTable(doc, {
       startY: 96,
-      head: [['Item', 'Qty', 'Unit Price', 'Amount']],
+      head: [['Item', 'Qty', 'Unit Price', 'Discount', 'Amount']],
       body: quote.items.filter(item => item.description.trim()).map(item => [
         item.description,
         String(Number(item.quantity) || 0),
         `RM ${(Number(item.unitPrice) || 0).toFixed(2)}`,
-        `RM ${((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)).toFixed(2)}`,
+        `RM ${Math.min((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0), Math.max(0, Number(item.discount) || 0)).toFixed(2)}`,
+        `RM ${Math.max(0, ((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)) - Math.max(0, Number(item.discount) || 0)).toFixed(2)}`,
       ]),
       styles: { fontSize: 9, cellPadding: 3 },
       headStyles: { fillColor: tableRgb, textColor: [255, 255, 255], fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [249, 250, 251] },
-      columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+      columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
+      didParseCell: (data: any) => {
+        if (data.section === 'body' && data.column.index === 0) {
+          const { title, details } = splitItemDescription(String(data.cell.raw || ''));
+          data.cell.text = [title, ...details];
+          data.cell.styles.minCellHeight = Math.max(data.cell.styles.minCellHeight || 0, 6 + (details.length * 4.2));
+        }
+      },
+      willDrawCell: (data: any) => {
+        if (data.section === 'body' && data.column.index === 0) {
+          data.cell.text = [''];
+        }
+      },
+      didDrawCell: (data: any) => {
+        if (data.section !== 'body' || data.column.index !== 0) return;
+        const { title, details } = splitItemDescription(String(data.cell.raw || ''));
+        const x = data.cell.x + data.cell.padding('left');
+        let y = data.cell.y + data.cell.padding('top') + 3.2;
+        doc.setTextColor(31, 41, 55);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        if (title) {
+          doc.text(title, x, y, { maxWidth: data.cell.width - data.cell.padding('horizontal') });
+          y += 4.2;
+        }
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(75, 85, 99);
+        details.forEach(line => {
+          doc.text(line, x, y, { maxWidth: data.cell.width - data.cell.padding('horizontal') });
+          y += 4.2;
+        });
+      },
     });
 
     const finalY = (doc as any).lastAutoTable?.finalY || 120;
@@ -1372,17 +1423,19 @@ const AdminView: React.FC<Props> = ({
     doc.setTextColor(75, 85, 99);
     doc.text('Subtotal', 150, finalY + 12);
     doc.text(`RM ${totals.subtotal.toFixed(2)}`, 196, finalY + 12, { align: 'right' });
-    doc.text('Discount', 150, finalY + 18);
-    doc.text(`- RM ${totals.discount.toFixed(2)}`, 196, finalY + 18, { align: 'right' });
-    doc.text('Tax', 150, finalY + 24);
-    doc.text(`RM ${totals.tax.toFixed(2)}`, 196, finalY + 24, { align: 'right' });
+    doc.text('Item Discounts', 150, finalY + 18);
+    doc.text(`- RM ${totals.itemDiscount.toFixed(2)}`, 196, finalY + 18, { align: 'right' });
+    doc.text('Document Discount', 150, finalY + 24);
+    doc.text(`- RM ${totals.documentDiscount.toFixed(2)}`, 196, finalY + 24, { align: 'right' });
+    doc.text('Tax', 150, finalY + 30);
+    doc.text(`RM ${totals.tax.toFixed(2)}`, 196, finalY + 30, { align: 'right' });
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(31, 41, 55);
-    doc.text('Total', 150, finalY + 32);
+    doc.text('Total', 150, finalY + 38);
     doc.setTextColor(...accentRgb);
-    doc.text(`RM ${totals.total.toFixed(2)}`, 196, finalY + 32, { align: 'right' });
+    doc.text(`RM ${totals.total.toFixed(2)}`, 196, finalY + 38, { align: 'right' });
 
-    let notesY = finalY + 46;
+    let notesY = finalY + 52;
     if (quote.qrEnabled && quote.qrImage) {
       try {
         const qrDataUrl = await imageUrlToPngDataUrl(quote.qrImage);
@@ -4942,7 +4995,7 @@ const AdminView: React.FC<Props> = ({
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Line Items</p>
                       <button
-                        onClick={() => setQuotationForm(prev => ({ ...prev, items: [...prev.items, { id: `line_${Date.now()}`, description: '', lookupQuery: '', quantity: '', unitPrice: '' }] }))}
+                        onClick={() => setQuotationForm(prev => ({ ...prev, items: [...prev.items, { id: `line_${Date.now()}`, description: '', lookupQuery: '', quantity: '', unitPrice: '', discount: '' }] }))}
                         className="text-[10px] font-black uppercase tracking-widest text-orange-500 hover:text-orange-600 flex items-center gap-1"
                       >
                         <Plus size={13} /> Add Item
@@ -4955,7 +5008,7 @@ const AdminView: React.FC<Props> = ({
                           ? soldItems.filter(shopItem => !shopItem.hideInQuotation && [shopItem.name, shopItem.sku, shopItem.description].some(value => String(value || '').toLowerCase().includes(query))).slice(0, 5)
                           : [];
                         return (
-                        <div key={item.id} className="grid grid-cols-[1fr_70px_95px_34px] gap-2 items-start">
+                        <div key={item.id} className="grid grid-cols-[1fr_64px_90px_90px_34px] gap-2 items-start">
                           <div className="relative">
                             <input
                               value={item.lookupQuery ?? item.description}
@@ -4982,8 +5035,9 @@ const AdminView: React.FC<Props> = ({
                               </div>
                             )}
                           </div>
-                          <input type="number" min="0" value={item.quantity} onChange={e => updateQuotationLine(item.id, { quantity: e.target.value === '' ? '' : Number(e.target.value) })} className="h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 text-xs dark:text-white text-center outline-none focus:ring-2 focus:ring-orange-500" />
-                          <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateQuotationLine(item.id, { unitPrice: e.target.value === '' ? '' : Number(e.target.value) })} className="h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 text-xs dark:text-white text-right outline-none focus:ring-2 focus:ring-orange-500" />
+                          <input type="number" min="0" value={item.quantity} onChange={e => updateQuotationLine(item.id, { quantity: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="Qty" className="h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 text-xs dark:text-white text-center outline-none focus:ring-2 focus:ring-orange-500" />
+                          <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateQuotationLine(item.id, { unitPrice: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="Price" className="h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 text-xs dark:text-white text-right outline-none focus:ring-2 focus:ring-orange-500" />
+                          <input type="number" min="0" step="0.01" value={item.discount ?? ''} onChange={e => updateQuotationLine(item.id, { discount: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="Disc" className="h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 text-xs dark:text-white text-right outline-none focus:ring-2 focus:ring-orange-500" />
                           <button onClick={() => setQuotationForm(prev => ({ ...prev, items: prev.items.length > 1 ? prev.items.filter(line => line.id !== item.id) : prev.items }))} className="h-10 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center" title="Remove item">
                             <Trash2 size={14} />
                           </button>
@@ -4994,7 +5048,7 @@ const AdminView: React.FC<Props> = ({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <label>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Discount RM</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Document Discount RM</span>
                       <input type="number" min="0" step="0.01" value={quotationForm.discount} onChange={e => setQuotationForm(prev => ({ ...prev, discount: e.target.value === '' ? '' : Number(e.target.value) }))} className="mt-1 w-full h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
                     </label>
                     <label>
@@ -5051,19 +5105,31 @@ const AdminView: React.FC<Props> = ({
                           <span>Item</span>
                           <span className="text-right">Amount</span>
                         </div>
-                        {quotationForm.items.filter(item => item.description.trim()).map(item => (
-                          <div key={item.id} className="flex justify-between gap-3 border-b border-gray-100 dark:border-gray-700 pb-2 text-xs">
-                            <div>
-                              <p className="font-bold dark:text-white">{item.description}</p>
-                              <p className="text-gray-400">{item.quantity} x RM {Number(item.unitPrice || 0).toFixed(2)}</p>
+                        {quotationForm.items.filter(item => item.description.trim()).map(item => {
+                          const lineSubtotal = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
+                          const lineDiscount = Math.min(lineSubtotal, Math.max(0, Number(item.discount) || 0));
+                          const lineTotal = Math.max(0, lineSubtotal - lineDiscount);
+                          const itemText = splitItemDescription(item.description);
+                          return (
+                            <div key={item.id} className="flex justify-between gap-3 border-b border-gray-100 dark:border-gray-700 pb-2 text-xs">
+                              <div>
+                                <p className="font-black dark:text-white">{itemText.title}</p>
+                                {itemText.details.map((line, index) => (
+                                  <p key={`${item.id}_detail_${index}`} className="text-gray-500 dark:text-gray-400">{line}</p>
+                                ))}
+                                <p className="text-gray-400">{item.quantity} x RM {Number(item.unitPrice || 0).toFixed(2)}</p>
+                                {lineDiscount > 0 && <p className="text-[10px] font-bold text-red-500">Line discount - RM {lineDiscount.toFixed(2)}</p>}
+                              </div>
+                              <p className="font-black dark:text-white">RM {lineTotal.toFixed(2)}</p>
                             </div>
-                            <p className="font-black dark:text-white">RM {((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)).toFixed(2)}</p>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between text-gray-500 dark:text-gray-400"><span>Subtotal</span><span>RM {quotationTotals.subtotal.toFixed(2)}</span></div>
-                        <div className="flex justify-between text-gray-500 dark:text-gray-400"><span>Discount</span><span>- RM {quotationTotals.discount.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-gray-500 dark:text-gray-400"><span>Item Discounts</span><span>- RM {quotationTotals.itemDiscount.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-gray-500 dark:text-gray-400"><span>Document Discount</span><span>- RM {quotationTotals.documentDiscount.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-gray-500 dark:text-gray-400"><span>Total Discount</span><span>- RM {quotationTotals.discount.toFixed(2)}</span></div>
                         <div className="flex justify-between text-gray-500 dark:text-gray-400"><span>Tax</span><span>RM {quotationTotals.tax.toFixed(2)}</span></div>
                         <div className="flex justify-between text-lg font-black dark:text-white border-t border-gray-200 dark:border-gray-700 pt-2"><span>Total</span><span style={{ color: quotationTheme.themeColor }}>RM {quotationTotals.total.toFixed(2)}</span></div>
                       </div>
