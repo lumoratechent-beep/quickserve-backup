@@ -549,6 +549,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [stockSelectionMode, setStockSelectionMode] = useState(false);
   const [stockSearch, setStockSearch] = useState('');
   const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'out'>('all');
+  const [stockSubTab, setStockSubTab] = useState<'menu' | 'ingredients'>('menu');
   const [selectedStockIds, setSelectedStockIds] = useState<Set<string>>(new Set());
 
   const saveStock = (items: StockItem[]) => {
@@ -853,7 +854,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   };
 
   const filteredStock = useMemo(() => {
-    let items = stockItems;
+    const ingredientIds = new Set(ingredientItems.map(item => item.id));
+    let items = stockItems.filter(item => stockSubTab === 'ingredients' ? ingredientIds.has(item.menuItemId) : !ingredientIds.has(item.menuItemId));
     if (stockSearch) {
       const q = stockSearch.toLowerCase();
       items = items.filter(s => s.name.toLowerCase().includes(q) || s.category.toLowerCase().includes(q));
@@ -861,7 +863,16 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     if (stockFilter === 'low') items = items.filter(s => s.currentStock > 0 && s.currentStock <= s.lowStockThreshold);
     if (stockFilter === 'out') items = items.filter(s => s.currentStock === 0);
     return items;
-  }, [stockItems, stockSearch, stockFilter]);
+  }, [stockItems, ingredientItems, stockSubTab, stockSearch, stockFilter]);
+
+  const stockTabCounts = useMemo(() => {
+    const ingredientIds = new Set(ingredientItems.map(item => item.id));
+    return stockItems.reduce((counts, item) => {
+      if (ingredientIds.has(item.menuItemId)) counts.ingredients += 1;
+      else counts.menu += 1;
+      return counts;
+    }, { menu: 0, ingredients: 0 });
+  }, [stockItems, ingredientItems]);
 
   const stockSummary = useMemo(() => {
     const enabled = stockItems.filter(s => s.stockEnabled);
@@ -1033,7 +1044,11 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
   // Reset page when filters change
   useEffect(() => { setItemCurrentPage(1); }, [itemSearch, itemCategoryFilter, itemShowArchived, itemEntriesPerPage]);
-  useEffect(() => { setStockCurrentPage(1); }, [stockSearch, stockFilter, stockEntriesPerPage]);
+  useEffect(() => {
+    setStockCurrentPage(1);
+    setSelectedStockIds(new Set());
+    setStockSelectionMode(false);
+  }, [stockSearch, stockFilter, stockEntriesPerPage, stockSubTab]);
 
   const stockTotalPages = useMemo(() => Math.max(1, Math.ceil(filteredStock.length / stockEntriesPerPage)), [filteredStock.length, stockEntriesPerPage]);
   const paginatedStock = useMemo(() => {
@@ -2256,6 +2271,26 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               </div>
             </div>
 
+            <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/40">
+              {([
+                ['menu', 'Menu Stock', stockTabCounts.menu],
+                ['ingredients', 'Ingredient Stock', stockTabCounts.ingredients],
+              ] as const).map(([key, label, count]) => (
+                <button
+                  key={key}
+                  onClick={() => setStockSubTab(key)}
+                  className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-[10px] font-black uppercase tracking-wider transition-colors ${
+                    stockSubTab === key
+                      ? 'bg-amber-600 text-white shadow-sm'
+                      : 'bg-white text-gray-500 ring-1 ring-gray-200 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700 dark:hover:text-white'
+                  }`}
+                >
+                  {label}
+                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] ${stockSubTab === key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-300'}`}>{count}</span>
+                </button>
+              ))}
+            </div>
+
             {/* Selection Action Bar */}
             {stockSelectionMode && (
               <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40">
@@ -2404,9 +2439,15 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </div>
               ) : (
                 <div className="h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
-                  <Package size={40} className="mb-3 opacity-30" />
-                  <p className="text-sm font-bold">No items found</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{stockFilter !== 'all' ? 'Try changing the filter' : 'Add menu items to track stock'}</p>
+                  {stockSubTab === 'menu' && <Package size={40} className="mb-3 opacity-30" />}
+                  <p className="text-sm font-bold">No {stockSubTab === 'ingredients' ? 'ingredient' : 'menu'} stock items</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    {stockFilter !== 'all'
+                      ? 'Try changing the filter'
+                      : stockSubTab === 'ingredients'
+                        ? 'Add ingredients or supplies to manage their stock here'
+                        : 'Add menu items to track stock'}
+                  </p>
                 </div>
               )}
             </div>

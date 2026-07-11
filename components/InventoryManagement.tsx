@@ -313,13 +313,14 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     } catch { return []; }
   };
 
-  const updateStockItem = (menuItemId: string, delta: number) => {
+  const updateStockItem = (menuItemId: string, delta: number, requireTracking = false) => {
     const stockItems = getStockItems();
-    const matched = stockItems.some((s: any) => s.menuItemId === menuItemId);
+    const matchedItem = stockItems.find((s: any) => s.menuItemId === menuItemId);
+    if (requireTracking && !matchedItem?.stockEnabled) return false;
     const updated = stockItems.map((s: any) =>
       s.menuItemId === menuItemId ? { ...s, currentStock: Math.max(0, s.currentStock + delta), lastRestocked: delta > 0 ? Date.now() : s.lastRestocked } : s
     );
-    if (!matched) {
+    if (!matchedItem && !requireTracking) {
       const menuItem = activeMenuItems.find(m => m.id === menuItemId);
       const ingredient = getIngredientById(menuItemId);
       updated.push({
@@ -334,6 +335,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       });
     }
     localStorage.setItem(`stock_${restaurant.id}`, JSON.stringify(updated));
+    return true;
   };
 
   const getStockLevel = (menuItemId: string): number => {
@@ -610,7 +612,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     validIngredients.forEach(ing => {
       if (ing.quantityUsed > 0) {
         const stockQuantityUsed = ing.stockQuantityUsed ?? ing.quantityUsed;
-        updateStockItem(ing.menuItemId, -stockQuantityUsed);
+        const deducted = updateStockItem(ing.menuItemId, -stockQuantityUsed, true);
+        if (!deducted) return;
         addHistory({
           action: 'Production ingredient used',
           itemName: ing.name,

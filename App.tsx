@@ -1861,7 +1861,6 @@ const App: React.FC = () => {
     try { ingredients = JSON.parse(localStorage.getItem(ingredientsKey) || '[]'); } catch { ingredients = []; }
     try { history = JSON.parse(localStorage.getItem(historyKey) || '[]'); } catch { history = []; }
 
-    const restaurant = restaurantsRef.current.find(r => r.id === restaurantId);
     const latestProductionByMenu = new Map<string, ProductionRecord>();
     [...productions]
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
@@ -1890,6 +1889,8 @@ const App: React.FC = () => {
       if (recipe && recipe.quantityProduced > 0 && Array.isArray(recipe.ingredients) && recipe.ingredients.length > 0) {
         recipe.ingredients.forEach(ingredientLine => {
           const ingredient = ingredients.find(i => i.id === ingredientLine.menuItemId);
+          const stockRecord = stockItems.find(stock => stock.menuItemId === ingredientLine.menuItemId);
+          if (!stockRecord?.stockEnabled) return;
           const stockQtyPerProduced = Number(ingredientLine.stockQuantityUsed ?? ingredientLine.quantityUsed) / recipe.quantityProduced;
           addDelta(
             ingredientLine.menuItemId,
@@ -1900,6 +1901,8 @@ const App: React.FC = () => {
           );
         });
       } else {
+        const stockRecord = stockItems.find(stock => stock.menuItemId === item.id);
+        if (!stockRecord?.stockEnabled) return;
         addDelta(item.id, soldQty, item.name, 'pcs', `${soldQty} sold`);
       }
     });
@@ -1912,21 +1915,10 @@ const App: React.FC = () => {
     const now = Date.now();
     deltas.forEach((deduction, itemId) => {
       const existing = stockItems.find(stock => stock.menuItemId === itemId);
-      if (existing) {
+      if (existing?.stockEnabled) {
         existing.currentStock = Math.max(0, Number(existing.currentStock || 0) - deduction.delta);
       } else {
-        const menuItem = restaurant?.menu.find(menu => menu.id === itemId);
-        const ingredient = ingredients.find(i => i.id === itemId);
-        stockItems.push({
-          menuItemId: itemId,
-          name: ingredient?.name || menuItem?.name || deduction.name,
-          category: ingredient?.category || menuItem?.category || 'Uncategorized',
-          currentStock: 0,
-          lowStockThreshold: 10,
-          unit: ingredient ? getIngredientStockUnit(ingredient) : deduction.unit,
-          lastRestocked: now,
-          stockEnabled: true,
-        });
+        return;
       }
       history.unshift({
         id: crypto.randomUUID(),
