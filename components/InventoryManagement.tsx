@@ -2387,12 +2387,12 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
           {/* Productions List */}
           <div className="overflow-hidden rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
             <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
-              <div>
+              <div className="min-w-0">
                 <h2 className="text-sm font-black text-gray-900 dark:text-white">Batch Stock</h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Record finished items produced before selling. Quantity above zero adds finished stock and deducts ingredients immediately.</p>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="relative">
+              <div className="flex w-full flex-nowrap items-center gap-3 overflow-x-auto md:w-auto md:justify-end">
+                <div className="relative shrink-0">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                   <input
                     type="text"
@@ -2402,7 +2402,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                     className="w-64 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   />
                 </div>
-                <select value={productionCategoryFilter} onChange={e => setProductionCategoryFilter(e.target.value)} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                <select value={productionCategoryFilter} onChange={e => setProductionCategoryFilter(e.target.value)} className="shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                   {productionCategories.map(category => <option key={category} value={category}>{category === 'ALL' ? 'All Categories' : category}</option>)}
                 </select>
               </div>
@@ -2478,12 +2478,12 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
             <div>
               <div className="overflow-hidden rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
                 <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
-                  <div>
+                  <div className="min-w-0">
                     <h2 className="text-sm font-black text-gray-900 dark:text-white">Recipe at Checkout</h2>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Auto based on the latest previous production record. Checkout uses this recipe only when produced stock is not enough.</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative">
+                  <div className="flex w-full flex-nowrap items-center gap-3 overflow-x-auto md:w-auto md:justify-end">
+                    <div className="relative shrink-0">
                       <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                       <input
                         type="text"
@@ -2493,7 +2493,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                         className="w-64 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                       />
                     </div>
-                    <select value={productionCategoryFilter} onChange={e => setProductionCategoryFilter(e.target.value)} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                    <select value={productionCategoryFilter} onChange={e => setProductionCategoryFilter(e.target.value)} className="shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                       {productionCategories.map(category => <option key={category} value={category}>{category === 'ALL' ? 'All Categories' : category}</option>)}
                     </select>
                   </div>

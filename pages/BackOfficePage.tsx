@@ -2199,14 +2199,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             <>
             <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div className="flex flex-col gap-4 border-b border-gray-200 p-4 dark:border-gray-700 lg:flex-row lg:items-center lg:justify-between">
-              <div>
+              <div className="min-w-0">
                 <div>
                   <h3 className="text-sm font-black text-gray-900 dark:text-white">Item List</h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Search, filter, and manage active items or archived records.</p>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="relative">
+              <div className="flex w-full flex-nowrap items-center gap-3 overflow-x-auto lg:w-auto lg:justify-end">
+                <div className="relative shrink-0">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                   <input
                     type="text"
@@ -2219,19 +2219,19 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 <select
                   value={itemCategoryFilter}
                   onChange={e => setItemCategoryFilter(e.target.value)}
-                  className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  className="shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                 >
                   {itemCategories.map(c => <option key={c} value={c}>{c === 'ALL' ? 'All Categories' : c}</option>)}
                 </select>
                 <button
                   onClick={() => setItemShowArchived(!itemShowArchived)}
-                  className={`inline-flex h-10 w-[110px] items-center justify-center rounded-xl border px-4 text-xs font-bold uppercase tracking-wider transition-colors ${itemShowArchived ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300' : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'}`}
+                  className={`inline-flex h-10 w-[110px] shrink-0 items-center justify-center rounded-xl border px-4 text-xs font-bold uppercase tracking-wider transition-colors ${itemShowArchived ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300' : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'}`}
                 >
                   {itemShowArchived ? 'Archived' : 'Active'}
                 </button>
                 <button
                   onClick={openAddItem}
-                  className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700"
+                  className="inline-flex h-[38px] shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700"
                 >
                   <Plus size={14} /> Add
                 </button>
@@ -2472,22 +2472,22 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
             <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
-              <div>
+              <div className="min-w-0">
                 <h3 className="text-sm font-black text-gray-900 dark:text-white">Ingredients & Supplies</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Manage non-menu items used for purchasing, stock, and cost tracking.</p>
               </div>
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="relative">
+              <div className="flex w-full flex-nowrap items-center gap-3 overflow-x-auto md:w-auto md:justify-end">
+                <div className="relative shrink-0">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                   <input type="text" placeholder="Search name, SKU, barcode..." value={ingredientSearch} onChange={e => setIngredientSearch(e.target.value)} className="w-56 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
                 </div>
-                <select value={ingredientCategoryFilter} onChange={e => setIngredientCategoryFilter(e.target.value)} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                <select value={ingredientCategoryFilter} onChange={e => setIngredientCategoryFilter(e.target.value)} className="shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                   {ingredientCategories.map(c => <option key={c} value={c}>{c === 'ALL' ? 'All Categories' : c}</option>)}
                 </select>
-                <button onClick={() => setIngredientShowArchived(!ingredientShowArchived)} className={`rounded-xl border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${ingredientShowArchived ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300' : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'}`}>
+                <button onClick={() => setIngredientShowArchived(!ingredientShowArchived)} className={`shrink-0 rounded-xl border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${ingredientShowArchived ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300' : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'}`}>
                   {ingredientShowArchived ? 'Show Active' : 'Archived'}
                 </button>
-                <button onClick={openAddIngredient} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                <button onClick={openAddIngredient} className="inline-flex h-[38px] shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
                   <Plus size={14} /> Add
                 </button>
               </div>
@@ -2593,12 +2593,12 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             <>
             <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
               <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
-              <div>
+              <div className="min-w-0">
                 <h3 className="text-sm font-black text-gray-900 dark:text-white">Stock Management</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Track stock levels, thresholds, and stock tracking status in one place.</p>
               </div>
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="relative">
+              <div className="flex w-full flex-nowrap items-center gap-3 overflow-x-auto md:w-auto md:justify-end">
+                <div className="relative shrink-0">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                   <input
                     type="text"
@@ -2608,7 +2608,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     className="w-48 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   />
                 </div>
-                <div className="flex rounded-xl border border-gray-200 bg-gray-100 p-0.5 dark:border-gray-700 dark:bg-gray-900">
+                <div className="flex shrink-0 rounded-xl border border-gray-200 bg-gray-100 p-0.5 dark:border-gray-700 dark:bg-gray-900">
                   {([['all', 'All'], ['low', 'Low Stock'], ['out', 'Out of Stock']] as const).map(([key, label]) => (
                     <button
                       key={key}
@@ -2621,7 +2621,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </div>
                 <button
                   onClick={handleGoToRestock}
-                  className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700"
+                  className="inline-flex h-[38px] shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700"
                 >
                   <Plus size={14} /> Add
                 </button>
