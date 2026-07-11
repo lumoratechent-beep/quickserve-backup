@@ -951,6 +951,7 @@ const App: React.FC = () => {
             linkedModifiers: others.linkedModifiers || (others.enabled && others.name ? [others.name] : []),
             addOns: addOns,
             cost: others.cost ?? 0,
+            autoCostFromProduction: others.autoCostFromProduction ?? false,
             sku: others.sku ?? '',
             barcode: others.barcode ?? '',
             soldBy: others.soldBy ?? 'each',
@@ -1812,6 +1813,9 @@ const App: React.FC = () => {
     producedItemId: string;
     producedItemName: string;
     quantityProduced: number;
+    appliesTo?: 'all' | 'variants';
+    variantKey?: string;
+    variantLabel?: string;
     ingredients: {
       menuItemId: string;
       name: string;
@@ -1836,6 +1840,13 @@ const App: React.FC = () => {
   };
 
   const getIngredientStockUnit = (item?: Partial<IngredientItem>) => item?.unit || 'pcs';
+  const getCartItemProductionVariantKey = (item: CartItem) => {
+    if (item.selectedSize) return `size:${item.selectedSize}`;
+    if (item.selectedOtherVariant) return `other:${item.selectedOtherVariant}`;
+    if (item.selectedTemp) return `temp:${item.selectedTemp}`;
+    if (item.selectedVariantOption) return `variant:${item.selectedVariantOption}`;
+    return '';
+  };
 
   const applyPosStockDeduction = useCallback((restaurantId: string, order: Pick<Order, 'id' | 'items'>) => {
     if (!restaurantId || !order.id || !Array.isArray(order.items) || order.items.length === 0) return;
@@ -1862,10 +1873,17 @@ const App: React.FC = () => {
     try { history = JSON.parse(localStorage.getItem(historyKey) || '[]'); } catch { history = []; }
 
     const latestProductionByMenu = new Map<string, ProductionRecord>();
+    const latestProductionByMenuVariant = new Map<string, ProductionRecord>();
     [...productions]
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
       .forEach(production => {
-        if (!latestProductionByMenu.has(production.producedItemId) && production.quantityProduced > 0) {
+        if (production.quantityProduced <= 0) return;
+        if (production.appliesTo === 'variants' && production.variantKey) {
+          const key = `${production.producedItemId}::${production.variantKey}`;
+          if (!latestProductionByMenuVariant.has(key)) latestProductionByMenuVariant.set(key, production);
+          return;
+        }
+        if (!latestProductionByMenu.has(production.producedItemId)) {
           latestProductionByMenu.set(production.producedItemId, production);
         }
       });
@@ -1885,7 +1903,8 @@ const App: React.FC = () => {
     order.items.forEach(item => {
       const soldQty = Number(item.quantity) || 0;
       if (soldQty <= 0) return;
-      const recipe = latestProductionByMenu.get(item.id);
+      const variantKey = getCartItemProductionVariantKey(item);
+      const recipe = (variantKey ? latestProductionByMenuVariant.get(`${item.id}::${variantKey}`) : undefined) || latestProductionByMenu.get(item.id);
       if (recipe && recipe.quantityProduced > 0 && Array.isArray(recipe.ingredients) && recipe.ingredients.length > 0) {
         recipe.ingredients.forEach(ingredientLine => {
           const ingredient = ingredients.find(i => i.id === ingredientLine.menuItemId);
@@ -2016,8 +2035,15 @@ const App: React.FC = () => {
     const res = restaurants.find(r => r.id === item.restaurantId);
     if (res && res.isOnline === false) { toast("This kitchen is currently offline.", 'warning'); return; }
     setCart(prev => {
-      const existing = prev.find(i => i.id === item.id && i.selectedSize === item.selectedSize && i.selectedTemp === item.selectedTemp && i.selectedOtherVariant === item.selectedOtherVariant);
-      if (existing) return prev.map(i => (i.id === item.id && i.selectedSize === item.selectedSize && i.selectedTemp === item.selectedTemp && i.selectedOtherVariant === item.selectedOtherVariant) ? { ...i, quantity: i.quantity + 1 } : i);
+      const matchesCartVariant = (i: CartItem) => (
+        i.id === item.id &&
+        i.selectedSize === item.selectedSize &&
+        i.selectedTemp === item.selectedTemp &&
+        i.selectedOtherVariant === item.selectedOtherVariant &&
+        i.selectedVariantOption === item.selectedVariantOption
+      );
+      const existing = prev.find(matchesCartVariant);
+      if (existing) return prev.map(i => matchesCartVariant(i) ? { ...i, quantity: i.quantity + 1 } : i);
       return [...prev, { ...item, quantity: 1 }];
     });
   };
@@ -2048,6 +2074,7 @@ const App: React.FC = () => {
         linkedModifiers: item.linkedModifiers || [],
         variantOptions: item.variantOptions || { enabled: false, options: [] },
         cost: item.cost ?? 0,
+        autoCostFromProduction: item.autoCostFromProduction ?? false,
         sku: item.sku ?? '',
         barcode: item.barcode ?? '',
         soldBy: item.soldBy ?? 'each',
@@ -2088,6 +2115,7 @@ const App: React.FC = () => {
         linkedModifiers: item.linkedModifiers || [],
         variantOptions: item.variantOptions || { enabled: false, options: [] },
         cost: item.cost ?? 0,
+        autoCostFromProduction: item.autoCostFromProduction ?? false,
         sku: item.sku ?? '',
         barcode: item.barcode ?? '',
         soldBy: item.soldBy ?? 'each',
@@ -2186,6 +2214,7 @@ const App: React.FC = () => {
         linkedModifiers: copyJson(item.linkedModifiers || []),
         variantOptions: copyJson(item.variantOptions || { enabled: false, options: [] }),
         cost: item.cost ?? 0,
+        autoCostFromProduction: item.autoCostFromProduction ?? false,
         sku: item.sku ?? '',
         barcode: item.barcode ?? '',
         soldBy: item.soldBy ?? 'each',

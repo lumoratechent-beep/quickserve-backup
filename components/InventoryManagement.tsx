@@ -92,6 +92,9 @@ interface Production {
   producedItemId: string;
   producedItemName: string;
   quantityProduced: number;
+  appliesTo?: 'all' | 'variants';
+  variantKey?: string;
+  variantLabel?: string;
   ingredients: { menuItemId: string; name: string; quantityUsed: number; unit: string; stockQuantityUsed?: number; stockUnit?: string }[];
   timestamp: number;
   notes: string;
@@ -134,6 +137,32 @@ interface SelectableItem {
   cost?: number;
   type: 'menu' | 'ingredient';
 }
+
+const getProductionVariantOptions = (item?: MenuItem | null): Array<{ key: string; label: string }> => {
+  if (!item) return [];
+  const options = new Map<string, { key: string; label: string }>();
+  if (Array.isArray(item.sizes)) {
+    item.sizes.forEach(size => {
+      if (size?.name) options.set(`size:${size.name}`, { key: `size:${size.name}`, label: `Size: ${size.name}` });
+    });
+  }
+  if (Array.isArray(item.otherVariants)) {
+    item.otherVariants.forEach(variant => {
+      if (variant?.name) options.set(`other:${variant.name}`, { key: `other:${variant.name}`, label: `${item.otherVariantName || 'Option'}: ${variant.name}` });
+    });
+  }
+  if (item.tempOptions?.enabled && Array.isArray(item.tempOptions.options)) {
+    item.tempOptions.options.forEach(option => {
+      if (option?.name) options.set(`temp:${option.name}`, { key: `temp:${option.name}`, label: `Temp: ${option.name}` });
+    });
+  }
+  if (item.variantOptions?.enabled && Array.isArray(item.variantOptions.options)) {
+    item.variantOptions.options.forEach(option => {
+      if (option?.name) options.set(`variant:${option.name}`, { key: `variant:${option.name}`, label: `Variant: ${option.name}` });
+    });
+  }
+  return Array.from(options.values());
+};
 
 const UNIT_LABELS: Record<string, string> = {
   pcs: 'pcs',
@@ -251,8 +280,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   });
 
   // Production form
-  const [prodForm, setProdForm] = useState<{ producedItemId: string; producedItemName: string; quantityProduced: string; notes: string; ingredients: { menuItemId: string; name: string; quantityUsed: string; unit: string }[] }>({
-    producedItemId: '', producedItemName: '', quantityProduced: '', notes: '', ingredients: [{ menuItemId: '', name: '', quantityUsed: '', unit: 'pcs' }],
+  const [prodForm, setProdForm] = useState<{ producedItemId: string; producedItemName: string; quantityProduced: string; notes: string; appliesTo: 'all' | 'variants'; variantKey: string; variantLabel: string; ingredients: { menuItemId: string; name: string; quantityUsed: string; unit: string }[] }>({
+    producedItemId: '', producedItemName: '', quantityProduced: '', notes: '', appliesTo: 'all', variantKey: '', variantLabel: '', ingredients: [{ menuItemId: '', name: '', quantityUsed: '', unit: 'pcs' }],
   });
 
   // Partial count category filter
@@ -283,6 +312,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const menuSelectableItems = useMemo(() => allSelectableItems.filter(m => m.type === 'menu'), [allSelectableItems]);
   const ingredientSelectableItems = useMemo(() => allSelectableItems.filter(m => m.type === 'ingredient'), [allSelectableItems]);
   const getIngredientById = (itemId: string) => ingredientItems.find(i => i.id === itemId);
+  const selectedProducedMenuItem = useMemo(() => activeMenuItems.find(item => item.id === prodForm.producedItemId), [activeMenuItems, prodForm.producedItemId]);
+  const selectedProductionVariantOptions = useMemo(() => getProductionVariantOptions(selectedProducedMenuItem), [selectedProducedMenuItem]);
 
   const getPOPurchaseUnit = (item: PurchaseOrderItem) => item.purchaseUnit || getIngredientPurchaseUnit(getIngredientById(item.menuItemId));
   const getPOStockUnit = (item: PurchaseOrderItem) => item.stockUnit || getIngredientStockUnit(getIngredientById(item.menuItemId));
@@ -582,6 +613,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const handleSaveProduction = () => {
     const qty = parseFloat(prodForm.quantityProduced);
     if (!prodForm.producedItemId || isNaN(qty) || qty <= 0) return;
+    if (prodForm.appliesTo === 'variants' && !prodForm.variantKey) return;
     const producedMenuItem = menuSelectableItems.find(m => m.id === prodForm.producedItemId);
     if (!producedMenuItem) return;
     const validIngredients = prodForm.ingredients.filter(i => i.menuItemId).map(i => {
@@ -601,13 +633,24 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       producedItemId: prodForm.producedItemId,
       producedItemName: producedMenuItem.name,
       quantityProduced: qty,
+      appliesTo: prodForm.appliesTo,
+      variantKey: prodForm.appliesTo === 'variants' ? prodForm.variantKey : '',
+      variantLabel: prodForm.appliesTo === 'variants' ? prodForm.variantLabel : '',
       ingredients: validIngredients,
       timestamp: Date.now(),
       notes: prodForm.notes,
     };
     // Credit stock to produced item
     updateStockItem(prodForm.producedItemId, qty);
-    addHistory({ action: 'Production output', itemName: producedMenuItem.name, quantity: qty, unit: 'pcs', detail: `Produced from ${validIngredients.length} ingredient${validIngredients.length === 1 ? '' : 's'}`, type: 'in', reference: prod.id });
+    addHistory({
+      action: 'Production output',
+      itemName: producedMenuItem.name,
+      quantity: qty,
+      unit: 'pcs',
+      detail: `${prod.appliesTo === 'variants' && prod.variantLabel ? `${prod.variantLabel}: ` : ''}Produced from ${validIngredients.length} ingredient${validIngredients.length === 1 ? '' : 's'}`,
+      type: 'in',
+      reference: prod.id,
+    });
     // Deduct stock from each ingredient
     validIngredients.forEach(ing => {
       if (ing.quantityUsed > 0) {
@@ -628,7 +671,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     const updated = [prod, ...productions];
     setProductions(updated);
     saveState('productions', updated);
-    setProdForm({ producedItemId: '', producedItemName: '', quantityProduced: '', notes: '', ingredients: [{ menuItemId: '', name: '', quantityUsed: '', unit: 'pcs' }] });
+    setProdForm({ producedItemId: '', producedItemName: '', quantityProduced: '', notes: '', appliesTo: 'all', variantKey: '', variantLabel: '', ingredients: [{ menuItemId: '', name: '', quantityUsed: '', unit: 'pcs' }] });
     setShowForm(false);
   };
 
@@ -1240,7 +1283,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Produced Item *</label>
-                  <select value={prodForm.producedItemId} onChange={e => { const mi = menuSelectableItems.find(m => m.id === e.target.value); setProdForm(f => ({ ...f, producedItemId: e.target.value, producedItemName: mi?.name || '' })); }} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                  <select value={prodForm.producedItemId} onChange={e => { const mi = menuSelectableItems.find(m => m.id === e.target.value); setProdForm(f => ({ ...f, producedItemId: e.target.value, producedItemName: mi?.name || '', appliesTo: 'all', variantKey: '', variantLabel: '' })); }} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
                     <option value="">Select menu item to produce</option>
                     {menuSelectableItems.map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
                   </select>
@@ -1249,6 +1292,33 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Quantity Produced *</label>
                   <input type="number" step="0.001" value={prodForm.quantityProduced} onChange={e => setProdForm(f => ({ ...f, quantityProduced: e.target.value }))} placeholder="0" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
                 </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Applicable</label>
+                  <div className="flex rounded-xl border border-gray-200 bg-gray-100 p-1 dark:border-gray-700 dark:bg-gray-900">
+                    {([['all', 'All Variants'], ['variants', 'Adjust Variant']] as const).map(([key, label]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setProdForm(f => ({ ...f, appliesTo: key, variantKey: key === 'all' ? '' : f.variantKey, variantLabel: key === 'all' ? '' : f.variantLabel }))}
+                        className={`flex-1 rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors ${prodForm.appliesTo === key ? 'bg-white text-amber-600 shadow-sm dark:bg-gray-800 dark:text-amber-400' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {prodForm.appliesTo === 'variants' && (
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Variant</label>
+                    <select value={prodForm.variantKey} onChange={e => { const option = selectedProductionVariantOptions.find(v => v.key === e.target.value); setProdForm(f => ({ ...f, variantKey: e.target.value, variantLabel: option?.label || '' })); }} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                      <option value="">Select variant</option>
+                      {selectedProductionVariantOptions.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}
+                    </select>
+                    {selectedProductionVariantOptions.length === 0 && <p className="mt-1 text-[10px] font-semibold text-gray-400">This menu item has no variants yet.</p>}
+                  </div>
+                )}
               </div>
               <div className="mb-4">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Notes</label>
@@ -1277,7 +1347,13 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
 
               <div className="flex gap-3 mt-6">
                 <button onClick={() => setShowForm(false)} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
-                <button onClick={handleSaveProduction} className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20">Save Production</button>
+                <button
+                  onClick={handleSaveProduction}
+                  disabled={prodForm.appliesTo === 'variants' && !prodForm.variantKey}
+                  className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Save Production
+                </button>
               </div>
             </div>
           )}
@@ -1300,7 +1376,10 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                     {productions.map(prod => (
                       <tr key={prod.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{formatDate(prod.timestamp)}</td>
-                        <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{prod.producedItemName}</td>
+                        <td className="px-5 py-4">
+                          <p className="text-xs font-bold text-gray-900 dark:text-white">{prod.producedItemName}</p>
+                          <p className="mt-1 text-[9px] font-black uppercase tracking-wider text-gray-400">{prod.appliesTo === 'variants' ? prod.variantLabel || 'Adjusted variant' : 'All variants'}</p>
+                        </td>
                         <td className="px-5 py-4 text-xs font-bold text-green-400">+{prod.quantityProduced}</td>
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate max-w-[200px]">
                           {prod.ingredients.map(i => {

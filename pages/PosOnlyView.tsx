@@ -1669,6 +1669,7 @@ const PosOnlyView: React.FC<Props> = ({
       linkedModifiers: linked,
       addOns: formItem.addOns || [],
       cost: Number(formItem.cost || 0),
+      autoCostFromProduction: formItem.autoCostFromProduction || false,
       sku: (formItem.sku || '').trim(),
       barcode: (formItem.barcode || '').trim(),
       soldBy: formItem.soldBy || 'each',

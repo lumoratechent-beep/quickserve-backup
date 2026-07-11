@@ -63,6 +63,7 @@ export interface MenuItem {
   isArchived?: boolean;
   // Loyverse-style fields
   cost?: number;           // COGS / cost price
+  autoCostFromProduction?: boolean; // derive COGS from latest production recipe
   sku?: string;            // Stock Keeping Unit
   barcode?: string;        // Barcode / EAN / UPC
   soldBy?: 'each' | 'weight'; // Sold by each or weight/volume

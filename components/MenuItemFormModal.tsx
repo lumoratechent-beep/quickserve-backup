@@ -17,6 +17,9 @@ interface Props {
   onSubmit: (e: React.FormEvent) => void;
   onImageUpload?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSaveModifier?: (modifier: ModifierData) => void;
+  productionCost?: number;
+  currencySymbol?: string;
+  showProductionCostLink?: boolean;
 }
 
 const MenuItemFormModal: React.FC<Props> = ({
@@ -30,6 +33,9 @@ const MenuItemFormModal: React.FC<Props> = ({
   onSubmit,
   onImageUpload,
   onSaveModifier,
+  productionCost = 0,
+  currencySymbol = 'RM',
+  showProductionCostLink = false,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const initialFormRef = useRef<string>('');
@@ -118,6 +124,8 @@ const MenuItemFormModal: React.FC<Props> = ({
   if (!isOpen) return null;
 
   const linkedModifiers = formItem.linkedModifiers || [];
+  const effectiveProductionCost = Number(productionCost || 0);
+  const canShowProductionCostLink = showProductionCostLink || Boolean(formItem.autoCostFromProduction);
 
   const handleToggleModifier = (modName: string) => {
     if (linkedModifiers.includes(modName)) {
@@ -594,17 +602,48 @@ const MenuItemFormModal: React.FC<Props> = ({
   const costIdSection = (
     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 shadow-sm space-y-3">
       <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><ScanBarcode size={16} className="text-amber-500" /> Cost & Identification</h3>
+      {canShowProductionCostLink && <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/40 dark:bg-amber-900/10 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">Auto calculate from production</p>
+          <p className="mt-1 text-xs font-semibold text-amber-800/80 dark:text-amber-200/80">
+            {effectiveProductionCost > 0
+              ? `Current recipe cost: ${currencySymbol}${effectiveProductionCost.toFixed(2)}`
+              : 'Add a production recipe to calculate this cost.'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setFormItem(prev => {
+            const enabled = !prev.autoCostFromProduction;
+            return { ...prev, autoCostFromProduction: enabled, cost: enabled ? effectiveProductionCost : prev.cost };
+          })}
+          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+            formItem.autoCostFromProduction ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'
+          }`}
+          aria-pressed={Boolean(formItem.autoCostFromProduction)}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            formItem.autoCostFromProduction ? 'translate-x-6' : 'translate-x-1'
+          }`} />
+        </button>
+      </div>}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Cost</label>
           <input
             type="number"
             step="0.01"
-            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
-            value={formItem.cost === 0 || formItem.cost === undefined ? '' : formItem.cost}
+            disabled={Boolean(formItem.autoCostFromProduction)}
+            className={`w-full px-3 py-2 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm ${
+              formItem.autoCostFromProduction ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-200' : 'bg-gray-50 dark:bg-gray-700'
+            }`}
+            value={formItem.autoCostFromProduction
+              ? (effectiveProductionCost === 0 ? '' : effectiveProductionCost)
+              : (formItem.cost === 0 || formItem.cost === undefined ? '' : formItem.cost)}
             onChange={e => setFormItem(prev => ({ ...prev, cost: e.target.value === '' ? 0 : Number(e.target.value) }))}
             placeholder="0.00"
           />
+          {formItem.autoCostFromProduction && <p className="mt-1 text-[10px] font-semibold text-amber-600 dark:text-amber-300">Linked to latest production recipe</p>}
         </div>
         <div>
           <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">SKU</label>

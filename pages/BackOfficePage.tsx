@@ -874,6 +874,61 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return { total, low, out, healthy };
   }, [stockItems]);
 
+  const purchaseOrdersForCost = useMemo<any[]>(() => (
+    loadBackofficeData<any[]>(`inv_${restaurant.id}_purchase_orders`, restaurant.settings, 'purchase_orders', [])
+  ), [restaurant.id, restaurant.settings]);
+
+  const productionsForCost = useMemo<any[]>(() => (
+    loadBackofficeData<any[]>(`inv_${restaurant.id}_productions`, restaurant.settings, 'productions', [])
+  ), [restaurant.id, restaurant.settings, activeTab, itemSubTab]);
+
+  const getLatestStockUnitCost = (itemId: string) => {
+    const toComparableTime = (value: unknown) => {
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') {
+        const parsed = Date.parse(value);
+        return Number.isFinite(parsed) ? parsed : Number(value) || 0;
+      }
+      return 0;
+    };
+    const receivedOrders = [...purchaseOrdersForCost]
+      .filter(po => po.status === 'received' || po.status === 'partial')
+      .sort((a, b) => toComparableTime(b.receivedAt || b.createdAt || b.timestamp) - toComparableTime(a.receivedAt || a.createdAt || a.timestamp));
+
+    for (const po of receivedOrders) {
+      const item = po.items?.find((line: any) => line.menuItemId === itemId);
+      if (item && Number(item.costPerUnit) > 0) {
+        const ratio = Number(item.stockQuantityPerUnit);
+        return Number(item.costPerUnit) / (Number.isFinite(ratio) && ratio > 0 ? ratio : 1);
+      }
+    }
+    const ingredient = ingredientItems.find(item => item.id === itemId);
+    return ingredient?.cost ? ingredient.cost / getIngredientPurchaseRatio(ingredient) : 0;
+  };
+
+  const getProductionUnitCost = (menuItemId: string, variantKey = '') => {
+    const candidates = [...productionsForCost]
+      .filter(production => (
+        production.producedItemId === menuItemId &&
+        Number(production.quantityProduced) > 0 &&
+        (variantKey
+          ? production.appliesTo === 'variants' && production.variantKey === variantKey
+          : production.appliesTo !== 'variants')
+      ))
+      .sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
+    const production = candidates[0];
+    if (!production) return 0;
+    const totalCost = (production.ingredients || []).reduce((sum: number, ingredient: any) => {
+      const stockQuantity = Number(ingredient.stockQuantityUsed ?? ingredient.quantityUsed) || 0;
+      return sum + stockQuantity * getLatestStockUnitCost(ingredient.menuItemId);
+    }, 0);
+    return totalCost / Number(production.quantityProduced || 1);
+  };
+
+  const getDisplayedMenuItemCost = (item: MenuItem) => (
+    item.autoCostFromProduction ? getProductionUnitCost(item.id) : Number(item.cost || 0)
+  );
+
   // â”€â”€â”€ Ingredient tab helpers â”€â”€â”€
   const ingredientCategories = useMemo(() => {
     const cats = Array.from(new Set(ingredientItems.map(i => i.category))).sort();
@@ -1049,7 +1104,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
   const openAddItem = () => {
     setEditingItem(null);
-    setFormItem({ name: '', description: '', price: 0, image: '', category: '', soldBy: 'each', cost: 0, sku: '', barcode: '', trackStock: false, isArchived: false, sizes: [], addOns: [], linkedModifiers: [], sizesEnabled: false, promotionDiscount: undefined });
+    setFormItem({ name: '', description: '', price: 0, image: '', category: '', soldBy: 'each', cost: 0, autoCostFromProduction: false, sku: '', barcode: '', trackStock: false, isArchived: false, sizes: [], addOns: [], linkedModifiers: [], sizesEnabled: false, promotionDiscount: undefined });
     setIsItemFormOpen(true);
   };
 
@@ -1070,11 +1125,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       toast('Name and category are required', 'warning');
       return;
     }
+    const itemId = editingItem?.id || crypto.randomUUID();
+    const autoProductionCost = formItem.autoCostFromProduction ? getProductionUnitCost(itemId) : 0;
     const linked = formItem.linkedModifiers || [];
     const trimmedImage = (formItem.image || '').trim();
     const fallbackImage = formItem.color ? '' : `${MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX}${encodeURIComponent(formItem.name.trim())}/300/300`;
     const payload: MenuItem = {
-      id: editingItem?.id || crypto.randomUUID(),
+      id: itemId,
       name: formItem.name.trim(),
       description: (formItem.description || '').trim(),
       price: Number(formItem.price || 0),
@@ -1089,7 +1146,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       otherVariantsEnabled: linked.length > 0,
       linkedModifiers: linked,
       addOns: formItem.addOns || [],
-      cost: Number(formItem.cost || 0),
+      cost: formItem.autoCostFromProduction ? autoProductionCost : Number(formItem.cost || 0),
+      autoCostFromProduction: formItem.autoCostFromProduction || false,
       sku: (formItem.sku || '').trim(),
       barcode: (formItem.barcode || '').trim(),
       soldBy: formItem.soldBy || 'each',
@@ -1789,6 +1847,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             setFormItem={setFormItem}
             categories={itemCategories.filter(c => c !== 'ALL')}
             availableModifiers={restaurant.modifiers || []}
+            productionCost={editingItem ? getProductionUnitCost(editingItem.id) : 0}
+            currencySymbol={currencySymbol}
+            showProductionCostLink
             onClose={() => { setIsItemFormOpen(false); setEditingItem(null); }}
             onSubmit={handleItemFormSubmit}
             onImageUpload={onImageUpload}
@@ -1916,7 +1977,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                     {paginatedItems.length === 0 ? (
                       <tr><td colSpan={7} className="py-12 text-center text-sm text-gray-400">No items found</td></tr>
-                    ) : paginatedItems.map(item => (
+                    ) : paginatedItems.map(item => {
+                      const displayedCost = getDisplayedMenuItemCost(item);
+                      return (
                       <tr key={item.id} className="transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
@@ -1946,7 +2009,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                             <span className="font-bold text-gray-900 dark:text-white">{currencySymbol}{item.price.toFixed(2)}</span>
                           )}
                         </td>
-                        <td className="hidden px-4 py-3 text-right text-gray-500 lg:table-cell">{item.cost ? `${currencySymbol}${item.cost.toFixed(2)}` : '-'}</td>
+                        <td className="hidden px-4 py-3 text-right text-gray-500 lg:table-cell">
+                          {displayedCost ? (
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span>{currencySymbol}{displayedCost.toFixed(2)}</span>
+                              {item.autoCostFromProduction && <span className="text-[8px] font-black uppercase tracking-wider text-amber-500">Auto</span>}
+                            </div>
+                          ) : '-'}
+                        </td>
                         <td className="hidden px-4 py-3 font-mono text-xs text-gray-500 lg:table-cell">{item.sku || '-'}</td>
                         <td className="hidden px-4 py-3 text-center md:table-cell">
                           {item.trackStock ? (
@@ -1981,7 +2051,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                           </div>
                         </td>
                       </tr>
-                    ))}
+                    );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -2021,11 +2092,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
             {/* Promotion / Discount sub-tab */}
             {itemSubTab === 'promotions' && (
-              <PromotionDiscountManager
-                restaurant={restaurant}
-                currencySymbol={currencySymbol}
-                onUpdateMenu={onUpdateMenu}
-              />
+              <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <PromotionDiscountManager
+                  restaurant={restaurant}
+                  currencySymbol={currencySymbol}
+                  onUpdateMenu={onUpdateMenu}
+                />
+              </div>
             )}
 
             {/* â”€â”€ Ingredients / Supplies sub-tab â”€â”€ */}
