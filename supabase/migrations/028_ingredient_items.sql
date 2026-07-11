@@ -7,8 +7,10 @@ CREATE TABLE IF NOT EXISTS ingredient_items (
   restaurant_id TEXT NOT NULL,
   name TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT 'Uncategorized',
-  cost NUMERIC(10,2) NOT NULL DEFAULT 0,        -- cost per unit (for COGS / P&L)
-  unit TEXT NOT NULL DEFAULT 'pcs',               -- pcs, kg, litre, box, pack …
+  cost NUMERIC(10,2) NOT NULL DEFAULT 0,        -- cost per purchase unit (for COGS / P&L)
+  unit TEXT NOT NULL DEFAULT 'pcs',             -- stock/base unit: pcs, g, kg, ml, litre
+  purchase_unit TEXT NOT NULL DEFAULT 'pcs',    -- supplier pack unit: bottle, box, pack, etc.
+  purchase_to_stock_quantity NUMERIC(12,3) NOT NULL DEFAULT 1,
   sku TEXT,
   barcode TEXT,
   is_archived BOOLEAN NOT NULL DEFAULT false,

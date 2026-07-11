@@ -99,6 +99,35 @@ interface StockItem {
   stockEnabled: boolean;
 }
 
+const PURCHASE_UNIT_OPTIONS = [
+  { value: 'pcs', label: 'Pieces' },
+  { value: 'bottle', label: 'Bottle' },
+  { value: 'box', label: 'Box' },
+  { value: 'pack', label: 'Pack' },
+  { value: 'bag', label: 'Bag' },
+  { value: 'can', label: 'Can' },
+  { value: 'roll', label: 'Roll' },
+  { value: 'kg', label: 'Kilogram (kg)' },
+  { value: 'g', label: 'Gram (g)' },
+  { value: 'litre', label: 'Litre' },
+  { value: 'ml', label: 'Millilitre (ml)' },
+];
+
+const STOCK_UNIT_OPTIONS = [
+  { value: 'pcs', label: 'Pieces' },
+  { value: 'kg', label: 'Kilogram (kg)' },
+  { value: 'g', label: 'Gram (g)' },
+  { value: 'litre', label: 'Litre' },
+  { value: 'ml', label: 'Millilitre (ml)' },
+];
+
+const getIngredientPurchaseUnit = (item: Partial<IngredientItem>) => item.purchase_unit || item.unit || 'pcs';
+const getIngredientStockUnit = (item: Partial<IngredientItem>) => item.unit || 'pcs';
+const getIngredientPurchaseRatio = (item: Partial<IngredientItem>) => {
+  const ratio = Number(item.purchase_to_stock_quantity);
+  return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+};
+
 const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, networkMeta, batteryMeta, batteryCharging = false, unreadMailCount = 0, onOpenMail, userRole = 'VENDOR' }) => {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<BackOfficeTab>(userRole === 'HR' ? 'STAFF' : 'DASHBOARD');
@@ -856,13 +885,17 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
   const openAddIngredient = () => {
     setEditingIngredient(null);
-    setIngredientForm({ name: '', category: '', cost: 0, unit: 'pcs', sku: '', barcode: '', notes: '', is_archived: false });
+    setIngredientForm({ name: '', category: '', cost: 0, unit: 'pcs', purchase_unit: 'pcs', purchase_to_stock_quantity: 1, sku: '', barcode: '', notes: '', is_archived: false });
     setIsIngredientFormOpen(true);
   };
 
   const openEditIngredient = (item: IngredientItem) => {
     setEditingIngredient(item);
-    setIngredientForm({ ...item });
+    setIngredientForm({
+      ...item,
+      purchase_unit: getIngredientPurchaseUnit(item),
+      purchase_to_stock_quantity: getIngredientPurchaseRatio(item),
+    });
     setIsIngredientFormOpen(true);
   };
 
@@ -874,9 +907,26 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       if (editingIngredient) {
         // Update existing
         const updated = ingredientItems.map(i =>
-          i.id === editingIngredient.id ? { ...i, ...ingredientForm, updated_at: new Date().toISOString() } as IngredientItem : i
+          i.id === editingIngredient.id ? {
+            ...i,
+            ...ingredientForm,
+            unit: getIngredientStockUnit(ingredientForm),
+            purchase_unit: getIngredientPurchaseUnit(ingredientForm),
+            purchase_to_stock_quantity: getIngredientPurchaseRatio(ingredientForm),
+            updated_at: new Date().toISOString(),
+          } as IngredientItem : i
         );
         saveIngredients(updated);
+        saveStock(stockItems.map(s =>
+          s.menuItemId === editingIngredient.id
+            ? {
+                ...s,
+                name: ingredientForm.name?.trim() || s.name,
+                category: ingredientForm.category?.trim() || 'Uncategorized',
+                unit: getIngredientStockUnit(ingredientForm),
+              }
+            : s
+        ));
         toast(`${ingredientForm.name} updated`, 'success');
       } else {
         // Create new
@@ -886,7 +936,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           name: ingredientForm.name?.trim() || '',
           category: ingredientForm.category?.trim() || 'Uncategorized',
           cost: ingredientForm.cost || 0,
-          unit: ingredientForm.unit || 'pcs',
+          unit: getIngredientStockUnit(ingredientForm),
+          purchase_unit: getIngredientPurchaseUnit(ingredientForm),
+          purchase_to_stock_quantity: getIngredientPurchaseRatio(ingredientForm),
           sku: ingredientForm.sku,
           barcode: ingredientForm.barcode,
           notes: ingredientForm.notes || '',
@@ -1976,25 +2028,30 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                         </datalist>
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Unit</label>
-                        <select value={ingredientForm.unit || 'pcs'} onChange={e => setIngredientForm(f => ({ ...f, unit: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                          <option value="pcs">Pieces</option>
-                          <option value="kg">Kilogram (kg)</option>
-                          <option value="g">Gram (g)</option>
-                          <option value="litre">Litre</option>
-                          <option value="ml">Millilitre (ml)</option>
-                          <option value="box">Box</option>
-                          <option value="pack">Pack</option>
-                          <option value="bottle">Bottle</option>
-                          <option value="bag">Bag</option>
-                          <option value="can">Can</option>
-                          <option value="roll">Roll</option>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Purchase Unit</label>
+                        <select value={getIngredientPurchaseUnit(ingredientForm)} onChange={e => setIngredientForm(f => ({ ...f, purchase_unit: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                          {PURCHASE_UNIT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                         </select>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Cost per Unit ({currencySymbol})</label>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Stock Unit</label>
+                        <select value={getIngredientStockUnit(ingredientForm)} onChange={e => setIngredientForm(f => ({ ...f, unit: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                          {STOCK_UNIT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">1 {getIngredientPurchaseUnit(ingredientForm)} Equals</label>
+                        <div className="flex overflow-hidden rounded-xl border border-gray-200 bg-white focus-within:ring-2 focus-within:ring-amber-500 dark:border-gray-700 dark:bg-gray-900">
+                          <input type="number" step="0.001" min="0" value={ingredientForm.purchase_to_stock_quantity || ''} onChange={e => setIngredientForm(f => ({ ...f, purchase_to_stock_quantity: parseFloat(e.target.value) || 0 }))} placeholder="1" className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-gray-900 outline-none dark:text-white" />
+                          <span className="flex items-center border-l border-gray-200 px-3 text-xs font-bold text-gray-400 dark:border-gray-700">{getIngredientStockUnit(ingredientForm)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Cost per {getIngredientPurchaseUnit(ingredientForm)} ({currencySymbol})</label>
                         <input type="number" step="0.01" value={ingredientForm.cost || ''} onChange={e => setIngredientForm(f => ({ ...f, cost: parseFloat(e.target.value) || 0 }))} placeholder="0.00" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
                       </div>
                       <div>
@@ -2050,7 +2107,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             {/* Info banner */}
             <div className="flex items-start gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/40">
               <Info size={16} className="mt-0.5 shrink-0 text-blue-500" />
-              <p className="text-xs text-gray-500 dark:text-gray-400">Ingredients & supplies are non-menu items like sugar, ice blocks, ketchup, packaging, etc. They appear in Purchase Orders and Stock Management for P&L tracking.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Ingredients & supplies are non-menu items like sugar, ice blocks, ketchup, packaging, etc. Set a purchase unit and stock unit so Purchase Orders can receive packs while production deducts the matching stock balance.</p>
             </div>
 
             {/* Ingredients Table */}
@@ -2074,8 +2131,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                       <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                         <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Name</th>
                         <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cost/Unit</th>
-                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Unit</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cost/Purchase Unit</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Stock Unit</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Conversion</th>
                         <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">SKU</th>
                         <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Notes</th>
                         <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
@@ -2093,8 +2151,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                             </div>
                           </td>
                           <td className="px-5 py-4"><span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">{item.category}</span></td>
-                          <td className="px-5 py-4 text-sm font-bold dark:text-white">{currencySymbol}{(item.cost || 0).toFixed(2)}</td>
-                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{item.unit}</td>
+                          <td className="px-5 py-4 text-sm font-bold dark:text-white">{currencySymbol}{(item.cost || 0).toFixed(2)} / {getIngredientPurchaseUnit(item)}</td>
+                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{getIngredientStockUnit(item)}</td>
+                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden lg:table-cell">1 {getIngredientPurchaseUnit(item)} = {getIngredientPurchaseRatio(item)} {getIngredientStockUnit(item)}</td>
                           <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{item.sku || '-'}</td>
                           <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate max-w-[150px]">{item.notes || '-'}</td>
                           <td className="px-5 py-4 text-right">
@@ -2367,7 +2426,15 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           <StaffManagementView restaurant={restaurant} currencySymbol={currencySymbol} />
         )}
         {activeTab === 'INVENTORY' && (
-          <InventoryManagement restaurant={restaurant} currencySymbol={currencySymbol} initialSubTab={inventorySubTab as any} />
+          <InventoryManagement
+            restaurant={restaurant}
+            currencySymbol={currencySymbol}
+            initialSubTab={inventorySubTab as any}
+            onNavigateToItemsStock={() => {
+              setItemSubTab('ingredients');
+              setActiveTab('ITEMS');
+            }}
+          />
         )}
 
         {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}

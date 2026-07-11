@@ -376,8 +376,10 @@ export interface IngredientItem {
   restaurant_id: string;
   name: string;
   category: string;
-  cost: number;         // cost per unit for COGS / P&L
-  unit: string;         // pcs, kg, litre, box, pack …
+  cost: number;         // cost per purchase unit for COGS / P&L
+  unit: string;         // stock/base unit: pcs, g, kg, ml, litre
+  purchase_unit?: string; // supplier pack unit: bottle, box, pack, bag, etc.
+  purchase_to_stock_quantity?: number; // how many stock units are in 1 purchase unit
   sku?: string;
   barcode?: string;
   is_archived?: boolean;

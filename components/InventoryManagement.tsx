@@ -5,7 +5,7 @@ import {
   Package, Truck, ArrowUpDown, ClipboardList, Factory,
   History, DollarSign, Plus, Search, Edit3, Trash2, Check, X, ChevronRight,
   ArrowLeft, Eye, Send, Download, Upload, AlertCircle, CheckCircle, XCircle,
-  Clock, FileText, BarChart3,
+  Clock, FileText, BarChart3, ShoppingBag,
 } from 'lucide-react';
 
 // ─── Inventory Types ───
@@ -27,6 +27,9 @@ interface PurchaseOrderItem {
   quantity: number;
   costPerUnit: number;
   receivedQuantity: number;
+  purchaseUnit?: string;
+  stockUnit?: string;
+  stockQuantityPerUnit?: number;
 }
 
 interface PurchaseOrder {
@@ -89,7 +92,7 @@ interface Production {
   producedItemId: string;
   producedItemName: string;
   quantityProduced: number;
-  ingredients: { menuItemId: string; name: string; quantityUsed: number; unit: string }[];
+  ingredients: { menuItemId: string; name: string; quantityUsed: number; unit: string; stockQuantityUsed?: number; stockUnit?: string }[];
   timestamp: number;
   notes: string;
 }
@@ -117,6 +120,7 @@ interface Props {
   restaurant: Restaurant;
   currencySymbol: string;
   initialSubTab?: InventorySubTab;
+  onNavigateToItemsStock?: () => void;
 }
 
 // Unified selectable item: either a menu item or an ingredient
@@ -129,7 +133,71 @@ interface SelectableItem {
   type: 'menu' | 'ingredient';
 }
 
-const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, initialSubTab }) => {
+const UNIT_LABELS: Record<string, string> = {
+  pcs: 'pcs',
+  bottle: 'bottle',
+  box: 'box',
+  pack: 'pack',
+  bag: 'bag',
+  can: 'can',
+  roll: 'roll',
+  kg: 'kg',
+  g: 'g',
+  litre: 'L',
+  l: 'L',
+  ml: 'ml',
+};
+
+const normalizeUnit = (unit?: string) => {
+  const normalized = (unit || 'pcs').toLowerCase();
+  return normalized === 'l' ? 'litre' : normalized;
+};
+
+const getIngredientPurchaseUnit = (item?: Partial<IngredientItem>) => item?.purchase_unit || item?.unit || 'pcs';
+const getIngredientStockUnit = (item?: Partial<IngredientItem>) => item?.unit || 'pcs';
+const getIngredientPurchaseRatio = (item?: Partial<IngredientItem>) => {
+  const ratio = Number(item?.purchase_to_stock_quantity);
+  return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+};
+
+const getUnitLabel = (unit?: string) => UNIT_LABELS[normalizeUnit(unit)] || unit || 'pcs';
+
+const getRelatedUnits = (ingredient?: IngredientItem) => {
+  const baseUnit = normalizeUnit(getIngredientStockUnit(ingredient));
+  const purchaseUnit = normalizeUnit(getIngredientPurchaseUnit(ingredient));
+  const units = new Set<string>([baseUnit]);
+  if (baseUnit === 'ml' || baseUnit === 'litre') {
+    units.add('ml');
+    units.add('litre');
+  } else if (baseUnit === 'g' || baseUnit === 'kg') {
+    units.add('g');
+    units.add('kg');
+  }
+  if (purchaseUnit) units.add(purchaseUnit);
+  return Array.from(units);
+};
+
+const convertBetweenStockUnits = (quantity: number, fromUnit?: string, toUnit?: string) => {
+  const from = normalizeUnit(fromUnit);
+  const to = normalizeUnit(toUnit);
+  if (from === to) return quantity;
+  if (from === 'litre' && to === 'ml') return quantity * 1000;
+  if (from === 'ml' && to === 'litre') return quantity / 1000;
+  if (from === 'kg' && to === 'g') return quantity * 1000;
+  if (from === 'g' && to === 'kg') return quantity / 1000;
+  return quantity;
+};
+
+const convertIngredientUsageToStock = (ingredient: IngredientItem | undefined, quantity: number, unit?: string) => {
+  if (!ingredient) return quantity;
+  const usageUnit = normalizeUnit(unit);
+  const purchaseUnit = normalizeUnit(getIngredientPurchaseUnit(ingredient));
+  const stockUnit = normalizeUnit(getIngredientStockUnit(ingredient));
+  if (usageUnit === purchaseUnit) return quantity * getIngredientPurchaseRatio(ingredient);
+  return convertBetweenStockUnits(quantity, usageUnit, stockUnit);
+};
+
+const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, initialSubTab, onNavigateToItemsStock }) => {
   const [subTab, setSubTab] = useState<InventorySubTab>(initialSubTab || 'purchase_orders');
 
   useEffect(() => {
@@ -210,6 +278,19 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   ], [activeMenuItems, ingredientItems]);
 
   // ─── History Logger ───
+  const menuSelectableItems = useMemo(() => allSelectableItems.filter(m => m.type === 'menu'), [allSelectableItems]);
+  const ingredientSelectableItems = useMemo(() => allSelectableItems.filter(m => m.type === 'ingredient'), [allSelectableItems]);
+  const getIngredientById = (itemId: string) => ingredientItems.find(i => i.id === itemId);
+
+  const getPOPurchaseUnit = (item: PurchaseOrderItem) => item.purchaseUnit || getIngredientPurchaseUnit(getIngredientById(item.menuItemId));
+  const getPOStockUnit = (item: PurchaseOrderItem) => item.stockUnit || getIngredientStockUnit(getIngredientById(item.menuItemId));
+  const getPOStockQuantityPerUnit = (item: PurchaseOrderItem) => {
+    const quantity = Number(item.stockQuantityPerUnit);
+    if (Number.isFinite(quantity) && quantity > 0) return quantity;
+    return getIngredientPurchaseRatio(getIngredientById(item.menuItemId));
+  };
+  const getPOStockQuantity = (item: PurchaseOrderItem, quantity = item.quantity) => quantity * getPOStockQuantityPerUnit(item);
+
   const addHistory = (entry: Omit<InventoryHistoryEntry, 'id' | 'timestamp'>) => {
     const newEntry: InventoryHistoryEntry = { ...entry, id: crypto.randomUUID(), timestamp: Date.now() };
     const updated = [newEntry, ...historyLog].slice(0, 500);
@@ -227,9 +308,24 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
 
   const updateStockItem = (menuItemId: string, delta: number) => {
     const stockItems = getStockItems();
+    const matched = stockItems.some((s: any) => s.menuItemId === menuItemId);
     const updated = stockItems.map((s: any) =>
       s.menuItemId === menuItemId ? { ...s, currentStock: Math.max(0, s.currentStock + delta), lastRestocked: delta > 0 ? Date.now() : s.lastRestocked } : s
     );
+    if (!matched) {
+      const menuItem = activeMenuItems.find(m => m.id === menuItemId);
+      const ingredient = getIngredientById(menuItemId);
+      updated.push({
+        menuItemId,
+        name: ingredient?.name || menuItem?.name || 'Unknown Item',
+        category: ingredient?.category || menuItem?.category || 'Uncategorized',
+        currentStock: Math.max(0, delta),
+        lowStockThreshold: 10,
+        unit: ingredient ? getIngredientStockUnit(ingredient) : 'pcs',
+        lastRestocked: delta > 0 ? Date.now() : undefined,
+        stockEnabled: true,
+      });
+    }
     localStorage.setItem(`stock_${restaurant.id}`, JSON.stringify(updated));
   };
 
@@ -285,8 +381,9 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
         po.items.forEach(item => {
           const remaining = item.quantity - item.receivedQuantity;
           if (remaining > 0) {
-            updateStockItem(item.menuItemId, remaining);
-            addHistory({ action: 'Stock received (PO)', itemName: item.name, quantity: remaining, type: 'in', reference: poId });
+            const stockQuantity = getPOStockQuantity(item, remaining);
+            updateStockItem(item.menuItemId, stockQuantity);
+            addHistory({ action: 'Stock received (PO)', itemName: item.name, quantity: stockQuantity, type: 'in', reference: poId });
           }
         });
       }
@@ -312,8 +409,9 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       const updatedItems = po.items.map(item => {
         const receiving = receiveQuantities[item.menuItemId] || 0;
         if (receiving > 0) {
-          updateStockItem(item.menuItemId, receiving);
-          addHistory({ action: 'Stock received (PO)', itemName: item.name, quantity: receiving, type: 'in', reference: receivingPOId });
+          const stockQuantity = getPOStockQuantity(item, receiving);
+          updateStockItem(item.menuItemId, stockQuantity);
+          addHistory({ action: 'Stock received (PO)', itemName: item.name, quantity: stockQuantity, type: 'in', reference: receivingPOId });
         }
         return { ...item, receivedQuantity: item.receivedQuantity + receiving };
       });
@@ -473,11 +571,22 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   // PRODUCTION HANDLERS
   // ════════════════════════════════════════
   const handleSaveProduction = () => {
-    const qty = parseInt(prodForm.quantityProduced);
+    const qty = parseFloat(prodForm.quantityProduced);
     if (!prodForm.producedItemId || isNaN(qty) || qty <= 0) return;
-    const producedMenuItem = allSelectableItems.find(m => m.id === prodForm.producedItemId);
+    const producedMenuItem = menuSelectableItems.find(m => m.id === prodForm.producedItemId);
     if (!producedMenuItem) return;
-    const validIngredients = prodForm.ingredients.filter(i => i.menuItemId).map(i => ({ menuItemId: i.menuItemId, name: i.name, quantityUsed: parseFloat(i.quantityUsed) || 0, unit: i.unit }));
+    const validIngredients = prodForm.ingredients.filter(i => i.menuItemId).map(i => {
+      const ingredient = getIngredientById(i.menuItemId);
+      const quantityUsed = parseFloat(i.quantityUsed) || 0;
+      return {
+        menuItemId: i.menuItemId,
+        name: i.name,
+        quantityUsed,
+        unit: i.unit,
+        stockQuantityUsed: convertIngredientUsageToStock(ingredient, quantityUsed, i.unit),
+        stockUnit: getIngredientStockUnit(ingredient),
+      };
+    });
     const prod: Production = {
       id: crypto.randomUUID(),
       producedItemId: prodForm.producedItemId,
@@ -493,8 +602,9 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     // Deduct stock from each ingredient
     validIngredients.forEach(ing => {
       if (ing.quantityUsed > 0) {
-        updateStockItem(ing.menuItemId, -ing.quantityUsed);
-        addHistory({ action: 'Production ingredient used', itemName: ing.name, quantity: ing.quantityUsed, type: 'out', reference: prod.id });
+        const stockQuantityUsed = ing.stockQuantityUsed ?? ing.quantityUsed;
+        updateStockItem(ing.menuItemId, -stockQuantityUsed);
+        addHistory({ action: 'Production ingredient used', itemName: ing.name, quantity: stockQuantityUsed, type: 'out', reference: prod.id });
       }
     });
     const updated = [prod, ...productions];
@@ -509,7 +619,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     for (const po of purchaseOrders) {
       if (po.status === 'received' || po.status === 'partial') {
         const item = po.items.find(i => i.menuItemId === menuItemId);
-        if (item && item.costPerUnit > 0) return item.costPerUnit;
+        if (item && item.costPerUnit > 0) return item.costPerUnit / getPOStockQuantityPerUnit(item);
       }
     }
     return 0;
@@ -521,7 +631,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       const menuItem = restaurant.menu.find(m => m.id === s.menuItemId);
       const ingredient = ingredientItems.find(i => i.id === s.menuItemId);
       const poCost = getLatestCostFromPOs(s.menuItemId);
-      const unitCost = poCost > 0 ? poCost : ingredient?.cost ? ingredient.cost : (menuItem?.price ? menuItem.price * 0.4 : 0);
+      const ingredientStockCost = ingredient?.cost ? ingredient.cost / getIngredientPurchaseRatio(ingredient) : 0;
+      const unitCost = poCost > 0 ? poCost : ingredientStockCost > 0 ? ingredientStockCost : (menuItem?.price ? menuItem.price * 0.4 : 0);
       return {
         ...s,
         price: menuItem?.price || 0,
@@ -547,7 +658,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       .filter(po => po.status === 'draft' || po.status === 'sent' || po.status === 'partial')
       .reduce((total, po) => {
         const item = po.items.find(i => i.menuItemId === menuItemId);
-        return total + (item ? item.quantity - item.receivedQuantity : 0);
+        return total + (item ? getPOStockQuantity(item, item.quantity - item.receivedQuantity) : 0);
       }, 0);
   };
 
@@ -606,6 +717,14 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
           {showForm && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 mb-6">
               <h3 className="text-sm font-black mb-4">Create Purchase Order</h3>
+              <div className="mb-4 flex flex-col gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">
+                <span>If an ingredient or supply is missing, create it first in Items & Stock so purchase and production units match.</span>
+                {onNavigateToItemsStock && (
+                  <button onClick={onNavigateToItemsStock} className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-blue-700 shadow-sm transition hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-950/70">
+                    <ShoppingBag size={12} /> Items & Stock
+                  </button>
+                )}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Supplier *</label>
@@ -638,6 +757,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                   <span className="w-16 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">In Stock</span>
                   <span className="w-16 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">Incoming</span>
                   <span className="w-20 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">Qty</span>
+                  <span className="w-24 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">Stock Added</span>
                   <span className="w-24 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">Cost/Unit</span>
                   <span className="w-8"></span>
                 </div>
@@ -646,17 +766,26 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                 <div key={i} className="flex items-center gap-2 mb-2">
                   <select value={item.menuItemId} onChange={e => {
                     const mi = allSelectableItems.find(m => m.id === e.target.value);
+                    const ingredient = getIngredientById(e.target.value);
                     const items = [...poForm.items];
-                    items[i] = { ...items[i], menuItemId: e.target.value, name: mi?.name || '', costPerUnit: items[i].costPerUnit || mi?.cost || 0 };
+                    items[i] = {
+                      ...items[i],
+                      menuItemId: e.target.value,
+                      name: mi?.name || '',
+                      costPerUnit: items[i].costPerUnit || mi?.cost || 0,
+                      purchaseUnit: ingredient ? getIngredientPurchaseUnit(ingredient) : 'pcs',
+                      stockUnit: ingredient ? getIngredientStockUnit(ingredient) : 'pcs',
+                      stockQuantityPerUnit: ingredient ? getIngredientPurchaseRatio(ingredient) : 1,
+                    };
                     setPoForm(f => ({ ...f, items }));
                   }} className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
                     <option value="">Select item</option>
                     <optgroup label="Menu Items">
-                      {allSelectableItems.filter(m => m.type === 'menu').map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                      {menuSelectableItems.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </optgroup>
-                    {allSelectableItems.some(m => m.type === 'ingredient') && (
+                    {ingredientSelectableItems.length > 0 && (
                       <optgroup label="Ingredients / Supplies">
-                        {allSelectableItems.filter(m => m.type === 'ingredient').map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                        {ingredientSelectableItems.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                       </optgroup>
                     )}
                   </select>
@@ -666,12 +795,18 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                   <span className={`w-16 text-center text-xs font-bold ${item.menuItemId && getIncomingQuantity(item.menuItemId) > 0 ? 'text-blue-400' : 'text-gray-500'}`}>
                     {item.menuItemId ? getIncomingQuantity(item.menuItemId) : '-'}
                   </span>
-                  <input type="number" value={item.quantity || ''} onChange={e => { const items = [...poForm.items]; items[i] = { ...items[i], quantity: parseInt(e.target.value) || 0 }; setPoForm(f => ({ ...f, items })); }} placeholder="Qty" className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none" />
+                  <div className="w-20">
+                    <input type="number" value={item.quantity || ''} onChange={e => { const items = [...poForm.items]; items[i] = { ...items[i], quantity: parseFloat(e.target.value) || 0 }; setPoForm(f => ({ ...f, items })); }} placeholder="Qty" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none" />
+                    {item.menuItemId && <p className="mt-1 text-center text-[9px] font-bold text-gray-400">{getUnitLabel(getPOPurchaseUnit(item))}</p>}
+                  </div>
+                  <span className="w-24 text-center text-[9px] font-semibold text-gray-400">
+                    {item.menuItemId ? `= ${getPOStockQuantity(item).toLocaleString()} ${getUnitLabel(getPOStockUnit(item))}` : '-'}
+                  </span>
                   <input type="number" step="0.01" value={item.costPerUnit || ''} onChange={e => { const items = [...poForm.items]; items[i] = { ...items[i], costPerUnit: parseFloat(e.target.value) || 0 }; setPoForm(f => ({ ...f, items })); }} placeholder="Cost/Unit" className="w-24 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none" />
                   <button onClick={() => { const items = poForm.items.filter((_, idx) => idx !== i); setPoForm(f => ({ ...f, items })); }} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg"><X size={14} /></button>
                 </div>
               ))}
-              <button onClick={() => setPoForm(f => ({ ...f, items: [...f.items, { menuItemId: '', name: '', quantity: 0, costPerUnit: 0, receivedQuantity: 0 }] }))} className="text-xs text-amber-400 font-bold flex items-center gap-1 mt-2 hover:text-amber-300"><Plus size={12} /> Add Item</button>
+              <button onClick={() => setPoForm(f => ({ ...f, items: [...f.items, { menuItemId: '', name: '', quantity: 0, costPerUnit: 0, receivedQuantity: 0, purchaseUnit: 'pcs', stockUnit: 'pcs', stockQuantityPerUnit: 1 }] }))} className="text-xs text-amber-400 font-bold flex items-center gap-1 mt-2 hover:text-amber-300"><Plus size={12} /> Add Item</button>
 
               <div className="flex gap-3 mt-6">
                 <button onClick={() => setShowForm(false)} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
@@ -1087,21 +1222,14 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Produced Item *</label>
-                  <select value={prodForm.producedItemId} onChange={e => { const mi = allSelectableItems.find(m => m.id === e.target.value); setProdForm(f => ({ ...f, producedItemId: e.target.value, producedItemName: mi?.name || '' })); }} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                    <option value="">Select item to produce</option>
-                    <optgroup label="Menu Items">
-                      {allSelectableItems.filter(m => m.type === 'menu').map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
-                    </optgroup>
-                    {allSelectableItems.some(m => m.type === 'ingredient') && (
-                      <optgroup label="Ingredients / Supplies">
-                        {allSelectableItems.filter(m => m.type === 'ingredient').map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
-                      </optgroup>
-                    )}
+                  <select value={prodForm.producedItemId} onChange={e => { const mi = menuSelectableItems.find(m => m.id === e.target.value); setProdForm(f => ({ ...f, producedItemId: e.target.value, producedItemName: mi?.name || '' })); }} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                    <option value="">Select menu item to produce</option>
+                    {menuSelectableItems.map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Quantity Produced *</label>
-                  <input type="number" value={prodForm.quantityProduced} onChange={e => setProdForm(f => ({ ...f, quantityProduced: e.target.value }))} placeholder="0" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                  <input type="number" step="0.001" value={prodForm.quantityProduced} onChange={e => setProdForm(f => ({ ...f, quantityProduced: e.target.value }))} placeholder="0" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
                 </div>
               </div>
               <div className="mb-4">
@@ -1111,24 +1239,18 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">Ingredients Used</label>
               {prodForm.ingredients.map((ing, i) => (
                 <div key={i} className="flex items-center gap-2 mb-2">
-                  <select value={ing.menuItemId} onChange={e => { const mi = allSelectableItems.find(m => m.id === e.target.value); const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], menuItemId: e.target.value, name: mi?.name || '' }; setProdForm(f => ({ ...f, ingredients })); }} className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                  <select value={ing.menuItemId} onChange={e => { const mi = ingredientSelectableItems.find(m => m.id === e.target.value); const ingredient = getIngredientById(e.target.value); const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], menuItemId: e.target.value, name: mi?.name || '', unit: getIngredientStockUnit(ingredient) }; setProdForm(f => ({ ...f, ingredients })); }} className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
                     <option value="">Select ingredient</option>
-                    <optgroup label="Menu Items">
-                      {allSelectableItems.filter(m => m.type === 'menu').map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
-                    </optgroup>
-                    {allSelectableItems.some(m => m.type === 'ingredient') && (
-                      <optgroup label="Ingredients / Supplies">
-                        {allSelectableItems.filter(m => m.type === 'ingredient').map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
-                      </optgroup>
-                    )}
+                    {ingredientSelectableItems.map(m => {
+                      const ingredient = getIngredientById(m.id);
+                      return <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)} {getUnitLabel(getIngredientStockUnit(ingredient))})</option>;
+                    })}
                   </select>
-                  <input type="number" value={ing.quantityUsed} onChange={e => { const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], quantityUsed: e.target.value }; setProdForm(f => ({ ...f, ingredients })); }} placeholder="Qty" className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none" />
+                  <input type="number" step="0.001" value={ing.quantityUsed} onChange={e => { const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], quantityUsed: e.target.value }; setProdForm(f => ({ ...f, ingredients })); }} placeholder="Qty" className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none" />
                   <select value={ing.unit} onChange={e => { const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], unit: e.target.value }; setProdForm(f => ({ ...f, ingredients })); }} className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-2 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                    <option value="pcs">pcs</option>
-                    <option value="kg">kg</option>
-                    <option value="g">g</option>
-                    <option value="l">L</option>
-                    <option value="ml">mL</option>
+                    {getRelatedUnits(getIngredientById(ing.menuItemId)).map(unit => (
+                      <option key={unit} value={unit}>{getUnitLabel(unit)}</option>
+                    ))}
                   </select>
                   <button onClick={() => { const ingredients = prodForm.ingredients.filter((_, idx) => idx !== i); setProdForm(f => ({ ...f, ingredients })); }} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg"><X size={14} /></button>
                 </div>
@@ -1163,7 +1285,12 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                         <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{prod.producedItemName}</td>
                         <td className="px-5 py-4 text-xs font-bold text-green-400">+{prod.quantityProduced}</td>
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate max-w-[200px]">
-                          {prod.ingredients.map(i => `${i.name} (${i.quantityUsed} ${i.unit})`).join(', ') || '-'}
+                          {prod.ingredients.map(i => {
+                            const converted = i.stockQuantityUsed && i.stockUnit && (i.stockQuantityUsed !== i.quantityUsed || normalizeUnit(i.stockUnit) !== normalizeUnit(i.unit))
+                              ? ` = ${i.stockQuantityUsed.toLocaleString()} ${getUnitLabel(i.stockUnit)}`
+                              : '';
+                            return `${i.name} (${i.quantityUsed} ${getUnitLabel(i.unit)}${converted})`;
+                          }).join(', ') || '-'}
                         </td>
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell truncate max-w-[150px]">{prod.notes || '-'}</td>
                       </tr>
@@ -1432,14 +1559,18 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                     <div key={item.menuItemId} className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-700/50">
                       <div className="flex-1">
                         <p className="text-sm font-bold text-gray-900 dark:text-white">{item.name}</p>
-                        <p className="text-[10px] text-gray-400">Ordered: {item.quantity} | Received: {item.receivedQuantity} | Remaining: {remaining}</p>
+                        <p className="text-[10px] text-gray-400">
+                          Ordered: {item.quantity} {getUnitLabel(getPOPurchaseUnit(item))} | Received: {item.receivedQuantity} {getUnitLabel(getPOPurchaseUnit(item))} | Remaining: {remaining} {getUnitLabel(getPOPurchaseUnit(item))}
+                        </p>
+                        <p className="text-[10px] text-gray-400">Stock added if full remaining: {getPOStockQuantity(item, remaining).toLocaleString()} {getUnitLabel(getPOStockUnit(item))}</p>
                       </div>
                       <input
                         type="number"
+                        step="0.001"
                         min="0"
                         max={remaining}
                         value={receiveQuantities[item.menuItemId] || ''}
-                        onChange={e => setReceiveQuantities(prev => ({ ...prev, [item.menuItemId]: Math.min(parseInt(e.target.value) || 0, remaining) }))}
+                        onChange={e => setReceiveQuantities(prev => ({ ...prev, [item.menuItemId]: Math.min(parseFloat(e.target.value) || 0, remaining) }))}
                         placeholder="0"
                         className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none"
                       />
