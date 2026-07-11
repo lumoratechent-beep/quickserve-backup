@@ -44,6 +44,34 @@ interface PurchaseOrder {
   notes: string;
 }
 
+const PO_STATUS_VALUES: PurchaseOrder['status'][] = ['draft', 'sent', 'partial', 'received', 'cancelled', 'returned'];
+
+const normalizePurchaseOrder = (po: Partial<PurchaseOrder>): PurchaseOrder => {
+  const status = PO_STATUS_VALUES.includes(po.status as PurchaseOrder['status'])
+    ? po.status as PurchaseOrder['status']
+    : 'draft';
+  return {
+    id: po.id || crypto.randomUUID(),
+    supplierId: po.supplierId || '',
+    supplierName: po.supplierName || 'Unknown',
+    items: (po.items || []).map(item => ({
+      menuItemId: item.menuItemId || '',
+      name: item.name || 'Unknown Item',
+      quantity: Number(item.quantity || 0),
+      costPerUnit: Number(item.costPerUnit || 0),
+      receivedQuantity: Number(item.receivedQuantity || 0),
+      purchaseUnit: item.purchaseUnit || 'pcs',
+      stockUnit: item.stockUnit || 'pcs',
+      stockQuantityPerUnit: Number(item.stockQuantityPerUnit || 1),
+    })),
+    status,
+    createdAt: Number(po.createdAt || Date.now()),
+    expectedDate: po.expectedDate || '',
+    receivedDate: po.receivedDate,
+    notes: po.notes || '',
+  };
+};
+
 interface TransferOrder {
   id: string;
   fromStore: string;
@@ -269,7 +297,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
 
   // ─── State ───
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => loadState('suppliers', []));
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => loadState('purchase_orders', []));
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => loadState<Partial<PurchaseOrder>[]>('purchase_orders', []).map(normalizePurchaseOrder));
   const [transferOrders, setTransferOrders] = useState<TransferOrder[]>(() => loadState('transfer_orders', []));
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>(() => loadState('adjustments', []));
   const [inventoryCounts, setInventoryCounts] = useState<InventoryCount[]>(() => loadState('counts', []));
@@ -284,12 +312,16 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
 
   // ─── Modal/Form States ───
   const [showForm, setShowForm] = useState(false);
+  const [showPOInfoModal, setShowPOInfoModal] = useState(false);
   const [showProductionInfoModal, setShowProductionInfoModal] = useState(false);
   const [showQuantityProducedInfoModal, setShowQuantityProducedInfoModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [poSearch, setPoSearch] = useState('');
   const [poStatusFilter, setPoStatusFilter] = useState<'ALL' | PurchaseOrder['status']>('ALL');
   const [openPOActionMenuId, setOpenPOActionMenuId] = useState<string | null>(null);
+  const [poEntriesPerPage, setPoEntriesPerPage] = useState(30);
+  const [poCurrentPage, setPoCurrentPage] = useState(1);
+  const [poFormError, setPoFormError] = useState('');
   const [productionSearch, setProductionSearch] = useState('');
   const [productionCategoryFilter, setProductionCategoryFilter] = useState('ALL');
   const [productionEntriesPerPage, setProductionEntriesPerPage] = useState(30);
@@ -414,6 +446,11 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       );
     });
   }, [purchaseOrders, poSearch, poStatusFilter]);
+  const poTotalPages = useMemo(() => Math.max(1, Math.ceil(filteredPurchaseOrders.length / poEntriesPerPage)), [filteredPurchaseOrders.length, poEntriesPerPage]);
+  const paginatedPurchaseOrders = useMemo(() => {
+    const start = (poCurrentPage - 1) * poEntriesPerPage;
+    return filteredPurchaseOrders.slice(start, start + poEntriesPerPage);
+  }, [filteredPurchaseOrders, poCurrentPage, poEntriesPerPage]);
   const filteredProductions = useMemo(() => {
     const q = productionSearch.trim().toLowerCase();
     return productions.filter(prod => {
@@ -458,6 +495,10 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   useEffect(() => {
     setProductionCurrentPage(1);
   }, [productionSearch, productionCategoryFilter, productionEntriesPerPage, productionTab]);
+
+  useEffect(() => {
+    setPoCurrentPage(1);
+  }, [poSearch, poStatusFilter, poEntriesPerPage]);
 
   const getPOPurchaseUnit = (item: PurchaseOrderItem) => item.purchaseUnit || getIngredientPurchaseUnit(getIngredientById(item.menuItemId));
   const getPOStockUnit = (item: PurchaseOrderItem) => item.stockUnit || getIngredientStockUnit(getIngredientById(item.menuItemId));
@@ -534,13 +575,32 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   // PURCHASE ORDER HANDLERS
   // ════════════════════════════════════════
   const handleSavePurchaseOrder = () => {
-    if (!poForm.supplierId || poForm.items.length === 0) return;
+    setPoFormError('');
+    if (!poForm.supplierId) {
+      setPoFormError('Please select a supplier before creating the purchase order.');
+      return;
+    }
+    const validItems = poForm.items
+      .filter(item => item.menuItemId && Number(item.quantity || 0) > 0)
+      .map(item => ({
+        ...item,
+        quantity: Number(item.quantity || 0),
+        costPerUnit: Number(item.costPerUnit || 0),
+        receivedQuantity: Number(item.receivedQuantity || 0),
+        purchaseUnit: item.purchaseUnit || 'pcs',
+        stockUnit: item.stockUnit || 'pcs',
+        stockQuantityPerUnit: Number(item.stockQuantityPerUnit || 1),
+      }));
+    if (validItems.length === 0) {
+      setPoFormError('Add at least one item with a quantity above 0.');
+      return;
+    }
     const supplier = suppliers.find(s => s.id === poForm.supplierId);
     const newPO: PurchaseOrder = {
       id: crypto.randomUUID(),
       supplierId: poForm.supplierId,
       supplierName: supplier?.name || 'Unknown',
-      items: poForm.items,
+      items: validItems,
       status: 'draft',
       createdAt: Date.now(),
       expectedDate: poForm.expectedDate,
@@ -549,7 +609,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     const updated = [newPO, ...purchaseOrders];
     setPurchaseOrders(updated);
     saveState('purchase_orders', updated);
-    addHistory({ action: 'Purchase order created', itemName: `PO-${newPO.id.slice(-6)}`, quantity: poForm.items.reduce((s, i) => s + i.quantity, 0), type: 'in', reference: newPO.id });
+    addHistory({ action: 'Purchase order created', itemName: `PO-${newPO.id.slice(-6)}`, quantity: validItems.reduce((s, i) => s + i.quantity, 0), type: 'in', reference: newPO.id });
     setPoForm({ supplierId: '', expectedDate: '', notes: '', items: [] });
     setShowForm(false);
   };
@@ -1122,10 +1182,21 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
         <div>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div>
-              <h2 className="text-lg font-black text-gray-900 dark:text-white">Purchase Orders</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-black text-gray-900 dark:text-white">Purchase Orders</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowPOInfoModal(true)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-400 transition hover:border-amber-300 hover:text-amber-500 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-amber-700"
+                  aria-label="Purchase order status information"
+                  title="Purchase order status information"
+                >
+                  <Info size={15} />
+                </button>
+              </div>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Plan supplier purchases, track ordered and delivered quantities, and keep returns visible as negative value movements.</p>
             </div>
-            <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20">
+            <button onClick={() => { setPoFormError(''); setShowForm(!showForm); }} className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20">
               <Plus size={14} /> New Purchase Order
             </button>
           </div>
@@ -1224,6 +1295,12 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               ))}
               <button onClick={() => setPoForm(f => ({ ...f, items: [...f.items, { menuItemId: '', name: '', quantity: 0, costPerUnit: 0, receivedQuantity: 0, purchaseUnit: 'pcs', stockUnit: 'pcs', stockQuantityPerUnit: 1 }] }))} className="text-xs text-amber-400 font-bold flex items-center gap-1 mt-2 hover:text-amber-300"><Plus size={12} /> Add Item</button>
 
+              {poFormError && (
+                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
+                  {poFormError}
+                </div>
+              )}
+
               <div className="flex gap-3 mt-6">
                 <button onClick={() => setShowForm(false)} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
                 <button onClick={handleSavePurchaseOrder} className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20">Create Order</button>
@@ -1234,10 +1311,9 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
           {/* PO List */}
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
             <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-sm font-black text-gray-900 dark:text-white">Purchase Order List</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Planned means not sent yet; Ordered is sent to supplier; Delivered is fully received; Returned shows negative value.</p>
-              </div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                Showing {filteredPurchaseOrders.length === 0 ? 0 : (poCurrentPage - 1) * poEntriesPerPage + 1}-{Math.min(poCurrentPage * poEntriesPerPage, filteredPurchaseOrders.length)} of {filteredPurchaseOrders.length}
+              </span>
               <div className="flex flex-wrap items-center gap-3">
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
@@ -1258,15 +1334,18 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                   <option value="returned">Returned</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Show</span>
+                  <select value={poEntriesPerPage} onChange={e => setPoEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border border-gray-200 bg-white p-1 text-[10px] font-bold text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                    <option value={30}>30</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Entries</span>
+                </div>
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40">
-              <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
-                Showing {filteredPurchaseOrders.length} of {purchaseOrders.length}
-              </span>
-              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Stored purchase orders</span>
-            </div>
-            {filteredPurchaseOrders.length > 0 ? (
+            {paginatedPurchaseOrders.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[820px] text-left">
                   <thead className="bg-gray-50 dark:bg-gray-900/40">
@@ -1281,7 +1360,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                    {filteredPurchaseOrders.map(po => (
+                    {paginatedPurchaseOrders.map(po => (
                       <tr
                         key={po.id}
                         className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30"
@@ -1334,6 +1413,15 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               </div>
             )}
           </div>
+          {poTotalPages > 1 && (
+            <div className="mt-6 flex items-center justify-center gap-2 overflow-x-auto py-2">
+              <button onClick={() => setPoCurrentPage(1)} disabled={poCurrentPage === 1} className="px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-[10px] font-black text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">First</button>
+              <button onClick={() => setPoCurrentPage(page => Math.max(1, page - 1))} disabled={poCurrentPage === 1} className="px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-[10px] font-black text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">Prev</button>
+              <span className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Page {poCurrentPage} / {poTotalPages}</span>
+              <button onClick={() => setPoCurrentPage(page => Math.min(poTotalPages, page + 1))} disabled={poCurrentPage === poTotalPages} className="px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-[10px] font-black text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">Next</button>
+              <button onClick={() => setPoCurrentPage(poTotalPages)} disabled={poCurrentPage === poTotalPages} className="px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-[10px] font-black text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">Last</button>
+            </div>
+          )}
         </div>
       )}
 
@@ -2028,6 +2116,29 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     </div>
 
       {/* ─── Quick Add Supplier Modal ─── */}
+      {showPOInfoModal && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowPOInfoModal(false)} />
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-black text-gray-900 dark:text-white">Purchase Order Status</h3>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">How each purchase order state is used.</p>
+              </div>
+              <button onClick={() => setShowPOInfoModal(false)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-white transition-all">
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+              Planned means not sent yet; Ordered is sent to supplier; Delivered is fully received; Returned shows negative value.
+            </p>
+            <button onClick={() => setShowPOInfoModal(false)} className="mt-6 w-full rounded-xl bg-amber-600 py-3 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-amber-700">
+              Got It
+            </button>
+          </div>
+        </div>
+      )}
+
       {showAddSupplierModal && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddSupplierModal(false)} />
