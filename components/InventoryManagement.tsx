@@ -4,6 +4,7 @@ import { Restaurant, MenuItem, IngredientItem } from '../src/types';
 import { fetchSettingsFromServer, loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
 import { fetchPurchaseOrdersFromDb, savePurchaseOrderToDb, savePurchaseOrdersToDb } from '../lib/purchaseOrders';
 import { fetchIngredientItemsFromDb, saveIngredientItemsToDb } from '../lib/ingredientItems';
+import { fetchStockItemsFromDb, saveStockItemsToDb, saveStockMovementsToDb } from '../lib/stockItems';
 import {
   Package, Truck, ArrowUpDown, ClipboardList, Factory,
   History, DollarSign, Plus, Search, Edit3, Trash2, Check, X, ChevronRight,
@@ -610,6 +611,24 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       const needsBackofficeSync = reconcileInventoryCacheFromSettings(latestSettings || restaurant.settings);
       if (needsBackofficeSync) syncBackofficeToDb(restaurant.id);
 
+      const localStockItems = readLocalArray<any>(`stock_${restaurant.id}`);
+      const remoteStockItems = await fetchStockItemsFromDb(restaurant.id);
+      if (cancelled) return;
+      if (remoteStockItems) {
+        const remoteStockIds = new Set(remoteStockItems.map(item => item.menuItemId));
+        const mergedStockItems = mergeArrayByKey(
+          localStockItems,
+          remoteStockItems,
+          item => item.menuItemId || item.id || '',
+        );
+        localStorage.setItem(`stock_${restaurant.id}`, JSON.stringify(mergedStockItems));
+
+        const localOnlyStock = localStockItems.filter(item => item.menuItemId && !remoteStockIds.has(item.menuItemId));
+        if (localOnlyStock.length > 0) {
+          saveStockItemsToDb(restaurant.id, localOnlyStock, new Set(ingredientItems.map(item => item.id))).catch(() => {});
+        }
+      }
+
       const localIngredientItems = readLocalArray<IngredientItem>(`ingredients_${restaurant.id}`);
       const remoteIngredientItems = await fetchIngredientItemsFromDb(restaurant.id);
       if (cancelled) return;
@@ -894,6 +913,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const saveStockItems = (items: any[]) => {
     localStorage.setItem(`stock_${restaurant.id}`, JSON.stringify(items));
     syncBackofficeToDb(restaurant.id);
+    saveStockItemsToDb(restaurant.id, items, new Set(ingredientItems.map(item => item.id))).catch(() => {});
   };
 
   const updateStockItem = (menuItemId: string, delta: number, requireTracking = false) => {
@@ -918,6 +938,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       });
     }
     localStorage.setItem(`stock_${restaurant.id}`, JSON.stringify(updated));
+    saveStockItemsToDb(restaurant.id, updated, new Set(ingredientItems.map(item => item.id))).catch(() => {});
     return true;
   };
 
@@ -1434,6 +1455,21 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     setAdjustments(updated);
     saveState('adjustments', updated);
     addHistory({ action: `Stock ${adjForm.type}d (${adjForm.reason})`, itemName: menuItem.name, quantity: qty, type: adjForm.type === 'increase' ? 'in' : 'out', reference: adj.id });
+    saveStockMovementsToDb(restaurant.id, [{
+      itemId: adjForm.menuItemId,
+      itemType: ingredientItems.some(item => item.id === adjForm.menuItemId) ? 'ingredient' : 'menu',
+      itemName: menuItem.name,
+      movementType: 'adjustment',
+      direction: adjForm.type === 'increase' ? 'in' : 'out',
+      quantity: qty,
+      unit: getIngredientById(adjForm.menuItemId)?.unit || 'pcs',
+      previousStock: prevStock,
+      newStock: Math.max(0, prevStock + delta),
+      referenceType: 'stock_adjustment',
+      referenceId: adj.id,
+      detail: adjForm.notes || adjForm.reason,
+      createdBy: getCurrentStaffName(),
+    }]).catch(() => {});
     setAdjForm({ menuItemId: '', type: 'increase', quantity: '', reason: 'received', notes: '' });
     setShowForm(false);
   };
@@ -1489,6 +1525,20 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
         const delta = item.countedStock - item.expectedStock;
         updateStockItem(item.menuItemId, delta);
         addHistory({ action: 'Stock adjusted (count)', itemName: item.name, quantity: Math.abs(delta), type: delta > 0 ? 'in' : 'out', reference: countId });
+        saveStockMovementsToDb(restaurant.id, [{
+          itemId: item.menuItemId,
+          itemType: ingredientItems.some(ingredient => ingredient.id === item.menuItemId) ? 'ingredient' : 'menu',
+          itemName: item.name,
+          movementType: 'adjustment',
+          direction: delta > 0 ? 'in' : 'out',
+          quantity: Math.abs(delta),
+          previousStock: item.expectedStock,
+          newStock: item.countedStock,
+          referenceType: 'inventory_count',
+          referenceId: countId,
+          detail: 'Stock adjusted from inventory count',
+          createdBy: getCurrentStaffName(),
+        }]).catch(() => {});
       }
     });
     const updated = inventoryCounts.map(c => c.id === countId ? { ...c, status: 'completed' as const, completedAt: Date.now() } : c);

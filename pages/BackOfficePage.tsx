@@ -26,6 +26,7 @@ import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal
 import PromotionDiscountManager from '../components/PromotionDiscountManager';
 import { getMenuItemEffectivePrice, isMenuPromotionActive } from '../lib/menuPricing';
 import { deleteIngredientItemFromDb, fetchIngredientItemsFromDb, saveIngredientItemsToDb } from '../lib/ingredientItems';
+import { fetchStockItemsFromDb, saveStockItemsToDb, saveStockMovementsToDb } from '../lib/stockItems';
 
 interface Props {
   restaurant: Restaurant;
@@ -666,6 +667,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     setStockItems(items);
     localStorage.setItem(`stock_${restaurant.id}`, JSON.stringify(items));
     syncBackofficeToDb(restaurant.id);
+    saveStockItemsToDb(restaurant.id, items, new Set(ingredientItems.map(item => item.id))).catch(() => {});
   };
 
   const readCachedBackofficeArray = <T,>(key: string): T[] => {
@@ -705,20 +707,24 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     let cancelled = false;
 
     const refreshBackofficeInventoryData = async () => {
-      const latestSettings = await fetchSettingsFromServer(restaurant.id);
-      if (cancelled || !latestSettings?.backoffice) return;
+      const [latestSettings, dbStock] = await Promise.all([
+        fetchSettingsFromServer(restaurant.id),
+        fetchStockItemsFromDb(restaurant.id),
+      ]);
+      if (cancelled) return;
 
-      const remoteStock = Array.isArray(latestSettings.backoffice.stock)
+      const settingsStock = Array.isArray(latestSettings?.backoffice?.stock)
         ? latestSettings.backoffice.stock as StockItem[]
         : [];
       const localStock = readCachedBackofficeArray<StockItem>(`stock_${restaurant.id}`);
+      const remoteStock = dbStock && dbStock.length > 0 ? dbStock : settingsStock;
       const mergedStock = mergeStockItems(localStock, remoteStock);
       if (mergedStock.length > 0) {
         setStockItems(mergedStock);
         localStorage.setItem(`stock_${restaurant.id}`, JSON.stringify(mergedStock));
       }
 
-      const remoteProductions = Array.isArray(latestSettings.backoffice.productions)
+      const remoteProductions = Array.isArray(latestSettings?.backoffice?.productions)
         ? latestSettings.backoffice.productions as ProductionRecord[]
         : [];
       const localProductions = readCachedBackofficeArray<ProductionRecord>(`inv_${restaurant.id}_productions`);
@@ -729,6 +735,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
       const hasLocalOnlyStock = localStock.some(item => item.menuItemId && !remoteStock.some(remote => remote.menuItemId === item.menuItemId));
       const hasLocalOnlyProduction = localProductions.some(item => item.id && !remoteProductions.some(remote => remote.id === item.id));
+      if (hasLocalOnlyStock) {
+        saveStockItemsToDb(restaurant.id, mergedStock, new Set(ingredientItems.map(item => item.id))).catch(() => {});
+      }
       if (hasLocalOnlyStock || hasLocalOnlyProduction) syncBackofficeToDb(restaurant.id);
       setBackofficeDataVersion(version => version + 1);
     };
@@ -1118,10 +1127,26 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   };
 
   const handleSetStock = (itemId: string, stock: number) => {
+    const current = stockItems.find(s => s.menuItemId === itemId);
+    const nextStock = Math.max(0, stock);
     const updated = stockItems.map(s =>
-      s.menuItemId === itemId ? { ...s, currentStock: Math.max(0, stock) } : s
+      s.menuItemId === itemId ? { ...s, currentStock: nextStock } : s
     );
     saveStock(updated);
+    if (current && Number(current.currentStock || 0) !== nextStock) {
+      saveStockMovementsToDb(restaurant.id, [{
+        itemId,
+        itemType: ingredientItems.some(item => item.id === itemId) ? 'ingredient' : 'menu',
+        itemName: current.name,
+        movementType: 'manual_set',
+        direction: 'adjust',
+        quantity: Math.abs(nextStock - Number(current.currentStock || 0)),
+        unit: current.unit,
+        previousStock: Number(current.currentStock || 0),
+        newStock: nextStock,
+        referenceType: 'items_stock',
+      }]).catch(() => {});
+    }
   };
 
   const filteredStock = useMemo(() => {

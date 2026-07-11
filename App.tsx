@@ -24,6 +24,7 @@ import RenewalBanner from './components/RenewalBanner';
 import { isSubscriptionAccessLocked } from './lib/subscriptionService';
 import { getDefaultPromotionDiscount, normalizeMenuPromotionDiscount } from './lib/menuPricing';
 import { fetchIngredientItemsFromDb } from './lib/ingredientItems';
+import { fetchStockItemsFromDb, saveStockItemsToDb, saveStockMovementsToDb } from './lib/stockItems';
 
 type BatteryStatus = {
   level: number;
@@ -1952,12 +1953,14 @@ const App: React.FC = () => {
     if (deductedOrderIds.includes(order.id)) return;
 
     try {
-      const [latestSettings, latestIngredients] = await Promise.all([
+      const [latestSettings, latestIngredients, latestStockItems] = await Promise.all([
         fetchSettingsFromServer(restaurantId),
         fetchIngredientItemsFromDb(restaurantId),
+        fetchStockItemsFromDb(restaurantId),
       ]);
       const backoffice = latestSettings?.backoffice;
-      if (Array.isArray(backoffice?.stock)) localStorage.setItem(stockKey, JSON.stringify(backoffice.stock));
+      if (latestStockItems && latestStockItems.length > 0) localStorage.setItem(stockKey, JSON.stringify(latestStockItems));
+      else if (Array.isArray(backoffice?.stock)) localStorage.setItem(stockKey, JSON.stringify(backoffice.stock));
       if (Array.isArray(backoffice?.productions)) localStorage.setItem(productionKey, JSON.stringify(backoffice.productions));
       if (Array.isArray(backoffice?.history)) localStorage.setItem(historyKey, JSON.stringify(backoffice.history));
       if (latestIngredients) localStorage.setItem(ingredientsKey, JSON.stringify(latestIngredients));
@@ -2063,10 +2066,31 @@ const App: React.FC = () => {
     }
 
     const now = Date.now();
+    const stockMovements: Array<{
+      itemId: string;
+      itemName: string;
+      quantity: number;
+      unit: string;
+      previousStock: number;
+      newStock: number;
+      detail: string;
+      itemType: 'menu' | 'ingredient';
+    }> = [];
     deltas.forEach((deduction, itemId) => {
       const existing = stockItems.find(stock => stock.menuItemId === itemId);
       if (existing?.stockEnabled) {
-        existing.currentStock = Math.max(0, Number(existing.currentStock || 0) - deduction.delta);
+        const previousStock = Number(existing.currentStock || 0);
+        existing.currentStock = Math.max(0, previousStock - deduction.delta);
+        stockMovements.push({
+          itemId,
+          itemName: deduction.name,
+          quantity: deduction.delta,
+          unit: deduction.unit,
+          previousStock,
+          newStock: existing.currentStock,
+          detail: deduction.detail,
+          itemType: ingredients.some(ingredient => ingredient.id === itemId) ? 'ingredient' : 'menu',
+        });
       } else {
         return;
       }
@@ -2086,6 +2110,21 @@ const App: React.FC = () => {
     localStorage.setItem(stockKey, JSON.stringify(stockItems));
     localStorage.setItem(historyKey, JSON.stringify(history.slice(0, 500)));
     localStorage.setItem(markerKey, JSON.stringify([order.id, ...deductedOrderIds].slice(0, 1000)));
+    saveStockItemsToDb(restaurantId, stockItems, new Set(ingredients.map(ingredient => ingredient.id))).catch(() => {});
+    saveStockMovementsToDb(restaurantId, stockMovements.map(movement => ({
+      itemId: movement.itemId,
+      itemType: movement.itemType,
+      itemName: movement.itemName,
+      movementType: 'pos_sale',
+      direction: 'out',
+      quantity: movement.quantity,
+      unit: movement.unit,
+      previousStock: movement.previousStock,
+      newStock: movement.newStock,
+      referenceType: 'order',
+      referenceId: order.id,
+      detail: movement.detail,
+    }))).catch(() => {});
     syncBackofficeToDb(restaurantId);
   }, []);
 
