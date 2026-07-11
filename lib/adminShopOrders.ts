@@ -35,6 +35,7 @@ export const buildAdminShopQuotation = (order: any) => {
   return {
     id: `shop_quote_${orderId}`,
     quoteNo: quoteNumberForOrder(orderId),
+    documentType: 'invoice',
     sellerLogo: '',
     sellerCompanyName: 'QuickServe',
     sellerInfo: 'QuickServe Shop',
@@ -57,6 +58,13 @@ export const buildAdminShopQuotation = (order: any) => {
     terms: 'Payment received via Stripe Checkout. Fulfilment and onboarding will be handled by the QuickServe team.',
     discount: 0,
     taxRate: 0,
+    themeId: 'orange',
+    themeColor: '#f97316',
+    tableColor: '#f97316',
+    qrEnabled: false,
+    qrImage: '',
+    qrPayeeName: 'Lumora HQ',
+    qrNote: 'Scan to pay Lumora HQ',
     items: items.map((item: any, index: number) => ({
       id: `line_${orderId}_${index}`,
       itemId: String(item.id || ''),

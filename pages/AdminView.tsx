@@ -31,6 +31,8 @@ interface Props {
 
 type AdminTab = 'VENDORS' | 'INCOME_REPORT' | 'VENDOR_SUBSCRIPTION' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SHOP' | 'DOCUMENTS' | 'SYSTEM';
 type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'paid' | 'expired';
+type QuotationDocumentType = 'quotation' | 'invoice';
+type QuotationThemeId = 'orange' | 'blue' | 'emerald' | 'slate' | 'rose' | 'custom';
 type DraftNumber = number | '';
 
 interface QuotationLineItem {
@@ -45,6 +47,7 @@ interface QuotationLineItem {
 interface AdminQuotation {
   id: string;
   quoteNo: string;
+  documentType: QuotationDocumentType;
   sellerLogo: string;
   sellerCompanyName: string;
   sellerInfo: string;
@@ -63,6 +66,13 @@ interface AdminQuotation {
   terms: string;
   discount: DraftNumber;
   taxRate: DraftNumber;
+  themeId: QuotationThemeId;
+  themeColor: string;
+  tableColor: string;
+  qrEnabled: boolean;
+  qrImage: string;
+  qrPayeeName: string;
+  qrNote: string;
   items: QuotationLineItem[];
   createdAt: number;
   updatedAt: number;
@@ -82,7 +92,33 @@ interface AdminSoldItem {
   updatedAt: number;
 }
 
-type QuotationSellerDefaults = Pick<AdminQuotation, 'sellerLogo' | 'sellerCompanyName' | 'sellerInfo' | 'sellerAddress' | 'sellerSsmNumber'>;
+type QuotationSellerDefaults = Pick<AdminQuotation, 'sellerLogo' | 'sellerCompanyName' | 'sellerInfo' | 'sellerAddress' | 'sellerSsmNumber' | 'themeId' | 'themeColor' | 'tableColor' | 'qrImage' | 'qrPayeeName' | 'qrNote'>;
+
+const QUOTATION_THEMES: { id: Exclude<QuotationThemeId, 'custom'>; label: string; themeColor: string; tableColor: string }[] = [
+  { id: 'orange', label: 'Lumora Orange', themeColor: '#f97316', tableColor: '#f97316' },
+  { id: 'blue', label: 'Deep Blue', themeColor: '#2563eb', tableColor: '#1d4ed8' },
+  { id: 'emerald', label: 'Emerald', themeColor: '#059669', tableColor: '#047857' },
+  { id: 'slate', label: 'Slate', themeColor: '#334155', tableColor: '#475569' },
+  { id: 'rose', label: 'Rose', themeColor: '#e11d48', tableColor: '#be123c' },
+];
+
+const normalizeHexColor = (value: string | undefined, fallback: string) => (
+  /^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value) : fallback
+);
+
+const hexToRgb = (hex: string): [number, number, number] => {
+  const normalized = normalizeHexColor(hex, '#f97316').slice(1);
+  return [
+    parseInt(normalized.slice(0, 2), 16),
+    parseInt(normalized.slice(2, 4), 16),
+    parseInt(normalized.slice(4, 6), 16),
+  ];
+};
+
+const getQuotationTheme = (quote: Pick<AdminQuotation, 'themeColor' | 'tableColor'>) => ({
+  themeColor: normalizeHexColor(quote.themeColor, '#f97316'),
+  tableColor: normalizeHexColor(quote.tableColor, '#f97316'),
+});
 
 const ADMIN_QUOTATION_SELLER_STORAGE_KEY = 'qs_admin_quotation_seller_defaults';
 
@@ -93,6 +129,12 @@ const getQuotationSellerDefaults = (): QuotationSellerDefaults => {
     sellerInfo: '',
     sellerAddress: '',
     sellerSsmNumber: '',
+    themeId: 'orange',
+    themeColor: '#f97316',
+    tableColor: '#f97316',
+    qrImage: '',
+    qrPayeeName: 'Lumora HQ',
+    qrNote: 'Scan to pay Lumora HQ',
   };
   try {
     const saved = localStorage.getItem(ADMIN_QUOTATION_SELLER_STORAGE_KEY);
@@ -106,15 +148,20 @@ const saveQuotationSellerDefaults = (defaults: QuotationSellerDefaults) => {
   localStorage.setItem(ADMIN_QUOTATION_SELLER_STORAGE_KEY, JSON.stringify(defaults));
 };
 
-const createBlankQuotation = (sellerDefaults: QuotationSellerDefaults = getQuotationSellerDefaults()): AdminQuotation => {
+const createBlankQuotation = (
+  sellerDefaults: QuotationSellerDefaults = getQuotationSellerDefaults(),
+  documentType: QuotationDocumentType = 'quotation'
+): AdminQuotation => {
   const now = new Date();
   const validUntil = new Date(now);
   validUntil.setDate(validUntil.getDate() + 14);
   const toDateInput = (date: Date) => date.toISOString().split('T')[0];
+  const numberPrefix = documentType === 'invoice' ? 'QS-I' : 'QS-Q';
 
   return {
     id: `quote_${Date.now()}`,
-    quoteNo: `QS-Q-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${String(Date.now()).slice(-5)}`,
+    quoteNo: `${numberPrefix}-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${String(Date.now()).slice(-5)}`,
+    documentType,
     ...sellerDefaults,
     customerName: '',
     customerEmail: '',
@@ -126,9 +173,18 @@ const createBlankQuotation = (sellerDefaults: QuotationSellerDefaults = getQuota
     validUntil: toDateInput(validUntil),
     status: 'draft',
     notes: '',
-    terms: 'Valid for 14 days. Payment terms and implementation schedule will be confirmed upon acceptance.',
+    terms: documentType === 'invoice'
+      ? 'Payment is due upon receipt. Please scan the payment QR if enabled, then send payment proof to Lumora HQ.'
+      : 'Valid for 14 days. Payment terms and implementation schedule will be confirmed upon acceptance.',
     discount: 0,
     taxRate: 0,
+    themeId: sellerDefaults.themeId || 'orange',
+    themeColor: normalizeHexColor(sellerDefaults.themeColor, '#f97316'),
+    tableColor: normalizeHexColor(sellerDefaults.tableColor, '#f97316'),
+    qrEnabled: false,
+    qrImage: sellerDefaults.qrImage || '',
+    qrPayeeName: sellerDefaults.qrPayeeName || 'Lumora HQ',
+    qrNote: sellerDefaults.qrNote || 'Scan to pay Lumora HQ',
     items: [{ id: `line_${Date.now()}`, description: '', lookupQuery: '', quantity: '', unitPrice: '' }],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -181,9 +237,20 @@ const mergeAdminRecords = <T extends { id: string; updatedAt?: number }>(localRe
 
 const normalizeAdminQuotation = (quote: any): AdminQuotation | null => {
   if (!quote || typeof quote !== 'object') return null;
+  const documentType: QuotationDocumentType = quote.documentType === 'invoice' ? 'invoice' : 'quotation';
+  const fallback = createBlankQuotation(undefined, documentType);
+  const selectedTheme = QUOTATION_THEMES.find(theme => theme.id === quote.themeId);
   return {
-    ...createBlankQuotation(),
+    ...fallback,
     ...quote,
+    documentType,
+    themeId: quote.themeId || selectedTheme?.id || fallback.themeId,
+    themeColor: normalizeHexColor(quote.themeColor || selectedTheme?.themeColor, fallback.themeColor),
+    tableColor: normalizeHexColor(quote.tableColor || selectedTheme?.tableColor, fallback.tableColor),
+    qrEnabled: Boolean(quote.qrEnabled),
+    qrImage: String(quote.qrImage || ''),
+    qrPayeeName: String(quote.qrPayeeName || 'Lumora HQ'),
+    qrNote: String(quote.qrNote || 'Scan to pay Lumora HQ'),
     items: Array.isArray(quote.items)
       ? quote.items.map((item: any) => ({ ...item, lookupQuery: item.lookupQuery || item.description || '' }))
       : [],
@@ -713,7 +780,7 @@ const AdminView: React.FC<Props> = ({
   const [quotations, setQuotations] = useState<AdminQuotation[]>(() => {
     try {
       const saved = localStorage.getItem(ADMIN_QUOTATIONS_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
+      return saved ? JSON.parse(saved).map((quote: any) => normalizeAdminQuotation(quote)).filter(Boolean) : [];
     } catch {
       return [];
     }
@@ -781,6 +848,12 @@ const AdminView: React.FC<Props> = ({
         sellerInfo: next.sellerInfo,
         sellerAddress: next.sellerAddress,
         sellerSsmNumber: next.sellerSsmNumber,
+        themeId: next.themeId,
+        themeColor: next.themeColor,
+        tableColor: next.tableColor,
+        qrImage: next.qrImage,
+        qrPayeeName: next.qrPayeeName,
+        qrNote: next.qrNote,
       });
       return next;
     });
@@ -949,8 +1022,8 @@ const AdminView: React.FC<Props> = ({
     } catch { /* local fallback already updated */ }
   };
 
-  const resetQuotationForm = () => {
-    setQuotationForm(createBlankQuotation());
+  const resetQuotationForm = (documentType: QuotationDocumentType = 'quotation') => {
+    setQuotationForm(createBlankQuotation(getQuotationSellerDefaults(), documentType));
     setEditingQuotationId(null);
     setQuotationView('form');
   };
@@ -1000,6 +1073,12 @@ const AdminView: React.FC<Props> = ({
         })),
       discount: Math.max(0, Number(quotationForm.discount) || 0),
       taxRate: Math.max(0, Number(quotationForm.taxRate) || 0),
+      themeColor: normalizeHexColor(quotationForm.themeColor, '#f97316'),
+      tableColor: normalizeHexColor(quotationForm.tableColor, '#f97316'),
+      qrEnabled: Boolean(quotationForm.qrEnabled),
+      qrImage: quotationForm.qrImage.trim(),
+      qrPayeeName: quotationForm.qrPayeeName.trim() || 'Lumora HQ',
+      qrNote: quotationForm.qrNote.trim() || 'Scan to pay Lumora HQ',
       updatedAt: Date.now(),
     };
 
@@ -1017,16 +1096,17 @@ const AdminView: React.FC<Props> = ({
     setEditingQuotationId(normalized.id);
     setQuotationView('form');
     persistQuotationToDb(normalized);
-    toast(status === 'sent' ? 'Quotation marked as sent' : 'Quotation saved', 'success');
+    toast(status === 'sent' ? `${normalized.documentType === 'invoice' ? 'Invoice' : 'Quotation'} marked as sent` : `${normalized.documentType === 'invoice' ? 'Invoice' : 'Quotation'} saved`, 'success');
   };
 
   const editQuotation = (quote: AdminQuotation) => {
+    const normalized = normalizeAdminQuotation(quote) || quote;
     setQuotationForm({
-      ...createBlankQuotation(),
-      ...quote,
-      items: quote.items.map(item => ({ ...item, lookupQuery: item.lookupQuery || item.description })),
+      ...createBlankQuotation(undefined, normalized.documentType),
+      ...normalized,
+      items: normalized.items.map(item => ({ ...item, lookupQuery: item.lookupQuery || item.description })),
     });
-    setEditingQuotationId(quote.id);
+    setEditingQuotationId(normalized.id);
     setQuotationView('form');
   };
 
@@ -1128,6 +1208,21 @@ const AdminView: React.FC<Props> = ({
     }
   };
 
+  const handleQuotationQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const publicUrl = await uploadImage(file, 'quickserve', 'quotation-payment-qr');
+      updateQuotationSellerDefaults({ qrImage: publicUrl });
+      setQuotationForm(prev => ({ ...prev, qrEnabled: true, qrImage: publicUrl }));
+      toast('Payment QR added to document', 'success');
+    } catch {
+      toast('Failed to upload payment QR', 'error');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
   const handleSoldItemImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1142,22 +1237,42 @@ const AdminView: React.FC<Props> = ({
     }
   };
 
+  const imageUrlToPngDataUrl = async (url: string) => {
+    const image = await fetch(url).then(res => res.blob());
+    try {
+      const bitmap = await createImageBitmap(image);
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas unavailable');
+      ctx.drawImage(bitmap, 0, 0);
+      return canvas.toDataURL('image/png');
+    } catch {
+      const reader = new FileReader();
+      return await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = reject;
+        reader.readAsDataURL(image);
+      });
+    }
+  };
+
   const generateQuotationPdf = async (quote: AdminQuotation) => {
     const { default: jsPDF } = await import('jspdf');
     const { default: autoTable } = await import('jspdf-autotable');
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
     const totals = calculateQuotationTotals(quote);
     const sellerName = quote.sellerCompanyName || 'QuickServe';
+    const documentTitle = quote.documentType === 'invoice' ? 'INVOICE' : 'QUOTATION';
+    const validityLabel = quote.documentType === 'invoice' ? 'Due Date' : 'Valid Until';
+    const { themeColor, tableColor } = getQuotationTheme(quote);
+    const accentRgb = hexToRgb(themeColor);
+    const tableRgb = hexToRgb(tableColor);
 
     if (quote.sellerLogo) {
       try {
-        const image = await fetch(quote.sellerLogo).then(res => res.blob());
-        const reader = new FileReader();
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(String(reader.result));
-          reader.onerror = reject;
-          reader.readAsDataURL(image);
-        });
+        const dataUrl = await imageUrlToPngDataUrl(quote.sellerLogo);
         doc.addImage(dataUrl, 'PNG', 14, 12, 24, 24);
       } catch {
         // The PDF is still useful if a remote logo cannot be embedded.
@@ -1166,25 +1281,32 @@ const AdminView: React.FC<Props> = ({
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
+    doc.setTextColor(31, 41, 55);
     doc.text(sellerName, quote.sellerLogo ? 44 : 14, 20);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
+    doc.setTextColor(75, 85, 99);
     [quote.sellerInfo, quote.sellerAddress, quote.sellerSsmNumber ? `SSM: ${quote.sellerSsmNumber}` : '']
       .filter(Boolean)
       .forEach((line, index) => doc.text(String(line), quote.sellerLogo ? 44 : 14, 26 + index * 5));
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
-    doc.text('QUOTATION', 196, 20, { align: 'right' });
+    doc.setTextColor(...accentRgb);
+    doc.text(documentTitle, 196, 20, { align: 'right' });
     doc.setFontSize(10);
+    doc.setTextColor(31, 41, 55);
     doc.text(quote.quoteNo, 196, 27, { align: 'right' });
     doc.setFont('helvetica', 'normal');
+    doc.setTextColor(75, 85, 99);
     doc.text(`Issued: ${quote.issueDate}`, 196, 34, { align: 'right' });
-    doc.text(`Valid Until: ${quote.validUntil}`, 196, 39, { align: 'right' });
+    doc.text(`${validityLabel}: ${quote.validUntil}`, 196, 39, { align: 'right' });
 
     doc.setFont('helvetica', 'bold');
+    doc.setTextColor(31, 41, 55);
     doc.text('Bill To', 14, 54);
     doc.setFont('helvetica', 'normal');
+    doc.setTextColor(75, 85, 99);
     [
       quote.companyName,
       quote.customerName,
@@ -1204,12 +1326,14 @@ const AdminView: React.FC<Props> = ({
         `RM ${((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)).toFixed(2)}`,
       ]),
       styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: [249, 115, 22] },
+      headStyles: { fillColor: tableRgb, textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [249, 250, 251] },
       columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
     });
 
     const finalY = (doc as any).lastAutoTable?.finalY || 120;
     doc.setFontSize(10);
+    doc.setTextColor(75, 85, 99);
     doc.text('Subtotal', 150, finalY + 12);
     doc.text(`RM ${totals.subtotal.toFixed(2)}`, 196, finalY + 12, { align: 'right' });
     doc.text('Discount', 150, finalY + 18);
@@ -1217,14 +1341,42 @@ const AdminView: React.FC<Props> = ({
     doc.text('Tax', 150, finalY + 24);
     doc.text(`RM ${totals.tax.toFixed(2)}`, 196, finalY + 24, { align: 'right' });
     doc.setFont('helvetica', 'bold');
+    doc.setTextColor(31, 41, 55);
     doc.text('Total', 150, finalY + 32);
+    doc.setTextColor(...accentRgb);
     doc.text(`RM ${totals.total.toFixed(2)}`, 196, finalY + 32, { align: 'right' });
+
+    let notesY = finalY + 46;
+    if (quote.qrEnabled && quote.qrImage) {
+      try {
+        const qrDataUrl = await imageUrlToPngDataUrl(quote.qrImage);
+        doc.setDrawColor(...accentRgb);
+        doc.roundedRect(14, notesY - 6, 182, 40, 2, 2);
+        doc.addImage(qrDataUrl, 'PNG', 18, notesY - 2, 30, 30);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(31, 41, 55);
+        doc.text(quote.qrPayeeName || 'Lumora HQ', 54, notesY + 4);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(75, 85, 99);
+        const qrLines = doc.splitTextToSize(quote.qrNote || 'Scan to pay Lumora HQ', 130);
+        doc.text(qrLines, 54, notesY + 11);
+        notesY += 46;
+      } catch {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(75, 85, 99);
+        doc.text(`Payment QR: ${quote.qrPayeeName || 'Lumora HQ'}`, 14, notesY);
+        notesY += 8;
+      }
+    }
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
+    doc.setTextColor(75, 85, 99);
     const notesLines = quote.notes ? doc.splitTextToSize(`Notes: ${quote.notes}`, 180) : [];
     const termsLines = quote.terms ? doc.splitTextToSize(`Terms: ${quote.terms}`, 180) : [];
-    const notesY = finalY + 46;
     if (notesLines.length > 0) doc.text(notesLines, 14, notesY);
     if (termsLines.length > 0) doc.text(termsLines, 14, notesLines.length > 0 ? notesY + notesLines.length * 4.5 + 4 : notesY);
 
@@ -1239,9 +1391,9 @@ const AdminView: React.FC<Props> = ({
         if (prev) URL.revokeObjectURL(prev);
         return blobUrl;
       });
-      setQuotationPdfName(`${quote.quoteNo || 'quotation'}.pdf`);
+      setQuotationPdfName(`${quote.quoteNo || quote.documentType || 'quotation'}.pdf`);
     } catch {
-      toast('Unable to generate quotation PDF', 'error');
+      toast('Unable to generate PDF', 'error');
     }
   };
 
@@ -1991,6 +2143,7 @@ const AdminView: React.FC<Props> = ({
   }, [adminCashouts]);
 
   const quotationTotals = useMemo(() => calculateQuotationTotals(quotationForm), [quotationForm]);
+  const quotationTheme = useMemo(() => getQuotationTheme(quotationForm), [quotationForm.themeColor, quotationForm.tableColor]);
 
   const filteredQuotations = useMemo(() => {
     const query = quotationSearch.trim().toLowerCase();
@@ -2003,6 +2156,7 @@ const AdminView: React.FC<Props> = ({
           quote.customerName,
           quote.companyName,
           quote.customerEmail,
+          quote.documentType,
           quote.status,
         ].some(value => String(value || '').toLowerCase().includes(query));
       })
@@ -2958,7 +3112,7 @@ const AdminView: React.FC<Props> = ({
             { id: 'VENDOR_SUBSCRIPTION', label: 'Vendor Subscription', icon: Calendar },
             { id: 'CASHOUT', label: 'Cashout', icon: Wallet },
             { id: 'DUITNOW', label: 'DuitNow', icon: QrCode },
-            { id: 'QUOTATION', label: 'Quotation', icon: FileText },
+            { id: 'QUOTATION', label: 'Quotations & Invoices', icon: FileText },
             { id: 'SHOP', label: 'Shop', icon: ShoppingBag },
             { id: 'DOCUMENTS', label: 'Documents', icon: BookOpen },
             { id: 'SYSTEM', label: 'System', icon: Database },
@@ -3018,7 +3172,7 @@ const AdminView: React.FC<Props> = ({
                activeTab === 'VENDOR_SUBSCRIPTION' ? 'Vendor Subscription' :
                activeTab === 'CASHOUT' ? 'Cashout' :
                activeTab === 'DUITNOW' ? 'DuitNow' :
-               activeTab === 'QUOTATION' ? 'Quotation' :
+               activeTab === 'QUOTATION' ? 'Quotations & Invoices' :
                activeTab === 'SHOP' ? 'Shop' :
                activeTab === 'DOCUMENTS' ? 'Documents' :
                'System'}
@@ -4464,9 +4618,9 @@ const AdminView: React.FC<Props> = ({
               <div>
                 <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter flex items-center gap-2">
                   <FileText size={20} className="text-orange-500" />
-                  Quotation
+                  Quotations & Invoices
                 </h2>
-                <p className="text-xs text-gray-400 mt-1">Create customer quotations, keep drafts, and track every proposal from one admin workspace.</p>
+                <p className="text-xs text-gray-400 mt-1">Create customer quotations and invoices, keep drafts, and prepare PDFs from one admin workspace.</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -4477,10 +4631,16 @@ const AdminView: React.FC<Props> = ({
                   <RefreshCw size={15} className={isSyncingQuotations ? 'animate-spin' : ''} /> Sync
                 </button>
                 <button
-                  onClick={resetQuotationForm}
+                  onClick={() => resetQuotationForm('quotation')}
                   className="h-10 px-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-300 text-xs font-black uppercase tracking-widest hover:border-orange-300 transition-all flex items-center gap-2"
                 >
                   <Plus size={15} /> Add Quotation
+                </button>
+                <button
+                  onClick={() => resetQuotationForm('invoice')}
+                  className="h-10 px-4 rounded-xl bg-black dark:bg-white text-white dark:text-gray-900 text-xs font-black uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all flex items-center gap-2 shadow-lg"
+                >
+                  <Receipt size={15} /> Add Invoice
                 </button>
                 {quotationView === 'form' && (
                   <button
@@ -4513,7 +4673,7 @@ const AdminView: React.FC<Props> = ({
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                 <div className="p-5 border-b border-gray-100 dark:border-gray-700 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">Quotation List</h3>
+                    <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">Quotation & Invoice List</h3>
                     <span className="text-[10px] font-black text-gray-400">{filteredQuotations.length} records</span>
                   </div>
                   <div className="flex gap-2">
@@ -4535,8 +4695,8 @@ const AdminView: React.FC<Props> = ({
                   {filteredQuotations.length === 0 ? (
                     <div className="p-12 text-center">
                       <FileText size={38} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-                      <p className="text-sm font-bold text-gray-400">No quotations yet</p>
-                      <button onClick={resetQuotationForm} className="mt-4 h-10 px-4 rounded-xl bg-orange-500 text-white text-xs font-black uppercase tracking-widest inline-flex items-center gap-2">
+                      <p className="text-sm font-bold text-gray-400">No quotations or invoices yet</p>
+                      <button onClick={() => resetQuotationForm('quotation')} className="mt-4 h-10 px-4 rounded-xl bg-orange-500 text-white text-xs font-black uppercase tracking-widest inline-flex items-center gap-2">
                         <Plus size={15} /> Add Quotation
                       </button>
                     </div>
@@ -4552,7 +4712,7 @@ const AdminView: React.FC<Props> = ({
                           </button>
                           <div className="text-right shrink-0">
                             <p className="text-sm font-black dark:text-white">RM {totals.total.toFixed(2)}</p>
-                            <span className="inline-flex mt-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-[8px] font-black uppercase tracking-widest">{quote.status}</span>
+                            <span className="inline-flex mt-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-[8px] font-black uppercase tracking-widest">{quote.documentType || 'quotation'} | {quote.status}</span>
                           </div>
                         </div>
                         <div className="mt-3 flex items-center justify-end gap-1">
@@ -4571,13 +4731,28 @@ const AdminView: React.FC<Props> = ({
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                 <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">{editingQuotationId ? 'Edit Quotation' : 'Draft Quotation'}</h3>
+                    <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">{editingQuotationId ? `Edit ${quotationForm.documentType === 'invoice' ? 'Invoice' : 'Quotation'}` : `Draft ${quotationForm.documentType === 'invoice' ? 'Invoice' : 'Quotation'}`}</h3>
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{quotationForm.quoteNo}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button onClick={() => setQuotationView('list')} className="h-9 px-3 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1.5 hover:text-orange-500">
                       <ChevronLeft size={14} /> Back
                     </button>
+                    <select
+                      value={quotationForm.documentType}
+                      onChange={e => {
+                        const documentType = e.target.value as QuotationDocumentType;
+                        setQuotationForm(prev => ({
+                          ...prev,
+                          documentType,
+                          quoteNo: prev.quoteNo.replace(/^QS-[QI]/, documentType === 'invoice' ? 'QS-I' : 'QS-Q'),
+                        }));
+                      }}
+                      className="h-9 px-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-[10px] font-black uppercase dark:text-white outline-none"
+                    >
+                      <option value="quotation">Quotation</option>
+                      <option value="invoice">Invoice</option>
+                    </select>
                     <select
                       value={quotationForm.status}
                       onChange={e => setQuotationForm(prev => ({ ...prev, status: e.target.value as QuotationStatus }))}
@@ -4618,6 +4793,78 @@ const AdminView: React.FC<Props> = ({
                       <textarea value={quotationForm.sellerAddress} onChange={e => updateQuotationSellerDefaults({ sellerAddress: e.target.value })} rows={2} placeholder="Business address" className="mt-1 w-full rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
                       <input value={quotationForm.sellerSsmNumber} onChange={e => updateQuotationSellerDefaults({ sellerSsmNumber: e.target.value })} placeholder="SSM number" className="mt-2 w-full h-11 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
                     </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-4">
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Document Theme</p>
+                          <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400">Controls title accent and table header colour.</p>
+                        </div>
+                        <div className="flex gap-1">
+                          <span className="h-5 w-5 rounded-full border border-white shadow" style={{ backgroundColor: quotationTheme.themeColor }} />
+                          <span className="h-5 w-5 rounded-full border border-white shadow" style={{ backgroundColor: quotationTheme.tableColor }} />
+                        </div>
+                      </div>
+                      <select
+                        value={quotationForm.themeId}
+                        onChange={e => {
+                          const themeId = e.target.value as QuotationThemeId;
+                          const preset = QUOTATION_THEMES.find(theme => theme.id === themeId);
+                          updateQuotationSellerDefaults({
+                            themeId,
+                            themeColor: preset?.themeColor || quotationForm.themeColor,
+                            tableColor: preset?.tableColor || quotationForm.tableColor,
+                          });
+                        }}
+                        className="w-full h-10 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        {QUOTATION_THEMES.map(theme => <option key={theme.id} value={theme.id}>{theme.label}</option>)}
+                        <option value="custom">Custom</option>
+                      </select>
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        <label className="block">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Accent</span>
+                          <input type="color" value={quotationTheme.themeColor} onChange={e => updateQuotationSellerDefaults({ themeId: 'custom', themeColor: e.target.value })} className="mt-1 h-10 w-full rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-1" />
+                        </label>
+                        <label className="block">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Table</span>
+                          <input type="color" value={quotationTheme.tableColor} onChange={e => updateQuotationSellerDefaults({ themeId: 'custom', tableColor: e.target.value })} className="mt-1 h-10 w-full rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-1" />
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Payment QR</p>
+                          <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400">Enable this so customers can scan and pay Lumora HQ.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setQuotationForm(prev => ({ ...prev, qrEnabled: !prev.qrEnabled }))}
+                          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${quotationForm.qrEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                          title={quotationForm.qrEnabled ? 'Disable payment QR' : 'Enable payment QR'}
+                        >
+                          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${quotationForm.qrEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                        </button>
+                      </div>
+                      <div className="mt-3 grid grid-cols-[76px_1fr] gap-3">
+                        <div className="h-[76px] rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center overflow-hidden">
+                          {quotationForm.qrImage ? (
+                            <img src={quotationForm.qrImage} alt="Payment QR" className="max-h-full max-w-full object-contain" />
+                          ) : (
+                            <QrCode size={28} className="text-gray-300" />
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <input value={quotationForm.qrPayeeName} onChange={e => updateQuotationSellerDefaults({ qrPayeeName: e.target.value })} placeholder="Lumora HQ" className="w-full h-9 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 text-xs dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                          <input value={quotationForm.qrNote} onChange={e => updateQuotationSellerDefaults({ qrNote: e.target.value })} placeholder="Scan to pay Lumora HQ" className="w-full h-9 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 text-xs dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                          <input type="file" accept="image/*" onChange={handleQuotationQrUpload} className="block w-full text-[10px] text-gray-500 file:mr-2 file:h-8 file:px-3 file:rounded-lg file:border-0 file:bg-orange-50 file:text-orange-600 file:font-black file:uppercase file:text-[9px]" />
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -4746,10 +4993,10 @@ const AdminView: React.FC<Props> = ({
                     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-5">
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <p className="text-xl font-black dark:text-white">QUOTATION</p>
-                          <p className="text-xs font-bold text-orange-500">{quotationForm.quoteNo}</p>
+                          <p className="text-xl font-black dark:text-white">{quotationForm.documentType === 'invoice' ? 'INVOICE' : 'QUOTATION'}</p>
+                          <p className="text-xs font-bold" style={{ color: quotationTheme.themeColor }}>{quotationForm.quoteNo}</p>
                         </div>
-                        <span className="px-2.5 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-widest">{quotationForm.status}</span>
+                        <span className="px-2.5 py-1 rounded-lg text-white text-[9px] font-black uppercase tracking-widest" style={{ backgroundColor: quotationTheme.themeColor }}>{quotationForm.status}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-xs">
                         <div>
@@ -4760,10 +5007,14 @@ const AdminView: React.FC<Props> = ({
                         </div>
                         <div className="text-right">
                           <p className="text-gray-500 dark:text-gray-400">Issued {quotationForm.issueDate}</p>
-                          <p className="text-gray-500 dark:text-gray-400">Valid until {quotationForm.validUntil}</p>
+                          <p className="text-gray-500 dark:text-gray-400">{quotationForm.documentType === 'invoice' ? 'Due' : 'Valid until'} {quotationForm.validUntil}</p>
                         </div>
                       </div>
                       <div className="space-y-2">
+                        <div className="grid grid-cols-[1fr_64px] gap-3 rounded-lg px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white" style={{ backgroundColor: quotationTheme.tableColor }}>
+                          <span>Item</span>
+                          <span className="text-right">Amount</span>
+                        </div>
                         {quotationForm.items.filter(item => item.description.trim()).map(item => (
                           <div key={item.id} className="flex justify-between gap-3 border-b border-gray-100 dark:border-gray-700 pb-2 text-xs">
                             <div>
@@ -4778,8 +5029,23 @@ const AdminView: React.FC<Props> = ({
                         <div className="flex justify-between text-gray-500 dark:text-gray-400"><span>Subtotal</span><span>RM {quotationTotals.subtotal.toFixed(2)}</span></div>
                         <div className="flex justify-between text-gray-500 dark:text-gray-400"><span>Discount</span><span>- RM {quotationTotals.discount.toFixed(2)}</span></div>
                         <div className="flex justify-between text-gray-500 dark:text-gray-400"><span>Tax</span><span>RM {quotationTotals.tax.toFixed(2)}</span></div>
-                        <div className="flex justify-between text-lg font-black dark:text-white border-t border-gray-200 dark:border-gray-700 pt-2"><span>Total</span><span>RM {quotationTotals.total.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-lg font-black dark:text-white border-t border-gray-200 dark:border-gray-700 pt-2"><span>Total</span><span style={{ color: quotationTheme.themeColor }}>RM {quotationTotals.total.toFixed(2)}</span></div>
                       </div>
+                      {quotationForm.qrEnabled && (
+                        <div className="grid grid-cols-[74px_1fr] gap-3 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                          <div className="h-[74px] rounded-lg bg-gray-50 dark:bg-gray-900 flex items-center justify-center overflow-hidden">
+                            {quotationForm.qrImage ? (
+                              <img src={quotationForm.qrImage} alt="Payment QR" className="max-h-full max-w-full object-contain" />
+                            ) : (
+                              <QrCode size={28} className="text-gray-300" />
+                            )}
+                          </div>
+                          <div className="text-xs">
+                            <p className="font-black dark:text-white">{quotationForm.qrPayeeName || 'Lumora HQ'}</p>
+                            <p className="mt-1 text-gray-500 dark:text-gray-400">{quotationForm.qrNote || 'Scan to pay Lumora HQ'}</p>
+                          </div>
+                        </div>
+                      )}
                       {(quotationForm.notes || quotationForm.terms) && (
                         <div className="text-[11px] text-gray-500 dark:text-gray-400 space-y-2">
                           {quotationForm.notes && <p>{quotationForm.notes}</p>}
@@ -4793,7 +5059,7 @@ const AdminView: React.FC<Props> = ({
                 <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                   <div className="p-5 border-b border-gray-100 dark:border-gray-700 space-y-3">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">Quotation History</h3>
+                      <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">Document History</h3>
                       <span className="text-[10px] font-black text-gray-400">{filteredQuotations.length} records</span>
                     </div>
                     <div className="flex gap-2">
@@ -4829,7 +5095,7 @@ const AdminView: React.FC<Props> = ({
                             </button>
                             <div className="text-right shrink-0">
                               <p className="text-xs font-black dark:text-white">RM {totals.total.toFixed(2)}</p>
-                              <span className="inline-flex mt-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-[8px] font-black uppercase tracking-widest">{quote.status}</span>
+                              <span className="inline-flex mt-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-[8px] font-black uppercase tracking-widest">{quote.documentType || 'quotation'} | {quote.status}</span>
                             </div>
                           </div>
                           <div className="mt-3 flex items-center justify-end gap-1">
