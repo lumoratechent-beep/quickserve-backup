@@ -84,11 +84,11 @@ const matchesPOStatusFilter = (po: PurchaseOrder, filter: POStatusFilter) => {
   return po.status === 'draft' || po.status === 'sent' || po.status === 'partial';
 };
 
-const PO_STATUS_FILTER_TABS: { key: POStatusFilter; label: string }[] = [
-  { key: 'ALL', label: 'All' },
-  { key: 'ONGOING', label: 'Ongoing' },
-  { key: 'REFUND', label: 'Refund' },
-  { key: 'CANCELLED', label: 'Cancelled' },
+const PO_STATUS_FILTER_TABS: { key: POStatusFilter; label: string; activeClass: string }[] = [
+  { key: 'ALL', label: 'All', activeClass: 'bg-blue-600 text-white shadow-sm' },
+  { key: 'ONGOING', label: 'Ongoing', activeClass: 'bg-green-600 text-white shadow-sm' },
+  { key: 'CANCELLED', label: 'Cancelled', activeClass: 'bg-orange-600 text-white shadow-sm' },
+  { key: 'REFUND', label: 'Refund', activeClass: 'bg-red-600 text-white shadow-sm' },
 ];
 
 const normalizePOStatusLogEntry = (entry: Partial<PurchaseOrderStatusLogEntry>): PurchaseOrderStatusLogEntry => ({
@@ -991,43 +991,134 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     downloadTextFile(`PO-${po.id.slice(-6)}.csv`, buildPOCsv(po), 'text/csv;charset=utf-8');
   };
   const downloadPOPdf = async (po: PurchaseOrder) => {
-    const jsPDFModule = await import('jspdf');
-    const doc = new jsPDFModule.default();
-    let y = 16;
-    doc.setFontSize(16);
-    doc.text(`PO-${po.id.slice(-6)}`, 14, y);
-    y += 8;
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+    const supplier = suppliers.find(s => s.id === po.supplierId);
+    const margin = 14;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const titleColor = [31, 41, 55] as [number, number, number];
+    const accent = [217, 119, 6] as [number, number, number];
+    const mutedFill = [255, 247, 237] as [number, number, number];
+    let y = 14;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(...titleColor);
+    doc.text(`Purchase Order PO-${po.id.slice(-6)}`, margin, y);
     doc.setFontSize(10);
-    [
-      `Supplier: ${po.supplierName}`,
-      `Status: ${po.status}`,
-      `Created: ${formatDate(po.createdAt)}`,
-      `Expected: ${po.expectedDate || '-'}`,
-      `Order Total: ${formatMoney(getPOTotal(po))}`,
-      `Received Total: ${formatMoney(getPOTotal(po, true))}`,
-    ].forEach(line => {
-      doc.text(line, 14, y);
-      y += 6;
-    });
-    if (po.notes) {
-      y += 2;
-      doc.text(`Notes: ${po.notes}`, 14, y);
-      y += 8;
-    }
-    y += 4;
+    doc.setTextColor(...accent);
+    doc.text(PO_STATUS_LABELS[po.status], pageWidth - margin, y, { align: 'right' });
+    y += 7;
+
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    po.items.forEach(item => {
-      if (y > 276) {
-        doc.addPage();
-        y = 16;
-      }
-      const purchaseUnit = getUnitLabel(getPOPurchaseUnit(item));
-      const stockUnit = getUnitLabel(getPOStockUnit(item));
-      doc.text(item.name, 14, y);
-      y += 5;
-      doc.text(`Ordered: ${item.quantity} ${purchaseUnit} | Received: ${item.receivedQuantity} ${purchaseUnit} | Stock: ${getPOStockQuantity(item, item.receivedQuantity)} ${stockUnit} | Cost: ${formatMoney(item.costPerUnit)} | Total: ${formatMoney(item.quantity * item.costPerUnit * getPOCostSign(po))}`, 18, y);
-      y += 7;
+    doc.setTextColor(107, 114, 128);
+    doc.text(`Generated: ${new Date().toLocaleString('en-US')}`, pageWidth - margin, y, { align: 'right' });
+    doc.text(`Created: ${formatDate(po.createdAt)} | Expected: ${po.expectedDate || '-'}`, margin, y);
+    y += 3;
+    doc.setDrawColor(...accent);
+    doc.setLineWidth(0.6);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Supplier Details', 'Order Details']],
+      body: [[
+        [
+          po.supplierName,
+          supplier?.phone ? `Phone: ${supplier.phone}` : '',
+          supplier?.email ? `Email: ${supplier.email}` : '',
+          supplier?.addressLine1 ? `Address: ${supplier.addressLine1}` : '',
+          [supplier?.postcode, supplier?.state, supplier?.country].filter(Boolean).join(', '),
+        ].filter(Boolean).join('\n'),
+        [
+          `Order No: PO-${po.id.slice(-6)}`,
+          `Status: ${PO_STATUS_LABELS[po.status]}`,
+          `Created: ${formatDate(po.createdAt)}`,
+          `Expected Delivery: ${po.expectedDate || '-'}`,
+          `Received Date: ${po.receivedDate || '-'}`,
+        ].join('\n'),
+      ]],
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 8, cellPadding: 3, valign: 'top' },
+      headStyles: { fillColor: accent, textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: mutedFill },
+      theme: 'grid',
     });
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Item', 'Ordered', 'Received', 'Stock Added', 'Cost / Unit', 'Line Total']],
+      body: po.items.map(item => {
+        const purchaseUnit = getUnitLabel(getPOPurchaseUnit(item));
+        const stockUnit = getUnitLabel(getPOStockUnit(item));
+        return [
+          `${item.name}\n1 ${purchaseUnit} = ${getPOStockQuantityPerUnit(item).toLocaleString()} ${stockUnit}`,
+          `${item.quantity.toLocaleString()} ${purchaseUnit}`,
+          `${item.receivedQuantity.toLocaleString()} ${purchaseUnit}`,
+          `${getPOStockQuantity(item, item.receivedQuantity).toLocaleString()} ${stockUnit}`,
+          formatMoney(item.costPerUnit),
+          formatMoney(item.quantity * item.costPerUnit * getPOCostSign(po)),
+        ];
+      }),
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 8, cellPadding: 2.5, valign: 'top' },
+      headStyles: { fillColor: accent, textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: mutedFill },
+      columnStyles: {
+        1: { halign: 'right' },
+        2: { halign: 'right' },
+        3: { halign: 'right' },
+        4: { halign: 'right' },
+        5: { halign: 'right' },
+      },
+      theme: 'grid',
+    });
+    y = (doc as any).lastAutoTable.finalY + 6;
+
+    autoTable(doc, {
+      startY: y,
+      body: [
+        ['Order Total', formatMoney(getPOTotal(po))],
+        ['Received Total', formatMoney(getPOTotal(po, true))],
+        ['Notes', po.notes || '-'],
+      ],
+      margin: { left: pageWidth - 86, right: margin },
+      styles: { fontSize: 8, cellPadding: 2.5 },
+      columnStyles: { 0: { fontStyle: 'bold' }, 1: { halign: 'right', fontStyle: 'bold' } },
+      theme: 'grid',
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Status Change', 'Person', 'Date', 'Time', 'Notes']],
+      body: (po.statusLog || []).length > 0
+        ? po.statusLog.map(log => [
+            `${log.fromStatus === 'created' ? 'Created' : PO_STATUS_LABELS[log.fromStatus]} to ${PO_STATUS_LABELS[log.toStatus]}`,
+            log.staffName,
+            formatDate(log.timestamp),
+            formatDateTime(log.timestamp).split(', ').slice(-1)[0],
+            log.notes || '-',
+          ])
+        : [['No status changes recorded', '-', '-', '-', '-']],
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 8, cellPadding: 2.5, valign: 'top' },
+      headStyles: { fillColor: [55, 65, 81], textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [249, 250, 251] },
+      theme: 'grid',
+    });
+
+    const pageCount = doc.getNumberOfPages();
+    for (let page = 1; page <= pageCount; page += 1) {
+      doc.setPage(page);
+      doc.setFontSize(8);
+      doc.setTextColor(156, 163, 175);
+      doc.text(`PO-${po.id.slice(-6)} | Page ${page} of ${pageCount}`, pageWidth - margin, 291, { align: 'right' });
+    }
     doc.save(`PO-${po.id.slice(-6)}.pdf`);
   };
   const copyAndCreatePO = (po: PurchaseOrder) => {
@@ -1517,10 +1608,10 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                     placeholder="Search PO, supplier, item..."
                     value={poSearch}
                     onChange={e => setPoSearch(e.target.value)}
-                    className="w-64 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    className="h-10 w-64 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   />
                 </div>
-                <div className="flex rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-900">
+                <div className="flex h-10 rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-900">
                   {PO_STATUS_FILTER_TABS.map(tab => (
                     <button
                       key={tab.key}
@@ -1528,7 +1619,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                       onClick={() => setPoStatusFilter(tab.key)}
                       className={`h-8 rounded-lg px-3 text-[10px] font-black uppercase tracking-wider transition ${
                         poStatusFilter === tab.key
-                          ? 'bg-amber-600 text-white shadow-sm'
+                          ? tab.activeClass
                           : 'text-gray-500 hover:bg-white hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white'
                       }`}
                     >
