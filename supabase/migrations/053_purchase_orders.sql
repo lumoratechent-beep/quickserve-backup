@@ -14,8 +14,12 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
   expected_date DATE,
   received_date DATE,
   notes TEXT NOT NULL DEFAULT '',
+  status_log JSONB NOT NULL DEFAULT '[]'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE purchase_orders
+  ADD COLUMN IF NOT EXISTS status_log JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 CREATE INDEX IF NOT EXISTS idx_purchase_orders_restaurant_created
   ON purchase_orders(restaurant_id, created_at DESC);

@@ -11,6 +11,15 @@ export interface PurchaseOrderLine {
   stockQuantityPerUnit?: number;
 }
 
+export interface PurchaseOrderStatusLogEntry {
+  id: string;
+  fromStatus: PurchaseOrderRecord['status'] | 'created';
+  toStatus: PurchaseOrderRecord['status'];
+  staffName: string;
+  timestamp: number;
+  notes: string;
+}
+
 export interface PurchaseOrderRecord {
   id: string;
   supplierId: string;
@@ -21,6 +30,7 @@ export interface PurchaseOrderRecord {
   expectedDate: string;
   receivedDate?: string;
   notes: string;
+  statusLog: PurchaseOrderStatusLogEntry[];
 }
 
 type PurchaseOrderRow = {
@@ -34,6 +44,7 @@ type PurchaseOrderRow = {
   expected_date: string | null;
   received_date: string | null;
   notes: string | null;
+  status_log: PurchaseOrderStatusLogEntry[] | null;
 };
 
 const VALID_STATUSES: PurchaseOrderRecord['status'][] = ['draft', 'sent', 'partial', 'received', 'cancelled', 'returned'];
@@ -55,6 +66,15 @@ const normalizeLine = (line: Partial<PurchaseOrderLine>): PurchaseOrderLine => (
   stockQuantityPerUnit: Number(line.stockQuantityPerUnit || 1),
 });
 
+const normalizeStatusLogEntry = (entry: Partial<PurchaseOrderStatusLogEntry>): PurchaseOrderStatusLogEntry => ({
+  id: entry.id || crypto.randomUUID(),
+  fromStatus: entry.fromStatus === 'created' ? 'created' : normalizeStatus(entry.fromStatus),
+  toStatus: normalizeStatus(entry.toStatus),
+  staffName: entry.staffName || 'Current staff',
+  timestamp: Number(entry.timestamp || Date.now()),
+  notes: entry.notes || '',
+});
+
 const fromRow = (row: PurchaseOrderRow): PurchaseOrderRecord => ({
   id: row.id,
   supplierId: row.supplier_id || '',
@@ -65,6 +85,7 @@ const fromRow = (row: PurchaseOrderRow): PurchaseOrderRecord => ({
   expectedDate: row.expected_date || '',
   receivedDate: row.received_date || undefined,
   notes: row.notes || '',
+  statusLog: Array.isArray(row.status_log) ? row.status_log.map(normalizeStatusLogEntry) : [],
 });
 
 const toRow = (restaurantId: string, po: PurchaseOrderRecord) => ({
@@ -78,6 +99,7 @@ const toRow = (restaurantId: string, po: PurchaseOrderRecord) => ({
   expected_date: po.expectedDate || null,
   received_date: po.receivedDate || null,
   notes: po.notes || '',
+  status_log: po.statusLog || [],
 });
 
 export async function fetchPurchaseOrdersFromDb(restaurantId: string): Promise<PurchaseOrderRecord[] | null> {
