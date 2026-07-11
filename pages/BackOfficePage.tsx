@@ -25,6 +25,7 @@ import StaffManagementView from '../components/StaffManagementView';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 import PromotionDiscountManager from '../components/PromotionDiscountManager';
 import { getMenuItemEffectivePrice, isMenuPromotionActive } from '../lib/menuPricing';
+import { deleteIngredientItemFromDb, fetchIngredientItemsFromDb, saveIngredientItemsToDb } from '../lib/ingredientItems';
 
 interface Props {
   restaurant: Restaurant;
@@ -182,11 +183,106 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [isSavingIngredient, setIsSavingIngredient] = useState(false);
   const [ingredientEntriesPerPage, setIngredientEntriesPerPage] = useState(30);
   const [ingredientCurrentPage, setIngredientCurrentPage] = useState(1);
+  const [ingredientSyncWarning, setIngredientSyncWarning] = useState('');
+
+  const ingredientPendingSyncKey = () => `ingredients_${restaurant.id}_pending_sync`;
+  const ingredientPendingDeleteKey = () => `ingredients_${restaurant.id}_pending_delete`;
+
+  const readStringSet = (key: string): Set<string> => {
+    try {
+      const saved = localStorage.getItem(key);
+      const parsed = saved ? JSON.parse(saved) : [];
+      return new Set(Array.isArray(parsed) ? parsed.filter(id => typeof id === 'string') : []);
+    } catch {
+      return new Set();
+    }
+  };
+
+  const writeStringSet = (key: string, ids: Set<string>) => {
+    if (ids.size === 0) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(Array.from(ids)));
+  };
+
+  const normalizeIngredientItem = (item: Partial<IngredientItem>): IngredientItem => ({
+    id: item.id || crypto.randomUUID(),
+    restaurant_id: item.restaurant_id || restaurant.id,
+    name: item.name || '',
+    category: item.category || 'Uncategorized',
+    cost: Number(item.cost || 0),
+    unit: item.unit || 'pcs',
+    purchase_unit: item.purchase_unit || item.unit || 'pcs',
+    purchase_to_stock_quantity: Number(item.purchase_to_stock_quantity || 1),
+    sku: item.sku || '',
+    barcode: item.barcode || '',
+    is_archived: Boolean(item.is_archived),
+    notes: item.notes || '',
+    created_at: item.created_at || new Date().toISOString(),
+    updated_at: item.updated_at || new Date().toISOString(),
+  });
+
+  const mergeIngredientsByUpdatedAt = (localItems: IngredientItem[], remoteItems: IngredientItem[]) => {
+    const merged = new Map<string, IngredientItem>();
+    const chooseLatest = (next: IngredientItem) => {
+      const current = merged.get(next.id);
+      if (!current) {
+        merged.set(next.id, normalizeIngredientItem(next));
+        return;
+      }
+      const currentUpdated = new Date(current.updated_at || current.created_at || 0).getTime();
+      const nextUpdated = new Date(next.updated_at || next.created_at || 0).getTime();
+      if (nextUpdated >= currentUpdated) merged.set(next.id, normalizeIngredientItem(next));
+    };
+
+    remoteItems.forEach(chooseLatest);
+    localItems.forEach(chooseLatest);
+    return Array.from(merged.values()).sort((a, b) =>
+      new Date(b.created_at || b.updated_at || 0).getTime() - new Date(a.created_at || a.updated_at || 0).getTime()
+    );
+  };
 
   const saveIngredients = (items: IngredientItem[]) => {
-    setIngredientItems(items);
-    localStorage.setItem(`ingredients_${restaurant.id}`, JSON.stringify(items));
+    const normalized = items.map(normalizeIngredientItem);
+    const removedIds = ingredientItems
+      .filter(existing => !normalized.some(item => item.id === existing.id))
+      .map(item => item.id);
+
+    setIngredientItems(normalized);
+    localStorage.setItem(`ingredients_${restaurant.id}`, JSON.stringify(normalized));
     syncBackofficeToDb(restaurant.id);
+
+    const pendingSync = readStringSet(ingredientPendingSyncKey());
+    normalized.forEach(item => pendingSync.add(item.id));
+    writeStringSet(ingredientPendingSyncKey(), pendingSync);
+    setIngredientSyncWarning('');
+
+    saveIngredientItemsToDb(restaurant.id, normalized)
+      .then(saved => {
+        if (!saved) {
+          setIngredientSyncWarning('Some ingredients are saved locally and will sync when cloud access is available.');
+          return;
+        }
+        const latestPending = readStringSet(ingredientPendingSyncKey());
+        normalized.forEach(item => latestPending.delete(item.id));
+        writeStringSet(ingredientPendingSyncKey(), latestPending);
+      })
+      .catch(() => setIngredientSyncWarning('Some ingredients are saved locally and will sync when cloud access is available.'));
+
+    if (removedIds.length > 0) {
+      const pendingDelete = readStringSet(ingredientPendingDeleteKey());
+      removedIds.forEach(id => pendingDelete.add(id));
+      writeStringSet(ingredientPendingDeleteKey(), pendingDelete);
+      removedIds.forEach(id => {
+        deleteIngredientItemFromDb(restaurant.id, id).then(deleted => {
+          if (!deleted) {
+            setIngredientSyncWarning('Some ingredient deletes are saved locally and will sync when cloud access is available.');
+            return;
+          }
+          const latestPendingDelete = readStringSet(ingredientPendingDeleteKey());
+          latestPendingDelete.delete(id);
+          writeStringSet(ingredientPendingDeleteKey(), latestPendingDelete);
+        });
+      });
+    }
   };
 
   // â”€â”€â”€ Initial loading overlay â”€â”€â”€
@@ -557,6 +653,98 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     localStorage.setItem(`stock_${restaurant.id}`, JSON.stringify(items));
     syncBackofficeToDb(restaurant.id);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadIngredients = async () => {
+      setIngredientSyncWarning('');
+
+      let localItems: IngredientItem[] = [];
+      try {
+        const saved = localStorage.getItem(`ingredients_${restaurant.id}`);
+        localItems = saved ? (JSON.parse(saved) as Partial<IngredientItem>[]).map(normalizeIngredientItem) : [];
+      } catch {
+        localItems = [];
+      }
+
+      const settingsItems = Array.isArray(restaurant.settings?.backoffice?.ingredients)
+        ? (restaurant.settings.backoffice.ingredients as Partial<IngredientItem>[]).map(normalizeIngredientItem)
+        : [];
+      const cachedItems = mergeIngredientsByUpdatedAt(localItems, settingsItems);
+      if (cachedItems.length > 0) {
+        setIngredientItems(cachedItems);
+        localStorage.setItem(`ingredients_${restaurant.id}`, JSON.stringify(cachedItems));
+      }
+
+      const pendingDeleteIds = readStringSet(ingredientPendingDeleteKey());
+      for (const id of Array.from(pendingDeleteIds)) {
+        const deleted = await deleteIngredientItemFromDb(restaurant.id, id);
+        if (cancelled) return;
+        if (deleted) {
+          pendingDeleteIds.delete(id);
+          writeStringSet(ingredientPendingDeleteKey(), pendingDeleteIds);
+        }
+      }
+
+      const remoteItems = await fetchIngredientItemsFromDb(restaurant.id);
+      if (cancelled) return;
+
+      if (!remoteItems) {
+        if (readStringSet(ingredientPendingSyncKey()).size > 0 || readStringSet(ingredientPendingDeleteKey()).size > 0) {
+          setIngredientSyncWarning('Some ingredients are saved locally and will sync when cloud access is available.');
+        }
+        return;
+      }
+
+      const remoteIds = new Set(remoteItems.map(item => item.id));
+      const pendingSyncIds = readStringSet(ingredientPendingSyncKey());
+      const uploadItems = cachedItems.filter(item => pendingSyncIds.has(item.id) || !remoteIds.has(item.id));
+
+      if (uploadItems.length > 0) {
+        const uploaded = await saveIngredientItemsToDb(restaurant.id, uploadItems);
+        if (cancelled) return;
+        if (uploaded) {
+          const latestPending = readStringSet(ingredientPendingSyncKey());
+          uploadItems.forEach(item => latestPending.delete(item.id));
+          writeStringSet(ingredientPendingSyncKey(), latestPending);
+        } else {
+          uploadItems.forEach(item => pendingSyncIds.add(item.id));
+          writeStringSet(ingredientPendingSyncKey(), pendingSyncIds);
+          setIngredientSyncWarning('Some ingredients are saved locally and will sync when cloud access is available.');
+        }
+      }
+
+      const latestPendingDeleteIds = readStringSet(ingredientPendingDeleteKey());
+      const merged = mergeIngredientsByUpdatedAt(cachedItems, remoteItems)
+        .filter(item => !latestPendingDeleteIds.has(item.id));
+      setIngredientItems(merged);
+      localStorage.setItem(`ingredients_${restaurant.id}`, JSON.stringify(merged));
+
+      const stockIds = new Set(stockItems.map(item => item.menuItemId));
+      const missingIngredientStock = merged
+        .filter(item => !item.is_archived && !stockIds.has(item.id))
+        .map(item => ({
+          menuItemId: item.id,
+          name: item.name,
+          category: item.category,
+          currentStock: 0,
+          lowStockThreshold: 10,
+          unit: item.unit,
+          lastRestocked: Date.now(),
+          stockEnabled: true,
+        }));
+      if (missingIngredientStock.length > 0) {
+        saveStock([...stockItems, ...missingIngredientStock]);
+      }
+    };
+
+    loadIngredients().catch(() => {
+      if (!cancelled) setIngredientSyncWarning('Ingredients loaded from this device. Cloud sync will retry next time Items & Stock opens.');
+    });
+
+    return () => { cancelled = true; };
+  }, [restaurant.id]);
 
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // SALES ANALYTICS
@@ -2202,6 +2390,11 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               <Info size={16} className="mt-0.5 shrink-0 text-blue-500" />
               <p className="text-xs text-gray-500 dark:text-gray-400">Ingredients & supplies are non-menu items like sugar, ice blocks, ketchup, packaging, etc. Set a purchase unit and stock unit so Purchase Orders can receive packs while production deducts the matching stock balance.</p>
             </div>
+            {ingredientSyncWarning && (
+              <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200">
+                {ingredientSyncWarning}
+              </div>
+            )}
 
             {/* Ingredients Table */}
             <div className="overflow-hidden">

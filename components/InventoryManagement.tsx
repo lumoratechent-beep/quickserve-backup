@@ -3,11 +3,12 @@ import { createPortal } from 'react-dom';
 import { Restaurant, MenuItem, IngredientItem } from '../src/types';
 import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
 import { fetchPurchaseOrdersFromDb, savePurchaseOrderToDb, savePurchaseOrdersToDb } from '../lib/purchaseOrders';
+import { fetchIngredientItemsFromDb, saveIngredientItemsToDb } from '../lib/ingredientItems';
 import {
   Package, Truck, ArrowUpDown, ClipboardList, Factory,
   History, DollarSign, Plus, Search, Edit3, Trash2, Check, X, ChevronRight,
   ArrowLeft, Eye, Send, Download, Upload, XCircle,
-  Clock, FileText, BarChart3, ShoppingBag, Info, MoreVertical, Copy, FileSpreadsheet,
+  Clock, FileText, BarChart3, ShoppingBag, Info, MoreVertical, Copy, FileSpreadsheet, Loader2,
 } from 'lucide-react';
 
 // ─── Inventory Types ───
@@ -376,6 +377,10 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => loadState('suppliers', []));
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => subTab === 'purchase_orders' ? loadPurchaseOrders() : []);
   const [purchaseOrdersLoaded, setPurchaseOrdersLoaded] = useState(false);
+  const [isInventoryLoading, setIsInventoryLoading] = useState(true);
+  const [inventoryLoadMessage, setInventoryLoadMessage] = useState('Loading inventory data...');
+  const [poCloudSyncPendingCount, setPoCloudSyncPendingCount] = useState(0);
+  const [poSyncWarning, setPoSyncWarning] = useState('');
   const [transferOrders, setTransferOrders] = useState<TransferOrder[]>(() => loadState('transfer_orders', []));
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>(() => loadState('adjustments', []));
   const [inventoryCounts, setInventoryCounts] = useState<InventoryCount[]>(() => loadState('counts', []));
@@ -463,44 +468,222 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     setPoActionMenuPosition(null);
   }, [viewingPOId, receivingPOId, pendingPOStatusChange]);
 
-  useEffect(() => {
-    setPurchaseOrdersLoaded(false);
-    if (subTab !== 'purchase_orders') setPurchaseOrders([]);
-  }, [restaurant.id]);
+  const poPendingSyncKey = () => `${storeKey('purchase_orders')}_pending_sync`;
+
+  const readPendingPOIds = (): Set<string> => {
+    try {
+      const saved = localStorage.getItem(poPendingSyncKey());
+      const parsed = saved ? JSON.parse(saved) : [];
+      return new Set(Array.isArray(parsed) ? parsed.filter(id => typeof id === 'string') : []);
+    } catch {
+      return new Set();
+    }
+  };
+
+  const writePendingPOIds = (ids: Set<string>) => {
+    if (ids.size === 0) {
+      localStorage.removeItem(poPendingSyncKey());
+    } else {
+      localStorage.setItem(poPendingSyncKey(), JSON.stringify(Array.from(ids)));
+    }
+    setPoCloudSyncPendingCount(ids.size);
+  };
+
+  const markPOsPendingSync = (ids: string[]) => {
+    const pending = readPendingPOIds();
+    ids.forEach(id => pending.add(id));
+    writePendingPOIds(pending);
+  };
+
+  const clearPOsPendingSync = (ids: string[]) => {
+    const pending = readPendingPOIds();
+    ids.forEach(id => pending.delete(id));
+    writePendingPOIds(pending);
+  };
+
+  const readLocalArray = <T,>(key: string): T[] => {
+    try {
+      const saved = localStorage.getItem(key);
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const mergeArrayByKey = <T,>(
+    localItems: T[],
+    remoteItems: T[],
+    getKey: (item: T, index: number) => string,
+  ) => {
+    const merged = new Map<string, T>();
+    remoteItems.forEach((item, index) => {
+      const key = getKey(item, index);
+      if (key) merged.set(key, item);
+    });
+    localItems.forEach((item, index) => {
+      const key = getKey(item, index);
+      if (key) merged.set(key, item);
+    });
+    return Array.from(merged.values());
+  };
+
+  const reconcileInventoryCacheFromSettings = () => {
+    const backoffice = restaurant.settings?.backoffice || {};
+    let shouldSyncBackoffice = false;
+    const reconcile = <T,>(
+      localKey: string,
+      remoteKey: string,
+      setState: ((items: T[]) => void) | null,
+      getKey: (item: T, index: number) => string,
+      normalize: (items: T[]) => T[] = items => items,
+    ) => {
+      const remoteItems = Array.isArray(backoffice[remoteKey]) ? backoffice[remoteKey] as T[] : [];
+      const localItems = readLocalArray<T>(localKey);
+      const merged = normalize(mergeArrayByKey(localItems, remoteItems, getKey));
+      const localOnly = localItems.some((item, index) => {
+        const key = getKey(item, index);
+        return key && !remoteItems.some((remote, remoteIndex) => getKey(remote, remoteIndex) === key);
+      });
+      const remoteOnly = remoteItems.some((item, index) => {
+        const key = getKey(item, index);
+        return key && !localItems.some((local, localIndex) => getKey(local, localIndex) === key);
+      });
+
+      if (localOnly || remoteOnly) {
+        localStorage.setItem(localKey, JSON.stringify(merged));
+        shouldSyncBackoffice = shouldSyncBackoffice || localOnly;
+      }
+      if (setState) setState(merged);
+    };
+
+    reconcile<Supplier>(storeKey('suppliers'), 'suppliers', setSuppliers, item => item.id);
+    reconcile<TransferOrder>(storeKey('transfer_orders'), 'transfer_orders', setTransferOrders, item => item.id);
+    reconcile<StockAdjustment>(storeKey('adjustments'), 'adjustments', setAdjustments, item => item.id);
+    reconcile<InventoryCount>(storeKey('counts'), 'counts', setInventoryCounts, item => item.id);
+    reconcile<Production>(storeKey('productions'), 'productions', setProductions, item => item.id);
+    reconcile<InventoryHistoryEntry>(storeKey('history'), 'history', setHistoryLog, item => item.id);
+    reconcile<IngredientItem>(
+      `ingredients_${restaurant.id}`,
+      'ingredients',
+      items => setIngredientItems(items.filter(item => !item.is_archived)),
+      item => item.id,
+    );
+    reconcile<any>(`stock_${restaurant.id}`, 'stock', null, item => item.menuItemId || item.id || '');
+
+    return shouldSyncBackoffice;
+  };
 
   const savePurchaseOrders = (orders: PurchaseOrder[], changedOrder?: PurchaseOrder) => {
     setPurchaseOrders(orders);
     localStorage.setItem(storeKey('purchase_orders'), JSON.stringify(orders));
-    if (changedOrder) savePurchaseOrderToDb(restaurant.id, changedOrder).catch(() => {});
+    if (!changedOrder) return;
+
+    markPOsPendingSync([changedOrder.id]);
+    setPoSyncWarning('');
+    savePurchaseOrderToDb(restaurant.id, changedOrder)
+      .then(saved => {
+        if (saved) clearPOsPendingSync([changedOrder.id]);
+        else {
+          markPOsPendingSync([changedOrder.id]);
+          setPoSyncWarning('Some purchase orders are saved locally and will sync when cloud access is available.');
+        }
+      })
+      .catch(() => {
+        markPOsPendingSync([changedOrder.id]);
+        setPoSyncWarning('Some purchase orders are saved locally and will sync when cloud access is available.');
+      });
   };
 
   useEffect(() => {
-    if (subTab !== 'purchase_orders' || purchaseOrdersLoaded) return;
-
-    const cachedOrders = loadPurchaseOrders();
-    setPurchaseOrders(cachedOrders);
-    setPurchaseOrdersLoaded(true);
-
     let cancelled = false;
-    fetchPurchaseOrdersFromDb(restaurant.id).then(remoteOrders => {
-      if (cancelled || !remoteOrders) return;
 
+    const loadInventory = async () => {
+      setIsInventoryLoading(true);
+      setInventoryLoadMessage('Checking local inventory cache...');
+      setPoSyncWarning('');
+      setPurchaseOrdersLoaded(false);
+
+      const needsBackofficeSync = reconcileInventoryCacheFromSettings();
+      if (needsBackofficeSync) syncBackofficeToDb(restaurant.id);
+
+      const localIngredientItems = readLocalArray<IngredientItem>(`ingredients_${restaurant.id}`);
+      const remoteIngredientItems = await fetchIngredientItemsFromDb(restaurant.id);
+      if (cancelled) return;
+      if (remoteIngredientItems) {
+        const remoteIngredientIds = new Set(remoteIngredientItems.map(item => item.id));
+        const mergedIngredientItems = mergeArrayByKey(
+          localIngredientItems,
+          remoteIngredientItems,
+          item => item.id,
+        );
+        setIngredientItems(mergedIngredientItems.filter(item => !item.is_archived));
+        localStorage.setItem(`ingredients_${restaurant.id}`, JSON.stringify(mergedIngredientItems));
+
+        const localOnlyIngredients = localIngredientItems.filter(item => !remoteIngredientIds.has(item.id));
+        if (localOnlyIngredients.length > 0) saveIngredientItemsToDb(restaurant.id, localOnlyIngredients).catch(() => {});
+      }
+
+      const cachedOrders = loadPurchaseOrders();
+      setPurchaseOrders(cachedOrders);
+      setPoCloudSyncPendingCount(readPendingPOIds().size);
+      setInventoryLoadMessage('Syncing purchase orders...');
+
+      const remoteOrders = await fetchPurchaseOrdersFromDb(restaurant.id);
+      if (cancelled) return;
+
+      if (!remoteOrders) {
+        setPoSyncWarning(readPendingPOIds().size > 0
+          ? 'Some purchase orders are saved locally and will sync when cloud access is available.'
+          : '');
+        setPurchaseOrdersLoaded(true);
+        setIsInventoryLoading(false);
+        return;
+      }
+
+      const remoteIds = new Set(remoteOrders.map(po => po.id));
+      const pendingIds = readPendingPOIds();
+      const uploadMap = new Map<string, PurchaseOrder>();
+      cachedOrders.forEach(po => {
+        if (pendingIds.has(po.id) || !remoteIds.has(po.id)) uploadMap.set(po.id, po);
+      });
+
+      const ordersToUpload = Array.from(uploadMap.values());
+      if (ordersToUpload.length > 0) {
+        const synced = await savePurchaseOrdersToDb(restaurant.id, ordersToUpload);
+        if (cancelled) return;
+        if (synced) clearPOsPendingSync(ordersToUpload.map(po => po.id));
+        else {
+          markPOsPendingSync(ordersToUpload.map(po => po.id));
+          setPoSyncWarning('Some purchase orders are saved locally and will sync when cloud access is available.');
+        }
+      }
+
+      const latestPendingIds = readPendingPOIds();
       const merged = new Map<string, PurchaseOrder>();
       remoteOrders.forEach(po => merged.set(po.id, normalizePurchaseOrder(po)));
       cachedOrders.forEach(po => {
-        if (!merged.has(po.id)) merged.set(po.id, normalizePurchaseOrder(po));
+        if (latestPendingIds.has(po.id) || !remoteIds.has(po.id)) merged.set(po.id, normalizePurchaseOrder(po));
       });
 
       const nextOrders = Array.from(merged.values()).sort((a, b) => b.createdAt - a.createdAt);
       setPurchaseOrders(nextOrders);
       localStorage.setItem(storeKey('purchase_orders'), JSON.stringify(nextOrders));
+      setPurchaseOrdersLoaded(true);
+      setIsInventoryLoading(false);
+    };
 
-      const hasLocalOnlyOrders = cachedOrders.some(po => !remoteOrders.some(remote => remote.id === po.id));
-      if (hasLocalOnlyOrders) savePurchaseOrdersToDb(restaurant.id, nextOrders).catch(() => {});
+    loadInventory().catch(() => {
+      if (cancelled) return;
+      setPoCloudSyncPendingCount(readPendingPOIds().size);
+      setPoSyncWarning('Inventory loaded from this device. Cloud sync will retry next time Inventory opens.');
+      setPurchaseOrders(loadPurchaseOrders());
+      setPurchaseOrdersLoaded(true);
+      setIsInventoryLoading(false);
     });
 
     return () => { cancelled = true; };
-  }, [subTab, purchaseOrdersLoaded, restaurant.id]);
+  }, [restaurant.id]);
 
   const activeMenuItems = useMemo(() => restaurant.menu.filter(m => !m.isArchived), [restaurant.menu]);
 
@@ -834,6 +1017,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       if (saved) storedIngredients = JSON.parse(saved) as IngredientItem[];
     } catch { /* keep active ingredient state */ }
     saveIngredientItems([...storedIngredients, newIngredient]);
+    saveIngredientItemsToDb(restaurant.id, [newIngredient]).catch(() => {});
     const stockItems = getStockItems();
     const hasStockRecord = stockItems.some((item: any) => item.menuItemId === newIngredient.id);
     if (!hasStockRecord) {
@@ -1477,6 +1661,18 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     minute: '2-digit',
   });
 
+  if (isInventoryLoading) {
+    return (
+      <div className="flex min-h-[420px] items-center justify-center rounded-xl border border-gray-200 bg-white px-6 py-12 text-center dark:border-gray-700 dark:bg-gray-800">
+        <div className="flex max-w-sm flex-col items-center">
+          <Loader2 size={34} className="animate-spin text-amber-500" />
+          <h2 className="mt-4 text-sm font-black uppercase tracking-wider text-gray-900 dark:text-white">Loading Inventory</h2>
+          <p className="mt-2 text-xs font-semibold text-gray-500 dark:text-gray-400">{inventoryLoadMessage}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
     <div>
@@ -1507,6 +1703,14 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               <Plus size={14} /> New Purchase Order
             </button>
           </div>
+
+          {(poCloudSyncPendingCount > 0 || poSyncWarning) && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200">
+              {poCloudSyncPendingCount > 0
+                ? `${poCloudSyncPendingCount} purchase order${poCloudSyncPendingCount === 1 ? '' : 's'} saved on this device ${poCloudSyncPendingCount === 1 ? 'is' : 'are'} waiting for cloud sync.`
+                : poSyncWarning}
+            </div>
+          )}
 
           {showForm && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 mb-6">

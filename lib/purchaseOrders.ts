@@ -47,6 +47,7 @@ type PurchaseOrderRow = {
   received_date: string | null;
   notes: string | null;
   status_log: PurchaseOrderStatusLogEntry[] | null;
+  updated_at?: string | null;
 };
 
 const VALID_STATUSES: PurchaseOrderRecord['status'][] = ['draft', 'sent', 'partial', 'received', 'cancelled', 'returned'];
@@ -104,6 +105,7 @@ const toRow = (restaurantId: string, po: PurchaseOrderRecord) => ({
   received_date: po.receivedDate || null,
   notes: po.notes || '',
   status_log: po.statusLog || [],
+  updated_at: new Date().toISOString(),
 });
 
 export async function fetchPurchaseOrdersFromDb(restaurantId: string): Promise<PurchaseOrderRecord[] | null> {

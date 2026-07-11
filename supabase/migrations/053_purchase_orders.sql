@@ -25,6 +25,9 @@ ALTER TABLE purchase_orders
 ALTER TABLE purchase_orders
   ADD COLUMN IF NOT EXISTS order_number TEXT;
 
+ALTER TABLE purchase_orders
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_purchase_orders_restaurant_order_number
   ON purchase_orders(restaurant_id, order_number)
   WHERE order_number IS NOT NULL AND order_number <> '';

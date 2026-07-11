@@ -330,6 +330,7 @@ const SYNC_DELAY = 3000; // ms debounce
 
 const BACKOFFICE_LS_KEYS: { local: (id: string) => string; remote: string }[] = [
   // expenses moved to dedicated Supabase table (031_expenses.sql)
+  { local: id => `ingredients_${id}`, remote: 'ingredients' },
   { local: id => `inv_${id}_suppliers`, remote: 'suppliers' },
   { local: id => `inv_${id}_transfer_orders`, remote: 'transfer_orders' },
   { local: id => `inv_${id}_adjustments`, remote: 'adjustments' },
