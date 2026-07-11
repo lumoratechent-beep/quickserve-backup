@@ -65,6 +65,16 @@ const PO_STATUS_LABELS: Record<PurchaseOrder['status'], string> = {
   cancelled: 'Cancelled',
   returned: 'Returned',
 };
+const PO_STATUS_FLOW: Record<PurchaseOrder['status'], PurchaseOrder['status'][]> = {
+  draft: ['sent', 'cancelled'],
+  sent: ['partial', 'received', 'cancelled'],
+  partial: ['received', 'cancelled', 'returned'],
+  received: ['returned'],
+  cancelled: [],
+  returned: [],
+};
+
+const getPOStatusOptions = (status: PurchaseOrder['status']) => [status, ...PO_STATUS_FLOW[status]];
 
 const normalizePOStatusLogEntry = (entry: Partial<PurchaseOrderStatusLogEntry>): PurchaseOrderStatusLogEntry => ({
   id: entry.id || crypto.randomUUID(),
@@ -426,6 +436,12 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const [viewingPOId, setViewingPOId] = useState<string | null>(null);
   const [receivingPOId, setReceivingPOId] = useState<string | null>(null);
   const [receiveQuantities, setReceiveQuantities] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!viewingPOId && !receivingPOId) return;
+    setOpenPOActionMenuId(null);
+    setPoActionMenuPosition(null);
+  }, [viewingPOId, receivingPOId]);
 
   useEffect(() => {
     setPurchaseOrdersLoaded(false);
@@ -808,6 +824,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     const updated = purchaseOrders.map(po => {
       if (po.id !== poId) return po;
       if (po.status === newStatus) return po;
+      if (!PO_STATUS_FLOW[po.status].includes(newStatus)) return po;
       const updatedPO = {
         ...po,
         status: newStatus,
@@ -837,6 +854,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const handlePOStatusSelect = (poId: string, newStatus: PurchaseOrder['status']) => {
     const po = purchaseOrders.find(order => order.id === poId);
     if (!po || po.status === newStatus) return;
+    if (!PO_STATUS_FLOW[po.status].includes(newStatus)) return;
     const note = window.prompt(`Notes for status change to ${PO_STATUS_LABELS[newStatus]} (optional):`) ?? null;
     if (note === null) return;
     if (newStatus === 'returned') {
@@ -1508,7 +1526,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                         className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30"
                       >
                         <td className="px-4 py-2 text-xs font-bold">
-                          <button onClick={() => setViewingPOId(po.id)} className="font-black text-amber-500 transition hover:text-amber-600 hover:underline">
+                          <button onClick={() => { setOpenPOActionMenuId(null); setPoActionMenuPosition(null); setViewingPOId(po.id); }} className="font-black text-amber-500 transition hover:text-amber-600 hover:underline">
                             PO-{po.id.slice(-6)}
                           </button>
                         </td>
@@ -1522,7 +1540,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                             className="w-40 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-[10px] font-bold text-gray-700 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
                             title="Change purchase order status"
                           >
-                            {PO_STATUS_VALUES.map(status => <option key={status} value={status}>{PO_STATUS_LABELS[status]}</option>)}
+                            {getPOStatusOptions(po.status).map(status => <option key={status} value={status}>{PO_STATUS_LABELS[status]}</option>)}
                           </select>
                         </td>
                         <td className={`hidden px-4 py-2 text-right text-xs font-bold sm:table-cell ${po.status === 'returned' ? 'text-red-400' : 'text-amber-400'}`}>{formatMoney(getPOTotal(po))}</td>
@@ -2654,7 +2672,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
         };
         return createPortal(
           <div
-            className="fixed z-[100000] w-48 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-left shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+            className="fixed z-[99990] w-48 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-left shadow-2xl dark:border-gray-700 dark:bg-gray-900"
             style={{ top: poActionMenuPosition.top, right: poActionMenuPosition.right }}
           >
             <button onClick={() => { setViewingPOId(po.id); closeMenu(); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"><Eye size={13} /> View</button>
@@ -2695,7 +2713,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                       className="h-8 rounded-lg border border-gray-200 bg-gray-50 px-2 text-[10px] font-bold text-gray-700 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
                       title="Change purchase order status"
                     >
-                      {PO_STATUS_VALUES.map(status => <option key={status} value={status}>{PO_STATUS_LABELS[status]}</option>)}
+                      {getPOStatusOptions(po.status).map(status => <option key={status} value={status}>{PO_STATUS_LABELS[status]}</option>)}
                     </select>
                   </div>
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Purchase order details, item quantities, prices, and receipt progress.</p>
@@ -2744,29 +2762,6 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                 </div>
               )}
 
-              <div className="mt-4 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
-                <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Status Change Log</p>
-                {(po.statusLog || []).length > 0 ? (
-                  <div className="mt-3 divide-y divide-gray-100 dark:divide-gray-700/70">
-                    {po.statusLog.map(log => (
-                      <div key={log.id} className="grid grid-cols-1 gap-2 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_140px_120px] sm:items-start">
-                        <div>
-                          <p className="text-xs font-bold text-gray-900 dark:text-white">
-                            {log.fromStatus === 'created' ? 'Created' : PO_STATUS_LABELS[log.fromStatus]} to {PO_STATUS_LABELS[log.toStatus]}
-                          </p>
-                          <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">By {log.staffName}</p>
-                          {log.notes && <p className="mt-1 text-[11px] text-gray-600 dark:text-gray-300">{log.notes}</p>}
-                        </div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{formatDate(log.timestamp)}</p>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{formatDateTime(log.timestamp).split(', ').slice(-1)[0]}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">No status changes recorded yet.</p>
-                )}
-              </div>
-
               <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[820px] text-left">
@@ -2803,6 +2798,42 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                     </tbody>
                   </table>
                 </div>
+              </div>
+
+              <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-700">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Status Change Log</p>
+                </div>
+                {(po.statusLog || []).length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[760px] text-left">
+                      <thead className="bg-gray-50 dark:bg-gray-900/40">
+                        <tr>
+                          <th className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-gray-400">Status</th>
+                          <th className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-gray-400">Person</th>
+                          <th className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-gray-400">Date</th>
+                          <th className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-gray-400">Time</th>
+                          <th className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-gray-400">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                        {po.statusLog.map(log => (
+                          <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                            <td className="whitespace-nowrap px-4 py-2 text-xs font-bold text-gray-900 dark:text-white">
+                              {log.fromStatus === 'created' ? 'Created' : PO_STATUS_LABELS[log.fromStatus]} to {PO_STATUS_LABELS[log.toStatus]}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-2 text-xs text-gray-600 dark:text-gray-300">{log.staffName}</td>
+                            <td className="whitespace-nowrap px-4 py-2 text-xs text-gray-500 dark:text-gray-400">{formatDate(log.timestamp)}</td>
+                            <td className="whitespace-nowrap px-4 py-2 text-xs text-gray-500 dark:text-gray-400">{formatDateTime(log.timestamp).split(', ').slice(-1)[0]}</td>
+                            <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-300">{log.notes || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">No status changes recorded yet.</p>
+                )}
               </div>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
