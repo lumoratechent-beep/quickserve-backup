@@ -393,6 +393,10 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     const categories = activeMenuItems.map(item => item.category || 'Uncategorized');
     return ['ALL', ...Array.from(new Set(categories)).sort((a, b) => a.localeCompare(b))];
   }, [activeMenuItems]);
+  const ingredientCategories = useMemo(() => {
+    const categories = ingredientItems.map(item => item.category || 'Uncategorized');
+    return ['ALL', ...Array.from(new Set(categories)).sort((a, b) => a.localeCompare(b))];
+  }, [ingredientItems]);
   const filteredProductions = useMemo(() => {
     const q = productionSearch.trim().toLowerCase();
     return productions.filter(prod => {
@@ -1879,9 +1883,9 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
 
       {/* ─── Partial Count Category Modal ─── */}
       {quickAddIngredientRow !== null && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100001] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeQuickAddIngredient} />
-          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6">
+          <div className="relative max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-800">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h3 className="text-base font-black text-gray-900 dark:text-white">Add Ingredient / Supply</h3>
@@ -1892,28 +1896,27 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               </button>
             </div>
 
-            <div className="space-y-4">
+            <form onSubmit={e => { e.preventDefault(); handleQuickAddIngredient(); }} className="space-y-4">
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Name *</label>
-                <input type="text" value={quickAddIngredientForm.name || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, name: e.target.value }))} placeholder="e.g. Chicken, Rice, Sauce" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                <input type="text" value={quickAddIngredientForm.name || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, name: e.target.value }))} placeholder="e.g. Sugar, Ice Block, Ketchup" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" required />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Category</label>
-                  <input type="text" value={quickAddIngredientForm.category || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, category: e.target.value }))} placeholder="Ingredients" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                  <input type="text" value={quickAddIngredientForm.category || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, category: e.target.value }))} placeholder="e.g. Ingredients, Packaging" list="production-ingredient-categories" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                  <datalist id="production-ingredient-categories">
+                    {ingredientCategories.filter(category => category !== 'ALL').map(category => <option key={category} value={category} />)}
+                  </datalist>
                 </div>
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Cost per Purchase Unit ({currencySymbol})</label>
-                  <input type="number" step="0.01" value={quickAddIngredientForm.cost || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, cost: parseFloat(e.target.value) || 0 }))} placeholder="0.00" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Purchase Unit</label>
                   <select value={getIngredientPurchaseUnit(quickAddIngredientForm)} onChange={e => setQuickAddIngredientForm(form => ({ ...form, purchase_unit: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
                     {PURCHASE_UNIT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                   </select>
                 </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Stock Unit</label>
                   <select value={getIngredientStockUnit(quickAddIngredientForm)} onChange={e => setQuickAddIngredientForm(form => ({ ...form, unit: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
@@ -1921,20 +1924,39 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">1 Purchase Unit Equals</label>
-                  <input type="number" step="0.001" value={quickAddIngredientForm.purchase_to_stock_quantity || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, purchase_to_stock_quantity: parseFloat(e.target.value) || 0 }))} placeholder="1" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">1 {getIngredientPurchaseUnit(quickAddIngredientForm)} Equals</label>
+                  <div className="flex overflow-hidden rounded-xl border border-gray-200 bg-white focus-within:ring-2 focus-within:ring-amber-500 dark:border-gray-700 dark:bg-gray-900">
+                    <input type="number" step="0.001" min="0" value={quickAddIngredientForm.purchase_to_stock_quantity || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, purchase_to_stock_quantity: parseFloat(e.target.value) || 0 }))} placeholder="1" className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-gray-900 outline-none dark:text-white" />
+                    <span className="flex items-center border-l border-gray-200 px-3 text-xs font-bold text-gray-400 dark:border-gray-700">{getIngredientStockUnit(quickAddIngredientForm)}</span>
+                  </div>
                 </div>
               </div>
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Notes</label>
-                <input type="text" value={quickAddIngredientForm.notes || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, notes: e.target.value }))} placeholder="Optional notes" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Cost per {getIngredientPurchaseUnit(quickAddIngredientForm)} ({currencySymbol})</label>
+                  <input type="number" step="0.01" value={quickAddIngredientForm.cost || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, cost: parseFloat(e.target.value) || 0 }))} placeholder="0.00" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">SKU</label>
+                  <input type="text" value={quickAddIngredientForm.sku || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, sku: e.target.value }))} placeholder="Optional" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                </div>
               </div>
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Barcode</label>
+                  <input type="text" value={quickAddIngredientForm.barcode || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, barcode: e.target.value }))} placeholder="Optional" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Notes</label>
+                  <input type="text" value={quickAddIngredientForm.notes || ''} onChange={e => setQuickAddIngredientForm(form => ({ ...form, notes: e.target.value }))} placeholder="Optional notes" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                </div>
+              </div>
 
-            <div className="flex gap-3 mt-6">
-              <button onClick={closeQuickAddIngredient} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
-              <button onClick={handleQuickAddIngredient} className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20">Add Ingredient</button>
-            </div>
+              <div className="flex gap-3 mt-2">
+                <button type="button" onClick={closeQuickAddIngredient} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
+                <button type="submit" className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20">Add</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
