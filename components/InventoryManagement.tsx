@@ -1496,7 +1496,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
 
           {productionTab === 'batch_stock' ? (
             <>
-          <div className="grid grid-cols-1 gap-3 border-x border-t border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 rounded-b-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800 lg:grid-cols-3">
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-900/10 lg:col-span-2">
               <div className="flex items-start gap-3">
                 <Factory size={18} className="mt-0.5 text-amber-600 dark:text-amber-400" />
@@ -1518,7 +1518,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
           </div>
 
           {showForm && (
-            <div className="border-x border-t border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+            <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
               <h3 className="text-sm font-black mb-4">Record Production</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
@@ -1618,7 +1618,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
           )}
 
           {/* Productions List */}
-          <div className="overflow-hidden rounded-b-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+          <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
             <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-sm font-black text-gray-900 dark:text-white">Productions</h2>
@@ -1649,42 +1649,42 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                 </button>
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-800/50">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40">
+              <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
                 Showing {activeProductionCount === 0 ? 0 : (productionCurrentPage - 1) * productionEntriesPerPage + 1}-{Math.min(productionCurrentPage * productionEntriesPerPage, activeProductionCount)} of {activeProductionCount}
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Show</span>
-                <select value={productionEntriesPerPage} onChange={e => setProductionEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border-none bg-gray-100 p-1 text-[10px] font-bold outline-none dark:bg-gray-700 dark:text-white">
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Show</span>
+                <select value={productionEntriesPerPage} onChange={e => setProductionEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border border-gray-200 bg-white p-1 text-[10px] font-bold text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                   <option value={30}>30</option>
                   <option value={50}>50</option>
                   <option value={100}>100</option>
                 </select>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Entries</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Entries</span>
               </div>
             </div>
             {paginatedProductions.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                      <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Date</th>
-                      <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Produced Item</th>
-                      <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Qty Produced</th>
-                      <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Ingredients</th>
-                      <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Notes</th>
+                <table className="w-full min-w-[760px] text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-900/40">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400">Date</th>
+                      <th className="px-4 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400">Produced Item</th>
+                      <th className="px-4 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400">Qty Produced</th>
+                      <th className="hidden px-4 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400 md:table-cell">Ingredients</th>
+                      <th className="hidden px-4 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400 sm:table-cell">Notes</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                     {paginatedProductions.map(prod => (
-                      <tr key={prod.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                        <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{formatDate(prod.timestamp)}</td>
-                        <td className="px-5 py-4">
+                      <tr key={prod.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                        <td className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">{formatDate(prod.timestamp)}</td>
+                        <td className="px-4 py-2">
                           <p className="text-xs font-bold text-gray-900 dark:text-white">{prod.producedItemName}</p>
                           <p className="mt-1 text-[9px] font-black uppercase tracking-wider text-gray-400">{prod.appliesTo === 'variants' ? prod.variantLabel || 'Adjusted variant' : 'All variants'}</p>
                         </td>
-                        <td className="px-5 py-4 text-xs font-bold text-green-400">+{prod.quantityProduced}</td>
-                        <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate max-w-[200px]">
+                        <td className="px-4 py-2 text-xs font-bold text-green-400">+{prod.quantityProduced}</td>
+                        <td className="hidden max-w-[200px] truncate px-4 py-2 text-xs text-gray-500 dark:text-gray-400 md:table-cell">
                           {prod.ingredients.map(i => {
                             const converted = i.stockQuantityUsed && i.stockUnit && (i.stockQuantityUsed !== i.quantityUsed || normalizeUnit(i.stockUnit) !== normalizeUnit(i.unit))
                               ? ` = ${i.stockQuantityUsed.toLocaleString()} ${getUnitLabel(i.stockUnit)}`
@@ -1692,7 +1692,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                             return `${i.name} (${i.quantityUsed} ${getUnitLabel(i.unit)}${converted})`;
                           }).join(', ') || '-'}
                         </td>
-                        <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell truncate max-w-[150px]">{prod.notes || '-'}</td>
+                        <td className="hidden max-w-[150px] truncate px-4 py-2 text-xs text-gray-500 dark:text-gray-400 sm:table-cell">{prod.notes || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1734,7 +1734,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                 </div>
               </div>
 
-              <div className="border-x border-t border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+              <div className="rounded-b-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-900/10">
                 <div className="flex items-start gap-3">
                   <AlertCircle size={18} className="mt-0.5 text-amber-600 dark:text-amber-400" />
@@ -1746,7 +1746,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               </div>
               </div>
 
-              <div className="overflow-hidden rounded-b-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+              <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
                 <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
                   <div>
                     <h2 className="text-sm font-black text-gray-900 dark:text-white">Productions</h2>
@@ -1774,42 +1774,42 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                     </button>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-800/50">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
                     Showing {activeProductionCount === 0 ? 0 : (productionCurrentPage - 1) * productionEntriesPerPage + 1}-{Math.min(productionCurrentPage * productionEntriesPerPage, activeProductionCount)} of {activeProductionCount}
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Show</span>
-                    <select value={productionEntriesPerPage} onChange={e => setProductionEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border-none bg-gray-100 p-1 text-[10px] font-bold outline-none dark:bg-gray-700 dark:text-white">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Show</span>
+                    <select value={productionEntriesPerPage} onChange={e => setProductionEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border border-gray-200 bg-white p-1 text-[10px] font-bold text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                       <option value={30}>30</option>
                       <option value={50}>50</option>
                       <option value={100}>100</option>
                     </select>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Entries</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Entries</span>
                   </div>
                 </div>
                 {paginatedProductionRecipeRows.length > 0 ? (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                          <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Menu Item</th>
-                          <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Scope</th>
-                          <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Ingredients per Batch</th>
-                          <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Recipe Cost</th>
-                          <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Updated</th>
+                    <table className="w-full min-w-[760px] text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-900/40">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400">Menu Item</th>
+                          <th className="px-4 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400">Scope</th>
+                          <th className="hidden px-4 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400 md:table-cell">Ingredients per Batch</th>
+                          <th className="px-4 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400">Recipe Cost</th>
+                          <th className="hidden px-4 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400 sm:table-cell">Updated</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                         {paginatedProductionRecipeRows.map(recipe => (
-                          <tr key={`${recipe.producedItemId}-${recipe.variantKey || 'all'}`} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                            <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{recipe.producedItemName}</td>
-                            <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{recipe.appliesTo === 'variants' ? recipe.variantLabel || 'Adjusted variant' : 'All variants'}</td>
-                            <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate max-w-[260px]">
+                          <tr key={`${recipe.producedItemId}-${recipe.variantKey || 'all'}`} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                            <td className="px-4 py-2 text-xs font-bold text-gray-900 dark:text-white">{recipe.producedItemName}</td>
+                            <td className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">{recipe.appliesTo === 'variants' ? recipe.variantLabel || 'Adjusted variant' : 'All variants'}</td>
+                            <td className="hidden max-w-[260px] truncate px-4 py-2 text-xs text-gray-500 dark:text-gray-400 md:table-cell">
                               {recipe.ingredients.map(i => `${i.name} (${i.quantityUsed} ${getUnitLabel(i.unit)})`).join(', ') || '-'}
                             </td>
-                            <td className="px-5 py-4 text-xs font-bold text-amber-500">{currencySymbol}{recipe.costPerUnit.toFixed(2)} / item</td>
-                            <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell">{formatDate(recipe.timestamp)}</td>
+                            <td className="px-4 py-2 text-xs font-bold text-amber-500">{currencySymbol}{recipe.costPerUnit.toFixed(2)} / item</td>
+                            <td className="hidden px-4 py-2 text-xs text-gray-500 dark:text-gray-400 sm:table-cell">{formatDate(recipe.timestamp)}</td>
                           </tr>
                         ))}
                       </tbody>
