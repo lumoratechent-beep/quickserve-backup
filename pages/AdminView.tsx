@@ -8,6 +8,7 @@ import { toast } from '../components/Toast';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { getSubscriptionAccessLockState, getSubscriptionEndDate } from '../lib/subscriptionService';
 import AdminDocuments from '../components/AdminDocuments';
+import AdminDashboard from '../components/AdminDashboard';
 
 interface Props {
   vendors: User[];
@@ -29,7 +30,7 @@ interface Props {
   onFetchStats?: (filters: ReportFilters) => Promise<any>;
 }
 
-type AdminTab = 'VENDORS' | 'INCOME_REPORT' | 'VENDOR_SUBSCRIPTION' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SHOP' | 'DOCUMENTS' | 'SYSTEM';
+type AdminTab = 'DASHBOARD' | 'VENDORS' | 'INCOME_REPORT' | 'VENDOR_SUBSCRIPTION' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SHOP' | 'DOCUMENTS' | 'SYSTEM';
 type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'paid' | 'expired';
 type QuotationDocumentType = 'quotation' | 'invoice';
 type QuotationThemeId = 'orange' | 'blue' | 'emerald' | 'slate' | 'rose' | 'custom';
@@ -800,7 +801,7 @@ const AdminView: React.FC<Props> = ({
   onFetchAllFilteredOrders,
   onFetchStats
 }) => {
-  const [activeTab, setActiveTab] = useState<AdminTab>('VENDORS');
+  const [activeTab, setActiveTab] = useState<AdminTab>('DASHBOARD');
   const [vendorHubSubTab, setVendorHubSubTab] = useState<'VENDORS' | 'HUBS'>('VENDORS');
   const [incomeReportSubTab, setIncomeReportSubTab] = useState<'INCOME' | 'REPORTS'>('INCOME');
   const [vendorSubscriptionSubTab, setVendorSubscriptionSubTab] = useState<'SCHEDULE' | 'HISTORY'>('SCHEDULE');
@@ -3264,6 +3265,7 @@ const AdminView: React.FC<Props> = ({
         {/* Navigation */}
         <nav className={`flex-1 space-y-1 ${sidebarCollapsed ? 'p-2 pt-4' : 'p-4 pt-5'}`}>
           {([
+            { id: 'DASHBOARD', label: 'Dashboard', icon: LayoutGrid },
             { id: 'VENDORS', label: 'Vendor & Hubs', icon: Store },
             { id: 'INCOME_REPORT', label: 'Income & Report', icon: TrendingUp },
             { id: 'VENDOR_SUBSCRIPTION', label: 'Vendor Subscription', icon: Calendar },
@@ -3324,7 +3326,8 @@ const AdminView: React.FC<Props> = ({
               <ShieldCheck size={16} className="text-white" />
             </div>
             <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm">
-              {activeTab === 'VENDORS' ? 'Vendor & Hubs' :
+              {activeTab === 'DASHBOARD' ? 'Dashboard' :
+               activeTab === 'VENDORS' ? 'Vendor & Hubs' :
                activeTab === 'INCOME_REPORT' ? 'Income & Report' :
                activeTab === 'VENDOR_SUBSCRIPTION' ? 'Vendor Subscription' :
                activeTab === 'CASHOUT' ? 'Cashout' :
@@ -3338,6 +3341,14 @@ const AdminView: React.FC<Props> = ({
         </div>
 
         <div className="flex-1 overflow-auto">
+        {activeTab === 'DASHBOARD' && (
+          <AdminDashboard
+            vendors={vendors}
+            restaurants={restaurants}
+            cachedOrders={orders}
+            onFetchAllFilteredOrders={onFetchAllFilteredOrders}
+          />
+        )}
         {activeTab === 'VENDORS' && (
           <div className="p-4 md:p-8">
             <div className="mb-5">
