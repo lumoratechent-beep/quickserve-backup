@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { BookOpen, Download, ExternalLink, FileText, Presentation, Search } from 'lucide-react';
 import PitchDeck from './PitchDeck';
+import QuickServeIntroductionDocument from './QuickServeIntroductionDocument';
 import lanPrintingGuide from '../docs/LAN_PRINTING_TERMUX_SETUP.md?raw';
 import wifiPrintingGuide from '../docs/WIFI_PRINTING_TERMUX_SETUP.md?raw';
 import sunmiGuide from '../docs/SUNMI_V2_INTEGRATION.md?raw';
@@ -22,9 +23,26 @@ type PitchDocument = {
   type: 'pitch';
 };
 
-type AdminDocument = GuideDocument | PitchDocument;
+type ProductDocument = {
+  id: string;
+  title: string;
+  description: string;
+  type: 'product';
+  filename: string;
+  staticPdfPath: string;
+};
+
+type AdminDocument = GuideDocument | PitchDocument | ProductDocument;
 
 const documents: AdminDocument[] = [
+  {
+    id: 'quickserve-introduction',
+    title: 'Introducing QuickServe',
+    description: 'Complete A4 product profile covering POS, kitchen, ordering and every back-office function.',
+    type: 'product',
+    filename: 'introducing-quickserve-complete-product-profile.pdf',
+    staticPdfPath: '/docs/introducing-quickserve-complete-product-profile.pdf',
+  },
   {
     id: 'lan-printing-termux',
     title: 'LAN Printing Setup',
@@ -311,13 +329,21 @@ const AdminDocuments: React.FC = () => {
                   <Download size={14} /> Export PDF
                 </button>
               </div>
-            ) : (
+            ) : activeDocument.type === 'pitch' ? (
               <button
                 onClick={() => setShowPitchDeck(true)}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-orange-600"
               >
                 <ExternalLink size={14} /> Open Deck
               </button>
+            ) : (
+              <a
+                href={activeDocument.staticPdfPath}
+                download={activeDocument.filename}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-orange-600 transition-all hover:border-orange-400 dark:border-orange-800 dark:bg-orange-900/20 dark:text-orange-300"
+              >
+                <Download size={14} /> Saved A4 PDF
+              </a>
             )}
           </div>
 
@@ -325,7 +351,7 @@ const AdminDocuments: React.FC = () => {
             <article className="max-h-[72vh] space-y-4 overflow-y-auto p-5 md:p-7">
               {renderMarkdown(activeDocument.markdown)}
             </article>
-          ) : (
+          ) : activeDocument.type === 'pitch' ? (
             <div className="flex min-h-[520px] flex-col items-center justify-center p-8 text-center">
               <div className="mb-5 rounded-2xl bg-orange-100 p-5 text-orange-600 dark:bg-orange-900/30 dark:text-orange-300">
                 <Presentation size={40} />
@@ -340,6 +366,10 @@ const AdminDocuments: React.FC = () => {
               >
                 <Presentation size={15} /> Launch Pitch Deck
               </button>
+            </div>
+          ) : (
+            <div className="max-h-[76vh] overflow-y-auto">
+              <QuickServeIntroductionDocument />
             </div>
           )}
         </section>
