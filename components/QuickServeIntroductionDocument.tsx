@@ -22,6 +22,14 @@ type Story = {
   steps: Array<{ title: string; body: string }>;
   outcome: string;
   capabilities: string[];
+  visual: 'cashier' | 'kitchen' | 'customer' | 'online' | 'inventory' | 'people' | 'finance' | 'devices';
+};
+
+export type CatalogueAssets = {
+  cashier?: string;
+  customer?: string;
+  orderTaker?: string;
+  logo?: string;
 };
 
 const stories: Story[] = [
@@ -40,6 +48,7 @@ const stories: Story[] = [
     ],
     outcome: 'Customers move through the queue faster, staff follow one consistent process, and management receives a clean transaction record for reporting, stock and finance.',
     capabilities: ['Barcode & SKU', 'Saved bills', 'Table layouts', 'Cash change', 'Custom payments', 'Receipts', 'Refund approval', 'Shift closing'],
+    visual: 'cashier',
   },
   {
     number: '02',
@@ -56,6 +65,7 @@ const stories: Story[] = [
     ],
     outcome: 'Each station has an accountable queue, front-of-house can see progress, and the kitchen spends less time sorting tickets or asking what should be prepared next.',
     capabilities: ['Department routing', 'Category access', 'Live order status', 'Reject with reason', 'Auto accept', 'Auto print', 'Multi-printer workflow'],
+    visual: 'kitchen',
   },
   {
     number: '03',
@@ -72,6 +82,7 @@ const stories: Story[] = [
     ],
     outcome: 'Guests order sooner, servers spend more time on hospitality, and the business can increase ordering capacity without adding another cashier station.',
     capabilities: ['Table QR generator', 'Mobile ordering', 'Shared menu', 'Order remarks', 'Auto approval', 'Auto print', 'Kitchen integration'],
+    visual: 'customer',
   },
   {
     number: '04',
@@ -88,6 +99,7 @@ const stories: Story[] = [
     ],
     outcome: 'The business gains a direct sales channel, customers receive a clearer buying experience, and staff avoid copying orders from chat into operational systems.',
     capabilities: ['Shareable storefront', 'Online availability', 'Product options', 'Pickup', 'Lalamove', 'Postage', 'Custom delivery', 'COD'],
+    visual: 'online',
   },
   {
     number: '05',
@@ -104,6 +116,7 @@ const stories: Story[] = [
     ],
     outcome: 'Operators gain a traceable view of purchasing, production and usage, helping them respond earlier to shortages and understand the cost behind each sale.',
     capabilities: ['Purchase orders', 'Transfers', 'Adjustments', 'Counts', 'Production', 'Recipe deduction', 'Movement history', 'Valuation'],
+    visual: 'inventory',
   },
   {
     number: '06',
@@ -120,6 +133,7 @@ const stories: Story[] = [
     ],
     outcome: 'Management keeps a clearer employee record, staff receive consistent documents, and payroll and claim totals can flow into business expenses instead of being entered again.',
     capabilities: ['Role access', 'Departments', 'Leave entitlement', 'Service-year rules', 'Claims', 'Statutory deductions', 'Employer contributions', 'PDF payslips'],
+    visual: 'people',
   },
   {
     number: '07',
@@ -136,6 +150,7 @@ const stories: Story[] = [
     ],
     outcome: 'Owners can move from “we were busy” to evidence-based decisions about menu performance, staffing, costs and growth.',
     capabilities: ['Sales dashboard', 'Eight report views', 'COGS & OPEX', 'Expense ledger', 'P&L', 'Gross profit', 'Net profit', 'Monthly comparison'],
+    visual: 'finance',
   },
   {
     number: '08',
@@ -152,6 +167,7 @@ const stories: Story[] = [
     ],
     outcome: 'The organisation gains a repeatable operating model with the controls needed to support new teams and locations without rebuilding the system each time.',
     capabilities: ['Vendors & hubs', 'Subscriptions', 'Cashout', 'DuitNow admin', 'Quotations', 'Invoices', 'Announcements', 'System controls'],
+    visual: 'devices',
   },
 ];
 
@@ -164,7 +180,40 @@ const platformCards = [
   { Icon: BarChart3, label: 'Understand', copy: 'Reports, expenses and profit' },
 ];
 
-export const buildQuickServeIntroductionPdf = async () => {
+const browserAsset = async (path: string) => {
+  const response = await fetch(path);
+  if (!response.ok) throw new Error(`Unable to load ${path}`);
+  const blob = await response.blob();
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
+const loadBrowserAssets = async (): Promise<CatalogueAssets> => {
+  const [cashier, customer, orderTaker, logo] = await Promise.all([
+    browserAsset('/marketing-img/cashier-view.png'),
+    browserAsset('/marketing-img/customer-mobile-view.png'),
+    browserAsset('/marketing-img/order-taker-view.png'),
+    browserAsset('/LOGO/9.png'),
+  ]);
+  return { cashier, customer, orderTaker, logo };
+};
+
+const CatalogueVisual: React.FC<{ kind: Story['visual']; className?: string }> = ({ kind, className = '' }) => {
+  if (kind === 'cashier') return <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-50 to-slate-200 ${className}`}><div className="absolute left-5 top-5 rounded-full bg-white/90 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-orange-600 shadow">Counter POS</div><img src="/marketing-img/cashier-view.png" alt="QuickServe cashier POS on desktop" className="h-full w-full object-contain p-3 drop-shadow-2xl" /></div>;
+  if (kind === 'customer' || kind === 'online') return <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-orange-900 ${className}`}><div className="absolute left-5 top-5 z-10 rounded-full bg-orange-500 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow">{kind === 'online' ? 'Direct Online Order' : 'Scan · Browse · Order'}</div><img src="/marketing-img/customer-mobile-view.png" alt="QuickServe mobile customer ordering" className="h-full w-full object-contain p-2 drop-shadow-2xl" /></div>;
+  if (kind === 'devices') return <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-50 to-slate-200 ${className}`}><img src="/marketing-img/cashier-view.png" alt="QuickServe desktop POS" className="absolute -left-[8%] top-[4%] h-[72%] w-[75%] object-contain drop-shadow-xl" /><img src="/marketing-img/order-taker-view.png" alt="QuickServe tablet ordering" className="absolute -bottom-[4%] right-[-8%] h-[78%] w-[72%] object-contain drop-shadow-2xl" /><div className="absolute bottom-5 left-5 rounded-xl bg-slate-950 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-white">One platform · Every screen</div></div>;
+
+  if (kind === 'kitchen') return <div className={`overflow-hidden rounded-3xl bg-slate-950 p-5 text-white ${className}`}><div className="flex items-center justify-between"><div><p className="text-[9px] font-black uppercase tracking-[0.2em] text-orange-400">Kitchen Display</p><p className="mt-1 text-lg font-black">Live preparation board</p></div><span className="rounded-full bg-emerald-500/20 px-3 py-1 text-[9px] font-black text-emerald-300">4 ACTIVE</span></div><div className="mt-5 grid grid-cols-3 gap-3">{[['#A104','HOT KITCHEN','Preparing'],['#A105','DRINKS','New'],['#A106','DESSERT','Ready']].map(([order,station,status], index) => <div key={order} className="rounded-2xl bg-white p-4 text-slate-900 shadow-xl"><div className="flex justify-between gap-2"><span className="text-xs font-black">{order}</span><span className={`h-2 w-2 rounded-full ${index === 2 ? 'bg-emerald-500' : index === 1 ? 'bg-orange-500' : 'bg-blue-500'}`} /></div><p className="mt-5 text-[9px] font-black text-slate-400">{station}</p><p className="mt-1 text-xs font-black">{status}</p><div className="mt-3 h-1.5 rounded-full bg-slate-100"><div className={`h-full rounded-full bg-orange-500 ${index === 0 ? 'w-2/3' : index === 1 ? 'w-1/4' : 'w-full'}`} /></div></div>)}</div></div>;
+  if (kind === 'inventory') return <div className={`overflow-hidden rounded-3xl bg-slate-100 p-5 ${className}`}><div className="rounded-2xl bg-white p-5 shadow-xl"><div className="flex items-center justify-between"><div><p className="text-[9px] font-black uppercase tracking-widest text-orange-500">Inventory Control</p><p className="mt-1 text-lg font-black text-slate-900">Know what is moving</p></div><PackageOpen className="text-orange-500" /></div><div className="mt-5 grid grid-cols-3 gap-2">{[['RM 18,420','Stock Value'],['12','Low Stock'],['38','Movements']].map(([value,label]) => <div key={label} className="rounded-xl bg-slate-50 p-3"><p className="font-black text-slate-900">{value}</p><p className="mt-1 text-[9px] font-bold text-slate-400">{label}</p></div>)}</div><div className="mt-4 space-y-2">{[['Chicken Fillet','72%'],['Cooking Oil','34%'],['Packaging','88%']].map(([name,width]) => <div key={name} className="flex items-center gap-3"><span className="w-24 text-[10px] font-bold text-slate-600">{name}</span><div className="h-2 flex-1 rounded-full bg-slate-100"><div className="h-full rounded-full bg-orange-500" style={{ width }} /></div><span className="text-[9px] font-black text-slate-400">{width}</span></div>)}</div></div></div>;
+  if (kind === 'people') return <div className={`overflow-hidden rounded-3xl bg-orange-50 p-5 ${className}`}><div className="grid h-full grid-cols-[0.8fr_1.2fr] gap-4"><div className="rounded-2xl bg-slate-950 p-5 text-white"><Users className="text-orange-400" /><p className="mt-4 text-3xl font-black">24</p><p className="text-[10px] font-bold text-slate-400">Team members</p><div className="mt-7 space-y-2">{['Cashier','Kitchen','Order Taker','Manager'].map((role,index) => <div key={role} className="flex items-center gap-2 text-[10px] font-bold"><span className={`h-2 w-2 rounded-full ${index === 0 ? 'bg-orange-400' : 'bg-slate-600'}`} />{role}</div>)}</div></div><div className="rounded-2xl bg-white p-5 shadow-xl"><p className="text-[9px] font-black uppercase tracking-widest text-orange-500">Payroll Summary</p><div className="mt-4 flex items-end justify-between"><div><p className="text-[10px] text-slate-400">Net payroll</p><p className="text-2xl font-black text-slate-900">RM 48,260</p></div><span className="rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-black text-emerald-600">READY</span></div><div className="my-5 h-px bg-slate-100" />{[['Basic & earnings','RM 55,800'],['EPF · SOCSO · EIS','RM 6,940'],['Claims','RM 600']].map(([label,value]) => <div key={label} className="flex justify-between py-2 text-[10px]"><span className="font-bold text-slate-500">{label}</span><span className="font-black text-slate-900">{value}</span></div>)}</div></div></div>;
+  return <div className={`overflow-hidden rounded-3xl bg-slate-950 p-5 text-white ${className}`}><div className="flex items-start justify-between"><div><p className="text-[9px] font-black uppercase tracking-widest text-orange-400">Business Overview</p><p className="mt-1 text-lg font-black">Today at a glance</p></div><BarChart3 className="text-orange-400" /></div><div className="mt-5 grid grid-cols-3 gap-3">{[['RM 8,420','Net Sales'],['286','Orders'],['RM 29.44','Avg. Order']].map(([value,label]) => <div key={label} className="rounded-xl bg-white/10 p-3"><p className="font-black">{value}</p><p className="mt-1 text-[9px] text-slate-400">{label}</p></div>)}</div><div className="mt-5 flex h-28 items-end gap-2 rounded-2xl bg-white/5 px-4 pb-3 pt-5">{[38,52,44,76,61,88,72,96,81,100,90,112].map((height,index) => <div key={index} className="flex-1 rounded-t bg-gradient-to-t from-orange-600 to-orange-300" style={{ height }} />)}</div></div>;
+};
+
+export const buildQuickServeIntroductionPdf = async (assets: CatalogueAssets = {}) => {
   const { default: jsPDF } = await import('jspdf');
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
   const orange: [number, number, number] = [249, 115, 22];
@@ -205,6 +254,113 @@ export const buildQuickServeIntroductionPdf = async () => {
     return text(intro, 16, 68, 178, 9.5, slate, 'normal', 1.38);
   };
 
+  const addContainedImage = (data: string | undefined, x: number, y: number, w: number, h: number, ratio = 16 / 9) => {
+    if (!data) return;
+    let imageW = w;
+    let imageH = imageW / ratio;
+    if (imageH > h) {
+      imageH = h;
+      imageW = imageH * ratio;
+    }
+    pdf.addImage(data, 'PNG', x + (w - imageW) / 2, y + (h - imageH) / 2, imageW, imageH, undefined, 'FAST');
+  };
+
+  const drawUiVisual = (kind: Story['visual'], x: number, y: number, w: number, h: number) => {
+    if (kind === 'cashier') {
+      pdf.setFillColor(...pale);
+      pdf.roundedRect(x, y, w, h, 4, 4, 'F');
+      addContainedImage(assets.cashier, x + 3, y + 3, w - 6, h - 6, 16 / 9);
+      return;
+    }
+    if (kind === 'customer' || kind === 'online') {
+      pdf.setFillColor(...navy);
+      pdf.roundedRect(x, y, w, h, 4, 4, 'F');
+      addContainedImage(assets.customer, x + 3, y + 2, w - 6, h - 4, 1.5);
+      return;
+    }
+    if (kind === 'devices') {
+      pdf.setFillColor(...pale);
+      pdf.roundedRect(x, y, w, h, 4, 4, 'F');
+      addContainedImage(assets.cashier, x + 1, y + 1, w * 0.66, h * 0.7, 16 / 9);
+      addContainedImage(assets.orderTaker, x + w * 0.38, y + h * 0.2, w * 0.6, h * 0.78, 16 / 9);
+      return;
+    }
+
+    pdf.setFillColor(kind === 'inventory' || kind === 'people' ? 248 : 15, kind === 'inventory' || kind === 'people' ? 250 : 23, kind === 'inventory' || kind === 'people' ? 252 : 42);
+    pdf.roundedRect(x, y, w, h, 4, 4, 'F');
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(7);
+    pdf.setTextColor(...orange);
+    pdf.text(kind === 'kitchen' ? 'LIVE KITCHEN DISPLAY' : kind === 'inventory' ? 'INVENTORY CONTROL' : kind === 'people' ? 'PEOPLE & PAYROLL' : 'BUSINESS OVERVIEW', x + 8, y + 11);
+
+    if (kind === 'kitchen') {
+      [['#A104', 'HOT KITCHEN', 'PREPARING'], ['#A105', 'DRINKS', 'NEW'], ['#A106', 'DESSERT', 'READY']].forEach(([order, station, status], index) => {
+        const cardX = x + 7 + index * ((w - 18) / 3);
+        const cardW = (w - 26) / 3;
+        pdf.setFillColor(255, 255, 255);
+        pdf.roundedRect(cardX, y + 18, cardW, h - 25, 2, 2, 'F');
+        text(order, cardX + 5, y + 28, cardW - 10, 9, navy, 'bold');
+        text(station, cardX + 5, y + 39, cardW - 10, 6.2, slate, 'bold');
+        text(status, cardX + 5, y + 49, cardW - 10, 7.2, orange, 'bold');
+        pdf.setFillColor(226, 232, 240);
+        pdf.roundedRect(cardX + 5, y + h - 12, cardW - 10, 2, 1, 1, 'F');
+        pdf.setFillColor(...orange);
+        pdf.roundedRect(cardX + 5, y + h - 12, (cardW - 10) * (index === 0 ? 0.65 : index === 1 ? 0.3 : 1), 2, 1, 1, 'F');
+      });
+      return;
+    }
+
+    if (kind === 'inventory') {
+      [['RM 18,420', 'STOCK VALUE'], ['12', 'LOW STOCK'], ['38', 'MOVEMENTS']].forEach(([value, label], index) => {
+        const cardX = x + 7 + index * ((w - 18) / 3);
+        const cardW = (w - 26) / 3;
+        pdf.setFillColor(255, 255, 255);
+        pdf.roundedRect(cardX, y + 17, cardW, 19, 2, 2, 'F');
+        text(value, cardX + 4, y + 26, cardW - 8, 8, navy, 'bold');
+        text(label, cardX + 4, y + 32, cardW - 8, 5.6, slate, 'bold');
+      });
+      [['Chicken Fillet', 0.72], ['Cooking Oil', 0.34], ['Packaging', 0.88]].forEach(([label, percent], index) => {
+        const lineY = y + 46 + index * 9;
+        text(String(label), x + 8, lineY, 36, 6.5, slate, 'bold');
+        pdf.setFillColor(226, 232, 240);
+        pdf.roundedRect(x + 49, lineY - 2, w - 62, 2.5, 1, 1, 'F');
+        pdf.setFillColor(...orange);
+        pdf.roundedRect(x + 49, lineY - 2, (w - 62) * Number(percent), 2.5, 1, 1, 'F');
+      });
+      return;
+    }
+
+    if (kind === 'people') {
+      pdf.setFillColor(...navy);
+      pdf.roundedRect(x + 7, y + 17, w * 0.33, h - 24, 2, 2, 'F');
+      text('24', x + 13, y + 31, 36, 18, [255, 255, 255], 'bold');
+      text('TEAM MEMBERS', x + 13, y + 40, 36, 6, [148, 163, 184], 'bold');
+      ['Cashier', 'Kitchen', 'Order Taker', 'Manager'].forEach((role, index) => text(role, x + 13, y + 51 + index * 6, 35, 6.2, [203, 213, 225], 'bold'));
+      pdf.setFillColor(255, 255, 255);
+      pdf.roundedRect(x + w * 0.38, y + 17, w * 0.57, h - 24, 2, 2, 'F');
+      text('NET PAYROLL', x + w * 0.43, y + 28, w * 0.45, 6, slate, 'bold');
+      text('RM 48,260', x + w * 0.43, y + 39, w * 0.45, 13, navy, 'bold');
+      [['Basic & earnings', 'RM 55,800'], ['Statutory', 'RM 6,940'], ['Claims', 'RM 600']].forEach(([label, value], index) => {
+        text(label, x + w * 0.43, y + 50 + index * 8, w * 0.27, 6, slate);
+        pdf.setFont('helvetica', 'bold'); pdf.setFontSize(6); pdf.setTextColor(...navy); pdf.text(value, x + w * 0.9, y + 50 + index * 8, { align: 'right' });
+      });
+      return;
+    }
+
+    [['RM 8,420', 'NET SALES'], ['286', 'ORDERS'], ['RM 29.44', 'AVG ORDER']].forEach(([value, label], index) => {
+      const cardX = x + 7 + index * ((w - 18) / 3);
+      const cardW = (w - 26) / 3;
+      pdf.setFillColor(30, 41, 59);
+      pdf.roundedRect(cardX, y + 17, cardW, 19, 2, 2, 'F');
+      text(value, cardX + 4, y + 26, cardW - 8, 8, [255, 255, 255], 'bold');
+      text(label, cardX + 4, y + 32, cardW - 8, 5.6, [148, 163, 184], 'bold');
+    });
+    [13, 20, 15, 30, 23, 36, 28, 43, 34, 48, 39, 52].forEach((bar, index) => {
+      pdf.setFillColor(249, 115 + Math.min(index * 3, 60), 22);
+      pdf.roundedRect(x + 9 + index * ((w - 20) / 12), y + h - 8 - bar * 0.55, (w - 30) / 12, bar * 0.55, 1, 1, 'F');
+    });
+  };
+
   // Cover
   pdf.setFillColor(...navy);
   pdf.rect(0, 0, 210, 297, 'F');
@@ -212,6 +368,7 @@ export const buildQuickServeIntroductionPdf = async () => {
   pdf.circle(181, 30, 48, 'F');
   pdf.setFillColor(30, 41, 59);
   pdf.circle(201, 130, 67, 'F');
+  addContainedImage(assets.cashier, 67, 153, 140, 91, 16 / 9);
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(18);
   pdf.setTextColor(255, 255, 255);
@@ -310,32 +467,37 @@ export const buildQuickServeIntroductionPdf = async () => {
 
   stories.forEach((story, index) => {
     pdf.addPage();
-    const top = heading(`${story.number} / ${story.eyebrow}`, story.title, story.promise) + 6;
+    const top = heading(`${story.number} / ${story.eyebrow}`, story.title, story.promise) + 4;
+    drawUiVisual(story.visual, 16, top, 178, 67);
+    const situationY = top + 73;
     pdf.setFillColor(...navy);
-    pdf.roundedRect(16, top, 178, 42, 4, 4, 'F');
-    text(story.situationTitle.toUpperCase(), 25, top + 12, 156, 7.5, [253, 186, 116], 'bold');
-    text(story.situation, 25, top + 23, 158, 8.6, [255, 255, 255], 'normal', 1.32);
-    y = top + 54;
-    text('HOW QUICKSERVE HANDLES IT', 16, y, 178, 8, orange, 'bold');
-    y += 10;
+    pdf.roundedRect(16, situationY, 178, 31, 3, 3, 'F');
+    text(story.situationTitle.toUpperCase(), 24, situationY + 10, 40, 6.5, [253, 186, 116], 'bold');
+    text(story.situation, 66, situationY + 9, 120, 7.1, [255, 255, 255], 'normal', 1.16);
+    y = situationY + 40;
+    text('HOW QUICKSERVE HANDLES IT', 16, y, 178, 7.5, orange, 'bold');
+    y += 8;
     story.steps.forEach((step, stepIndex) => {
+      const col = stepIndex % 2;
+      const row = Math.floor(stepIndex / 2);
+      const cardX = 16 + col * 91;
+      const cardY = y + row * 24;
+      pdf.setFillColor(248, 250, 252);
+      pdf.roundedRect(cardX, cardY, 87, 20, 2, 2, 'F');
       pdf.setFillColor(...pale);
-      pdf.circle(23, y + 2, 5, 'F');
+      pdf.circle(cardX + 8, cardY + 7, 4, 'F');
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(8);
+      pdf.setFontSize(7);
       pdf.setTextColor(...orange);
-      pdf.text(String(stepIndex + 1), 23, y + 4, { align: 'center' });
-      text(step.title, 33, y, 151, 9.5, navy, 'bold');
-      const next = text(step.body, 33, y + 7, 151, 7.8, slate, 'normal', 1.25);
-      y = next + 5;
+      pdf.text(String(stepIndex + 1), cardX + 8, cardY + 9, { align: 'center' });
+      text(step.title, cardX + 15, cardY + 6, 65, 7.2, navy, 'bold', 1.03);
+      text(`${step.body.split('.')[0]}.`, cardX + 15, cardY + 12, 65, 5.6, slate, 'normal', 1.05);
     });
+    y += 52;
     pdf.setFillColor(240, 253, 244);
-    pdf.roundedRect(16, y, 178, 29, 3, 3, 'F');
-    text('THE BUSINESS RESULT', 25, y + 10, 155, 7.5, [22, 101, 52], 'bold');
-    text(story.outcome, 25, y + 19, 157, 8, [22, 101, 52], 'normal', 1.25);
-    const chipsY = Math.min(y + 39, 269);
-    text('INCLUDED CAPABILITIES', 16, chipsY, 178, 7, orange, 'bold');
-    text(story.capabilities.join('  •  '), 16, chipsY + 8, 178, 7.2, slate, 'bold', 1.2);
+    pdf.roundedRect(16, y, 178, 24, 3, 3, 'F');
+    text('THE BUSINESS RESULT', 24, y + 9, 38, 6.2, [22, 101, 52], 'bold');
+    text(story.outcome, 64, y + 8, 122, 6.6, [22, 101, 52], 'normal', 1.12);
     footer(index + 4);
   });
 
@@ -394,7 +556,8 @@ const QuickServeIntroductionDocument: React.FC = () => {
   const exportPdf = async () => {
     setIsExporting(true);
     try {
-      const pdf = await buildQuickServeIntroductionPdf();
+      const assets = await loadBrowserAssets();
+      const pdf = await buildQuickServeIntroductionPdf(assets);
       pdf.save('introducing-quickserve-commercial-product-profile.pdf');
     } finally {
       setIsExporting(false);
@@ -417,6 +580,7 @@ const QuickServeIntroductionDocument: React.FC = () => {
         <section className="relative aspect-[210/297] min-h-[620px] overflow-hidden rounded-sm bg-slate-950 p-[7%] text-white shadow-2xl">
           <div className="absolute -right-[12%] -top-[8%] h-[32%] w-[45%] rounded-full bg-orange-500" />
           <div className="absolute -right-[18%] top-[24%] h-[42%] w-[52%] rounded-full bg-slate-800" />
+          <img src="/marketing-img/cashier-view.png" alt="QuickServe desktop POS" className="absolute bottom-[12%] right-[-5%] z-[1] w-[75%] drop-shadow-2xl" />
           <div className="relative z-10 flex h-full flex-col">
             <div className="text-2xl font-black tracking-tighter">QUICK<span className="text-orange-500">SERVE</span></div>
             <h1 className="mt-[18%] max-w-[86%] text-[clamp(2rem,6vw,4.5rem)] font-black leading-[0.95] tracking-tighter">From order<br />to insight.<br /><span className="text-orange-400">One connected flow.</span></h1>
@@ -450,6 +614,11 @@ const QuickServeIntroductionDocument: React.FC = () => {
           <div className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-3">
             {platformCards.map(({ Icon, label, copy }) => <div key={label} className="rounded-2xl border border-orange-100 bg-white p-5 shadow-sm"><Icon className="text-orange-500" size={24} /><h3 className="mt-4 font-black text-slate-900">{label}</h3><p className="mt-1 text-xs leading-relaxed text-slate-500">{copy}</p></div>)}
           </div>
+          <div className="relative mt-7 h-64 overflow-hidden rounded-3xl border border-orange-100 bg-gradient-to-br from-white to-slate-200 shadow-xl">
+            <img src="/marketing-img/cashier-view.png" alt="QuickServe desktop cashier" className="absolute -left-[4%] top-[3%] h-[75%] w-[70%] object-contain drop-shadow-xl" />
+            <img src="/marketing-img/order-taker-view.png" alt="QuickServe tablet order taker" className="absolute -bottom-[8%] right-[-6%] h-[78%] w-[62%] object-contain drop-shadow-2xl" />
+            <img src="/marketing-img/customer-mobile-view.png" alt="QuickServe customer mobile ordering" className="absolute bottom-[-12%] left-[34%] h-[62%] w-[38%] object-contain drop-shadow-2xl" />
+          </div>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-slate-900 p-6 text-white">
             {['Order', 'Route', 'Prepare', 'Pay', 'Record'].map((item, index) => <React.Fragment key={item}><span className="font-black">{item}</span>{index < 4 && <ArrowRight className="text-orange-400" size={16} />}</React.Fragment>)}
           </div>
@@ -460,6 +629,7 @@ const QuickServeIntroductionDocument: React.FC = () => {
             <p className="text-xs font-black uppercase tracking-[0.24em] text-orange-500">{story.number} / {story.eyebrow}</p>
             <h2 className="mt-3 text-3xl font-black tracking-tighter text-slate-900 md:text-5xl">{story.title}</h2>
             <p className="mt-4 text-base font-bold leading-relaxed text-orange-600">{story.promise}</p>
+            <CatalogueVisual kind={story.visual} className="mt-6 h-64 md:h-80" />
             <div className="mt-6 rounded-3xl bg-slate-900 p-6 text-white">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">{story.situationTitle}</p>
               <p className="mt-3 text-sm font-medium leading-relaxed text-slate-200 md:text-base">{story.situation}</p>
