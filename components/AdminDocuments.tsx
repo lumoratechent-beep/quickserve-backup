@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { BookOpen, Download, ExternalLink, FileText, Presentation, Search } from 'lucide-react';
 import PitchDeck from './PitchDeck';
-import QuickServeIntroductionDocument from './QuickServeIntroductionDocument';
 import lanPrintingGuide from '../docs/LAN_PRINTING_TERMUX_SETUP.md?raw';
 import wifiPrintingGuide from '../docs/WIFI_PRINTING_TERMUX_SETUP.md?raw';
 import sunmiGuide from '../docs/SUNMI_V2_INTEGRATION.md?raw';
@@ -368,8 +367,12 @@ const AdminDocuments: React.FC = () => {
               </button>
             </div>
           ) : (
-            <div className="max-h-[76vh] overflow-y-auto">
-              <QuickServeIntroductionDocument />
+            <div className="h-[76vh] min-h-[620px] bg-gray-100 dark:bg-gray-950">
+              <iframe
+                src={`${activeDocument.staticPdfPath}?v=20260714-analytics#view=FitH&toolbar=1`}
+                title={`${activeDocument.title} PDF preview`}
+                className="h-full w-full border-0"
+              />
             </div>
           )}
         </section>

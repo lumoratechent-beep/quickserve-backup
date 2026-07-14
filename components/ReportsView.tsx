@@ -155,6 +155,52 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
     URL.revokeObjectURL(url);
   };
 
+  const handleExportExcel = () => {
+    const escapeCell = (value: string | number) => String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+    const row = (cells: Array<string | number>, header = false) => `<tr>${cells.map(cell => `<${header ? 'th' : 'td'}>${escapeCell(cell)}</${header ? 'th' : 'td'}>`).join('')}</tr>`;
+    const workbook = `<!DOCTYPE html>
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+        <head><meta charset="UTF-8"><style>
+          body{font-family:Arial,sans-serif;color:#1f2937} h1{color:#d97706} h2{margin-top:24px;color:#374151}
+          table{border-collapse:collapse;margin-bottom:18px} th{background:#d97706;color:#fff} th,td{border:1px solid #d1d5db;padding:7px 10px;text-align:left} td.number{text-align:right}
+        </style></head><body>
+          <h1>QuickServe Advanced Analytics Report</h1>
+          <p>Report period: ${escapeCell(customStart)} to ${escapeCell(customEnd)}</p>
+          <p>Generated: ${escapeCell(new Date().toLocaleString())}</p>
+          <h2>Sales Summary</h2><table>
+            ${row(['Metric', 'Value'], true)}
+            ${row(['Gross Sales', salesSummary.totalRevenue.toFixed(2)])}
+            ${row(['Net Sales', salesSummary.netSales.toFixed(2)])}
+            ${row(['Orders', salesSummary.totalOrders])}
+            ${row(['Average Order Value', salesSummary.avgOrder.toFixed(2)])}
+            ${row(['Refunds / Cancelled', salesSummary.refunds.toFixed(2)])}
+          </table>
+          <h2>Advanced Item Report</h2><table>
+            ${row(['Item', 'Quantity Sold', 'Revenue', 'Average Price'], true)}
+            ${salesByItem.map(item => row([item.name, item.quantity, item.revenue.toFixed(2), item.avgPrice.toFixed(2)])).join('')}
+          </table>
+          <h2>Sales by Category</h2><table>
+            ${row(['Category', 'Items Sold', 'Orders', 'Revenue'], true)}
+            ${salesByCategory.map(item => row([item.name, item.itemsSold, item.orderCount, item.revenue.toFixed(2)])).join('')}
+          </table>
+          <h2>Sales by Payment Method</h2><table>
+            ${row(['Payment Method', 'Transactions', 'Revenue', 'Percentage'], true)}
+            ${salesByPayment.map(item => row([item.name, item.transactions, item.revenue.toFixed(2), `${item.percentage.toFixed(1)}%`])).join('')}
+          </table>
+        </body></html>`;
+    const blob = new Blob(['\ufeff', workbook], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `advanced_analytics_${customStart}_${customEnd}.xls`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleExportPDF = async () => {
     const { default: jsPDF } = await import('jspdf');
     const { default: autoTable } = await import('jspdf-autotable');
@@ -559,8 +605,9 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
             </div>
           </div>
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
           <button onClick={handleExportCSV} className="flex-1 md:flex-none px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-amber-600 transition-all"><Download size={16} /> Export CSV</button>
+          <button onClick={handleExportExcel} className="flex-1 md:flex-none px-6 py-2 bg-emerald-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all"><FileText size={16} /> Export Excel</button>
           <button onClick={handleExportPDF} className="flex-1 md:flex-none px-6 py-2 bg-red-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-700 transition-all"><FileText size={16} /> Download PDF</button>
         </div>
       </div>
