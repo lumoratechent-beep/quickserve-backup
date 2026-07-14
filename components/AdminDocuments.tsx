@@ -38,10 +38,10 @@ const documents: AdminDocument[] = [
   {
     id: 'quickserve-introduction',
     title: 'Introducing QuickServe',
-    description: 'Complete A4 product profile covering POS, kitchen, ordering and every back-office function.',
+    description: 'Commercial company profile explaining real customer situations, connected workflows and business outcomes.',
     type: 'product',
-    filename: 'introducing-quickserve-complete-product-profile.pdf',
-    staticPdfPath: '/docs/introducing-quickserve-complete-product-profile.pdf',
+    filename: 'introducing-quickserve-commercial-product-profile.pdf',
+    staticPdfPath: '/docs/introducing-quickserve-commercial-product-profile.pdf',
   },
   {
     id: 'lan-printing-termux',

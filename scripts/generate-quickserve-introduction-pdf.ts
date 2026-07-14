@@ -5,7 +5,7 @@ import { buildQuickServeIntroductionPdf } from '../components/QuickServeIntroduc
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const outputDirectory = resolve(scriptDirectory, '../public/docs');
-const outputPath = resolve(outputDirectory, 'introducing-quickserve-complete-product-profile.pdf');
+const outputPath = resolve(outputDirectory, 'introducing-quickserve-commercial-product-profile.pdf');
 
 mkdirSync(outputDirectory, { recursive: true });
 
