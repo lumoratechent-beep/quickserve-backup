@@ -369,7 +369,7 @@ const AdminDocuments: React.FC = () => {
           ) : (
             <div className="h-[76vh] min-h-[620px] bg-gray-100 dark:bg-gray-950">
               <iframe
-                src={`${activeDocument.staticPdfPath}?v=20260714-analytics#view=FitH&toolbar=1`}
+                src={`${activeDocument.staticPdfPath}?v=20260714-friendly-catalogue#view=FitH&toolbar=1`}
                 title={`${activeDocument.title} PDF preview`}
                 className="h-full w-full border-0"
               />

@@ -174,12 +174,12 @@ const stories: Story[] = [
 ];
 
 const platformCards = [
-  { Icon: ShoppingCart, label: 'Sell', copy: 'POS, billing and payments' },
-  { Icon: Workflow, label: 'Route', copy: 'Kitchen departments and automation' },
-  { Icon: QrCode, label: 'Reach', copy: 'QR, tableside and online ordering' },
-  { Icon: PackageOpen, label: 'Control', copy: 'Stock, recipes and production' },
-  { Icon: Users, label: 'Manage', copy: 'Staff, payroll, claims and leave' },
-  { Icon: BarChart3, label: 'Understand', copy: 'Reports, expenses and profit' },
+  { Icon: ShoppingCart, label: 'Sell', copy: 'Build dine-in, takeaway and delivery bills, apply pricing rules and collect payment.' },
+  { Icon: Workflow, label: 'Route', copy: 'Send each ordered item automatically to the responsible kitchen station or printer.' },
+  { Icon: QrCode, label: 'Reach', copy: 'Accept counter, table QR, staff tablet and online-shop orders in one operation.' },
+  { Icon: PackageOpen, label: 'Control', copy: 'Connect sales with ingredients, purchasing, production, stock counts and valuation.' },
+  { Icon: Users, label: 'Manage', copy: 'Maintain staff access, shifts, payroll, statutory deductions, claims, leave and payslips.' },
+  { Icon: BarChart3, label: 'Understand', copy: 'Turn transactions into dashboards, item reports, exports, expenses, P&L and profit insight.' },
 ];
 
 const advantages = [
@@ -464,6 +464,18 @@ export const buildQuickServeIntroductionPdf = async (assets: CatalogueAssets = {
   pdf.setFontSize(8);
   pdf.setTextColor(255, 255, 255);
   pdf.text('COMMERCIAL PRODUCT PROFILE', 56.5, 193.6, { align: 'center' });
+  const coverPromises = [
+    ['ONE ORDER FLOW', 'Counter, QR, tableside and online orders'],
+    ['ONE OPERATING TEAM', 'Cashier, kitchen, manager and owner'],
+    ['ONE BUSINESS VIEW', 'Sales, stock, staff, expenses and finance'],
+  ];
+  coverPromises.forEach(([label, copy], index) => {
+    const x = 17 + index * 59;
+    pdf.setFillColor(30, 41, 59);
+    pdf.roundedRect(x, 211, 54, 27, 3, 3, 'F');
+    text(label, x + 5, 221, 44, 6.5, [253, 186, 116], 'bold');
+    text(copy, x + 5, 229, 44, 7, [203, 213, 225], 'normal', 1.15);
+  });
   pdf.setDrawColor(71, 85, 105);
   pdf.line(17, 252, 193, 252);
   text('POS  /  KITCHEN  /  ORDERING  /  STOCK  /  PEOPLE  /  FINANCE', 17, 263, 176, 8, [148, 163, 184], 'bold');
@@ -473,17 +485,17 @@ export const buildQuickServeIntroductionPdf = async (assets: CatalogueAssets = {
 
   // About us
   pdf.addPage();
-  let y = heading('ABOUT US', 'Practical technology, built around real business work.', 'QuickServe is developed by Lumora Tech Ent., a Malaysian technology company focused on making digital transformation useful, approachable and commercially meaningful.');
+  let y = heading('ABOUT US', 'Practical technology, built around real business work.', 'QuickServe is developed by Lumora Tech Ent., a Malaysian technology company. We turn the daily work of taking orders, preparing food and managing a business into one clear, connected experience.');
   y += 10;
   pdf.setFillColor(...navy);
   pdf.roundedRect(16, y, 178, 49, 4, 4, 'F');
   text('OUR STORY', 25, y + 13, 150, 8, [253, 186, 116], 'bold');
-  text('Lumora Tech began as a trusted device service provider. Working close to customers taught us that good technology is not defined by complexity—it is defined by how reliably it solves everyday problems.', 25, y + 24, 158, 10, [255, 255, 255], 'normal', 1.4);
+  text('Lumora Tech began as a trusted device service provider. Working closely with business owners taught us a simple lesson: good technology should reduce everyday pressure, not add another complicated process. QuickServe brings that lesson into restaurant operations.', 25, y + 24, 158, 9.4, [255, 255, 255], 'normal', 1.34);
   y += 62;
   const values = [
-    ['Our mission', 'Remove barriers for businesses with affordable, reliable systems that help teams do their best work every day.'],
-    ['Our vision', 'Build smarter local businesses through practical digital tools that can grow with them.'],
-    ['Our promise', 'Stay responsive, transparent and committed to improvements that create clear customer value.'],
+    ['Our mission', 'Make powerful restaurant operations accessible, so teams can serve faster, work with confidence and grow with better control.'],
+    ['Our vision', 'Help local businesses become more connected, data-informed and ready to scale without losing the human side of service.'],
+    ['Our promise', 'Provide practical tools, clear support and continuous improvements that create measurable value in daily operations.'],
   ];
   values.forEach(([title, body], index) => {
     pdf.setFillColor(index % 2 === 0 ? 248 : 255, index % 2 === 0 ? 250 : 255, index % 2 === 0 ? 252 : 255);
@@ -538,8 +550,9 @@ export const buildQuickServeIntroductionPdf = async (assets: CatalogueAssets = {
     pdf.text(item, x, 242, { align: 'center' });
   });
   pdf.setFillColor(...navy);
-  pdf.roundedRect(16, 253, 178, 20, 3, 3, 'F');
-  text('One transaction can guide the kitchen, update stock and become part of the business report—without being entered three times.', 24, 264, 162, 9, [255, 255, 255], 'bold');
+  pdf.roundedRect(16, 251, 178, 24, 3, 3, 'F');
+  text('SEE IT IN ONE ORDER', 24, 260, 38, 6.5, [253, 186, 116], 'bold');
+  text('Table 12 scans the QR menu. Drinks route to the drinks station, mains to the hot kitchen, payment closes the bill, and the sale updates stock and reports automatically.', 64, 258, 121, 7.1, [255, 255, 255], 'normal', 1.18);
   footer(3);
 
   const drawStoryPage = (story: Story, pageNumber: number) => {
@@ -590,15 +603,15 @@ export const buildQuickServeIntroductionPdf = async (assets: CatalogueAssets = {
     pdf.text(part.toUpperCase(), 17, 34);
     text(title, 17, 62, 158, 34, [255, 255, 255], 'bold', 1.02);
     text(description, 17, 102, 150, 13, [203, 213, 225], 'normal', 1.45);
-    let labelY = 159;
+    let labelY = 151;
     labels.forEach((label, index) => {
       pdf.setFillColor(30, 41, 59);
-      pdf.roundedRect(17, labelY, 176, 18, 3, 3, 'F');
+      pdf.roundedRect(17, labelY, 176, 23, 3, 3, 'F');
       pdf.setFillColor(...orange);
-      pdf.circle(27, labelY + 9, 4, 'F');
-      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7); pdf.setTextColor(255, 255, 255); pdf.text(String(index + 1), 27, labelY + 11, { align: 'center' });
-      text(label, 37, labelY + 11, 145, 9, [255, 255, 255], 'bold');
-      labelY += 23;
+      pdf.circle(27, labelY + 11.5, 4, 'F');
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7); pdf.setTextColor(255, 255, 255); pdf.text(String(index + 1), 27, labelY + 13.5, { align: 'center' });
+      text(label, 37, labelY + 9, 145, 8, [255, 255, 255], 'bold', 1.18);
+      labelY += 27;
     });
     pdf.setFontSize(7); pdf.setTextColor(100, 116, 139); pdf.text(`QUICKSERVE  /  ${String(pageNumber).padStart(2, '0')}`, 17, 281);
   };
@@ -625,7 +638,7 @@ export const buildQuickServeIntroductionPdf = async (assets: CatalogueAssets = {
   text('The QuickServe difference: operational depth at a practical starting price, with room to add workflow complexity when the business is ready.', 22, 269, 166, 7, orange, 'bold');
   footer(4);
 
-  drawPartDivider('Part 1', 'POS & Service Operations', 'Everything that happens from the customer’s first order to kitchen fulfilment, payment and completion.', ['Counter POS & billing', 'QR and tableside ordering', 'Kitchen routing, KDS & Auto Kitchen', 'Online shop, printing and service controls'], 5);
+  drawPartDivider('Part 1', 'POS & Service Operations', 'Everything that happens from the customer’s first order to kitchen fulfilment, payment and completion.', ['Take orders quickly at the counter with flexible menus, billing and payments.', 'Let guests scan a QR or staff order tableside without duplicate entry.', 'Route food, drinks and desserts to the correct kitchen team automatically.', 'Extend service online, print where needed and keep every order connected.'], 5);
   stories.slice(0, 4).forEach((story, index) => drawStoryPage(story, 6 + index));
 
   // Plan comparison
@@ -660,7 +673,7 @@ export const buildQuickServeIntroductionPdf = async (assets: CatalogueAssets = {
   text('Prices shown in Malaysian Ringgit. Annual price is the monthly equivalent when billed annually.', 16, 270, 178, 6.5, slate);
   footer(10);
 
-  drawPartDivider('Part 2', 'Back Office & Business Control', 'The management layer behind every sale—designed to help owners control products, stock, people, cost and performance.', ['Dashboard, items & catalogue', 'Inventory, purchasing & production', 'Staff, payroll, claims & leave', 'Reports, expenses, finance, contacts & shifts'], 11);
+  drawPartDivider('Part 2', 'Back Office & Business Control', 'The management layer behind every sale—designed to help owners control products, stock, people, cost and performance.', ['See the business through live dashboards, item analytics and custom periods.', 'Manage purchasing, recipes, production, stock counts and valuation.', 'Run staff records, payroll, claims, leave, payslips and cashier shifts.', 'Understand sales, COGS, expenses, profit and loss, and exportable reports.'], 11);
   stories.slice(4).forEach((story, index) => drawStoryPage(story, 12 + index));
 
   // Shift management spotlight
@@ -819,23 +832,30 @@ const QuickServeIntroductionDocument: React.FC = () => {
             <div className="text-2xl font-black tracking-tighter">QUICK<span className="text-orange-500">SERVE</span></div>
             <h1 className="mt-[18%] max-w-[86%] text-[clamp(2rem,6vw,4.5rem)] font-black leading-[0.95] tracking-tighter">Run every order.<br />Connect every team.<br /><span className="text-orange-400">Know your business.</span></h1>
             <p className="mt-8 max-w-xl text-base font-medium leading-relaxed text-slate-300 md:text-xl">A complete restaurant operating platform for POS, kitchen, ordering, stock, people and finance.</p>
-            <div className="mt-auto border-t border-slate-700 pt-6 text-[10px] font-black uppercase tracking-[0.24em] text-slate-400 md:text-xs">A product by Lumora Tech Ent. · Malaysia</div>
+            <div className="mt-auto grid grid-cols-3 gap-3">
+              {[
+                ['ONE ORDER FLOW', 'Counter, QR, tableside and online orders'],
+                ['ONE OPERATING TEAM', 'Cashier, kitchen, manager and owner'],
+                ['ONE BUSINESS VIEW', 'Sales, stock, staff, expenses and finance'],
+              ].map(([label, copy]) => <div key={label} className="rounded-2xl bg-white/5 p-4"><p className="text-[9px] font-black tracking-wider text-orange-300">{label}</p><p className="mt-2 text-[10px] leading-relaxed text-slate-300 md:text-xs">{copy}</p></div>)}
+            </div>
+            <div className="mt-5 border-t border-slate-700 pt-6 text-[10px] font-black uppercase tracking-[0.24em] text-slate-400 md:text-xs">A product by Lumora Tech Ent. · Malaysia</div>
           </div>
         </section>
 
         <section className="min-h-[720px] rounded-sm bg-white p-[7%] shadow-2xl md:min-h-[980px]">
           <p className="text-xs font-black uppercase tracking-[0.24em] text-orange-500">About us</p>
           <h2 className="mt-4 text-4xl font-black tracking-tighter text-slate-900 md:text-6xl">Practical technology, built around real business work.</h2>
-          <p className="mt-5 max-w-3xl text-base font-medium leading-relaxed text-slate-600 md:text-lg">QuickServe is developed by Lumora Tech Ent., a Malaysian technology company focused on making digital transformation useful, approachable and commercially meaningful.</p>
+          <p className="mt-5 max-w-3xl text-base font-medium leading-relaxed text-slate-600 md:text-lg">QuickServe is developed by Lumora Tech Ent., a Malaysian technology company. We turn the daily work of taking orders, preparing food and managing a business into one clear, connected experience.</p>
           <div className="mt-8 rounded-3xl bg-slate-900 p-7 text-white md:p-10">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-400">Our story</p>
-            <p className="mt-4 text-lg font-medium leading-relaxed text-slate-200 md:text-2xl">Lumora Tech began as a trusted device service provider. Working close to customers taught us that good technology is not defined by complexity—it is defined by how reliably it solves everyday problems.</p>
+            <p className="mt-4 text-lg font-medium leading-relaxed text-slate-200 md:text-2xl">Lumora Tech began as a trusted device service provider. Working closely with business owners taught us a simple lesson: good technology should reduce everyday pressure, not add another complicated process. QuickServe brings that lesson into restaurant operations.</p>
           </div>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {[
-              ['Mission', 'Remove barriers with affordable, reliable systems that help teams do their best work.'],
-              ['Vision', 'Build smarter local businesses through practical digital tools that grow with them.'],
-              ['Promise', 'Stay responsive, transparent and committed to improvements that create real value.'],
+              ['Mission', 'Make powerful restaurant operations accessible, so teams can serve faster and grow with better control.'],
+              ['Vision', 'Help local businesses become connected, data-informed and ready to scale without losing the human side of service.'],
+              ['Promise', 'Provide practical tools, clear support and continuous improvements that create measurable value every day.'],
             ].map(([title, copy]) => <div key={title} className="rounded-2xl bg-orange-50 p-5"><ShieldCheck className="text-orange-500" size={22} /><h3 className="mt-4 font-black text-slate-900">{title}</h3><p className="mt-2 text-sm leading-relaxed text-slate-600">{copy}</p></div>)}
           </div>
           <div className="mt-7 border-t border-slate-200 pt-5 text-sm font-bold text-slate-500">Lumora Tech Ent. · SSM JR0174591U · Malaysia · lumoratech.ent@gmail.com</div>
@@ -851,6 +871,7 @@ const QuickServeIntroductionDocument: React.FC = () => {
           <div className="mt-9 flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-slate-900 p-6 text-white">
             {['Order', 'Route', 'Prepare', 'Pay', 'Record'].map((item, index) => <React.Fragment key={item}><span className="font-black">{item}</span>{index < 4 && <ArrowRight className="text-orange-400" size={16} />}</React.Fragment>)}
           </div>
+          <div className="mt-4 rounded-2xl bg-slate-900 p-5 text-white"><p className="text-[10px] font-black uppercase tracking-widest text-orange-300">See it in one order</p><p className="mt-2 text-sm leading-relaxed text-slate-200">Table 12 scans the QR menu. Drinks route to the drinks station, mains to the hot kitchen, payment closes the bill, and the sale updates stock and reports automatically.</p></div>
         </section>
 
         <section className="min-h-[720px] rounded-sm bg-white p-[7%] shadow-2xl md:min-h-[980px]">
@@ -863,7 +884,7 @@ const QuickServeIntroductionDocument: React.FC = () => {
           </div>
         </section>
 
-        <section className="relative min-h-[720px] overflow-hidden rounded-sm bg-slate-950 p-[7%] text-white shadow-2xl md:min-h-[980px]"><div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-orange-500" /><div className="relative z-10"><p className="text-sm font-black uppercase tracking-[0.3em] text-orange-400">Part 1</p><h2 className="mt-8 max-w-2xl text-6xl font-black tracking-tighter md:text-8xl">POS & Service Operations</h2><p className="mt-7 max-w-xl text-xl font-medium leading-relaxed text-slate-300">Everything from the customer’s first order to kitchen fulfilment, payment and completion.</p><div className="mt-16 grid gap-3 md:grid-cols-2">{['Counter POS & billing','QR and tableside ordering','Kitchen routing, KDS & Auto Kitchen','Online shop, printing and service controls'].map((item,index) => <div key={item} className="flex items-center gap-4 rounded-2xl bg-white/5 p-5"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-500 text-xs font-black">{index+1}</span><span className="font-black">{item}</span></div>)}</div></div></section>
+        <section className="relative min-h-[720px] overflow-hidden rounded-sm bg-slate-950 p-[7%] text-white shadow-2xl md:min-h-[980px]"><div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-orange-500" /><div className="relative z-10"><p className="text-sm font-black uppercase tracking-[0.3em] text-orange-400">Part 1</p><h2 className="mt-8 max-w-2xl text-6xl font-black tracking-tighter md:text-8xl">POS & Service Operations</h2><p className="mt-7 max-w-xl text-xl font-medium leading-relaxed text-slate-300">Everything from the customer’s first order to kitchen fulfilment, payment and completion.</p><div className="mt-16 grid gap-3 md:grid-cols-2">{['Take orders quickly at the counter with flexible menus, billing and payments.','Let guests scan a QR or staff order tableside without duplicate entry.','Route food, drinks and desserts to the correct kitchen team automatically.','Extend service online, print where needed and keep every order connected.'].map((item,index) => <div key={item} className="flex items-center gap-4 rounded-2xl bg-white/5 p-5"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-xs font-black">{index+1}</span><span className="text-sm font-bold leading-relaxed">{item}</span></div>)}</div></div></section>
 
         {stories.slice(0, 4).map(renderStory)}
 
@@ -875,7 +896,7 @@ const QuickServeIntroductionDocument: React.FC = () => {
           <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200"><div className="grid grid-cols-[1.5fr_repeat(3,0.7fr)] bg-slate-950 px-4 py-3 text-[10px] font-black uppercase text-white"><span>Workflow</span><span>Basic</span><span className="text-orange-400">Pro</span><span>Pro Plus</span></div>{[['Counter POS',1,1,1],['Back office & reports',1,1,1],['QR ordering',0,1,1],['Tableside ordering',0,1,1],['Kitchen Display System',0,0,1],['Kitchen department routing',0,0,1]].map((row,index) => <div key={String(row[0])} className={`grid grid-cols-[1.5fr_repeat(3,0.7fr)] px-4 py-3 text-xs ${index%2===0?'bg-slate-50':'bg-white'}`}><span className="font-bold text-slate-700">{row[0]}</span>{row.slice(1).map((value,i)=><span key={i} className={value?'font-black text-emerald-500':'text-slate-300'}>{value?'Included':'—'}</span>)}</div>)}</div>
         </section>
 
-        <section className="relative min-h-[720px] overflow-hidden rounded-sm bg-slate-950 p-[7%] text-white shadow-2xl md:min-h-[980px]"><div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-orange-500" /><div className="relative z-10"><p className="text-sm font-black uppercase tracking-[0.3em] text-orange-400">Part 2</p><h2 className="mt-8 max-w-2xl text-6xl font-black tracking-tighter md:text-8xl">Back Office & Business Control</h2><p className="mt-7 max-w-xl text-xl font-medium leading-relaxed text-slate-300">The management layer behind every sale—products, stock, people, cost, reporting and growth.</p><div className="mt-16 grid gap-3 md:grid-cols-2">{['Dashboard, items & catalogue','Inventory, purchasing & production','Staff, payroll, claims & leave','Reports, expenses, finance, contacts & shifts'].map((item,index) => <div key={item} className="flex items-center gap-4 rounded-2xl bg-white/5 p-5"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-500 text-xs font-black">{index+1}</span><span className="font-black">{item}</span></div>)}</div></div></section>
+        <section className="relative min-h-[720px] overflow-hidden rounded-sm bg-slate-950 p-[7%] text-white shadow-2xl md:min-h-[980px]"><div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-orange-500" /><div className="relative z-10"><p className="text-sm font-black uppercase tracking-[0.3em] text-orange-400">Part 2</p><h2 className="mt-8 max-w-2xl text-6xl font-black tracking-tighter md:text-8xl">Back Office & Business Control</h2><p className="mt-7 max-w-xl text-xl font-medium leading-relaxed text-slate-300">The management layer behind every sale—products, stock, people, cost, reporting and growth.</p><div className="mt-16 grid gap-3 md:grid-cols-2">{['See the business through live dashboards, item analytics and custom periods.','Manage purchasing, recipes, production, stock counts and valuation.','Run staff records, payroll, claims, leave, payslips and cashier shifts.','Understand sales, COGS, expenses, profit and loss, and exportable reports.'].map((item,index) => <div key={item} className="flex items-center gap-4 rounded-2xl bg-white/5 p-5"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-xs font-black">{index+1}</span><span className="text-sm font-bold leading-relaxed">{item}</span></div>)}</div></div></section>
 
         {stories.slice(4).map(renderStory)}
 
