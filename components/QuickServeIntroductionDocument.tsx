@@ -4,6 +4,7 @@ import {
   BarChart3,
   Check,
   Download,
+  Globe2,
   PackageOpen,
   QrCode,
   ShieldCheck,
@@ -11,6 +12,7 @@ import {
   Users,
   Workflow,
 } from 'lucide-react';
+import { PRICING_PLANS, TRIAL_DAYS } from '../lib/pricingPlans';
 
 type Story = {
   number: string;
@@ -180,6 +182,58 @@ const platformCards = [
   { Icon: BarChart3, label: 'Understand', copy: 'Reports, expenses and profit' },
 ];
 
+const advantages = [
+  { title: 'More than checkout', quickserve: 'POS, kitchen, ordering, stock, people and finance work as one operating flow.', alternative: 'A cashier-only system records sales but leaves the rest of the business in separate tools.' },
+  { title: 'Back office included', quickserve: 'The Basic plan already includes back-office management and performance reports.', alternative: 'Many systems reserve deeper management tools for higher plans or separate add-ons.' },
+  { title: 'Built for existing devices', quickserve: 'Browser-first access supports desktop, tablet and mobile workflows without forcing one hardware format.', alternative: 'Hardware-led packages can create a larger upfront decision before the workflow is proven.' },
+  { title: 'Deeper people operations', quickserve: 'Manage staff, departments, payroll, statutory deductions, claims, leave and PDF payslips.', alternative: 'Typical POS staff tools often stop at user access, attendance or sales performance.' },
+  { title: 'Operational accounting', quickserve: 'Connect sales with COGS, OPEX, payroll, claims, gross profit, net profit and P&L.', alternative: 'Disconnected stacks require exports and repeated entry before the owner sees the full picture.' },
+  { title: 'Grow by workflow', quickserve: 'Start with counter POS, add QR and tableside, then introduce full kitchen routing when needed.', alternative: 'A one-size package may charge for complexity before the operation is ready to use it.' },
+];
+
+const backOfficeCatalogue = [
+  {
+    title: 'Dashboard & control centre',
+    summary: 'See the health of the outlet before opening another report.',
+    items: ['Sales, order count, average order and cancellations', 'Today, week, month and custom date views', 'Sales trend, order status and top-product visibility', 'Responsive owner access from desktop or tablet'],
+  },
+  {
+    title: 'Items, menu & stock setup',
+    summary: 'Maintain one sellable catalogue with the operational detail behind it.',
+    items: ['Categories, images, descriptions, prices and costs', 'SKU, barcode, sold-by unit and stock-tracking rules', 'Sizes, temperatures, variants, modifiers and add-ons', 'Mix-and-match choices, promotions and discounts', 'Archive, restore and control online availability', 'Auto-cost from production where configured'],
+  },
+  {
+    title: 'Inventory & production',
+    summary: 'Trace stock from purchasing to production and final sale.',
+    items: ['Purchase orders and supplier purchasing history', 'Transfer orders between stock points or locations', 'Stock adjustments with reason and movement history', 'Physical inventory counts and variance control', 'Ingredient and non-menu supply management', 'Recipes, unit conversion and checkout consumption', 'Production batches and finished-goods stock', 'Inventory history, low-stock thresholds and valuation'],
+  },
+  {
+    title: 'Staff management',
+    summary: 'Connect employee records with the access and responsibilities of the role.',
+    items: ['Cashier, kitchen, order-taker, manager and HR accounts', 'Employee code, job title, status and hire information', 'Departments and kitchen-category assignment', 'Contact, address and emergency information', 'Bank, EPF and SOCSO details', 'Salary, overtime and leave-entitlement templates'],
+  },
+  {
+    title: 'Payroll, claims & leave',
+    summary: 'Turn month-end people administration into a documented workflow.',
+    items: ['Basic pay, overtime, allowances, bonus and commission', 'EPF, SOCSO, EIS, PCB/tax and unpaid-leave deductions', 'Employer contributions and other adjustments', 'Create, copy, edit, print and download PDF payslips', 'Multi-line claims with receipt references and payment method', 'Claims and payroll synced into staff expenses', 'Annual, MC, hospitalisation, paternity and other leave', 'Leave status, balance and annual levels by service year'],
+  },
+  {
+    title: 'Sales reports',
+    summary: 'Move from total sales to the reason behind performance.',
+    items: ['Sales summary and period comparison', 'Sales by item and by category', 'Sales by employee and payment method', 'Sales by modifier', 'Discount and tax reporting', 'Hourly, daily, weekly and monthly analysis'],
+  },
+  {
+    title: 'Expenses & finance',
+    summary: 'Read revenue and cost together instead of managing two separate stories.',
+    items: ['Categorised COGS and OPEX expense ledger', 'Platform subscriptions, payroll and claim entries', 'Revenue, total expenses, gross profit and net profit', 'Profit & Loss statement', 'Expense breakdown and monthly comparison'],
+  },
+  {
+    title: 'Contacts, shifts & records',
+    summary: 'Keep the supporting records that daily operations depend on.',
+    items: ['Supplier directory connected to purchasing', 'Customer contact records', 'Cashier shift opening and closing', 'Cash-drawer reconciliation and shift reports', 'Order, payment, refund and stock movement histories'],
+  },
+];
+
 const browserAsset = async (path: string) => {
   const response = await fetch(path);
   if (!response.ok) throw new Error(`Unable to load ${path}`);
@@ -204,8 +258,9 @@ const loadBrowserAssets = async (): Promise<CatalogueAssets> => {
 
 const CatalogueVisual: React.FC<{ kind: Story['visual']; className?: string }> = ({ kind, className = '' }) => {
   if (kind === 'cashier') return <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-50 to-slate-200 ${className}`}><div className="absolute left-5 top-5 rounded-full bg-white/90 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-orange-600 shadow">Counter POS</div><img src="/marketing-img/cashier-view.png" alt="QuickServe cashier POS on desktop" className="h-full w-full object-contain p-3 drop-shadow-2xl" /></div>;
-  if (kind === 'customer' || kind === 'online') return <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-orange-900 ${className}`}><div className="absolute left-5 top-5 z-10 rounded-full bg-orange-500 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow">{kind === 'online' ? 'Direct Online Order' : 'Scan · Browse · Order'}</div><img src="/marketing-img/customer-mobile-view.png" alt="QuickServe mobile customer ordering" className="h-full w-full object-contain p-2 drop-shadow-2xl" /></div>;
-  if (kind === 'devices') return <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-50 to-slate-200 ${className}`}><img src="/marketing-img/cashier-view.png" alt="QuickServe desktop POS" className="absolute -left-[8%] top-[4%] h-[72%] w-[75%] object-contain drop-shadow-xl" /><img src="/marketing-img/order-taker-view.png" alt="QuickServe tablet ordering" className="absolute -bottom-[4%] right-[-8%] h-[78%] w-[72%] object-contain drop-shadow-2xl" /><div className="absolute bottom-5 left-5 rounded-xl bg-slate-950 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-white">One platform · Every screen</div></div>;
+  if (kind === 'customer') return <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-orange-900 ${className}`}><div className="absolute left-5 top-5 z-10 rounded-full bg-orange-500 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow">Guest or Staff · One Menu</div><img src="/marketing-img/order-taker-view.png" alt="QuickServe tableside ordering" className="absolute -bottom-[8%] -left-[8%] h-[85%] w-[76%] object-contain drop-shadow-2xl" /><img src="/marketing-img/customer-mobile-view.png" alt="QuickServe mobile customer ordering" className="absolute -bottom-[13%] right-[-3%] h-[88%] w-[53%] object-contain drop-shadow-2xl" /></div>;
+  if (kind === 'online') return <div className={`overflow-hidden rounded-3xl bg-orange-50 p-5 ${className}`}><div className="flex h-full gap-4"><div className="flex-1 rounded-2xl bg-white p-5 shadow-xl"><div className="flex items-center justify-between"><div><p className="text-[9px] font-black uppercase tracking-widest text-orange-500">Your Online Shop</p><p className="mt-1 text-lg font-black text-slate-900">Order direct</p></div><Globe2 className="text-orange-500" /></div><div className="mt-4 grid grid-cols-3 gap-2">{['Signature Bowl','Iced Latte','Family Set'].map((name,index) => <div key={name} className="rounded-xl bg-slate-50 p-2"><div className={`h-16 rounded-lg ${index === 1 ? 'bg-amber-100' : index === 2 ? 'bg-orange-100' : 'bg-rose-100'}`} /><p className="mt-2 text-[9px] font-black text-slate-700">{name}</p><p className="text-[9px] font-black text-orange-500">RM {index === 0 ? '18.90' : index === 1 ? '7.50' : '39.90'}</p></div>)}</div></div><div className="w-[30%] rounded-2xl bg-slate-950 p-4 text-white"><p className="text-[9px] font-black text-orange-400">FULFILMENT</p>{['Pickup','Lalamove','Postage','Custom'].map((item,index) => <div key={item} className={`mt-3 rounded-lg p-2 text-[9px] font-bold ${index === 0 ? 'bg-orange-500' : 'bg-white/10'}`}>{item}</div>)}<p className="mt-5 text-[9px] text-slate-400">COD or configured online payment</p></div></div></div>;
+  if (kind === 'devices') return <div className={`overflow-hidden rounded-3xl bg-slate-950 p-5 text-white ${className}`}><div className="flex items-center justify-between"><div><p className="text-[9px] font-black uppercase tracking-widest text-orange-400">Platform Administration</p><p className="mt-1 text-lg font-black">Control growth from one place</p></div><ShieldCheck className="text-orange-400" /></div><div className="mt-5 grid grid-cols-4 gap-3">{[['18','Vendors'],['4','Hubs'],['RM 12.8k','Income'],['96%','Active']].map(([value,label]) => <div key={label} className="rounded-xl bg-white/10 p-3"><p className="font-black">{value}</p><p className="mt-1 text-[9px] text-slate-400">{label}</p></div>)}</div><div className="mt-5 grid grid-cols-3 gap-3">{['Subscriptions & renewals','Quotations & invoices','Cashout & DuitNow'].map((item,index) => <div key={item} className="rounded-xl bg-white p-4 text-slate-900"><span className="text-[9px] font-black text-orange-500">0{index + 1}</span><p className="mt-3 text-xs font-black">{item}</p></div>)}</div></div>;
 
   if (kind === 'kitchen') return <div className={`overflow-hidden rounded-3xl bg-slate-950 p-5 text-white ${className}`}><div className="flex items-center justify-between"><div><p className="text-[9px] font-black uppercase tracking-[0.2em] text-orange-400">Kitchen Display</p><p className="mt-1 text-lg font-black">Live preparation board</p></div><span className="rounded-full bg-emerald-500/20 px-3 py-1 text-[9px] font-black text-emerald-300">4 ACTIVE</span></div><div className="mt-5 grid grid-cols-3 gap-3">{[['#A104','HOT KITCHEN','Preparing'],['#A105','DRINKS','New'],['#A106','DESSERT','Ready']].map(([order,station,status], index) => <div key={order} className="rounded-2xl bg-white p-4 text-slate-900 shadow-xl"><div className="flex justify-between gap-2"><span className="text-xs font-black">{order}</span><span className={`h-2 w-2 rounded-full ${index === 2 ? 'bg-emerald-500' : index === 1 ? 'bg-orange-500' : 'bg-blue-500'}`} /></div><p className="mt-5 text-[9px] font-black text-slate-400">{station}</p><p className="mt-1 text-xs font-black">{status}</p><div className="mt-3 h-1.5 rounded-full bg-slate-100"><div className={`h-full rounded-full bg-orange-500 ${index === 0 ? 'w-2/3' : index === 1 ? 'w-1/4' : 'w-full'}`} /></div></div>)}</div></div>;
   if (kind === 'inventory') return <div className={`overflow-hidden rounded-3xl bg-slate-100 p-5 ${className}`}><div className="rounded-2xl bg-white p-5 shadow-xl"><div className="flex items-center justify-between"><div><p className="text-[9px] font-black uppercase tracking-widest text-orange-500">Inventory Control</p><p className="mt-1 text-lg font-black text-slate-900">Know what is moving</p></div><PackageOpen className="text-orange-500" /></div><div className="mt-5 grid grid-cols-3 gap-2">{[['RM 18,420','Stock Value'],['12','Low Stock'],['38','Movements']].map(([value,label]) => <div key={label} className="rounded-xl bg-slate-50 p-3"><p className="font-black text-slate-900">{value}</p><p className="mt-1 text-[9px] font-bold text-slate-400">{label}</p></div>)}</div><div className="mt-4 space-y-2">{[['Chicken Fillet','72%'],['Cooking Oil','34%'],['Packaging','88%']].map(([name,width]) => <div key={name} className="flex items-center gap-3"><span className="w-24 text-[10px] font-bold text-slate-600">{name}</span><div className="h-2 flex-1 rounded-full bg-slate-100"><div className="h-full rounded-full bg-orange-500" style={{ width }} /></div><span className="text-[9px] font-black text-slate-400">{width}</span></div>)}</div></div></div>;
@@ -272,17 +327,31 @@ export const buildQuickServeIntroductionPdf = async (assets: CatalogueAssets = {
       addContainedImage(assets.cashier, x + 3, y + 3, w - 6, h - 6, 16 / 9);
       return;
     }
-    if (kind === 'customer' || kind === 'online') {
+    if (kind === 'customer') {
       pdf.setFillColor(...navy);
       pdf.roundedRect(x, y, w, h, 4, 4, 'F');
-      addContainedImage(assets.customer, x + 3, y + 2, w - 6, h - 4, 1.5);
+      addContainedImage(assets.orderTaker, x + 2, y + 5, w * 0.63, h - 8, 16 / 9);
+      addContainedImage(assets.customer, x + w * 0.53, y + 1, w * 0.44, h - 2, 1.5);
       return;
     }
-    if (kind === 'devices') {
+    if (kind === 'online') {
       pdf.setFillColor(...pale);
       pdf.roundedRect(x, y, w, h, 4, 4, 'F');
-      addContainedImage(assets.cashier, x + 1, y + 1, w * 0.66, h * 0.7, 16 / 9);
-      addContainedImage(assets.orderTaker, x + w * 0.38, y + h * 0.2, w * 0.6, h * 0.78, 16 / 9);
+      text('YOUR DIRECT ONLINE SHOP', x + 8, y + 11, w - 16, 7, orange, 'bold');
+      ['Signature Bowl', 'Iced Latte', 'Family Set'].forEach((name, index) => {
+        const cardX = x + 8 + index * ((w * 0.67 - 12) / 3);
+        const cardW = (w * 0.67 - 22) / 3;
+        pdf.setFillColor(255, 255, 255);
+        pdf.roundedRect(cardX, y + 18, cardW, h - 26, 2, 2, 'F');
+        pdf.setFillColor(index === 1 ? 254 : 255, index === 1 ? 243 : 237, index === 1 ? 199 : 213);
+        pdf.roundedRect(cardX + 4, y + 22, cardW - 8, 20, 2, 2, 'F');
+        text(name, cardX + 4, y + 49, cardW - 8, 6.2, navy, 'bold');
+        text(index === 0 ? 'RM 18.90' : index === 1 ? 'RM 7.50' : 'RM 39.90', cardX + 4, y + 56, cardW - 8, 6.2, orange, 'bold');
+      });
+      pdf.setFillColor(...navy);
+      pdf.roundedRect(x + w * 0.7, y + 12, w * 0.26, h - 20, 2, 2, 'F');
+      text('FULFILMENT', x + w * 0.74, y + 23, w * 0.18, 6, [253, 186, 116], 'bold');
+      ['Pickup', 'Lalamove', 'Postage', 'Custom'].forEach((item, index) => text(item, x + w * 0.74, y + 34 + index * 8, w * 0.18, 6.2, index === 0 ? orange : [203, 213, 225], 'bold'));
       return;
     }
 
@@ -291,7 +360,7 @@ export const buildQuickServeIntroductionPdf = async (assets: CatalogueAssets = {
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(7);
     pdf.setTextColor(...orange);
-    pdf.text(kind === 'kitchen' ? 'LIVE KITCHEN DISPLAY' : kind === 'inventory' ? 'INVENTORY CONTROL' : kind === 'people' ? 'PEOPLE & PAYROLL' : 'BUSINESS OVERVIEW', x + 8, y + 11);
+    pdf.text(kind === 'kitchen' ? 'LIVE KITCHEN DISPLAY' : kind === 'inventory' ? 'INVENTORY CONTROL' : kind === 'people' ? 'PEOPLE & PAYROLL' : kind === 'devices' ? 'PLATFORM ADMINISTRATION' : 'BUSINESS OVERVIEW', x + 8, y + 11);
 
     if (kind === 'kitchen') {
       [['#A104', 'HOT KITCHEN', 'PREPARING'], ['#A105', 'DRINKS', 'NEW'], ['#A106', 'DESSERT', 'READY']].forEach(([order, station, status], index) => {
@@ -347,7 +416,8 @@ export const buildQuickServeIntroductionPdf = async (assets: CatalogueAssets = {
       return;
     }
 
-    [['RM 8,420', 'NET SALES'], ['286', 'ORDERS'], ['RM 29.44', 'AVG ORDER']].forEach(([value, label], index) => {
+    const metricData = kind === 'devices' ? [['18', 'VENDORS'], ['4', 'HUBS'], ['96%', 'ACTIVE']] : [['RM 8,420', 'NET SALES'], ['286', 'ORDERS'], ['RM 29.44', 'AVG ORDER']];
+    metricData.forEach(([value, label], index) => {
       const cardX = x + 7 + index * ((w - 18) / 3);
       const cardW = (w - 26) / 3;
       pdf.setFillColor(30, 41, 59);
@@ -355,6 +425,14 @@ export const buildQuickServeIntroductionPdf = async (assets: CatalogueAssets = {
       text(value, cardX + 4, y + 26, cardW - 8, 8, [255, 255, 255], 'bold');
       text(label, cardX + 4, y + 32, cardW - 8, 5.6, [148, 163, 184], 'bold');
     });
+    if (kind === 'devices') {
+      ['Subscriptions & renewals', 'Quotations & invoices', 'Cashout & DuitNow'].forEach((label, index) => {
+        pdf.setFillColor(255, 255, 255);
+        pdf.roundedRect(x + 8 + index * ((w - 18) / 3), y + 43, (w - 26) / 3, 17, 2, 2, 'F');
+        text(label, x + 12 + index * ((w - 18) / 3), y + 51, (w - 34) / 3, 6.2, navy, 'bold');
+      });
+      return;
+    }
     [13, 20, 15, 30, 23, 36, 28, 43, 34, 48, 39, 52].forEach((bar, index) => {
       pdf.setFillColor(249, 115 + Math.min(index * 3, 60), 22);
       pdf.roundedRect(x + 9 + index * ((w - 20) / 12), y + h - 8 - bar * 0.55, (w - 30) / 12, bar * 0.55, 1, 1, 'F');
@@ -368,7 +446,6 @@ export const buildQuickServeIntroductionPdf = async (assets: CatalogueAssets = {
   pdf.circle(181, 30, 48, 'F');
   pdf.setFillColor(30, 41, 59);
   pdf.circle(201, 130, 67, 'F');
-  addContainedImage(assets.cashier, 67, 153, 140, 91, 16 / 9);
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(18);
   pdf.setTextColor(255, 255, 255);
@@ -377,11 +454,11 @@ export const buildQuickServeIntroductionPdf = async (assets: CatalogueAssets = {
   pdf.text('SERVE', 38, 28);
   pdf.setTextColor(255, 255, 255);
   pdf.setFontSize(34);
-  pdf.text('From order', 17, 83);
-  pdf.text('to insight.', 17, 97);
+  pdf.text('Run every order.', 17, 83);
+  pdf.text('Connect every team.', 17, 97);
   pdf.setTextColor(253, 186, 116);
-  pdf.text('One connected flow.', 17, 111);
-  text('Discover how QuickServe helps modern food businesses serve faster, coordinate better and make clearer decisions.', 17, 134, 127, 13, [226, 232, 240], 'normal', 1.45);
+  pdf.text('Know your business.', 17, 111);
+  text('A complete restaurant operating platform for POS, kitchen, ordering, stock, people and finance.', 17, 134, 127, 13, [226, 232, 240], 'normal', 1.45);
   pdf.setFillColor(...orange);
   pdf.roundedRect(17, 186, 79, 12, 6, 6, 'F');
   pdf.setFontSize(8);
@@ -465,7 +542,7 @@ export const buildQuickServeIntroductionPdf = async (assets: CatalogueAssets = {
   text('One transaction can guide the kitchen, update stock and become part of the business report—without being entered three times.', 24, 264, 162, 9, [255, 255, 255], 'bold');
   footer(3);
 
-  stories.forEach((story, index) => {
+  const drawStoryPage = (story: Story, pageNumber: number) => {
     pdf.addPage();
     const top = heading(`${story.number} / ${story.eyebrow}`, story.title, story.promise) + 4;
     drawUiVisual(story.visual, 16, top, 178, 67);
@@ -498,7 +575,114 @@ export const buildQuickServeIntroductionPdf = async (assets: CatalogueAssets = {
     pdf.roundedRect(16, y, 178, 24, 3, 3, 'F');
     text('THE BUSINESS RESULT', 24, y + 9, 38, 6.2, [22, 101, 52], 'bold');
     text(story.outcome, 64, y + 8, 122, 6.6, [22, 101, 52], 'normal', 1.12);
-    footer(index + 4);
+    footer(pageNumber);
+  };
+
+  const drawPartDivider = (part: string, title: string, description: string, labels: string[], pageNumber: number) => {
+    pdf.addPage();
+    pdf.setFillColor(...navy);
+    pdf.rect(0, 0, 210, 297, 'F');
+    pdf.setFillColor(...orange);
+    pdf.circle(189, 45, 58, 'F');
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(10);
+    pdf.setTextColor(253, 186, 116);
+    pdf.text(part.toUpperCase(), 17, 34);
+    text(title, 17, 62, 158, 34, [255, 255, 255], 'bold', 1.02);
+    text(description, 17, 102, 150, 13, [203, 213, 225], 'normal', 1.45);
+    let labelY = 159;
+    labels.forEach((label, index) => {
+      pdf.setFillColor(30, 41, 59);
+      pdf.roundedRect(17, labelY, 176, 18, 3, 3, 'F');
+      pdf.setFillColor(...orange);
+      pdf.circle(27, labelY + 9, 4, 'F');
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7); pdf.setTextColor(255, 255, 255); pdf.text(String(index + 1), 27, labelY + 11, { align: 'center' });
+      text(label, 37, labelY + 11, 145, 9, [255, 255, 255], 'bold');
+      labelY += 23;
+    });
+    pdf.setFontSize(7); pdf.setTextColor(100, 116, 139); pdf.text(`QUICKSERVE  /  ${String(pageNumber).padStart(2, '0')}`, 17, 281);
+  };
+
+  // Why QuickServe comparison
+  pdf.addPage();
+  heading('WHY QUICKSERVE', 'Choose a platform that removes work—not another screen to manage.', 'The real cost of a system is not only its subscription. It is the repeated entry, manual checking and disconnected decisions it leaves behind.');
+  y = 92;
+  pdf.setFillColor(...navy); pdf.roundedRect(16, y, 178, 15, 3, 3, 'F');
+  text('DECISION AREA', 22, y + 10, 42, 6.5, [148, 163, 184], 'bold');
+  text('QUICKSERVE', 66, y + 10, 57, 7, [253, 186, 116], 'bold');
+  text('COMMON ALTERNATIVE', 127, y + 10, 59, 6.5, [148, 163, 184], 'bold');
+  y += 18;
+  advantages.forEach((item, index) => {
+    const rowH = 25;
+    pdf.setFillColor(index % 2 === 0 ? 248 : 255, index % 2 === 0 ? 250 : 255, index % 2 === 0 ? 252 : 255);
+    pdf.rect(16, y, 178, rowH, 'F');
+    text(item.title, 22, y + 9, 40, 7.3, navy, 'bold');
+    text(item.quickserve, 66, y + 8, 57, 6.4, slate, 'normal', 1.12);
+    text(item.alternative, 127, y + 8, 59, 6.4, slate, 'normal', 1.12);
+    y += rowH;
+  });
+  pdf.setFillColor(...pale); pdf.roundedRect(16, 263, 178, 10, 3, 3, 'F');
+  text('The QuickServe difference: operational depth at a practical starting price, with room to add workflow complexity when the business is ready.', 22, 269, 166, 7, orange, 'bold');
+  footer(4);
+
+  drawPartDivider('Part 1', 'POS & Service Operations', 'Everything that happens from the customer’s first order to kitchen fulfilment, payment and completion.', ['Counter POS & billing', 'QR and tableside ordering', 'Kitchen routing, KDS & Auto Kitchen', 'Online shop, printing and service controls'], 5);
+  stories.slice(0, 4).forEach((story, index) => drawStoryPage(story, 6 + index));
+
+  // Plan comparison
+  pdf.addPage();
+  heading('PACKAGES & PLANS', 'Start with the workflow you need today.', `All plans include a ${TRIAL_DAYS}-day free trial. Upgrade from counter POS to customer ordering and full kitchen integration as the operation grows.`);
+  y = 91;
+  PRICING_PLANS.forEach((plan, index) => {
+    const x = 16 + index * 60;
+    const isPro = plan.id === 'pro';
+    pdf.setFillColor(isPro ? 255 : 248, isPro ? 247 : 250, isPro ? 237 : 252);
+    pdf.setDrawColor(isPro ? 249 : 226, isPro ? 115 : 232, isPro ? 22 : 240);
+    pdf.roundedRect(x, y, 56, 66, 4, 4, 'FD');
+    text(plan.name.toUpperCase(), x + 6, y + 12, 44, 10, isPro ? orange : navy, 'bold');
+    text(`RM ${plan.price}/month`, x + 6, y + 25, 44, 13, navy, 'bold');
+    text(`RM ${plan.annualPrice}/mo annually`, x + 6, y + 34, 44, 6.5, slate, 'bold');
+    text(plan.description, x + 6, y + 45, 44, 6.5, slate, 'normal', 1.15);
+  });
+  const planRows = [
+    ['Full counter POS', true, true, true], ['Back office & reports', true, true, true], ['QR customer ordering', false, true, true], ['Staff tableside ordering', false, true, true], ['Kitchen Display System', false, false, true], ['Department kitchen routing', false, false, true], ['Automatic bill routing', false, false, true],
+  ] as Array<[string, boolean, boolean, boolean]>;
+  y = 168;
+  pdf.setFillColor(...navy); pdf.rect(16, y, 178, 13, 'F');
+  text('FEATURE', 22, y + 9, 80, 6.5, [148, 163, 184], 'bold');
+  ['BASIC', 'PRO', 'PRO PLUS'].forEach((label, index) => text(label, 116 + index * 26, y + 9, 22, 6.2, index === 1 ? [253, 186, 116] : [255, 255, 255], 'bold'));
+  y += 13;
+  planRows.forEach((row, rowIndex) => {
+    pdf.setFillColor(rowIndex % 2 === 0 ? 248 : 255, rowIndex % 2 === 0 ? 250 : 255, rowIndex % 2 === 0 ? 252 : 255); pdf.rect(16, y, 178, 11, 'F');
+    text(row[0], 22, y + 7.5, 86, 6.8, navy, 'bold');
+    [row[1], row[2], row[3]].forEach((enabled, index) => { pdf.setFillColor(enabled ? 34 : 203, enabled ? 197 : 213, enabled ? 94 : 225); pdf.circle(121 + index * 27, y + 5.5, 2.4, 'F'); });
+    y += 11;
+  });
+  text('Prices shown in Malaysian Ringgit. Annual price is the monthly equivalent when billed annually.', 16, 270, 178, 6.5, slate);
+  footer(10);
+
+  drawPartDivider('Part 2', 'Back Office & Business Control', 'The management layer behind every sale—designed to help owners control products, stock, people, cost and performance.', ['Dashboard, items & catalogue', 'Inventory, purchasing & production', 'Staff, payroll, claims & leave', 'Reports, expenses, finance, contacts & shifts'], 11);
+  stories.slice(4).forEach((story, index) => drawStoryPage(story, 12 + index));
+
+  // Full back-office capability directory
+  [backOfficeCatalogue.slice(0, 4), backOfficeCatalogue.slice(4)].forEach((groups, pageIndex) => {
+    pdf.addPage();
+    heading(`BACK OFFICE DIRECTORY / ${pageIndex + 1} OF 2`, pageIndex === 0 ? 'Everything behind the menu and stock.' : 'Everything behind the team and the numbers.', 'A complete view of the functions available from the QuickServe Back Office.');
+    y = 91;
+    groups.forEach((group, groupIndex) => {
+      const boxH = 40;
+      pdf.setFillColor(groupIndex % 2 === 0 ? 248 : 255, groupIndex % 2 === 0 ? 250 : 255, groupIndex % 2 === 0 ? 252 : 255);
+      pdf.roundedRect(16, y, 178, boxH, 3, 3, 'F');
+      text(group.title, 23, y + 10, 72, 10, navy, 'bold');
+      text(group.summary, 23, y + 19, 72, 6.5, orange, 'bold', 1.12);
+      const left = group.items.slice(0, Math.ceil(group.items.length / 2));
+      const right = group.items.slice(Math.ceil(group.items.length / 2));
+      [left, right].forEach((items, column) => items.forEach((item, itemIndex) => {
+        pdf.setFillColor(...orange); pdf.circle(102 + column * 44, y + 9 + itemIndex * 7, 1, 'F');
+        text(item, 106 + column * 44, y + 10 + itemIndex * 7, 39, 5.8, slate, 'normal', 1.05);
+      }));
+      y += 44;
+    });
+    footer(16 + pageIndex);
   });
 
   // Closing
@@ -564,6 +748,29 @@ const QuickServeIntroductionDocument: React.FC = () => {
     }
   };
 
+  const renderStory = (story: Story) => (
+    <section key={story.number} className="min-h-[720px] rounded-sm bg-white p-[7%] shadow-2xl md:min-h-[980px]">
+      <p className="text-xs font-black uppercase tracking-[0.24em] text-orange-500">{story.number} / {story.eyebrow}</p>
+      <h2 className="mt-3 text-3xl font-black tracking-tighter text-slate-900 md:text-5xl">{story.title}</h2>
+      <p className="mt-4 text-base font-bold leading-relaxed text-orange-600">{story.promise}</p>
+      <CatalogueVisual kind={story.visual} className="mt-6 h-64 md:h-80" />
+      <div className="mt-6 grid gap-5 md:grid-cols-[0.8fr_1.2fr]">
+        <div className="rounded-3xl bg-slate-900 p-6 text-white">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">{story.situationTitle}</p>
+          <p className="mt-3 text-sm font-medium leading-relaxed text-slate-200">{story.situation}</p>
+        </div>
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">How QuickServe handles it</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {story.steps.map((step, index) => <div key={step.title} className="rounded-2xl bg-slate-50 p-4"><div className="flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100 text-[10px] font-black text-orange-600">{index + 1}</span><h3 className="text-sm font-black text-slate-900">{step.title}</h3></div><p className="mt-2 text-xs leading-relaxed text-slate-600">{step.body}</p></div>)}
+          </div>
+        </div>
+      </div>
+      <div className="mt-5 rounded-2xl bg-emerald-50 p-5 text-emerald-900"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">The business result</p><p className="mt-2 text-sm font-bold leading-relaxed">{story.outcome}</p></div>
+      <div className="mt-4 flex flex-wrap gap-2">{story.capabilities.map(item => <span key={item} className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-orange-700">{item}</span>)}</div>
+    </section>
+  );
+
   return (
     <div className="bg-slate-100 p-3 dark:bg-slate-950 md:p-6">
       <div className="mb-5 flex flex-col gap-3 rounded-2xl bg-slate-900 p-4 text-white shadow-lg sm:flex-row sm:items-center sm:justify-between">
@@ -580,11 +787,10 @@ const QuickServeIntroductionDocument: React.FC = () => {
         <section className="relative aspect-[210/297] min-h-[620px] overflow-hidden rounded-sm bg-slate-950 p-[7%] text-white shadow-2xl">
           <div className="absolute -right-[12%] -top-[8%] h-[32%] w-[45%] rounded-full bg-orange-500" />
           <div className="absolute -right-[18%] top-[24%] h-[42%] w-[52%] rounded-full bg-slate-800" />
-          <img src="/marketing-img/cashier-view.png" alt="QuickServe desktop POS" className="absolute bottom-[12%] right-[-5%] z-[1] w-[75%] drop-shadow-2xl" />
           <div className="relative z-10 flex h-full flex-col">
             <div className="text-2xl font-black tracking-tighter">QUICK<span className="text-orange-500">SERVE</span></div>
-            <h1 className="mt-[18%] max-w-[86%] text-[clamp(2rem,6vw,4.5rem)] font-black leading-[0.95] tracking-tighter">From order<br />to insight.<br /><span className="text-orange-400">One connected flow.</span></h1>
-            <p className="mt-8 max-w-xl text-base font-medium leading-relaxed text-slate-300 md:text-xl">Discover how QuickServe helps modern food businesses serve faster, coordinate better and make clearer decisions.</p>
+            <h1 className="mt-[18%] max-w-[86%] text-[clamp(2rem,6vw,4.5rem)] font-black leading-[0.95] tracking-tighter">Run every order.<br />Connect every team.<br /><span className="text-orange-400">Know your business.</span></h1>
+            <p className="mt-8 max-w-xl text-base font-medium leading-relaxed text-slate-300 md:text-xl">A complete restaurant operating platform for POS, kitchen, ordering, stock, people and finance.</p>
             <div className="mt-auto border-t border-slate-700 pt-6 text-[10px] font-black uppercase tracking-[0.24em] text-slate-400 md:text-xs">A product by Lumora Tech Ent. · Malaysia</div>
           </div>
         </section>
@@ -614,34 +820,38 @@ const QuickServeIntroductionDocument: React.FC = () => {
           <div className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-3">
             {platformCards.map(({ Icon, label, copy }) => <div key={label} className="rounded-2xl border border-orange-100 bg-white p-5 shadow-sm"><Icon className="text-orange-500" size={24} /><h3 className="mt-4 font-black text-slate-900">{label}</h3><p className="mt-1 text-xs leading-relaxed text-slate-500">{copy}</p></div>)}
           </div>
-          <div className="relative mt-7 h-64 overflow-hidden rounded-3xl border border-orange-100 bg-gradient-to-br from-white to-slate-200 shadow-xl">
-            <img src="/marketing-img/cashier-view.png" alt="QuickServe desktop cashier" className="absolute -left-[4%] top-[3%] h-[75%] w-[70%] object-contain drop-shadow-xl" />
-            <img src="/marketing-img/order-taker-view.png" alt="QuickServe tablet order taker" className="absolute -bottom-[8%] right-[-6%] h-[78%] w-[62%] object-contain drop-shadow-2xl" />
-            <img src="/marketing-img/customer-mobile-view.png" alt="QuickServe customer mobile ordering" className="absolute bottom-[-12%] left-[34%] h-[62%] w-[38%] object-contain drop-shadow-2xl" />
-          </div>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-slate-900 p-6 text-white">
             {['Order', 'Route', 'Prepare', 'Pay', 'Record'].map((item, index) => <React.Fragment key={item}><span className="font-black">{item}</span>{index < 4 && <ArrowRight className="text-orange-400" size={16} />}</React.Fragment>)}
           </div>
         </section>
 
-        {stories.map(story => (
-          <section key={story.number} className="min-h-[720px] rounded-sm bg-white p-[7%] shadow-2xl md:min-h-[980px]">
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-orange-500">{story.number} / {story.eyebrow}</p>
-            <h2 className="mt-3 text-3xl font-black tracking-tighter text-slate-900 md:text-5xl">{story.title}</h2>
-            <p className="mt-4 text-base font-bold leading-relaxed text-orange-600">{story.promise}</p>
-            <CatalogueVisual kind={story.visual} className="mt-6 h-64 md:h-80" />
-            <div className="mt-6 rounded-3xl bg-slate-900 p-6 text-white">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">{story.situationTitle}</p>
-              <p className="mt-3 text-sm font-medium leading-relaxed text-slate-200 md:text-base">{story.situation}</p>
-            </div>
-            <p className="mt-7 text-xs font-black uppercase tracking-[0.2em] text-slate-400">How QuickServe handles it</p>
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
-              {story.steps.map((step, index) => <div key={step.title} className="rounded-2xl bg-slate-50 p-5"><div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-xs font-black text-orange-600">{index + 1}</span><h3 className="font-black text-slate-900">{step.title}</h3></div><p className="mt-3 text-sm leading-relaxed text-slate-600">{step.body}</p></div>)}
-            </div>
-            <div className="mt-5 rounded-2xl bg-emerald-50 p-5 text-emerald-900"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">The business result</p><p className="mt-2 text-sm font-bold leading-relaxed">{story.outcome}</p></div>
-            <div className="mt-4 flex flex-wrap gap-2">{story.capabilities.map(item => <span key={item} className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-orange-700">{item}</span>)}</div>
-          </section>
-        ))}
+        <section className="min-h-[720px] rounded-sm bg-white p-[7%] shadow-2xl md:min-h-[980px]">
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-orange-500">Why QuickServe</p>
+          <h2 className="mt-4 text-4xl font-black tracking-tighter text-slate-900 md:text-6xl">Choose a platform that removes work—not another screen to manage.</h2>
+          <p className="mt-5 max-w-3xl text-base font-medium leading-relaxed text-slate-600">QuickServe is designed around connected restaurant work. The difference becomes clear when it is compared with a cashier-only system or a stack of separate software.</p>
+          <div className="mt-8 overflow-hidden rounded-3xl border border-slate-200">
+            <div className="grid grid-cols-[0.65fr_1fr_1fr] bg-slate-950 px-4 py-4 text-[10px] font-black uppercase tracking-wider text-white"><span>Decision area</span><span className="text-orange-400">QuickServe</span><span className="text-slate-400">Common alternative</span></div>
+            {advantages.map((item, index) => <div key={item.title} className={`grid grid-cols-[0.65fr_1fr_1fr] gap-4 px-4 py-4 text-xs leading-relaxed ${index % 2 === 0 ? 'bg-slate-50' : 'bg-white'}`}><span className="font-black text-slate-900">{item.title}</span><span className="font-medium text-slate-700">{item.quickserve}</span><span className="text-slate-500">{item.alternative}</span></div>)}
+          </div>
+        </section>
+
+        <section className="relative min-h-[720px] overflow-hidden rounded-sm bg-slate-950 p-[7%] text-white shadow-2xl md:min-h-[980px]"><div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-orange-500" /><div className="relative z-10"><p className="text-sm font-black uppercase tracking-[0.3em] text-orange-400">Part 1</p><h2 className="mt-8 max-w-2xl text-6xl font-black tracking-tighter md:text-8xl">POS & Service Operations</h2><p className="mt-7 max-w-xl text-xl font-medium leading-relaxed text-slate-300">Everything from the customer’s first order to kitchen fulfilment, payment and completion.</p><div className="mt-16 grid gap-3 md:grid-cols-2">{['Counter POS & billing','QR and tableside ordering','Kitchen routing, KDS & Auto Kitchen','Online shop, printing and service controls'].map((item,index) => <div key={item} className="flex items-center gap-4 rounded-2xl bg-white/5 p-5"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-500 text-xs font-black">{index+1}</span><span className="font-black">{item}</span></div>)}</div></div></section>
+
+        {stories.slice(0, 4).map(renderStory)}
+
+        <section className="min-h-[720px] rounded-sm bg-white p-[7%] shadow-2xl md:min-h-[980px]">
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-orange-500">Packages & plans</p>
+          <h2 className="mt-4 text-4xl font-black tracking-tighter text-slate-900 md:text-6xl">Start with the workflow you need today.</h2>
+          <p className="mt-5 text-base font-medium text-slate-600">All plans include a {TRIAL_DAYS}-day free trial. Annual pricing shows the monthly equivalent when billed annually.</p>
+          <div className="mt-8 grid gap-4 md:grid-cols-3">{PRICING_PLANS.map(plan => <div key={plan.id} className={`rounded-3xl border p-6 ${plan.highlight ? 'border-orange-400 bg-orange-50 shadow-xl shadow-orange-500/10' : 'border-slate-200 bg-slate-50'}`}><p className="text-sm font-black uppercase tracking-wider text-orange-500">{plan.name}</p><p className="mt-4 text-4xl font-black text-slate-900">RM {plan.price}<span className="text-sm text-slate-400">/mo</span></p><p className="mt-1 text-xs font-bold text-slate-500">RM {plan.annualPrice}/mo annually</p><p className="mt-4 text-sm leading-relaxed text-slate-600">{plan.description}</p><div className="mt-5 space-y-2">{plan.features.map(item => <div key={item} className="flex gap-2 text-xs font-bold text-slate-700"><Check size={14} className="shrink-0 text-emerald-500" />{item}</div>)}</div></div>)}</div>
+          <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200"><div className="grid grid-cols-[1.5fr_repeat(3,0.7fr)] bg-slate-950 px-4 py-3 text-[10px] font-black uppercase text-white"><span>Workflow</span><span>Basic</span><span className="text-orange-400">Pro</span><span>Pro Plus</span></div>{[['Counter POS',1,1,1],['Back office & reports',1,1,1],['QR ordering',0,1,1],['Tableside ordering',0,1,1],['Kitchen Display System',0,0,1],['Kitchen department routing',0,0,1]].map((row,index) => <div key={String(row[0])} className={`grid grid-cols-[1.5fr_repeat(3,0.7fr)] px-4 py-3 text-xs ${index%2===0?'bg-slate-50':'bg-white'}`}><span className="font-bold text-slate-700">{row[0]}</span>{row.slice(1).map((value,i)=><span key={i} className={value?'font-black text-emerald-500':'text-slate-300'}>{value?'Included':'—'}</span>)}</div>)}</div>
+        </section>
+
+        <section className="relative min-h-[720px] overflow-hidden rounded-sm bg-slate-950 p-[7%] text-white shadow-2xl md:min-h-[980px]"><div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-orange-500" /><div className="relative z-10"><p className="text-sm font-black uppercase tracking-[0.3em] text-orange-400">Part 2</p><h2 className="mt-8 max-w-2xl text-6xl font-black tracking-tighter md:text-8xl">Back Office & Business Control</h2><p className="mt-7 max-w-xl text-xl font-medium leading-relaxed text-slate-300">The management layer behind every sale—products, stock, people, cost, reporting and growth.</p><div className="mt-16 grid gap-3 md:grid-cols-2">{['Dashboard, items & catalogue','Inventory, purchasing & production','Staff, payroll, claims & leave','Reports, expenses, finance, contacts & shifts'].map((item,index) => <div key={item} className="flex items-center gap-4 rounded-2xl bg-white/5 p-5"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-500 text-xs font-black">{index+1}</span><span className="font-black">{item}</span></div>)}</div></div></section>
+
+        {stories.slice(4).map(renderStory)}
+
+        {[backOfficeCatalogue.slice(0,4), backOfficeCatalogue.slice(4)].map((groups,pageIndex) => <section key={pageIndex} className="min-h-[720px] rounded-sm bg-white p-[7%] shadow-2xl md:min-h-[980px]"><p className="text-xs font-black uppercase tracking-[0.24em] text-orange-500">Complete Back Office Directory · {pageIndex+1}/2</p><h2 className="mt-4 text-4xl font-black tracking-tighter text-slate-900 md:text-6xl">{pageIndex===0?'Everything behind the menu and stock.':'Everything behind the team and numbers.'}</h2><div className="mt-8 grid gap-4 md:grid-cols-2">{groups.map(group => <div key={group.title} className="rounded-3xl bg-slate-50 p-5"><h3 className="text-lg font-black text-slate-900">{group.title}</h3><p className="mt-2 text-xs font-bold leading-relaxed text-orange-600">{group.summary}</p><div className="mt-4 space-y-2">{group.items.map(item => <div key={item} className="flex gap-2 text-xs leading-relaxed text-slate-600"><Check size={13} className="mt-0.5 shrink-0 text-emerald-500" />{item}</div>)}</div></div>)}</div></section>)}
 
         <section className="min-h-[720px] rounded-sm bg-slate-950 p-[7%] text-white shadow-2xl md:min-h-[980px]">
           <p className="text-xs font-black uppercase tracking-[0.24em] text-orange-400">Let’s build a better service flow</p>
