@@ -108,32 +108,29 @@ const COMPARISON_SECTIONS: ComparisonSection[] = [
 const PLAN_KEYS: PlanKey[] = ['basic', 'pro', 'proPlus'];
 
 const ComparisonIntro: React.FC<{ billingCycle: 'monthly' | 'annual'; compact?: boolean }> = ({ billingCycle, compact = false }) => (
-  <div className={`relative flex flex-col overflow-hidden ${compact ? 'p-5 landscape:grid landscape:grid-cols-[minmax(0,1fr)_280px] landscape:items-end landscape:gap-5 sm:p-6' : 'min-h-[230px]'}`}>
-    <div className="pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full border border-orange-500/10 bg-orange-500/[0.025]" />
-    <div className="pointer-events-none absolute right-8 top-12 h-3 w-3 rounded-full border border-orange-500/30" />
-
+  <div className={`relative flex flex-col overflow-hidden ${compact ? 'p-4 sm:p-5' : 'min-h-[230px]'}`}>
     <div className="relative">
       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-600 dark:text-orange-400">Compare plans</p>
-      <h2 className={`${compact ? 'mt-3 max-w-md text-2xl landscape:text-[26px]' : 'mt-3 max-w-[240px] text-[27px]'} font-black leading-tight tracking-[-0.035em] text-gray-950 dark:text-white`}>
+      <h2 className={`${compact ? 'mt-2 max-w-md text-[21px] sm:text-2xl' : 'mt-3 max-w-[240px] text-[27px]'} font-black leading-tight tracking-[-0.035em] text-gray-950 dark:text-white`}>
         Choose what fits your operation
       </h2>
-      <p className={`${compact ? 'mt-2 max-w-lg' : 'mt-3 max-w-[230px]'} text-[11px] font-medium leading-5 text-gray-500 dark:text-gray-400`}>
+      <p className={`${compact ? 'mt-2 max-w-lg leading-4' : 'mt-3 max-w-[230px] leading-5'} text-[11px] font-medium text-gray-500 dark:text-gray-400`}>
         Review every feature across Basic, Pro and Pro Plus.
       </p>
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[9px] font-bold text-gray-600 dark:text-gray-300">
+      <div className={`${compact ? 'mt-3' : 'mt-4'} flex flex-wrap items-center gap-x-4 gap-y-2 text-[9px] font-bold text-gray-600 dark:text-gray-300`}>
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white"><Check size={12} strokeWidth={3} /></span>
+          <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white"><Check size={12} strokeWidth={3} /></span>
           Included
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-gray-400 dark:bg-gray-800"><Minus size={11} strokeWidth={2.5} /></span>
+          <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-400 dark:bg-gray-800"><Minus size={11} strokeWidth={2.5} /></span>
           Not included
         </span>
       </div>
     </div>
 
-    <div className={`relative flex items-center gap-2.5 rounded-xl border border-orange-500/10 bg-gray-50 px-3 py-2.5 dark:border-orange-500/15 dark:bg-gray-800/80 ${compact ? 'mt-5 landscape:mt-0' : 'mt-auto'}`}>
+    <div className={`relative flex items-center gap-2.5 rounded-xl border border-orange-500/10 bg-gray-50 px-3 py-2 dark:border-orange-500/15 dark:bg-gray-800/80 ${compact ? 'mt-4' : 'mt-auto'}`}>
       <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400">
         <BadgePercent size={17} />
       </span>
@@ -229,7 +226,7 @@ const ComparePlansPage: React.FC<Props> = ({ onBack, onGetStarted }) => {
               <table className="w-full min-w-[640px] table-fixed border-collapse sm:min-w-[720px] lg:min-w-[900px]">
                 <thead>
                   <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="sticky left-0 z-20 w-[40%] bg-white px-3 py-4 text-left align-middle dark:bg-gray-900 sm:px-4 lg:w-[34%] lg:px-6 lg:py-6 lg:align-top">
+                    <th className="sticky left-0 z-20 w-[40%] bg-white px-3 py-3 text-left align-middle dark:bg-gray-900 sm:px-4 lg:w-[34%] lg:px-6 lg:py-6 lg:align-top">
                       <div className="lg:hidden">
                         <p className="text-[9px] font-black uppercase tracking-[0.14em] text-orange-600 dark:text-orange-400">Feature</p>
                         <p className="mt-1 text-xs font-black text-gray-900 dark:text-white">Plan inclusion</p>
@@ -242,11 +239,11 @@ const ComparePlansPage: React.FC<Props> = ({ onBack, onGetStarted }) => {
                       const plan = PLAN_META[planKey];
                       const isPopular = planKey === 'pro';
                       return (
-                        <th key={planKey} className={`relative w-[20%] border-l border-gray-200 px-2 py-4 text-center align-middle dark:border-gray-700 lg:w-[22%] lg:px-3 lg:py-5 lg:align-bottom ${isPopular ? 'bg-orange-50/60 dark:bg-orange-500/[0.06]' : ''}`}>
-                          {isPopular && <span className="absolute left-1/2 top-2 -translate-x-1/2 whitespace-nowrap text-[8px] font-black uppercase tracking-[0.16em] text-orange-600 dark:text-orange-400">Most popular</span>}
+                        <th key={planKey} className={`relative w-[20%] border-l border-gray-200 px-2 py-3 text-center align-middle dark:border-gray-700 lg:w-[22%] lg:px-3 lg:py-5 lg:align-bottom ${isPopular ? 'bg-orange-50/60 dark:bg-orange-500/[0.06]' : ''}`}>
+                          {isPopular && <span className="absolute left-1/2 top-1 -translate-x-1/2 whitespace-nowrap text-[7px] font-black uppercase tracking-[0.12em] text-orange-600 dark:text-orange-400 lg:top-2 lg:text-[8px] lg:tracking-[0.16em]">Most popular</span>}
                           <p className="hidden text-[9px] font-black uppercase tracking-[0.16em] text-gray-400 lg:block">{plan.eyebrow}</p>
-                          <h2 className="mt-3 text-sm font-black text-gray-950 dark:text-white lg:mt-1 lg:text-base">{plan.name}</h2>
-                          <p className="mt-1 text-lg font-black tracking-tight text-gray-950 dark:text-white lg:text-2xl">RM{getPrice(planKey)}<span className="text-[8px] font-bold text-gray-400 lg:text-[9px]">/mo</span></p>
+                          <h2 className="mt-2 text-sm font-black text-gray-950 dark:text-white lg:mt-1 lg:text-base">{plan.name}</h2>
+                          <p className="mt-0.5 text-base font-black tracking-tight text-gray-950 dark:text-white sm:text-lg lg:mt-1 lg:text-2xl">RM{getPrice(planKey)}<span className="text-[8px] font-bold text-gray-400 lg:text-[9px]">/mo</span></p>
                           <p className="mx-auto mt-2 hidden min-h-8 max-w-[145px] text-[9px] font-medium leading-4 text-gray-500 dark:text-gray-400 lg:block">{plan.bestFor}</p>
                           {onGetStarted && (
                             <button onClick={onGetStarted} className={`mt-3 hidden w-full rounded-lg px-2 py-2 text-[9px] font-black uppercase tracking-wider transition-colors lg:block ${isPopular ? 'bg-orange-500 text-white hover:bg-orange-600' : 'bg-gray-950 text-white hover:bg-orange-500 dark:bg-white dark:text-gray-950 dark:hover:bg-orange-500 dark:hover:text-white'}`}>
