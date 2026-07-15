@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Check, ChevronLeft, Info, Sparkles } from 'lucide-react';
+import { ArrowRight, BadgePercent, Check, ChevronLeft, Info, Minus, Sparkles } from 'lucide-react';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 
 interface Props {
@@ -176,9 +176,42 @@ const ComparePlansPage: React.FC<Props> = ({ onBack, onGetStarted }) => {
               <table className="w-full min-w-[760px] table-fixed border-collapse">
                 <thead>
                   <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="sticky left-0 z-20 w-[34%] bg-white px-4 py-5 text-left align-bottom dark:bg-gray-900 sm:px-6">
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">Compare features</p>
-                      <p className="mt-1 text-sm font-black text-gray-900 dark:text-white">Everything, side by side</p>
+                    <th className="sticky left-0 z-20 w-[34%] bg-white px-4 py-5 text-left align-top dark:bg-gray-900 sm:px-6 sm:py-6">
+                      <div className="relative flex min-h-[230px] flex-col overflow-hidden">
+                        <div className="pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full border border-orange-500/10 bg-orange-500/[0.025]" />
+                        <div className="pointer-events-none absolute right-8 top-12 h-3 w-3 rounded-full border border-orange-500/30" />
+
+                        <div className="relative">
+                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-600 dark:text-orange-400">Compare plans</p>
+                          <h2 className="mt-3 max-w-[240px] text-2xl font-black leading-tight tracking-[-0.035em] text-gray-950 dark:text-white sm:text-[27px]">
+                            Choose what fits your operation
+                          </h2>
+                          <p className="mt-3 max-w-[230px] text-[11px] font-medium leading-5 text-gray-500 dark:text-gray-400">
+                            Review every feature across Basic, Pro and Pro Plus.
+                          </p>
+
+                          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[9px] font-bold text-gray-600 dark:text-gray-300">
+                            <span className="inline-flex items-center gap-1.5">
+                              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white"><Check size={12} strokeWidth={3} /></span>
+                              Included
+                            </span>
+                            <span className="inline-flex items-center gap-1.5">
+                              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-gray-400 dark:bg-gray-800"><Minus size={11} strokeWidth={2.5} /></span>
+                              Not included
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="relative mt-auto flex items-center gap-2.5 rounded-xl border border-orange-500/10 bg-gray-50 px-3 py-2.5 dark:border-orange-500/15 dark:bg-gray-800/80">
+                          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                            <BadgePercent size={17} />
+                          </span>
+                          <div>
+                            <p className="text-[10px] font-black text-gray-800 dark:text-gray-100">{billingCycle === 'annual' ? 'Annual savings applied' : 'Save more with annual billing'}</p>
+                            <p className="mt-0.5 text-[9px] font-medium text-gray-400">Same features, lower monthly rate.</p>
+                          </div>
+                        </div>
+                      </div>
                     </th>
                     {PLAN_KEYS.map(planKey => {
                       const plan = PLAN_META[planKey];
