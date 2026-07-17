@@ -8,6 +8,28 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const BATCH_SIZE = 1000;
 
+const mapOrder = (o: any) => ({
+  id: o.id,
+  items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
+  total: Number(o.total || 0),
+  status: o.status,
+  timestamp: Number(o.timestamp),
+  customerId: o.customer_id,
+  restaurantId: o.restaurant_id,
+  tableNumber: o.table_number,
+  diningType: o.dining_type || undefined,
+  locationName: o.location_name,
+  remark: o.remark,
+  rejectionReason: o.rejection_reason,
+  rejectionNote: o.rejection_note,
+  paymentMethod: o.payment_method,
+  cashierName: o.cashier_name,
+  amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
+  changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
+  orderSource: o.order_source || undefined,
+  updatedAt: o.updated_at || undefined,
+});
+
 /**
  * Fetch all rows matching a query by paginating in batches of BATCH_SIZE.
  * This avoids Supabase's default 1000-row PostgREST limit.
@@ -35,70 +57,106 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { restaurantId, startDate, endDate, status, search, page = 1, limit = 30, locationName, timezoneOffsetMinutes } = req.query;
+  const {
+    restaurantId,
+    startDate,
+    endDate,
+    status,
+    search,
+    page = 1,
+    limit = 30,
+    locationName,
+    timezoneOffsetMinutes,
+    updatedSince,
+    includeSummary = 'true',
+  } = req.query;
+  const syncCursor = new Date().toISOString();
   
   const start = (Number(page) - 1) * Number(limit);
   const end = start + Number(limit) - 1;
   
   // Get timezone offset from client (in minutes). If not provided, assume UTC (0)
   const tzOffset = timezoneOffsetMinutes ? Number(timezoneOffsetMinutes) : 0;
+  const getDateBoundary = (value: string | string[], endOfDay: boolean) => {
+    const [year, month, day] = String(value).split('-').map(Number);
+    return Date.UTC(
+      year,
+      month - 1,
+      day,
+      endOfDay ? 23 : 0,
+      endOfDay ? 59 : 0,
+      endOfDay ? 59 : 0,
+      endOfDay ? 999 : 0
+    ) + (tzOffset * 60000);
+  };
 
   try {
-    let query = supabase.from('orders').select('*', { count: 'exact' });
+    if (updatedSince) {
+      const since = new Date(String(updatedSince));
+      if (Number.isNaN(since.getTime())) {
+        return res.status(400).json({ error: 'Invalid updatedSince cursor' });
+      }
 
-    if (restaurantId && restaurantId !== 'ALL') query = query.eq('restaurant_id', restaurantId);
-    if (locationName && locationName !== 'ALL') query = query.eq('location_name', locationName);
-    if (status && status !== 'ALL') query = query.eq('status', status);
-    
-    if (startDate) {
-      // startDate comes as YYYY-MM-DD from local time representation
-      // JavaScript interprets the date string as UTC, but we need to convert to what the user meant in their timezone
-      // For a client at UTC+8 selecting "2026-03-01":
-      // - They want: 2026-03-01 00:00:00+08 which is 2026-02-28 16:00:00 UTC
-      // - We have: 2026-03-01 00:00:00 (from string, interpreted as UTC)
-      // - getTimezoneOffset() for UTC+8 returns -480
-      // - We need to ADD the offset (which is negative) to subtract hours
-      const startD = new Date(startDate as string);
-      startD.setHours(0, 0, 0, 0);
-      const startTimestamp = startD.getTime() + (tzOffset * 60000);
-      query = query.gte('timestamp', startTimestamp);
+      const changedRows = await fetchAllRows(() => (
+        supabase
+          .from('orders')
+          .select('*')
+          .gt('updated_at', since.toISOString())
+          .lte('updated_at', syncCursor)
+          .order('updated_at', { ascending: true })
+          .order('id', { ascending: true })
+      ));
+
+      return res.status(200).json({
+        orders: changedRows.map(mapOrder),
+        syncCursor,
+      });
     }
-    if (endDate) {
-      // endDate is in format "YYYY-MM-DD" representing local end of day
-      // For a client at UTC+8 selecting "2026-03-01":
-      // - They want end of: 2026-03-01 23:59:59+08 which is 2026-03-01 15:59:59 UTC
-      const endD = new Date(endDate as string);
-      endD.setHours(23, 59, 59, 999);
-      const endTimestamp = endD.getTime() + (tzOffset * 60000);
-      query = query.lte('timestamp', endTimestamp);
-    }
-    
-    if (search) query = query.ilike('id', `%${search}%`);
+
+    const buildOrderQuery = (columns: string, withCount = false) => {
+      let query = supabase.from('orders').select(columns, withCount ? { count: 'exact' } : undefined);
+      if (restaurantId && restaurantId !== 'ALL') query = query.eq('restaurant_id', restaurantId);
+      if (locationName && locationName !== 'ALL') query = query.eq('location_name', locationName);
+      if (status && status !== 'ALL') query = query.eq('status', status);
+      if (startDate) {
+        query = query.gte('timestamp', getDateBoundary(startDate, false));
+      }
+      if (endDate) {
+        query = query.lte('timestamp', getDateBoundary(endDate, true));
+      }
+      if (search) query = query.ilike('id', `%${search}%`);
+      return query;
+    };
 
     // For large limits (e.g. CSV export), paginate in batches to avoid Supabase's 1000-row default cap
     let data: any[];
     let count: number | null;
     const requestedLimit = Number(limit);
     if (requestedLimit > BATCH_SIZE) {
-      // First get exact count
-      const { count: exactCount, error: countError } = await query.order('timestamp', { ascending: false }).range(0, 0);
-      if (countError) throw countError;
-      count = exactCount;
+      count = null;
+      if (includeSummary !== 'false') {
+        const { count: exactCount, error: countError } = await buildOrderQuery('id', true).range(0, 0);
+        if (countError) throw countError;
+        count = exactCount;
+      }
 
       // Fetch all requested rows in batches
       data = [];
       let offset = start;
       while (offset <= end) {
         const batchEnd = Math.min(offset + BATCH_SIZE - 1, end);
-        const { data: batch, error: batchError } = await query.order('timestamp', { ascending: false }).range(offset, batchEnd);
+        const { data: batch, error: batchError } = await buildOrderQuery('*')
+          .order('timestamp', { ascending: false })
+          .range(offset, batchEnd);
         if (batchError) throw batchError;
         if (!batch || batch.length === 0) break;
         data = data.concat(batch);
         if (batch.length < (batchEnd - offset + 1)) break;
         offset += BATCH_SIZE;
       }
+      if (count === null) count = data.length;
     } else {
-      const result = await query
+      const result = await buildOrderQuery('*', true)
         .order('timestamp', { ascending: false })
         .range(start, end);
       if (result.error) throw result.error;
@@ -107,26 +165,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Summary query – paginate through ALL matching rows to avoid Supabase's default 1000-row limit
-    const buildSummaryQuery = () => {
-      let q = supabase.from('orders').select('total, status, payment_method, cashier_name');
-      if (restaurantId && restaurantId !== 'ALL') q = q.eq('restaurant_id', restaurantId);
-      if (locationName && locationName !== 'ALL') q = q.eq('location_name', locationName);
-      if (status && status !== 'ALL') q = q.eq('status', status);
-      if (startDate) {
-        const startD = new Date(startDate as string);
-        startD.setHours(0, 0, 0, 0);
-        q = q.gte('timestamp', startD.getTime() + (tzOffset * 60000));
-      }
-      if (endDate) {
-        const endD = new Date(endDate as string);
-        endD.setHours(23, 59, 59, 999);
-        q = q.lte('timestamp', endD.getTime() + (tzOffset * 60000));
-      }
-      if (search) q = q.ilike('id', `%${search}%`);
-      return q;
-    };
-
-    const summaryData = await fetchAllRows(buildSummaryQuery);
+    const summaryData = includeSummary === 'false'
+      ? []
+      : await fetchAllRows(() => buildOrderQuery('total, status, payment_method, cashier_name'));
 
     const totalRevenue = summaryData
       .filter(o => o.status === 'COMPLETED')
@@ -162,26 +203,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .sort((a, b) => b.total - a.total);
 
     return res.status(200).json({
-      orders: data.map(o => ({
-        id: o.id,
-        items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
-        total: Number(o.total || 0),
-        status: o.status,
-        timestamp: Number(o.timestamp),
-        customerId: o.customer_id,
-        restaurantId: o.restaurant_id,
-        tableNumber: o.table_number,
-        diningType: o.dining_type || undefined,
-        locationName: o.location_name,
-        remark: o.remark,
-        rejectionReason: o.rejection_reason,
-        rejectionNote: o.rejection_note,
-        paymentMethod: o.payment_method,
-        cashierName: o.cashier_name,
-        amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
-        changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
-        orderSource: o.order_source || undefined
-      })),
+      orders: data.map(mapOrder),
       summary: {
         totalRevenue,
         orderVolume,
@@ -189,7 +211,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         byTransactionType,
         byCashier
       },
-      totalCount: count || 0
+      totalCount: count || 0,
+      syncCursor,
     });
   } catch (error) {
     console.error('Report error:', error);

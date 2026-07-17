@@ -78,108 +78,144 @@ async function startServer() {
   });
 
   app.get('/api/orders/report', async (req, res) => {
-    const { restaurantId, startDate, endDate, status, search, page = 1, limit = 30, locationName, timezoneOffsetMinutes } = req.query;
-    
+    const {
+      restaurantId, startDate, endDate, status, search, page = 1, limit = 30,
+      locationName, timezoneOffsetMinutes, updatedSince, includeSummary = 'true',
+    } = req.query;
+    const batchSize = 1000;
     const start = (Number(page) - 1) * Number(limit);
     const end = start + Number(limit) - 1;
-    
-    // Get timezone offset from client (in minutes). If not provided, assume UTC (0)
     const tzOffset = timezoneOffsetMinutes ? Number(timezoneOffsetMinutes) : 0;
+    const syncCursor = new Date().toISOString();
+    const getDateBoundary = (value: unknown, endOfDay: boolean) => {
+      const [year, month, day] = String(value).split('-').map(Number);
+      return Date.UTC(
+        year,
+        month - 1,
+        day,
+        endOfDay ? 23 : 0,
+        endOfDay ? 59 : 0,
+        endOfDay ? 59 : 0,
+        endOfDay ? 999 : 0
+      ) + (tzOffset * 60000);
+    };
+    const mapOrder = (o: any) => ({
+      id: o.id,
+      items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
+      total: Number(o.total || 0),
+      status: o.status,
+      timestamp: Number(o.timestamp),
+      customerId: o.customer_id,
+      restaurantId: o.restaurant_id,
+      tableNumber: o.table_number,
+      diningType: o.dining_type || undefined,
+      locationName: o.location_name,
+      remark: o.remark,
+      rejectionReason: o.rejection_reason,
+      rejectionNote: o.rejection_note,
+      paymentMethod: o.payment_method,
+      cashierName: o.cashier_name,
+      amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
+      changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
+      orderSource: o.order_source || undefined,
+      updatedAt: o.updated_at || undefined,
+    });
+    const fetchAllRows = async (buildQuery: () => any) => {
+      const rows: any[] = [];
+      for (let offset = 0; ; offset += batchSize) {
+        const { data, error } = await buildQuery().range(offset, offset + batchSize - 1);
+        if (error) throw error;
+        if (!data?.length) break;
+        rows.push(...data);
+        if (data.length < batchSize) break;
+      }
+      return rows;
+    };
 
     try {
-      let query = supabase.from('orders').select('*', { count: 'exact' });
-
-      if (restaurantId && restaurantId !== 'ALL') query = query.eq('restaurant_id', restaurantId);
-      if (locationName && locationName !== 'ALL') query = query.eq('location_name', locationName);
-      if (status && status !== 'ALL') query = query.eq('status', status);
-      
-      if (startDate) {
-        // startDate is in format "YYYY-MM-DD" representing local midnight
-        // JavaScript interprets the date string as UTC, but we need to convert to what the user meant in their timezone
-        // For a client at UTC+8 selecting "2026-03-01":
-        // - They want: 2026-03-01 00:00:00+08 which is 2026-02-28 16:00:00 UTC
-        // - We have: 2026-03-01 00:00:00 (from string, interpreted as UTC by JavaScript)
-        // - getTimezoneOffset() for UTC+8 returns -480
-        // - We need to ADD the offset (which is negative) to subtract hours
-        const startD = new Date(startDate as string);
-        startD.setHours(0, 0, 0, 0);
-        const startTimestamp = startD.getTime() + (tzOffset * 60000);
-        query = query.gte('timestamp', startTimestamp);
+      if (updatedSince) {
+        const since = new Date(String(updatedSince));
+        if (Number.isNaN(since.getTime())) return res.status(400).json({ error: 'Invalid updatedSince cursor' });
+        const changedRows = await fetchAllRows(() => supabase
+          .from('orders')
+          .select('*')
+          .gt('updated_at', since.toISOString())
+          .lte('updated_at', syncCursor)
+          .order('updated_at', { ascending: true })
+          .order('id', { ascending: true }));
+        return res.json({ orders: changedRows.map(mapOrder), syncCursor });
       }
-      if (endDate) {
-        // endDate is in format "YYYY-MM-DD" representing local end of day
-        // For a client at UTC+8 selecting "2026-03-01":
-        // - They want end of: 2026-03-01 23:59:59+08 which is 2026-03-01 15:59:59 UTC
-        const endD = new Date(endDate as string);
-        endD.setHours(23, 59, 59, 999);
-        const endTimestamp = endD.getTime() + (tzOffset * 60000);
-        query = query.lte('timestamp', endTimestamp);
+
+      const applyFilters = (query: any) => {
+        if (restaurantId && restaurantId !== 'ALL') query = query.eq('restaurant_id', restaurantId);
+        if (locationName && locationName !== 'ALL') query = query.eq('location_name', locationName);
+        if (status && status !== 'ALL') query = query.eq('status', status);
+        if (startDate) {
+          query = query.gte('timestamp', getDateBoundary(startDate, false));
+        }
+        if (endDate) {
+          query = query.lte('timestamp', getDateBoundary(endDate, true));
+        }
+        if (search) query = query.ilike('id', `%${search}%`);
+        return query;
+      };
+
+      const requestedLimit = Number(limit);
+      let data: any[];
+      let totalCount = 0;
+      if (requestedLimit > batchSize) {
+        data = [];
+        for (let offset = start; offset <= end; offset += batchSize) {
+          const batchEnd = Math.min(offset + batchSize - 1, end);
+          const result = await applyFilters(supabase.from('orders').select('*'))
+            .order('timestamp', { ascending: false })
+            .range(offset, batchEnd);
+          if (result.error) throw result.error;
+          if (!result.data?.length) break;
+          data.push(...result.data);
+          if (result.data.length < batchEnd - offset + 1) break;
+        }
+        totalCount = data.length;
+      } else {
+        const result = await applyFilters(supabase.from('orders').select('*', { count: 'exact' }))
+          .order('timestamp', { ascending: false })
+          .range(start, end);
+        if (result.error) throw result.error;
+        data = result.data || [];
+        totalCount = result.count || 0;
       }
-      
-      if (search) query = query.ilike('id', `%${search}%`);
 
-      const { data, error, count } = await query
-        .order('timestamp', { ascending: false })
-        .range(start, end);
+      const summaryData = includeSummary === 'false'
+        ? []
+        : await fetchAllRows(() => applyFilters(supabase.from('orders').select('total, status, payment_method, cashier_name')));
+      const completed = summaryData.filter(order => order.status === 'COMPLETED');
+      const totalRevenue = completed.reduce((sum, order) => sum + Number(order.total || 0), 0);
+      const transactionMap = new Map<string, { count: number; total: number }>();
+      const cashierMap = new Map<string, { count: number; total: number }>();
+      summaryData.filter(order => order.status !== 'CANCELLED').forEach(order => {
+        const transaction = order.payment_method || '-';
+        const transactionRow = transactionMap.get(transaction) || { count: 0, total: 0 };
+        transactionRow.count += 1;
+        transactionRow.total += Number(order.total || 0);
+        transactionMap.set(transaction, transactionRow);
+        const cashier = order.cashier_name || '-';
+        const cashierRow = cashierMap.get(cashier) || { count: 0, total: 0 };
+        cashierRow.count += 1;
+        cashierRow.total += Number(order.total || 0);
+        cashierMap.set(cashier, cashierRow);
+      });
 
-      if (error) throw error;
-
-      // Summary query - we need total revenue and efficiency for the SAME filters
-      let summaryQuery = supabase.from('orders').select('total, status');
-      if (restaurantId && restaurantId !== 'ALL') summaryQuery = summaryQuery.eq('restaurant_id', restaurantId);
-      if (locationName && locationName !== 'ALL') summaryQuery = summaryQuery.eq('location_name', locationName);
-      if (status && status !== 'ALL') summaryQuery = summaryQuery.eq('status', status);
-      
-      if (startDate) {
-        const startD = new Date(startDate as string);
-        startD.setHours(0, 0, 0, 0);
-        const startTimestamp = startD.getTime() + (tzOffset * 60000);
-        summaryQuery = summaryQuery.gte('timestamp', startTimestamp);
-      }
-      if (endDate) {
-        const endD = new Date(endDate as string);
-        endD.setHours(23, 59, 59, 999);
-        const endTimestamp = endD.getTime() + (tzOffset * 60000);
-        summaryQuery = summaryQuery.lte('timestamp', endTimestamp);
-      }
-      
-      if (search) summaryQuery = summaryQuery.ilike('id', `%${search}%`);
-
-      const { data: summaryData, error: summaryError } = await summaryQuery;
-      if (summaryError) throw summaryError;
-
-      const totalRevenue = summaryData
-        .filter(o => o.status === 'COMPLETED')
-        .reduce((acc, o) => acc + Number(o.total || 0), 0);
-      
-      const orderVolume = summaryData.length;
-      const completedCount = summaryData.filter(o => o.status === 'COMPLETED').length;
-      const efficiency = orderVolume > 0 ? Math.round((completedCount / orderVolume) * 100) : 0;
-
-      res.json({
-        orders: data.map(o => ({
-          id: o.id,
-          items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
-          total: Number(o.total || 0),
-          status: o.status,
-          timestamp: Number(o.timestamp),
-          customerId: o.customer_id,
-          restaurantId: o.restaurant_id,
-          tableNumber: o.table_number,
-          diningType: o.dining_type,
-          locationName: o.location_name,
-          remark: o.remark,
-          rejectionReason: o.rejection_reason,
-          rejectionNote: o.rejection_note,
-          paymentMethod: o.payment_method,
-          cashierName: o.cashier_name
-        })),
+      return res.json({
+        orders: data.map(mapOrder),
         summary: {
           totalRevenue,
-          orderVolume,
-          efficiency
+          orderVolume: summaryData.length,
+          efficiency: summaryData.length ? Math.round((completed.length / summaryData.length) * 100) : 0,
+          byTransactionType: Array.from(transactionMap, ([name, values]) => ({ name, ...values })),
+          byCashier: Array.from(cashierMap, ([name, values]) => ({ name, ...values })),
         },
-        totalCount: count || 0
+        totalCount,
+        syncCursor,
       });
     } catch (error) {
       console.error('Report error:', error);

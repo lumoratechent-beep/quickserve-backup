@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, Subscription, SubscriptionExpiryHistory, PlanId, MenuItem } from '../src/types';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, OrderChangesResponse, Subscription, SubscriptionExpiryHistory, PlanId, MenuItem } from '../src/types';
 import { uploadImage } from '../lib/storage';
 import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2, Lock, Unlock, MoreVertical, BookOpen, Package } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
@@ -27,6 +27,7 @@ interface Props {
   onCopyMenuItems: (targetRestaurantId: string, items: MenuItem[]) => Promise<number>;
   onFetchPaginatedOrders?: (filters: ReportFilters, page: number, pageSize: number) => Promise<ReportResponse>;
   onFetchAllFilteredOrders?: (filters: ReportFilters) => Promise<Order[]>;
+  onFetchOrderChanges?: (updatedSince: string) => Promise<OrderChangesResponse>;
   onFetchStats?: (filters: ReportFilters) => Promise<any>;
 }
 
@@ -249,6 +250,38 @@ const DateTimeRows: React.FC<{
       <p className={timeClassName}>{date.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}</p>
     </div>
   );
+};
+
+const toLocalDateInput = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getCurrentMonthRange = () => {
+  const now = new Date();
+  return {
+    startDate: toLocalDateInput(new Date(now.getFullYear(), now.getMonth(), 1)),
+    endDate: toLocalDateInput(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+  };
+};
+
+const orderIsWithinRange = (order: Order, startDate?: string, endDate?: string) => {
+  const start = startDate ? new Date(`${startDate}T00:00:00`).getTime() : Number.NEGATIVE_INFINITY;
+  const end = endDate ? new Date(`${endDate}T23:59:59.999`).getTime() : Number.POSITIVE_INFINITY;
+  return order.timestamp >= start && order.timestamp <= end;
+};
+
+const filterCachedReportOrders = (orders: Order[], filters: ReportFilters) => {
+  const search = String(filters.search || '').trim().toLowerCase();
+  return orders.filter(order => (
+    orderIsWithinRange(order, filters.startDate, filters.endDate)
+    && (!filters.restaurantId || filters.restaurantId === 'ALL' || order.restaurantId === filters.restaurantId)
+    && (!filters.locationName || filters.locationName === 'ALL' || order.locationName === filters.locationName)
+    && (!filters.status || filters.status === 'ALL' || order.status === filters.status)
+    && (!search || order.id.toLowerCase().includes(search))
+  )).sort((left, right) => right.timestamp - left.timestamp);
 };
 
 const mergeAdminRecords = <T extends { id: string; updatedAt?: number }>(localRecords: T[], remoteRecords: T[]) => {
@@ -799,9 +832,146 @@ const AdminView: React.FC<Props> = ({
   onCopyMenuItems,
   onFetchPaginatedOrders,
   onFetchAllFilteredOrders,
+  onFetchOrderChanges,
   onFetchStats
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('DASHBOARD');
+  const initialAdminReportRange = useMemo(getCurrentMonthRange, []);
+  const [adminReportOrders, setAdminReportOrders] = useState<Order[]>([]);
+  const [adminReportLoading, setAdminReportLoading] = useState(false);
+  const [adminReportError, setAdminReportError] = useState('');
+  const [adminReportLastUpdated, setAdminReportLastUpdated] = useState<Date | null>(null);
+  const [adminReportSchedulerEpoch, setAdminReportSchedulerEpoch] = useState(0);
+  const adminReportCacheRef = useRef<Map<string, Order>>(new Map());
+  const adminReportCoverageRef = useRef<Set<string>>(new Set());
+  const adminReportRequestsRef = useRef<Map<string, Promise<Order[]>>>(new Map());
+  const adminReportCursorRef = useRef<string | null>(null);
+  const adminReportPendingCountRef = useRef(0);
+
+  const commitAdminReportOrders = useCallback((
+    incoming: Order[],
+    replaceRange?: { startDate?: string; endDate?: string }
+  ) => {
+    const cache = adminReportCacheRef.current;
+    if (replaceRange) {
+      for (const [id, order] of cache.entries()) {
+        if (orderIsWithinRange(order, replaceRange.startDate, replaceRange.endDate)) cache.delete(id);
+      }
+    }
+    incoming.forEach(order => {
+      const existing = cache.get(order.id);
+      const existingUpdated = existing?.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+      const incomingUpdated = order.updatedAt ? new Date(order.updatedAt).getTime() : 0;
+      if (existing && existingUpdated && incomingUpdated && incomingUpdated < existingUpdated) return;
+      cache.set(order.id, { ...existing, ...order });
+    });
+    const next = Array.from(cache.values()).sort((left, right) => right.timestamp - left.timestamp);
+    setAdminReportOrders(next);
+    return next;
+  }, []);
+
+  const ensureAdminReportRange = useCallback(async (
+    filters: ReportFilters,
+    force = false
+  ): Promise<Order[]> => {
+    const startDate = filters.startDate || initialAdminReportRange.startDate;
+    const endDate = filters.endDate || initialAdminReportRange.endDate;
+    const coverageKey = `${startDate}:${endDate}`;
+    const isCovered = Array.from(adminReportCoverageRef.current).some(key => {
+      const [cachedStart, cachedEnd] = key.split(':');
+      return cachedStart <= startDate && cachedEnd >= endDate;
+    });
+    if (!force && isCovered) {
+      return Array.from(adminReportCacheRef.current.values());
+    }
+    const existingRequest = adminReportRequestsRef.current.get(coverageKey);
+    if (existingRequest) return existingRequest;
+    if (!onFetchAllFilteredOrders) return Array.from(adminReportCacheRef.current.values());
+
+    const request = (async () => {
+      adminReportPendingCountRef.current += 1;
+      setAdminReportLoading(true);
+      setAdminReportError('');
+      const cursorBeforeRequest = new Date().toISOString();
+      try {
+        const fetched = await onFetchAllFilteredOrders({
+          restaurantId: 'ALL',
+          locationName: 'ALL',
+          status: 'ALL',
+          startDate,
+          endDate,
+        });
+        const next = commitAdminReportOrders(
+          fetched,
+          force ? { startDate, endDate } : undefined
+        );
+        adminReportCoverageRef.current.add(coverageKey);
+        if (!adminReportCursorRef.current) adminReportCursorRef.current = cursorBeforeRequest;
+        setAdminReportLastUpdated(new Date());
+        return next;
+      } catch (error) {
+        setAdminReportError(error instanceof Error ? error.message : 'Unable to load admin report data.');
+        throw error;
+      } finally {
+        adminReportPendingCountRef.current -= 1;
+        if (adminReportPendingCountRef.current === 0) setAdminReportLoading(false);
+        adminReportRequestsRef.current.delete(coverageKey);
+      }
+    })();
+    adminReportRequestsRef.current.set(coverageKey, request);
+    return request;
+  }, [commitAdminReportOrders, initialAdminReportRange.endDate, initialAdminReportRange.startDate, onFetchAllFilteredOrders]);
+
+  const syncAdminReportChanges = useCallback(async () => {
+    if (!onFetchOrderChanges || !adminReportCursorRef.current) return;
+    const requestKey = '__incremental__';
+    if (adminReportRequestsRef.current.has(requestKey)) return;
+    const request = (async () => {
+      try {
+        const result = await onFetchOrderChanges(adminReportCursorRef.current as string);
+        if (result.orders.length > 0) commitAdminReportOrders(result.orders);
+        adminReportCursorRef.current = result.syncCursor;
+        setAdminReportLastUpdated(new Date());
+        setAdminReportError('');
+        return Array.from(adminReportCacheRef.current.values());
+      } catch (error) {
+        setAdminReportError(error instanceof Error ? error.message : 'Unable to synchronize admin report data.');
+        return Array.from(adminReportCacheRef.current.values());
+      } finally {
+        adminReportRequestsRef.current.delete(requestKey);
+      }
+    })();
+    adminReportRequestsRef.current.set(requestKey, request);
+    await request;
+  }, [commitAdminReportOrders, onFetchOrderChanges]);
+
+  const refreshAdminReportRange = useCallback(async (filters: ReportFilters) => {
+    setAdminReportSchedulerEpoch(value => value + 1);
+    return ensureAdminReportRange(filters, true);
+  }, [ensureAdminReportRange]);
+
+  useEffect(() => {
+    ensureAdminReportRange(initialAdminReportRange).catch(() => undefined);
+  }, [ensureAdminReportRange, initialAdminReportRange]);
+
+  useEffect(() => {
+    commitAdminReportOrders(orders);
+  }, [commitAdminReportOrders, orders]);
+
+  useEffect(() => {
+    const synchronizeIfActive = () => {
+      if (document.visibilityState !== 'visible' || !navigator.onLine) return;
+      syncAdminReportChanges();
+    };
+    const interval = window.setInterval(synchronizeIfActive, 2 * 60 * 1000);
+    document.addEventListener('visibilitychange', synchronizeIfActive);
+    window.addEventListener('online', synchronizeIfActive);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', synchronizeIfActive);
+      window.removeEventListener('online', synchronizeIfActive);
+    };
+  }, [adminReportSchedulerEpoch, syncAdminReportChanges]);
   const [vendorHubSubTab, setVendorHubSubTab] = useState<'VENDORS' | 'HUBS'>('VENDORS');
   const [incomeReportSubTab, setIncomeReportSubTab] = useState<'INCOME' | 'REPORTS'>('INCOME');
   const [vendorSubscriptionSubTab, setVendorSubscriptionSubTab] = useState<'SCHEDULE' | 'HISTORY'>('SCHEDULE');
@@ -2944,33 +3114,41 @@ const AdminView: React.FC<Props> = ({
         status: reportStatus,
         search: reportSearchQuery
       };
+      const cached = await ensureAdminReportRange(filters);
+      const matching = filterCachedReportOrders(cached, filters);
+      if (isExport) return matching;
 
-      if (isExport && onFetchAllFilteredOrders) {
-        const orders = await onFetchAllFilteredOrders(filters);
-        return orders;
-      }
+      const completed = matching.filter(order => order.status === OrderStatus.COMPLETED);
+      const nonCancelled = matching.filter(order => order.status !== OrderStatus.CANCELLED);
+      const transactionMap = new Map<string, { count: number; total: number }>();
+      const cashierMap = new Map<string, { count: number; total: number }>();
+      nonCancelled.forEach(order => {
+        const transactionName = order.paymentMethod || '-';
+        const transaction = transactionMap.get(transactionName) || { count: 0, total: 0 };
+        transaction.count += 1;
+        transaction.total += Number(order.total || 0);
+        transactionMap.set(transactionName, transaction);
 
-      if (!isExport && onFetchPaginatedOrders) {
-        const data = await onFetchPaginatedOrders(filters, currentPage, entriesPerPage);
-        setReportData(data);
-        return;
-      }
-
-      const params = new URLSearchParams({
-        ...filters as any,
-        page: isExport ? '1' : currentPage.toString(),
-        limit: isExport ? '10000' : entriesPerPage.toString()
+        const cashierName = order.cashierName || '-';
+        const cashier = cashierMap.get(cashierName) || { count: 0, total: 0 };
+        cashier.count += 1;
+        cashier.total += Number(order.total || 0);
+        cashierMap.set(cashierName, cashier);
       });
-
-      const response = await fetch(`/api/orders/report?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch report');
-      const data: ReportResponse = await response.json();
-      
-      if (isExport) {
-        return data.orders;
-      } else {
-        setReportData(data);
-      }
+      const pageStart = (currentPage - 1) * entriesPerPage;
+      setReportData({
+        orders: matching.slice(pageStart, pageStart + entriesPerPage),
+        summary: {
+          totalRevenue: completed.reduce((sum, order) => sum + Number(order.total || 0), 0),
+          orderVolume: matching.length,
+          efficiency: matching.length ? Math.round((completed.length / matching.length) * 100) : 0,
+          byTransactionType: Array.from(transactionMap, ([name, values]) => ({ name, ...values }))
+            .sort((left, right) => right.total - left.total),
+          byCashier: Array.from(cashierMap, ([name, values]) => ({ name, ...values }))
+            .sort((left, right) => right.total - left.total),
+        },
+        totalCount: matching.length,
+      });
     } catch (error) {
       console.error('Error fetching report:', error);
     } finally {
@@ -2982,7 +3160,7 @@ const AdminView: React.FC<Props> = ({
     if (activeTab === 'INCOME_REPORT' && incomeReportSubTab === 'REPORTS') {
       fetchReport();
     }
-  }, [activeTab, incomeReportSubTab, reportStart, reportEnd, reportStatus, reportSearchQuery, reportVendor, reportHub, currentPage, entriesPerPage]);
+  }, [activeTab, incomeReportSubTab, reportStart, reportEnd, reportStatus, reportSearchQuery, reportVendor, reportHub, currentPage, entriesPerPage, adminReportOrders]);
 
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
@@ -3345,8 +3523,12 @@ const AdminView: React.FC<Props> = ({
           <AdminDashboard
             vendors={vendors}
             restaurants={restaurants}
-            cachedOrders={orders}
-            onFetchAllFilteredOrders={onFetchAllFilteredOrders}
+            cachedOrders={adminReportOrders}
+            onEnsureReportRange={ensureAdminReportRange}
+            onRefreshReportRange={refreshAdminReportRange}
+            isReportLoading={adminReportLoading}
+            reportError={adminReportError}
+            lastUpdated={adminReportLastUpdated}
           />
         )}
         {activeTab === 'VENDORS' && (

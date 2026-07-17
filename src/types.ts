@@ -207,6 +207,7 @@ export interface Order {
   amountReceived?: number;
   changeAmount?: number;
   orderSource?: OrderSource;
+  updatedAt?: string;
 }
 
 export interface User {
@@ -236,6 +237,12 @@ export interface ReportResponse {
     byCashier?: { name: string; count: number; total: number }[];
   };
   totalCount: number;
+  syncCursor?: string;
+}
+
+export interface OrderChangesResponse {
+  orders: Order[];
+  syncCursor: string;
 }
 
 export interface ReportFilters {

@@ -33,7 +33,11 @@ interface Props {
   vendors: User[];
   restaurants: Restaurant[];
   cachedOrders: Order[];
-  onFetchAllFilteredOrders?: (filters: ReportFilters) => Promise<Order[]>;
+  onEnsureReportRange: (filters: ReportFilters) => Promise<Order[]>;
+  onRefreshReportRange: (filters: ReportFilters) => Promise<Order[]>;
+  isReportLoading?: boolean;
+  reportError?: string;
+  lastUpdated?: Date | null;
 }
 
 type DatePreset = 'THIS_MONTH' | 'LAST_MONTH' | 'LAST_7_DAYS' | 'LAST_30_DAYS' | 'CUSTOM';
@@ -75,56 +79,67 @@ const getPresetRange = (preset: Exclude<DatePreset, 'CUSTOM'>) => {
 
 const csvCell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
-const AdminDashboard: React.FC<Props> = ({ vendors, restaurants, cachedOrders, onFetchAllFilteredOrders }) => {
+const AdminDashboard: React.FC<Props> = ({
+  vendors,
+  restaurants,
+  cachedOrders,
+  onEnsureReportRange,
+  onRefreshReportRange,
+  isReportLoading = false,
+  reportError = '',
+  lastUpdated = null,
+}) => {
   const initialRange = getPresetRange('THIS_MONTH');
   const [preset, setPreset] = useState<DatePreset>('THIS_MONTH');
   const [startDate, setStartDate] = useState(initialRange.startDate);
   const [endDate, setEndDate] = useState(initialRange.endDate);
-  const [dashboardOrders, setDashboardOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
-  const [reloadKey, setReloadKey] = useState(0);
+  const [isRangeLoading, setIsRangeLoading] = useState(false);
+  const [rangeError, setRangeError] = useState('');
 
   useEffect(() => {
     let active = true;
-
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError('');
-      try {
-        let nextOrders: Order[];
-        if (onFetchAllFilteredOrders) {
-          nextOrders = await onFetchAllFilteredOrders({
-            restaurantId: 'ALL',
-            locationName: 'ALL',
-            status: 'ALL',
-            startDate,
-            endDate,
-          });
-        } else {
-          const start = new Date(`${startDate}T00:00:00`).getTime();
-          const end = new Date(`${endDate}T23:59:59.999`).getTime();
-          nextOrders = cachedOrders.filter(order => order.timestamp >= start && order.timestamp <= end);
-        }
-        if (active) setDashboardOrders(nextOrders);
-      } catch (error) {
-        const start = new Date(`${startDate}T00:00:00`).getTime();
-        const end = new Date(`${endDate}T23:59:59.999`).getTime();
-        const fallback = cachedOrders.filter(order => order.timestamp >= start && order.timestamp <= end);
-        if (active) {
-          setDashboardOrders(fallback);
-          setLoadError(fallback.length > 0
-            ? 'Live report could not be loaded. Showing the locally cached orders.'
-            : (error instanceof Error ? error.message : 'Unable to load dashboard data.'));
-        }
-      } finally {
-        if (active) setIsLoading(false);
-      }
-    };
-
-    load();
+    setIsRangeLoading(true);
+    setRangeError('');
+    onEnsureReportRange({
+      restaurantId: 'ALL',
+      locationName: 'ALL',
+      status: 'ALL',
+      startDate,
+      endDate,
+    }).catch(error => {
+      if (active) setRangeError(error instanceof Error ? error.message : 'Unable to load dashboard data.');
+    }).finally(() => {
+      if (active) setIsRangeLoading(false);
+    });
     return () => { active = false; };
-  }, [endDate, reloadKey, startDate]);
+  }, [endDate, onEnsureReportRange, startDate]);
+
+  const dashboardOrders = useMemo(() => {
+    const start = new Date(`${startDate}T00:00:00`).getTime();
+    const end = new Date(`${endDate}T23:59:59.999`).getTime();
+    return cachedOrders.filter(order => order.timestamp >= start && order.timestamp <= end);
+  }, [cachedOrders, endDate, startDate]);
+
+  const isLoading = isRangeLoading || isReportLoading;
+  const loadError = rangeError || reportError;
+
+  const handleRefresh = async () => {
+    setIsRangeLoading(true);
+    setRangeError('');
+    try {
+      await onRefreshReportRange({
+        restaurantId: 'ALL',
+        locationName: 'ALL',
+        status: 'ALL',
+        startDate,
+        endDate,
+      });
+    } catch (error) {
+      setRangeError(error instanceof Error ? error.message : 'Unable to refresh dashboard data.');
+    } finally {
+      setIsRangeLoading(false);
+    }
+  };
 
   const restaurantById = useMemo(
     () => new Map(restaurants.map(restaurant => [restaurant.id, restaurant])),
@@ -337,6 +352,11 @@ const AdminDashboard: React.FC<Props> = ({ vendors, restaurants, cachedOrders, o
           <p className="mt-1 text-xs font-medium uppercase tracking-widest text-gray-500 dark:text-gray-400">
             Sales and performance across every vendor
           </p>
+          {lastUpdated && (
+            <p className="mt-2 text-[10px] font-semibold text-gray-400">
+              Last updated {lastUpdated.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -376,7 +396,7 @@ const AdminDashboard: React.FC<Props> = ({ vendors, restaurants, cachedOrders, o
           </label>
           <button
             type="button"
-            onClick={() => setReloadKey(value => value + 1)}
+            onClick={handleRefresh}
             disabled={isLoading}
             title="Refresh dashboard"
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:border-orange-300 hover:text-orange-500 disabled:opacity-50 dark:border-gray-600"

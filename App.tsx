@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, QS_DEFAULT_HUB, Subscription, KitchenDepartment, OrderSource, CashierShift, IngredientItem } from './src/types';
+import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, OrderChangesResponse, QS_DEFAULT_HUB, Subscription, KitchenDepartment, OrderSource, CashierShift, IngredientItem } from './src/types';
 import CustomerView from './pages/CustomerView';
 import AdminView from './pages/AdminView';
 import PosOnlyView from './pages/PosOnlyView';
@@ -2660,12 +2660,20 @@ const App: React.FC = () => {
       ...filters as any,
       timezoneOffsetMinutes: tzOffset.toString(),
       page: '1',
-      limit: '10000'
+      limit: '1000000',
+      includeSummary: 'false',
     });
     const response = await fetch(`/api/orders/report?${params.toString()}`);
     if (!response.ok) throw new Error('Failed to fetch report');
     const data = await response.json();
     return data.orders;
+  };
+
+  const onFetchOrderChanges = async (updatedSince: string): Promise<OrderChangesResponse> => {
+    const params = new URLSearchParams({ updatedSince });
+    const response = await fetch(`/api/orders/report?${params.toString()}`);
+    if (!response.ok) throw new Error('Failed to synchronize report changes');
+    return await response.json();
   };
 
   const onFetchStats = async (filters: ReportFilters): Promise<any> => {
@@ -3716,6 +3724,7 @@ const App: React.FC = () => {
             onRemoveVendorFromHub={(rid) => supabase.from('restaurants').update({ location_name: null }).eq('id', rid).then(() => fetchRestaurants())} 
             onFetchPaginatedOrders={onFetchPaginatedOrders}
             onFetchAllFilteredOrders={onFetchAllFilteredOrders}
+            onFetchOrderChanges={onFetchOrderChanges}
             onFetchStats={onFetchStats}
           />
         )}
