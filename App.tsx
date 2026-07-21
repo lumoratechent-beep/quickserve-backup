@@ -55,6 +55,8 @@ const generateDefaultOrderCode = (restaurantName: string): string => {
 const BACK_OFFICE_DEVICE_MESSAGE = 'Back Office can only be accessed through a tablet, laptop, or desktop.';
 const BACK_OFFICE_ROLES: Role[] = ['VENDOR', 'ADMIN', 'HR'];
 const BACK_OFFICE_ONLY_ROLES: Role[] = ['HR'];
+const SUBSCRIPTION_CACHE_KEY = 'qs_cache_subscriptions';
+const SUBSCRIPTION_CHANGE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 
 const getStoredRole = (): Role | null => {
   try {
@@ -266,7 +268,25 @@ const App: React.FC = () => {
     locationsRef.current = locations;
   }, [locations]);
 
-  const [vendorSubscriptions, setVendorSubscriptions] = useState<Record<string, Subscription>>({});
+  const [vendorSubscriptions, setVendorSubscriptions] = useState<Record<string, Subscription>>(() => {
+    try {
+      const saved = localStorage.getItem(SUBSCRIPTION_CACHE_KEY);
+      const parsed = saved ? JSON.parse(saved) : null;
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  });
+  const vendorSubscriptionsRef = useRef<Record<string, Subscription>>(vendorSubscriptions);
+
+  useEffect(() => {
+    vendorSubscriptionsRef.current = vendorSubscriptions;
+    try {
+      localStorage.setItem(SUBSCRIPTION_CACHE_KEY, JSON.stringify(vendorSubscriptions));
+    } catch {
+      // Subscription access still works in memory when storage is unavailable.
+    }
+  }, [vendorSubscriptions]);
 
   const [isLoading, setIsLoading] = useState(() => {
     try {
@@ -1075,6 +1095,62 @@ const App: React.FC = () => {
       });
     }
   }, [currentRole, currentUser?.restaurantId]);
+
+  // Realtime remains the primary update path. Every four hours, compare only the
+  // server's update marker and fetch the full row if it actually changed. The
+  // cached expiry continues to drive the local expiry timer while offline.
+  useEffect(() => {
+    const restaurantId = currentUser?.restaurantId;
+    if (!restaurantId || currentRole === 'ADMIN' || currentRole === 'CUSTOMER') return;
+
+    const checkForSubscriptionChange = async () => {
+      if (!navigator.onLine) return;
+
+      const result = await withTimeout(
+        supabase
+          .from('subscriptions')
+          .select('restaurant_id, plan_id, status, current_period_end, trial_end, access_locked, access_lock_at, updated_at')
+          .eq('restaurant_id', restaurantId)
+          .maybeSingle(),
+        6000
+      );
+      if (!result) return;
+
+      const { data, error } = result;
+      if (error) return;
+
+      const cached = vendorSubscriptionsRef.current[restaurantId];
+      if (!data) {
+        if (cached) {
+          setVendorSubscriptions(prev => {
+            const next = { ...prev };
+            delete next[restaurantId];
+            return next;
+          });
+        }
+        return;
+      }
+
+      const accessStateChanged = !cached
+        || cached.updated_at !== data.updated_at
+        || cached.plan_id !== data.plan_id
+        || cached.status !== data.status
+        || (cached.current_period_end ?? null) !== (data.current_period_end ?? null)
+        || (cached.trial_end ?? null) !== (data.trial_end ?? null)
+        || (cached.access_locked ?? false) !== (data.access_locked ?? false)
+        || (cached.access_lock_at ?? null) !== (data.access_lock_at ?? null);
+
+      if (accessStateChanged) {
+        await fetchSubscriptions();
+      }
+    };
+
+    const intervalId = window.setInterval(
+      checkForSubscriptionChange,
+      SUBSCRIPTION_CHANGE_CHECK_INTERVAL_MS
+    );
+    return () => window.clearInterval(intervalId);
+  }, [currentRole, currentUser?.restaurantId, fetchSubscriptions]);
 
   useEffect(() => {
     const roleCanOwnRestaurant = currentRole === 'VENDOR' || currentRole === 'CASHIER' || currentRole === 'KITCHEN' || currentRole === 'ORDER_TAKER' || currentRole === 'HR';
