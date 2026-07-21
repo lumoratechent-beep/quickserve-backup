@@ -345,7 +345,21 @@ const AdminDashboard: React.FC<Props> = ({
   };
 
   return (
-    <div className="p-4 md:p-8 space-y-5">
+    <div className="relative min-h-full">
+      {isLoading && (
+        <div className="absolute inset-0 z-50 bg-white/55 backdrop-blur-[3px] dark:bg-gray-950/55">
+          <div className="sticky top-0 flex h-[calc(100vh-4rem)] items-center justify-center">
+            <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white/95 px-5 py-3 shadow-xl dark:border-gray-700 dark:bg-gray-900/95">
+              <Loader2 className="animate-spin text-orange-500" size={24} />
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300">
+                Loading dashboard
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-5 p-4 md:p-8">
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Dashboard</h1>
@@ -359,13 +373,13 @@ const AdminDashboard: React.FC<Props> = ({
           )}
         </div>
 
-        <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <label className="min-w-[145px]">
-            <span className="mb-1 block text-[9px] font-black uppercase tracking-widest text-gray-400">Date range</span>
+        <div className="flex max-w-full flex-nowrap items-end gap-2 overflow-x-auto rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <label className="w-[138px] shrink-0">
+            <span className="mb-0.5 block text-[8px] font-black uppercase tracking-widest text-gray-400">Date range</span>
             <select
               value={preset}
               onChange={event => handlePreset(event.target.value as DatePreset)}
-              className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-xs font-bold text-gray-700 outline-none focus:ring-2 focus:ring-orange-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className="h-8 w-full rounded-md border border-gray-200 bg-gray-50 px-3 text-xs font-bold text-gray-700 outline-none focus:ring-2 focus:ring-orange-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             >
               <option value="THIS_MONTH">This month</option>
               <option value="LAST_MONTH">Last month</option>
@@ -374,24 +388,24 @@ const AdminDashboard: React.FC<Props> = ({
               <option value="CUSTOM">Custom range</option>
             </select>
           </label>
-          <label>
-            <span className="mb-1 block text-[9px] font-black uppercase tracking-widest text-gray-400">From</span>
+          <label className="w-[116px] shrink-0">
+            <span className="mb-0.5 block text-[8px] font-black uppercase tracking-widest text-gray-400">From</span>
             <input
               type="date"
               value={startDate}
               max={endDate}
               onChange={event => { setPreset('CUSTOM'); setStartDate(event.target.value); }}
-              className="h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-xs font-bold text-gray-700 outline-none focus:ring-2 focus:ring-orange-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className="h-8 w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 text-[11px] font-bold text-gray-700 outline-none focus:ring-2 focus:ring-orange-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             />
           </label>
-          <label>
-            <span className="mb-1 block text-[9px] font-black uppercase tracking-widest text-gray-400">To</span>
+          <label className="w-[116px] shrink-0">
+            <span className="mb-0.5 block text-[8px] font-black uppercase tracking-widest text-gray-400">To</span>
             <input
               type="date"
               value={endDate}
               min={startDate}
               onChange={event => { setPreset('CUSTOM'); setEndDate(event.target.value); }}
-              className="h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-xs font-bold text-gray-700 outline-none focus:ring-2 focus:ring-orange-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className="h-8 w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 text-[11px] font-bold text-gray-700 outline-none focus:ring-2 focus:ring-orange-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             />
           </label>
           <button
@@ -399,7 +413,7 @@ const AdminDashboard: React.FC<Props> = ({
             onClick={handleRefresh}
             disabled={isLoading}
             title="Refresh dashboard"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:border-orange-300 hover:text-orange-500 disabled:opacity-50 dark:border-gray-600"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-gray-200 text-gray-500 transition hover:border-orange-300 hover:text-orange-500 disabled:opacity-50 dark:border-gray-600"
           >
             <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
           </button>
@@ -407,9 +421,9 @@ const AdminDashboard: React.FC<Props> = ({
             type="button"
             onClick={handleDownload}
             disabled={isLoading || dashboardOrders.length === 0}
-            className="flex h-9 items-center gap-2 rounded-lg bg-gray-900 px-4 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-gray-900 dark:hover:bg-orange-500 dark:hover:text-white"
+            className="flex h-8 shrink-0 items-center gap-2 rounded-md bg-red-600 px-4 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <Download size={14} /> Download report
+            <Download size={14} /> Download
           </button>
         </div>
       </div>
@@ -420,12 +434,7 @@ const AdminDashboard: React.FC<Props> = ({
         </div>
       )}
 
-      <div className="relative min-h-[120px]">
-        {isLoading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/70 backdrop-blur-[1px] dark:bg-gray-900/70">
-            <Loader2 className="animate-spin text-orange-500" size={28} />
-          </div>
-        )}
+      <div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {cards.map(card => (
             <div key={card.label} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -590,6 +599,7 @@ const AdminDashboard: React.FC<Props> = ({
             </div>
           </section>
         </div>
+      </div>
       </div>
     </div>
   );

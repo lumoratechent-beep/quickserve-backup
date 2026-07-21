@@ -13,8 +13,10 @@ interface BillingHistory {
   description: string;
   amount: number;
   status: 'success' | 'pending' | 'approved' | 'rejected';
-  invoiceUrl?: string;
   referenceCode?: string | null;
+  paymentMethod?: string;
+  planId?: string | null;
+  restaurantName?: string | null;
 }
 
 interface BillingHistoryRow extends BillingHistory {
@@ -109,10 +111,12 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   }, [subscription?.cancel_at_period_end]);
 
   useEffect(() => {
-    if (subscription?.stripe_customer_id) {
-      fetchBillingHistory();
-      fetchPaymentMethods();
-    }
+    fetchBillingHistory();
+  }, [restaurantId]);
+
+  useEffect(() => {
+    if (subscription?.stripe_customer_id) fetchPaymentMethods();
+    else setPaymentMethods([]);
   }, [subscription?.stripe_customer_id]);
 
   useEffect(() => {
@@ -148,34 +152,96 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   }, [isDuitNowEnabled]);
 
   const downloadInvoice = async (historyItem: BillingHistoryRow) => {
-    if (!historyItem.invoiceUrl) return;
-
     try {
-      const resp = await fetch(`/api/stripe/billing?action=download-invoice&invoiceId=${encodeURIComponent(historyItem.id)}`);
-      if (!resp.ok) throw new Error('Download failed');
+      const { default: jsPDF } = await import('jspdf');
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const left = 18;
+      const right = pageWidth - 18;
+      const invoiceNumber = historyItem.referenceLabel;
+      const planName = historyItem.planId
+        ? historyItem.planId.replace(/_/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase())
+        : 'QuickServe Subscription';
 
-      const contentType = resp.headers.get('content-type') || '';
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.setTextColor(249, 115, 22);
+      doc.text('QuickServe', left, 22);
+      doc.setTextColor(17, 24, 39);
+      doc.setFontSize(25);
+      doc.text('INVOICE', right, 22, { align: 'right' });
 
-      if (contentType.includes('application/json')) {
-        const data = await resp.json();
-        if (data.redirect) {
-          window.open(data.redirect, '_blank', 'noopener,noreferrer');
-          return;
-        }
-        throw new Error('No document available');
-      }
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Invoice number: ${invoiceNumber}`, right, 30, { align: 'right' });
+      doc.text(`Issued: ${historyItem.formattedDate} ${historyItem.formattedTime}`, right, 36, { align: 'right' });
 
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `invoice-${historyItem.id}.pdf`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      URL.revokeObjectURL(url);
-    } catch {
-      window.open(historyItem.invoiceUrl, '_blank', 'noopener,noreferrer');
+      doc.setDrawColor(226, 232, 240);
+      doc.line(left, 44, right, 44);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139);
+      doc.text('BILL TO', left, 56);
+      doc.setTextColor(17, 24, 39);
+      doc.setFontSize(12);
+      doc.text(historyItem.restaurantName || 'QuickServe Customer', left, 64);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Restaurant ID: ${restaurantId}`, left, 70);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text('PAYMENT DETAILS', right, 56, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(17, 24, 39);
+      doc.text(`Method: ${historyItem.sourceLabel}`, right, 64, { align: 'right' });
+      doc.text(`Status: ${getStatusBadge(historyItem.status).label}`, right, 70, { align: 'right' });
+
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(left, 84, right - left, 14, 2, 2, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(71, 85, 105);
+      doc.text('DESCRIPTION', left + 4, 93);
+      doc.text('AMOUNT', right - 4, 93, { align: 'right' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(17, 24, 39);
+      const descriptionLines = doc.splitTextToSize(historyItem.description || planName, 125);
+      doc.text(descriptionLines, left + 4, 110);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`RM ${Number(historyItem.amount || 0).toFixed(2)}`, right - 4, 110, { align: 'right' });
+
+      const rowBottom = Math.max(122, 110 + descriptionLines.length * 5);
+      doc.setDrawColor(226, 232, 240);
+      doc.line(left, rowBottom, right, rowBottom);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Plan: ${planName}`, left + 4, rowBottom + 10);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(17, 24, 39);
+      doc.text('TOTAL PAID', 145, rowBottom + 18, { align: 'right' });
+      doc.setTextColor(22, 163, 74);
+      doc.text(`RM ${Number(historyItem.amount || 0).toFixed(2)}`, right - 4, rowBottom + 18, { align: 'right' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text('This invoice was generated electronically from QuickServe billing records.', left, 278);
+      doc.text('No signature is required.', left, 283);
+
+      const safeInvoiceNumber = invoiceNumber.replace(/[^a-z0-9_-]/gi, '-');
+      doc.save(`quickserve-invoice-${safeInvoiceNumber}.pdf`);
+    } catch (error) {
+      console.error('Failed to generate invoice:', error);
+      toast('Failed to generate invoice. Please try again.', 'error');
     }
   };
 
@@ -275,18 +341,44 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   };
 
   const fetchBillingHistory = async () => {
-    if (!subscription?.stripe_customer_id) return;
     setIsLoadingHistory(true);
     try {
-      const res = await fetch(`/api/stripe/billing?action=history&customerId=${encodeURIComponent(subscription.stripe_customer_id)}&restaurantId=${encodeURIComponent(restaurantId)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setBillingHistory((data.invoices || []).map((entry: Omit<BillingHistory, 'status'> & { status?: BillingHistory['status'] }) => ({
-          ...entry,
-          status: entry.status || 'success',
-        })));
-      }
-    } catch { /* silent */ } finally {
+      const { data, error } = await supabase
+        .from('billing_records')
+        .select('id, description, amount, created_at, reference_code, type, created_by, plan_id, restaurant_name')
+        .eq('restaurant_id', restaurantId)
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (error) throw error;
+
+      setBillingHistory((data || []).map((record: any) => {
+        const provider = String(record.created_by || record.type || '').toLowerCase();
+        const paymentMethod = provider === 'wallet'
+          ? 'Wallet'
+          : provider === 'duitnow'
+            ? 'DuitNow'
+            : provider === 'admin'
+              ? (record.type === 'free' ? 'Admin' : 'Cash')
+              : 'Card';
+
+        return {
+          id: record.id,
+          date: record.created_at,
+          description: record.description || 'QuickServe subscription payment',
+          amount: Number(record.amount) || 0,
+          status: 'success' as const,
+          referenceCode: record.reference_code || null,
+          paymentMethod,
+          planId: record.plan_id || null,
+          restaurantName: record.restaurant_name || null,
+        };
+      }));
+    } catch (error) {
+      console.error('Failed to fetch local billing history:', error);
+      setBillingHistory([]);
+      toast('Unable to load billing history. Please refresh and try again.', 'error');
+    } finally {
       setIsLoadingHistory(false);
     }
   };
@@ -488,18 +580,20 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         ].filter(Boolean).join(' · '),
         amount: Number(payment.amount) || 0,
         status: payment.status,
-        invoiceUrl: undefined,
         referenceCode: payment.reference_code || null,
         referenceNumber: payment.reference_number || null,
+        paymentMethod: 'DuitNow',
+        planId: payment.plan_id,
+        restaurantName: null,
       })),
     ]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .map((entry) => {
-        const sourceLabel = entry.description.toLowerCase().includes('duitnow')
+        const sourceLabel = entry.paymentMethod || (entry.description.toLowerCase().includes('duitnow')
           ? 'DuitNow'
           : entry.description.toLowerCase().includes('wallet')
             ? 'Wallet'
-            : 'Card';
+            : 'Card');
 
         return {
           ...entry,
@@ -1140,7 +1234,6 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                         </button>
                         <button
                           onClick={() => void downloadInvoice(selectedHistoryItem)}
-                          disabled={!selectedHistoryItem.invoiceUrl}
                           className="w-[148px] py-2.5 rounded-xl text-xs font-bold bg-green-500 text-white hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
                         >
                           Download Invoice
