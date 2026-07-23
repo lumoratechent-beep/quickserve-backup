@@ -331,7 +331,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       ...(couponId ? { discounts: [{ coupon: couponId }] } : {}),
       payment_method_collection: 'always',
-      metadata: { restaurant_id: restaurantId, plan_id: planId, billing_interval: isAnnual ? 'annual' : 'monthly' },
+      metadata: { restaurant_id: restaurantId, plan_id: planId, billing_interval: isAnnual ? 'annual' : 'monthly', source: source || 'registration' },
     });
 
     return res.status(200).json({ url: session.url });

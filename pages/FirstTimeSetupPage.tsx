@@ -82,12 +82,12 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
   };
 
   return (
-    <div className="min-h-screen overflow-y-auto bg-gray-50 px-4 py-8 transition-colors dark:bg-gray-900 sm:py-12">
-      <div className="mx-auto w-full max-w-xl">
+    <div className="fixed inset-0 z-[10000] overflow-y-auto bg-gray-950/60 px-4 py-6 backdrop-blur-sm sm:py-10" role="dialog" aria-modal="true" aria-labelledby="first-time-setup-title">
+      <div className="mx-auto w-full max-w-xl rounded-[2rem] border border-white/20 bg-gray-50 p-4 shadow-2xl dark:bg-gray-900 sm:p-6">
         <div className="mb-6 text-center">
           <img src="/LOGO/icon-192x192.png" alt="QuickServe logo" className="mx-auto mb-3 h-14 w-14 rounded-2xl object-contain" />
           <p className="text-[10px] font-black uppercase tracking-[0.24em] text-orange-500">First-time setup</p>
-          <h1 className="mt-2 text-2xl font-black tracking-tight text-gray-900 dark:text-white sm:text-3xl">Let’s set up your store</h1>
+          <h1 id="first-time-setup-title" className="mt-2 text-2xl font-black tracking-tight text-gray-900 dark:text-white sm:text-3xl">Let’s set up your store</h1>
           <p className="mt-2 text-sm font-medium text-gray-500 dark:text-gray-400">Complete these details once, then you’re ready to sell and print.</p>
           <div className="mt-5 flex items-center justify-center gap-2" aria-label={`Setup page ${page + 1} of 2`}>
             {[0, 1].map(index => (

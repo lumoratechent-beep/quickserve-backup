@@ -103,7 +103,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { checkoutSessionId } = req.body || {};
+  const { checkoutSessionId, includeUser } = req.body || {};
 
   if (!checkoutSessionId) {
     return res.status(400).json({ error: 'checkoutSessionId is required.' });
@@ -357,11 +357,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('id', restaurantId);
     }
 
+    let user = null;
+    if (includeUser === true) {
+      const checkoutSource = session.metadata?.source;
+      if (checkoutSource !== 'registration' && checkoutSource !== 'resume') {
+        return res.status(403).json({ error: 'This checkout session cannot create a login session.' });
+      }
+
+      const { data: vendorUser, error: vendorUserError } = await supabase
+        .from('users')
+        .select('id, username, role, restaurant_id, is_active, email, phone, kitchen_categories')
+        .eq('restaurant_id', restaurantId)
+        .eq('role', 'VENDOR')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (vendorUserError || !vendorUser) {
+        throw new Error(vendorUserError?.message || 'Account activated, but the vendor session could not be created.');
+      }
+
+      user = {
+        id: vendorUser.id,
+        username: vendorUser.username,
+        role: vendorUser.role,
+        restaurantId: vendorUser.restaurant_id,
+        isActive: vendorUser.is_active,
+        email: vendorUser.email,
+        phone: vendorUser.phone,
+        kitchenCategories: vendorUser.kitchen_categories || undefined,
+      };
+    }
+
     return res.status(200).json({
       success: true,
       restaurantId,
       planId: planId || null,
       mode: session.mode,
+      ...(user ? { user } : {}),
     });
   } catch (err: any) {
     console.error('Confirm checkout error:', err);

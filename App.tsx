@@ -516,7 +516,7 @@ const App: React.FC = () => {
       if (stripeRedirect.source === 'upgrade' || stripeRedirect.source === 'wallet_topup') {
         return savedView || 'APP';
       }
-      return 'LOGIN';
+      return 'APP';
     }
     if (stripeRedirect.payment === 'cancelled') {
       if (stripeRedirect.source === 'upgrade' || stripeRedirect.source === 'wallet_topup') {
@@ -551,6 +551,18 @@ const App: React.FC = () => {
 
     return savedView || 'MARKETING';
   });
+
+  const establishUserSession = useCallback((user: User, targetView: 'APP' | 'BACK_OFFICE' = 'APP') => {
+    setIsLoading(true);
+    setCurrentUser(user);
+    setCurrentRole(user.role);
+    setView(targetView);
+    localStorage.setItem('qs_user', JSON.stringify(user));
+    localStorage.setItem('qs_role', user.role);
+    localStorage.setItem('qs_view', targetView);
+    precacheBasicPwaShell();
+  }, []);
+
   const viewRef = useRef<AppView>(view);
 
   useEffect(() => {
@@ -667,12 +679,12 @@ const App: React.FC = () => {
               const res = await fetch('/api/stripe/confirm-checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ checkoutSessionId: stripeRedirect.checkoutSessionId }),
+                body: JSON.stringify({ checkoutSessionId: stripeRedirect.checkoutSessionId, includeUser: true }),
               });
               const data = await res.json();
-              if (res.ok) {
-                toast('Your account is active! Log in to get started.', 'success');
-                setView('LOGIN');
+              if (res.ok && data?.user) {
+                establishUserSession(data.user, 'APP');
+                toast('Your account is active! Let’s set up your store.', 'success');
                 return;
               }
               console.error('Registration confirm-checkout failed:', data?.error);
@@ -1815,14 +1827,7 @@ const App: React.FC = () => {
       return;
     }
 
-    setIsLoading(true);
-    setCurrentUser(user); 
-    setCurrentRole(user.role); 
-    setView(targetView);
-    localStorage.setItem('qs_user', JSON.stringify(user));
-    localStorage.setItem('qs_role', user.role);
-    localStorage.setItem('qs_view', targetView);
-    precacheBasicPwaShell();
+    establishUserSession(user, targetView);
 
     let loginSubscription: Subscription | null = user.restaurantId ? (vendorSubscriptions[user.restaurantId] || null) : null;
     if ((user.role === 'VENDOR' || user.role === 'CASHIER') && user.restaurantId) {
@@ -3328,10 +3333,6 @@ const App: React.FC = () => {
     return <QuickServeShopPage onBack={showMarketing} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
   }
 
-  if (currentUser?.role === 'VENDOR' && activeVendorRes?.settings?.onboardingRequired === true) {
-    return <FirstTimeSetupPage initialBusinessName={activeVendorRes.name} onComplete={completeFirstTimeSetup} />;
-  }
-
   const networkMeta = (() => {
     if (!connectivityStatus.isOnline || connectivityStatus.quality === 'offline') {
       return {
@@ -3755,6 +3756,7 @@ const App: React.FC = () => {
         {currentRole === 'VENDOR' && view === 'APP' && (
           activeVendorRes ? (
               <PosOnlyView
+                key={`${activeVendorRes.id}-${activeVendorRes.settings?.onboardingRequired === true ? 'setup' : 'ready'}`}
                 restaurant={activeVendorRes}
                 orders={orders.filter(o => {
                   if (o.restaurantId !== currentUser?.restaurantId) return false;
@@ -3897,6 +3899,10 @@ const App: React.FC = () => {
           />
         )}
       </main>
+
+      {currentUser?.role === 'VENDOR' && activeVendorRes?.settings?.onboardingRequired === true && (
+        <FirstTimeSetupPage initialBusinessName={activeVendorRes.name} onComplete={completeFirstTimeSetup} />
+      )}
 
       {/* Logout Confirmation Popup — Active shift warning */}
       {showLogoutConfirm && (
