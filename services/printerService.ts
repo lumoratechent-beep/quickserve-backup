@@ -149,6 +149,9 @@ export interface ReceiptConfig {
   businessName: string;
   businessAddressLine1: string;
   businessAddressLine2: string;
+  businessCity: string;
+  businessState: string;
+  businessCountry: string;
   businessPhone: string;
   headerText: string;
   footerText: string;
@@ -214,6 +217,9 @@ export interface ReceiptPrintOptions {
   footerText?: string;
   businessAddressLine1?: string;
   businessAddressLine2?: string;
+  businessCity?: string;
+  businessState?: string;
+  businessCountry?: string;
   businessAddress?: string; // legacy single-line address fallback
   businessPhone?: string;
   autoOpenDrawer?: boolean;
@@ -268,6 +274,9 @@ export interface ShiftPrintOptions {
   businessName?: string;
   businessAddressLine1?: string;
   businessAddressLine2?: string;
+  businessCity?: string;
+  businessState?: string;
+  businessCountry?: string;
   businessPhone?: string;
   headerText?: string;
   footerText?: string;
@@ -284,6 +293,9 @@ export const DEFAULT_RECEIPT_CONFIG: ReceiptConfig = {
   businessName: '',
   businessAddressLine1: '',
   businessAddressLine2: '',
+  businessCity: '',
+  businessState: '',
+  businessCountry: '',
   businessPhone: '',
   headerText: '',
   footerText: 'Thank you! Please come again.',
@@ -1331,6 +1343,10 @@ class PrinterService {
       const footer    = options?.documentType === 'order-list' ? '' : this.sanitize(options?.footerText || 'Thank you! Please come again.');
       const bizAddrLine1 = this.sanitize(options?.businessAddressLine1 || options?.businessAddress);
       const bizAddrLine2 = this.sanitize(options?.businessAddressLine2);
+      const bizLocation = [options?.businessCity, options?.businessState, options?.businessCountry]
+        .map(value => this.sanitize(value))
+        .filter(Boolean)
+        .join(', ');
       const bizPhone  = this.sanitize(options?.businessPhone);
       const documentTitle = options?.documentType === 'order-list' ? 'ORDER LIST' : 'PAYMENT RECEIPT';
 
@@ -1361,6 +1377,7 @@ class PrinterService {
         r.align(titleAlign);
         if (bizAddrLine1) r.line(bizAddrLine1);
         if (bizAddrLine2) r.line(bizAddrLine2);
+        if (bizLocation) r.line(bizLocation);
         if (bizPhone) r.line(bizPhone);
       }
 
@@ -1766,6 +1783,10 @@ class PrinterService {
       const footerText = this.sanitize(options?.footerText || 'Shift closed successfully.');
       const businessAddressLine1 = this.sanitize(options?.businessAddressLine1);
       const businessAddressLine2 = this.sanitize(options?.businessAddressLine2);
+      const businessLocation = [options?.businessCity, options?.businessState, options?.businessCountry]
+        .map(value => this.sanitize(value))
+        .filter(Boolean)
+        .join(', ');
       const businessPhone = this.sanitize(options?.businessPhone);
       const openedAt = new Date(shift.openedAt);
       const closedAt = new Date(shift.closedAt);
@@ -1781,6 +1802,7 @@ class PrinterService {
       r.align('center').bold(true).size(2, 2).line(businessName).normalSize().bold(false);
       if (businessAddressLine1) r.line(businessAddressLine1);
       if (businessAddressLine2) r.line(businessAddressLine2);
+      if (businessLocation) r.line(businessLocation);
       if (businessPhone) r.line(businessPhone);
       if (headerText) {
         r.feed(1);

@@ -3217,6 +3217,9 @@ const App: React.FC = () => {
         businessName: values.businessName,
         businessAddressLine1: values.businessAddressLine1,
         businessAddressLine2: values.businessAddressLine2,
+        businessCity: values.businessCity,
+        businessState: values.businessState,
+        businessCountry: values.businessCountry,
         businessPhone: values.businessPhone,
       },
     };

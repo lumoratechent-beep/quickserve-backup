@@ -15,6 +15,9 @@ export const POS_DEFAULTS = {
     businessName: '',        // dynamic — always overridden by restaurant.name at expand time
     businessAddressLine1: '',
     businessAddressLine2: '',
+    businessCity: '',
+    businessState: '',
+    businessCountry: '',
     businessPhone: '',
     headerText: '',
     footerText: 'Thank you! Please come again.',
@@ -51,6 +54,9 @@ export const POS_DEFAULTS = {
     businessName: '',        // dynamic — always overridden by restaurant.name at expand time
     businessAddressLine1: '',
     businessAddressLine2: '',
+    businessCity: '',
+    businessState: '',
+    businessCountry: '',
     businessPhone: '',
     headerText: '',
     footerText: '',

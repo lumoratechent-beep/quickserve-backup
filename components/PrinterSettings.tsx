@@ -951,7 +951,10 @@ const PrinterSettings: React.FC<Props> = ({
           {([
             { key: 'businessName' as const, label: 'Business Name', placeholder: 'Store name on receipt' },
             { key: 'businessAddressLine1' as const, label: 'Address Line 1', placeholder: 'Street address (optional)' },
-            { key: 'businessAddressLine2' as const, label: 'Address Line 2', placeholder: 'Suite, unit, city, state (optional)' },
+            { key: 'businessAddressLine2' as const, label: 'Address Line 2', placeholder: 'Suite or unit (optional)' },
+            { key: 'businessCity' as const, label: 'City', placeholder: 'City (optional)' },
+            { key: 'businessState' as const, label: 'State', placeholder: 'State (optional)' },
+            { key: 'businessCountry' as const, label: 'Country', placeholder: 'Country (optional)' },
             { key: 'businessPhone' as const, label: 'Phone', placeholder: 'Contact number (optional)' },
           ]).map(field => (
             <div key={field.key}>
@@ -1108,7 +1111,10 @@ const PrinterSettings: React.FC<Props> = ({
           {([
             { key: 'businessName' as const, label: 'Business Name', placeholder: 'Store name on order list' },
             { key: 'businessAddressLine1' as const, label: 'Address Line 1', placeholder: 'Street address (optional)' },
-            { key: 'businessAddressLine2' as const, label: 'Address Line 2', placeholder: 'Suite, unit, city, state (optional)' },
+            { key: 'businessAddressLine2' as const, label: 'Address Line 2', placeholder: 'Suite or unit (optional)' },
+            { key: 'businessCity' as const, label: 'City', placeholder: 'City (optional)' },
+            { key: 'businessState' as const, label: 'State', placeholder: 'State (optional)' },
+            { key: 'businessCountry' as const, label: 'Country', placeholder: 'Country (optional)' },
             { key: 'businessPhone' as const, label: 'Phone', placeholder: 'Contact number (optional)' },
           ]).map(field => (
             <div key={field.key}>

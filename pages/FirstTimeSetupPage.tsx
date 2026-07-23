@@ -5,6 +5,9 @@ export interface FirstTimeSetupValues {
   businessName: string;
   businessAddressLine1: string;
   businessAddressLine2: string;
+  businessCity: string;
+  businessState: string;
+  businessCountry: string;
   businessPhone: string;
   logoFile?: File;
 }
@@ -19,6 +22,9 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
   const [businessName, setBusinessName] = useState(initialBusinessName);
   const [businessAddressLine1, setBusinessAddressLine1] = useState('');
   const [businessAddressLine2, setBusinessAddressLine2] = useState('');
+  const [businessCity, setBusinessCity] = useState('');
+  const [businessState, setBusinessState] = useState('');
+  const [businessCountry, setBusinessCountry] = useState('Malaysia');
   const [businessPhone, setBusinessPhone] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState('');
@@ -67,6 +73,9 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
         businessName: businessName.trim(),
         businessAddressLine1: businessAddressLine1.trim(),
         businessAddressLine2: businessAddressLine2.trim(),
+        businessCity: businessCity.trim(),
+        businessState: businessState.trim(),
+        businessCountry: businessCountry.trim(),
         businessPhone: businessPhone.trim(),
         logoFile: logoFile || undefined,
       });
@@ -103,7 +112,7 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
           </div>
         </div>
 
-        <div className="mx-3 mb-3 flex h-[370px] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-lg shadow-gray-200/70 dark:border-gray-700 dark:bg-gray-800 dark:shadow-none sm:mx-4 sm:mb-4">
+        <div className="mx-3 mb-3 flex h-[390px] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-lg shadow-gray-200/70 dark:border-gray-700 dark:bg-gray-800 dark:shadow-none sm:mx-4 sm:mb-4">
           {error && (
             <div className="mb-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-400">
               {error}
@@ -139,6 +148,21 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
                 <div className="min-w-0">
                   <label className="mb-1 ml-1 block text-[10px] font-bold text-gray-700 dark:text-gray-300 sm:text-xs">Address Line 2 <span className="font-medium text-gray-400">(optional)</span></label>
                   <input value={businessAddressLine2} onChange={e => setBusinessAddressLine2(e.target.value)} placeholder="Unit, city, state" className="w-full min-w-0 rounded-xl border-none bg-gray-50 px-3 py-2.5 text-xs font-medium focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white sm:text-sm" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                <div className="min-w-0">
+                  <label className="mb-1 ml-1 block text-[10px] font-bold text-gray-700 dark:text-gray-300 sm:text-xs">City</label>
+                  <input value={businessCity} onChange={e => setBusinessCity(e.target.value)} placeholder="Kuala Lumpur" className="w-full min-w-0 rounded-xl border-none bg-gray-50 px-2.5 py-2.5 text-xs font-medium focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white sm:px-3 sm:text-sm" />
+                </div>
+                <div className="min-w-0">
+                  <label className="mb-1 ml-1 block text-[10px] font-bold text-gray-700 dark:text-gray-300 sm:text-xs">State</label>
+                  <input value={businessState} onChange={e => setBusinessState(e.target.value)} placeholder="Selangor" className="w-full min-w-0 rounded-xl border-none bg-gray-50 px-2.5 py-2.5 text-xs font-medium focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white sm:px-3 sm:text-sm" />
+                </div>
+                <div className="min-w-0">
+                  <label className="mb-1 ml-1 block text-[10px] font-bold text-gray-700 dark:text-gray-300 sm:text-xs">Country</label>
+                  <input value={businessCountry} onChange={e => setBusinessCountry(e.target.value)} placeholder="Malaysia" className="w-full min-w-0 rounded-xl border-none bg-gray-50 px-2.5 py-2.5 text-xs font-medium focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white sm:px-3 sm:text-sm" />
                 </div>
               </div>
 
