@@ -237,7 +237,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
               </div>
             </div>
             {teamMembers.length > 0 && (
-              <div className="absolute -bottom-3 sm:-bottom-4 left-3 sm:left-10 bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl px-2.5 sm:px-5 py-1.5 sm:py-3 shadow-xl shadow-black/10 border border-gray-100 dark:border-gray-700 flex items-center gap-1.5 sm:gap-3">
+              <div className="absolute -bottom-3 left-3 bg-white dark:bg-gray-800 rounded-xl px-2.5 py-1.5 shadow-xl shadow-black/10 border border-gray-100 dark:border-gray-700 flex items-center gap-1.5 sm:hidden">
                 <div className="flex -space-x-1 sm:-space-x-1.5">
                   {teamMembers.slice(0, 2).map((m) =>
                     m.photo_url ? (
@@ -423,19 +423,6 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
               Loved by <span className="text-orange-500 italic">teams</span> around
               <br className="hidden sm:block" /> the world
             </h2>
-            <div className="flex items-center gap-2 sm:ml-auto">
-              <div className="flex -space-x-1.5">
-                {teamMembers.slice(0, 3).map((m) =>
-                  m.photo_url ? (
-                    <img key={`rev-${m.id}`} src={m.photo_url} alt="" className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-white dark:border-[#0b1120] object-cover" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"><rect width="28" height="28" rx="14" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="10" font-weight="900" fill="%23f97316">${m.name?.charAt(0) || '?'}</text></svg>`)}`; }} />
-                  ) : (
-                    <div key={`rev-${m.id}`} className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-white dark:border-[#0b1120] bg-orange-100 flex items-center justify-center text-[9px] sm:text-[10px] font-bold text-orange-500">
-                      {m.name.charAt(0)}
-                    </div>
-                  ),
-                )}
-              </div>
-            </div>
           </div>
 
           {/* Desktop grid */}
