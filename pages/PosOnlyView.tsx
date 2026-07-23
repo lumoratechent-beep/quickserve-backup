@@ -8584,7 +8584,7 @@ const PosOnlyView: React.FC<Props> = ({
                 : [
                     {
                       key: 'builtin',
-                      label: 'Build in Features.',
+                      label: 'Build in Features',
                       info: 'Core POS behavior such as cashier and dining options.',
                       icon: Layers,
                       badge: 'Core'
@@ -8698,11 +8698,11 @@ const PosOnlyView: React.FC<Props> = ({
               <div className="relative flex-1 overflow-y-auto bg-gradient-to-b from-slate-50 via-white to-orange-50/40 dark:bg-gray-900 dark:bg-none">
                 <div className="w-full px-3 pb-8 pt-3 sm:px-5 sm:pt-5 lg:px-6 lg:pt-6">
                   <div className="animate-in fade-in duration-500">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-[300px_minmax(0,1fr)] lg:gap-6">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-[270px_minmax(0,1fr)] lg:gap-5">
                       <aside className="h-fit rounded-2xl border border-slate-200/80 bg-white/95 p-3 shadow-sm dark:border-gray-700/80 dark:bg-gray-800 dark:shadow-none md:sticky md:top-4">
                         <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">General Setting</p>
 
-                        <div className="space-y-1.5">
+                        <div className="flex flex-col gap-1">
                           {settingsTabs.map(tab => {
                             const isActive = activeSettingsPanel === tab.key;
 
@@ -8716,13 +8716,12 @@ const PosOnlyView: React.FC<Props> = ({
                                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-800/70 dark:hover:border-gray-500 dark:hover:bg-gray-700/80'
                                 }`}
                               >
-                                <div className="flex items-center gap-2">
-                                  <span className={`w-3 text-center text-xs font-black ${isActive ? 'text-orange-500 dark:text-orange-300' : 'text-slate-300 dark:text-gray-600'}`}>{isActive ? '.' : ''}</span>
-                                  <span className={`text-sm font-semibold ${isActive ? 'text-orange-700 dark:text-orange-300' : 'text-slate-700 dark:text-gray-200'}`}>{tab.label}</span>
+                                <div className="flex min-w-0 items-center">
+                                  <span className={`whitespace-nowrap text-sm font-semibold ${isActive ? 'text-orange-700 dark:text-orange-300' : 'text-slate-700 dark:text-gray-200'}`}>{tab.label}</span>
                                 </div>
 
                                 <div className={`overflow-hidden transition-all duration-200 ${isActive ? 'mt-1.5 max-h-16 opacity-100' : 'mt-0 max-h-0 opacity-0'}`}>
-                                  <p className="pl-5 pr-1 text-xs leading-relaxed text-slate-500 dark:text-gray-400">{tab.info}</p>
+                                  <p className="pr-1 text-xs leading-relaxed text-slate-500 dark:text-gray-400">{tab.info}</p>
                                 </div>
                               </button>
                             );
@@ -8742,7 +8741,7 @@ const PosOnlyView: React.FC<Props> = ({
                           return (
                             <div className="mt-3 border-t border-slate-200/80 pt-3 dark:border-gray-700/80">
                               <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">Add-on Feature Setting</p>
-                              <div className="space-y-1.5">
+                              <div className="flex flex-col gap-1">
                                 {addonSettingsList.map(addon => {
                                   const isActive = activeSettingsPanel === addon.key;
                                   return (
@@ -8755,14 +8754,13 @@ const PosOnlyView: React.FC<Props> = ({
                                           : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-800/70 dark:hover:border-gray-500 dark:hover:bg-gray-700/80'
                                       }`}
                                     >
-                                      <div className="flex items-center gap-2">
-                                        <span className={`w-3 text-center text-xs font-black ${isActive ? 'text-orange-500 dark:text-orange-300' : 'text-slate-300 dark:text-gray-600'}`}>{isActive ? '.' : ''}</span>
-                                        <span className={`flex items-center gap-1.5 text-sm font-semibold ${isActive ? 'text-orange-700 dark:text-orange-300' : 'text-slate-700 dark:text-gray-200'}`}>
+                                      <div className="flex min-w-0 items-center">
+                                        <span className={`flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold ${isActive ? 'text-orange-700 dark:text-orange-300' : 'text-slate-700 dark:text-gray-200'}`}>
                                           {addon.icon} {addon.label}
                                         </span>
                                       </div>
                                       <div className={`overflow-hidden transition-all duration-200 ${isActive ? 'mt-1.5 max-h-16 opacity-100' : 'mt-0 max-h-0 opacity-0'}`}>
-                                        <p className="pl-5 pr-1 text-xs leading-relaxed text-slate-500 dark:text-gray-400">{addon.info}</p>
+                                        <p className="pr-1 text-xs leading-relaxed text-slate-500 dark:text-gray-400">{addon.info}</p>
                                       </div>
                                     </button>
                                   );
