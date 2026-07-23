@@ -249,7 +249,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                     ),
                   )}
                 </div>
-                <span className="text-[10px] sm:text-sm font-bold text-gray-900 dark:text-white">Lumora Team</span>
+                <span className="text-[10px] font-bold text-gray-900 dark:text-white sm:hidden">Lumora Team</span>
               </div>
             )}
           </div>
@@ -435,7 +435,6 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                   ),
                 )}
               </div>
-              {teamMembers.length > 0 && <span className="text-xs sm:text-sm text-gray-500 font-medium">Trusted by teams</span>}
             </div>
           </div>
 
