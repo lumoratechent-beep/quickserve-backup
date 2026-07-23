@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useState } from 'react';
-import { ArrowRight, Check, ChevronLeft, Info, Minus, Sparkles } from 'lucide-react';
+import { ArrowRight, Check, ChevronLeft, Info, Minus } from 'lucide-react';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 
 interface Props {
@@ -181,8 +181,8 @@ const ComparePlansPage: React.FC<Props> = ({ onBack, onGetStarted, embeddedInPos
       <main>
         <section className="px-4 pb-9 pt-11 text-center landscape:pb-8 landscape:pt-8 sm:px-6 sm:pb-14 sm:pt-20">
           <div className="mx-auto max-w-3xl">
-            <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-orange-600 dark:text-orange-400">
-              <Sparkles size={13} /> Simple, transparent pricing
+            <span className="inline-flex items-center text-[10px] font-black uppercase tracking-[0.22em] text-orange-600 dark:text-orange-400">
+              Simple, transparent pricing
             </span>
             <h1 className="mt-4 text-3xl font-black tracking-[-0.045em] text-gray-950 dark:text-white landscape:text-4xl sm:mt-5 sm:text-6xl">
               One platform. <span className="text-orange-500">Three ways to serve.</span>
@@ -280,13 +280,13 @@ const ComparePlansPage: React.FC<Props> = ({ onBack, onGetStarted, embeddedInPos
           </div>
         </section>
 
-        <section className="border-t border-white/10 bg-gray-950 px-4 py-16 text-center text-white sm:px-6 sm:py-20">
+        <section className="border-t border-white/10 bg-gray-950 px-4 py-10 text-center text-white sm:px-6 sm:py-12">
           <div className="mx-auto max-w-2xl">
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-orange-400">Start when you are ready</p>
-            <h2 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Run your restaurant with less friction.</h2>
-            <p className="mx-auto mt-4 max-w-lg text-sm font-medium leading-6 text-white/55">No separate Back Office fee. No expensive hardware. Choose the workflow that fits your restaurant today.</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Run your restaurant with less friction.</h2>
+            <p className="mx-auto mt-2 max-w-lg text-xs font-medium leading-5 text-white/55 sm:text-sm">No separate Back Office fee. No expensive hardware. Choose the workflow that fits your restaurant today.</p>
             {onGetStarted && (
-              <button onClick={onGetStarted} className="mt-7 inline-flex items-center gap-2 rounded-full bg-orange-500 px-7 py-3 text-xs font-black uppercase tracking-wider text-white transition-all hover:bg-orange-600 hover:scale-[1.02]">
+              <button onClick={onGetStarted} className="mt-4 inline-flex items-center gap-2 rounded-full bg-orange-500 px-7 py-3 text-xs font-black uppercase tracking-wider text-white transition-all hover:bg-orange-600 hover:scale-[1.02]">
                 Start free trial <ArrowRight size={15} />
               </button>
             )}

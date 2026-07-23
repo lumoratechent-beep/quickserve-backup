@@ -3449,7 +3449,14 @@ const App: React.FC = () => {
               <span className="sm:hidden">Back</span>
             </button>
           )}
-          <button type="button" className="flex min-w-0 items-center" onClick={handleBrandClick} title="QuickServe POS">
+          <button
+            type="button"
+            className={view === 'COMPARE_PLANS'
+              ? 'absolute left-1/2 flex min-w-0 -translate-x-1/2 items-center'
+              : 'flex min-w-0 items-center'}
+            onClick={handleBrandClick}
+            title="QuickServe POS"
+          >
             <img
               src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"}
               alt="QuickServe"
