@@ -20,6 +20,7 @@ interface Props {
 
 const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }) => {
   const [page, setPage] = useState(0);
+  const [slideDirection, setSlideDirection] = useState<'forward' | 'backward'>('forward');
   const [businessName, setBusinessName] = useState(initialBusinessName);
   const [businessAddressLine1, setBusinessAddressLine1] = useState('');
   const [businessAddressLine2, setBusinessAddressLine2] = useState('');
@@ -55,7 +56,14 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
       setError('Business name and phone are required.');
       return;
     }
+    setSlideDirection('forward');
     setPage(1);
+  };
+
+  const returnToBusiness = () => {
+    setError('');
+    setSlideDirection('backward');
+    setPage(0);
   };
 
   const handleFile = (file?: File) => {
@@ -109,7 +117,7 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
         </div>
       )}
 
-      <div className="w-full max-w-[560px] overflow-hidden rounded-[1.75rem] border border-white/20 bg-gray-50 shadow-2xl dark:bg-gray-900">
+      <div className="w-full max-w-[640px] overflow-hidden rounded-[1.75rem] border border-white/20 bg-gray-50 shadow-2xl dark:bg-gray-900">
         <div className="px-5 pb-3 pt-4 text-center sm:px-6">
           <p className="text-[9px] font-black uppercase tracking-[0.24em] text-orange-500">First-time setup</p>
           <h1 id="first-time-setup-title" className="mt-1 text-xl font-black tracking-tight text-gray-900 dark:text-white sm:text-2xl">Let's set up your store</h1>
@@ -119,7 +127,7 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
               <button
                 key={index}
                 type="button"
-                onClick={() => index === 0 ? setPage(0) : continueToLogo()}
+                onClick={() => index === 0 ? returnToBusiness() : continueToLogo()}
                 className={`h-2.5 rounded-full transition-all duration-300 ${page === index ? 'w-7 bg-orange-500' : 'w-2.5 bg-gray-300 hover:bg-orange-300 dark:bg-gray-600'}`}
                 aria-label={`Go to setup page ${index + 1}`}
                 aria-current={page === index ? 'step' : undefined}
@@ -128,9 +136,9 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
           </div>
         </div>
 
-        <div className="mx-3 mb-3 flex h-[390px] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-lg shadow-gray-200/70 dark:border-gray-700 dark:bg-gray-800 dark:shadow-none sm:mx-4 sm:mb-4">
+        <div className="mx-3 mb-3 flex h-[430px] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-lg shadow-gray-200/70 dark:border-gray-700 dark:bg-gray-800 dark:shadow-none sm:mx-4 sm:mb-4 sm:p-5">
           {page === 0 ? (
-            <section key="business" className="qs-setup-page-enter flex min-h-0 flex-1 flex-col gap-3">
+            <section key="business" className={`flex min-h-0 flex-1 flex-col gap-3 ${slideDirection === 'backward' ? 'qs-setup-page-back' : 'qs-setup-page-next'}`}>
               <div className="flex items-center gap-3 rounded-xl bg-orange-50 p-3 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300">
                 <Receipt size={19} className="shrink-0" />
                 <div className="min-w-0">
@@ -188,7 +196,7 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
               </button>
             </section>
           ) : (
-            <section key="logo" className="qs-setup-page-enter flex min-h-0 flex-1 flex-col gap-3">
+            <section key="logo" className={`flex min-h-0 flex-1 flex-col gap-3 ${slideDirection === 'backward' ? 'qs-setup-page-back' : 'qs-setup-page-next'}`}>
               <div className="flex items-center gap-3 rounded-xl bg-orange-50 p-3 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300">
                 <ImagePlus size={19} className="shrink-0" />
                 <div className="min-w-0">
@@ -221,7 +229,7 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
                 </div>
               )}
               <div className="mt-auto grid grid-cols-[auto_1fr] gap-3">
-                <button type="button" onClick={() => { setError(''); setPage(0); }} className="rounded-xl bg-gray-100 px-5 py-3 text-xs font-black text-gray-600 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 sm:text-sm">Back</button>
+                <button type="button" onClick={returnToBusiness} className="rounded-xl bg-gray-100 px-5 py-3 text-xs font-black text-gray-600 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 sm:text-sm">Back</button>
                 <button type="button" onClick={handleSubmit} disabled={isSubmitting} className="flex items-center justify-center gap-2 rounded-xl bg-orange-500 py-3 text-xs font-black text-white shadow-lg shadow-orange-100 transition-all hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50 dark:shadow-none sm:text-sm">
                   {isSubmitting ? <><Loader2 size={17} className="animate-spin" /> Saving...</> : (logoFile ? 'Finish Setup' : 'Skip Logo & Finish')}
                 </button>
