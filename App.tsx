@@ -15,7 +15,7 @@ import HelpTutorialPage from './pages/HelpTutorialPage';
 import TableSideOrderPage from './pages/TableSideOrderPage';
 import { supabase } from './lib/supabase';
 import { expandPosSettings, fetchSettingsFromServer, syncBackofficeToDb } from './lib/sharedSettings';
-import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock, AlertCircle, ShoppingBag } from 'lucide-react';
+import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock, AlertCircle, ShoppingBag, ChevronLeft } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
 import { getConnectivityMonitor, destroyConnectivityMonitor, type ConnectivityStatus } from './lib/connectivityMonitor';
 import { toast } from './components/Toast';
@@ -3259,22 +3259,8 @@ const App: React.FC = () => {
     setView('MARKETING');
   };
 
-  if (view === 'COMPARE_PLANS') {
-    const comparePlansRestaurant = currentUser?.restaurantId
-      ? restaurants.find(restaurant => restaurant.id === currentUser.restaurantId)
-      : null;
-
-    return (
-      <ComparePlansPage
-        onBack={returnFromComparePlans}
-        onGetStarted={comparePlansOrigin === 'PUBLIC' ? () => setView('REGISTER') : undefined}
-        posContext={comparePlansOrigin === 'POS_BILLING' && currentUser ? {
-          restaurantName: comparePlansRestaurant?.name || 'QuickServe POS',
-          restaurantLogo: comparePlansRestaurant?.logo,
-          userName: currentUser.username,
-        } : undefined}
-      />
-    );
+  if (view === 'COMPARE_PLANS' && comparePlansOrigin === 'PUBLIC') {
+    return <ComparePlansPage onBack={returnFromComparePlans} onGetStarted={() => setView('REGISTER')} />;
   }
 
   if (view === 'MARKETING') {
@@ -3451,16 +3437,29 @@ const App: React.FC = () => {
     <div className="flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors" style={{ height: 'var(--app-height, 100dvh)' }}>
       {currentRole !== 'ORDER_TAKER' && (
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-11 sm:h-12 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
-        <div className="flex items-center gap-2 cursor-pointer min-w-0" onClick={handleBrandClick}>
-          <img
-            src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"}
-            alt="QuickServe"
-            className="h-7 sm:h-8 w-auto"
-            onError={(e) => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="40"><text x="0" y="28" font-family="Arial,sans-serif" font-size="24" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`;
-            }}
-          />
+        <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+          {view === 'COMPARE_PLANS' && (
+            <button
+              type="button"
+              onClick={returnFromComparePlans}
+              className="inline-flex shrink-0 items-center gap-1 text-[10px] font-black uppercase tracking-wider text-gray-500 transition-colors hover:text-orange-500 dark:text-gray-300 dark:hover:text-orange-400 sm:text-xs"
+            >
+              <ChevronLeft size={17} />
+              <span className="hidden sm:inline">Wallet & Billing</span>
+              <span className="sm:hidden">Back</span>
+            </button>
+          )}
+          <button type="button" className="flex min-w-0 items-center" onClick={handleBrandClick} title="QuickServe POS">
+            <img
+              src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"}
+              alt="QuickServe"
+              className="h-7 w-auto sm:h-8"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="40"><text x="0" y="28" font-family="Arial,sans-serif" font-size="24" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`;
+              }}
+            />
+          </button>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-3">
           {/* Shift button — rectangular, before mail. Only if shiftEnabled feature is on */}
@@ -3587,7 +3586,7 @@ const App: React.FC = () => {
       </header>
       )}
       {/* Renewal reminder banner for vendors/cashiers */}
-      {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (() => {
+      {view !== 'COMPARE_PLANS' && currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (() => {
         const sub = vendorSubscriptions[currentUser!.restaurantId] || null;
         if (!sub) return null;
         return (
@@ -3598,6 +3597,9 @@ const App: React.FC = () => {
         );
       })()}
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
+        {view === 'COMPARE_PLANS' && (
+          <ComparePlansPage onBack={returnFromComparePlans} embeddedInPos />
+        )}
         {/* Global Error Display */}
         {globalError && (
           <div className="fixed top-20 left-0 right-0 z-[999999] max-w-2xl mx-auto">

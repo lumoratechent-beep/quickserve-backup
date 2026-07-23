@@ -5,11 +5,7 @@ import { PRICING_PLANS } from '../lib/pricingPlans';
 interface Props {
   onBack: () => void;
   onGetStarted?: () => void;
-  posContext?: {
-    restaurantName: string;
-    restaurantLogo?: string;
-    userName?: string;
-  };
+  embeddedInPos?: boolean;
 }
 
 type PlanKey = 'basic' | 'pro' | 'proPlus';
@@ -137,7 +133,7 @@ const ComparisonIntro: React.FC<{ compact?: boolean }> = ({ compact = false }) =
   </div>
 );
 
-const ComparePlansPage: React.FC<Props> = ({ onBack, onGetStarted, posContext }) => {
+const ComparePlansPage: React.FC<Props> = ({ onBack, onGetStarted, embeddedInPos = false }) => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
 
   useLayoutEffect(() => {
@@ -167,44 +163,20 @@ const ComparePlansPage: React.FC<Props> = ({ onBack, onGetStarted, posContext })
   };
 
   return (
-    <div className="min-h-screen bg-[#f7f6f3] font-sans text-gray-900 selection:bg-orange-100 selection:text-orange-900 dark:bg-gray-950 dark:text-white">
-      <header className="sticky top-0 z-50 border-b border-black/[0.06] bg-[#f7f6f3]/90 backdrop-blur-xl dark:border-white/[0.08] dark:bg-gray-950/90">
+    <div className={`${embeddedInPos ? 'h-full overflow-y-auto' : 'min-h-screen'} bg-[#f7f6f3] font-sans text-gray-900 selection:bg-orange-100 selection:text-orange-900 dark:bg-gray-950 dark:text-white`}>
+      {!embeddedInPos && <header className="sticky top-0 z-50 border-b border-black/[0.06] bg-[#f7f6f3]/90 backdrop-blur-xl dark:border-white/[0.08] dark:bg-gray-950/90">
         <div className="mx-auto flex h-12 max-w-7xl items-center justify-between px-4 sm:px-6">
           <button onClick={onBack} className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 transition-colors hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400">
-            <ChevronLeft size={17} /> {posContext ? 'Wallet & Billing' : 'Back'}
+            <ChevronLeft size={17} /> Back
           </button>
-          {posContext ? (
-            <div className="absolute left-1/2 flex max-w-[42%] -translate-x-1/2 items-center gap-2">
-              <img
-                src={posContext.restaurantLogo || '/LOGO/icon-192x192.png'}
-                alt=""
-                className="h-7 w-7 shrink-0 rounded-lg object-cover shadow-sm"
-              />
-              <div className="hidden min-w-0 sm:block">
-                <p className="truncate text-[10px] font-black uppercase tracking-tight text-gray-900 dark:text-white">{posContext.restaurantName}</p>
-                <p className="text-[8px] font-bold uppercase tracking-widest text-gray-400">Compare plans</p>
-              </div>
-            </div>
-          ) : (
-            <span className="text-sm font-black tracking-tight">Quick<span className="text-orange-500">Serve</span></span>
-          )}
-          {posContext ? (
-            <div className="flex items-center gap-2 text-right">
-              <div className="hidden sm:block">
-                <p className="text-[9px] font-black uppercase tracking-wider text-gray-700 dark:text-gray-200">{posContext.userName || 'POS User'}</p>
-                <p className="text-[8px] font-bold uppercase tracking-widest text-gray-400">POS</p>
-              </div>
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-100 text-[10px] font-black uppercase text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
-                {(posContext.userName || 'P').charAt(0)}
-              </span>
-            </div>
-          ) : onGetStarted ? (
+          <span className="text-sm font-black tracking-tight">Quick<span className="text-orange-500">Serve</span></span>
+          {onGetStarted ? (
             <button onClick={onGetStarted} className="rounded-full bg-gray-950 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-white transition-colors hover:bg-orange-500 dark:bg-white dark:text-gray-950 dark:hover:bg-orange-500 dark:hover:text-white">
               Get started
             </button>
           ) : <span className="w-20" />}
         </div>
-      </header>
+      </header>}
 
       <main>
         <section className="px-4 pb-9 pt-11 text-center landscape:pb-8 landscape:pt-8 sm:px-6 sm:pb-14 sm:pt-20">
