@@ -738,6 +738,7 @@ const App: React.FC = () => {
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
   const [openMailInPOS, setOpenMailInPOS] = useState(false);
   const [openBillingInPOS, setOpenBillingInPOS] = useState(false);
+  const [comparePlansOrigin, setComparePlansOrigin] = useState<'PUBLIC' | 'POS_BILLING'>('PUBLIC');
 
   const fetchAnnouncements = useCallback(async (restaurantId?: string) => {
     const rid = restaurantId || currentUser?.restaurantId;
@@ -3238,12 +3239,46 @@ const App: React.FC = () => {
     window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 0);
   };
 
+  const showPublicComparePlans = () => {
+    setComparePlansOrigin('PUBLIC');
+    setView('COMPARE_PLANS');
+  };
+
+  const showPosComparePlans = () => {
+    setComparePlansOrigin('POS_BILLING');
+    setView('COMPARE_PLANS');
+  };
+
+  const returnFromComparePlans = () => {
+    if (comparePlansOrigin === 'POS_BILLING' && currentUser) {
+      localStorage.setItem('qs_wallet_billing_subtab', 'BILLING');
+      setOpenBillingInPOS(true);
+      setView('APP');
+      return;
+    }
+    setView('MARKETING');
+  };
+
   if (view === 'COMPARE_PLANS') {
-    return <ComparePlansPage onBack={() => setView('MARKETING')} onGetStarted={() => setView('REGISTER')} />;
+    const comparePlansRestaurant = currentUser?.restaurantId
+      ? restaurants.find(restaurant => restaurant.id === currentUser.restaurantId)
+      : null;
+
+    return (
+      <ComparePlansPage
+        onBack={returnFromComparePlans}
+        onGetStarted={comparePlansOrigin === 'PUBLIC' ? () => setView('REGISTER') : undefined}
+        posContext={comparePlansOrigin === 'POS_BILLING' && currentUser ? {
+          restaurantName: comparePlansRestaurant?.name || 'QuickServe POS',
+          restaurantLogo: comparePlansRestaurant?.logo,
+          userName: currentUser.username,
+        } : undefined}
+      />
+    );
   }
 
   if (view === 'MARKETING') {
-    return <MarketingPage onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} onCompany={showCompany} onComparePlans={() => setView('COMPARE_PLANS')} onShop={showShop} onHelp={showHelp} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
+    return <MarketingPage onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} onCompany={showCompany} onComparePlans={showPublicComparePlans} onShop={showShop} onHelp={showHelp} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
   }
 
   if (view === 'COMPANY') {
@@ -3386,7 +3421,7 @@ const App: React.FC = () => {
   }
 
   if (view === 'REGISTER') {
-    return <RegisterPage onBack={() => setView('MARKETING')} onLoginClick={() => setView('LOGIN')} onComparePlans={() => setView('COMPARE_PLANS')} onRegisterSuccess={() => {
+    return <RegisterPage onBack={() => setView('MARKETING')} onLoginClick={() => setView('LOGIN')} onComparePlans={showPublicComparePlans} onRegisterSuccess={() => {
       toast('Registration successful! You can now log in.', 'success');
       setView('LOGIN');
     }} />;
@@ -3648,7 +3683,7 @@ const App: React.FC = () => {
               openBillingTab={openBillingInPOS}
               onBillingTabOpened={() => setOpenBillingInPOS(false)}
               onUpdateOrderItems={updateOrderItems}
-              onComparePlans={() => setView('COMPARE_PLANS')}
+              onComparePlans={showPosComparePlans}
               activeShift={activeShift}
               onOpenShiftModal={() => setShowShiftModal(true)}
             />
@@ -3698,7 +3733,7 @@ const App: React.FC = () => {
                 openBillingTab={openBillingInPOS}
                 onBillingTabOpened={() => setOpenBillingInPOS(false)}
                 onUpdateOrderItems={updateOrderItems}
-                onComparePlans={() => setView('COMPARE_PLANS')}
+                onComparePlans={showPosComparePlans}
                 activeShift={activeShift}
                 onOpenShiftModal={() => setShowShiftModal(true)}
               />
