@@ -15,7 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { restaurantName, businessAddressLine1, businessAddressLine2, ownerName, email, phone, username, password, planId } = req.body || {};
+  const { restaurantName, ownerName, email, phone, username, password, planId } = req.body || {};
 
   // Validation
   if (!restaurantName || !ownerName || !email || !phone || !username || !password || !planId) {
@@ -65,14 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         vendor_id: null,
         location_name: 'QuickServe Hub',
         is_online: true,
-        settings: {
-          receipt: {
-            businessName: String(restaurantName).trim(),
-            businessAddressLine1: String(businessAddressLine1 || '').trim(),
-            businessAddressLine2: String(businessAddressLine2 || '').trim(),
-            businessPhone: String(phone).trim(),
-          },
-        },
+        settings: { onboardingRequired: true },
         kitchen_enabled: kitchenEnabled,
         slug: null,
       })

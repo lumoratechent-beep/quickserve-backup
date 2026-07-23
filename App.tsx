@@ -9,6 +9,7 @@ import MarketingPage from './pages/MarketingPage';
 import CompanyPage from './pages/CompanyPage';
 import ComparePlansPage from './pages/ComparePlansPage';
 import RegisterPage from './pages/RegisterPage';
+import FirstTimeSetupPage, { FirstTimeSetupValues } from './pages/FirstTimeSetupPage';
 import OnlineShopPage from './pages/OnlineShopPage';
 import QuickServeShopPage from './pages/QuickServeShopPage';
 import HelpTutorialPage from './pages/HelpTutorialPage';
@@ -3184,6 +3185,54 @@ const App: React.FC = () => {
     setRestaurants(prev => prev.map(r => r.id === restaurantId ? { ...r, settings } : r));
   };
 
+  const completeFirstTimeSetup = async (values: FirstTimeSetupValues) => {
+    if (!currentUser?.restaurantId || !activeVendorRes) {
+      throw new Error('Your restaurant could not be found. Please log in again.');
+    }
+
+    const formData = new FormData();
+    formData.append('file', values.logoFile);
+    formData.append('filename', `restaurant-${currentUser.restaurantId}-logo-${values.logoFile.name}`);
+
+    const uploadResponse = await fetch('/api/upload', { method: 'POST', body: formData });
+    const uploadData = await uploadResponse.json().catch(() => ({}));
+    if (!uploadResponse.ok || !uploadData.url) {
+      throw new Error(uploadData.error || 'Logo upload failed. Please try again.');
+    }
+
+    const settings = {
+      ...(activeVendorRes.settings || {}),
+      onboardingRequired: false,
+      receipt: {
+        ...(activeVendorRes.settings?.receipt || {}),
+        businessName: values.businessName,
+        businessAddressLine1: values.businessAddressLine1,
+        businessAddressLine2: values.businessAddressLine2,
+        businessPhone: values.businessPhone,
+      },
+    };
+
+    const { error } = await supabase
+      .from('restaurants')
+      .update({ name: values.businessName, logo: uploadData.url, settings })
+      .eq('id', currentUser.restaurantId);
+
+    if (error) {
+      throw new Error(`Business setup could not be saved: ${error.message}`);
+    }
+
+    localStorage.setItem(`qs_settings_${currentUser.restaurantId}`, JSON.stringify(settings));
+    localStorage.setItem(`receipt_config_${currentUser.restaurantId}`, JSON.stringify(settings.receipt));
+    setRestaurants(prev => {
+      const updated = prev.map(restaurant => restaurant.id === currentUser.restaurantId
+        ? { ...restaurant, name: values.businessName, logo: uploadData.url, settings }
+        : restaurant);
+      persistCache('qs_cache_restaurants', updated);
+      return updated;
+    });
+    toast('Your store is ready!', 'success');
+  };
+
   const saveKitchenDivisions = async (restaurantId: string, divisions: KitchenDepartment[]) => {
     const { error } = await supabase
       .from('restaurants')
@@ -3277,6 +3326,10 @@ const App: React.FC = () => {
 
   if (view === 'QS_SHOP') {
     return <QuickServeShopPage onBack={showMarketing} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
+  }
+
+  if (currentUser?.role === 'VENDOR' && activeVendorRes?.settings?.onboardingRequired === true) {
+    return <FirstTimeSetupPage initialBusinessName={activeVendorRes.name} onComplete={completeFirstTimeSetup} />;
   }
 
   const networkMeta = (() => {
