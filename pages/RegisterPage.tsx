@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, Check, AlertCircle, Loader2, ArrowRight, LogIn } from 'lucide-react';
+import { ChevronLeft, Check, AlertCircle, Loader2, ArrowRight, LogIn, Building2, UserRound } from 'lucide-react';
 import { PricingPlan, PlanId } from '../src/types';
 import { PRICING_PLANS, TRIAL_DAYS } from '../lib/pricingPlans';
 
@@ -12,11 +12,14 @@ interface Props {
 
 const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick, onComparePlans }) => {
   const [step, setStep] = useState<'plan' | 'details'>('plan');
+  const [detailsPage, setDetailsPage] = useState(0);
   const [selectedPlan, setSelectedPlan] = useState<PlanId>('pro');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
 
   // Registration fields
   const [restaurantName, setRestaurantName] = useState('');
+  const [businessAddressLine1, setBusinessAddressLine1] = useState('');
+  const [businessAddressLine2, setBusinessAddressLine2] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -52,6 +55,8 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           restaurantName,
+          businessAddressLine1,
+          businessAddressLine2,
           ownerName,
           email,
           phone,
@@ -249,17 +254,35 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
     );
   }
 
+  const goToAccountDetails = () => {
+    setError('');
+    if (!restaurantName.trim() || !phone.trim()) {
+      setError('Business name and phone are required.');
+      return;
+    }
+    setDetailsPage(1);
+  };
+
+  const handleDetailsBack = () => {
+    setError('');
+    if (detailsPage === 1) {
+      setDetailsPage(0);
+      return;
+    }
+    setStep('plan');
+  };
+
   // Details / Registration form step
   const currentPlan = PRICING_PLANS.find(p => p.id === selectedPlan)!;
 
   return (
     <div className="h-screen overflow-y-auto bg-gray-50 dark:bg-gray-900 transition-colors">
       <button
-        onClick={() => setStep('plan')}
+        onClick={handleDetailsBack}
         className="fixed top-4 left-4 lg:top-6 lg:left-8 z-50 flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 font-semibold transition-colors"
       >
         <ChevronLeft size={20} />
-        Change Plan
+        {detailsPage === 1 ? 'Business Info' : 'Change Plan'}
       </button>
 
       <div className="w-full max-w-lg mx-auto px-4 py-6 lg:py-10">
@@ -270,7 +293,7 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
             className="w-12 h-12 lg:w-14 lg:h-14 rounded-2xl object-contain mb-2"
           />
           <h1 className="text-xl lg:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
-            Create Your Account
+            {detailsPage === 0 ? 'Business Information' : 'Create Your Account'}
           </h1>
           <div className="mt-1.5 inline-flex items-center gap-2 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 rounded-full">
             <span className="text-orange-600 dark:text-orange-400 text-xs font-black uppercase tracking-wider">
@@ -279,6 +302,19 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
             <span className="text-gray-400 dark:text-gray-500 text-xs font-bold">
               — MYR {currentPlan.trialPrice}/mo for 1 month, then MYR {billingCycle === 'annual' ? currentPlan.annualPrice : currentPlan.price}/mo
             </span>
+          </div>
+
+          <div className="mt-4 flex items-center gap-2" aria-label={`Registration page ${detailsPage + 1} of 2`}>
+            {[0, 1].map((page) => (
+              <button
+                key={page}
+                type="button"
+                onClick={() => page === 0 ? setDetailsPage(0) : goToAccountDetails()}
+                className={`h-2.5 rounded-full transition-all duration-300 ${detailsPage === page ? 'w-7 bg-orange-500' : 'w-2.5 bg-gray-300 dark:bg-gray-600 hover:bg-orange-300'}`}
+                aria-label={`Go to ${page === 0 ? 'business information' : 'account details'}`}
+                aria-current={detailsPage === page ? 'step' : undefined}
+              />
+            ))}
           </div>
         </div>
 
@@ -291,112 +327,72 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
               </div>
             )}
 
-            {/* Restaurant & Owner Name */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Restaurant Name</label>
-                <input
-                  type="text"
-                  required
-                  value={restaurantName}
-                  onChange={(e) => setRestaurantName(e.target.value)}
-                  placeholder="e.g. Nasi Kandar Amin"
-                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Owner Name</label>
-                <input
-                  type="text"
-                  required
-                  value={ownerName}
-                  onChange={(e) => setOwnerName(e.target.value)}
-                  placeholder="Full name"
-                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all"
-                />
+            <div className="overflow-hidden">
+              <div
+                className="flex items-start transition-transform duration-700 ease-in-out"
+                style={{ transform: `translateX(-${detailsPage * 100}%)` }}
+              >
+                <section className="w-full shrink-0 space-y-3 px-0.5" aria-hidden={detailsPage !== 0}>
+                  <div className="flex items-center gap-3 rounded-xl bg-orange-50 px-3 py-2.5 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300">
+                    <Building2 size={18} className="shrink-0" />
+                    <p className="text-[11px] font-bold leading-relaxed">These details are saved to Receipt Settings, ready for your first print.</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Business Name</label>
+                    <input type="text" required value={restaurantName} onChange={(e) => setRestaurantName(e.target.value)} placeholder="e.g. Nasi Kandar Amin" tabIndex={detailsPage === 0 ? 0 : -1} className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Address Line 1 <span className="font-medium text-gray-400">(optional)</span></label>
+                    <input type="text" value={businessAddressLine1} onChange={(e) => setBusinessAddressLine1(e.target.value)} placeholder="Street address" tabIndex={detailsPage === 0 ? 0 : -1} className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Address Line 2 <span className="font-medium text-gray-400">(optional)</span></label>
+                    <input type="text" value={businessAddressLine2} onChange={(e) => setBusinessAddressLine2(e.target.value)} placeholder="Suite, unit, city, state" tabIndex={detailsPage === 0 ? 0 : -1} className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Business Phone</label>
+                    <input type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+60 12-345 6789" tabIndex={detailsPage === 0 ? 0 : -1} className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all" />
+                  </div>
+                  <button type="button" onClick={goToAccountDetails} className="w-full py-3 mt-4 bg-orange-500 text-white rounded-xl font-black text-sm shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
+                    Continue <ArrowRight size={18} />
+                  </button>
+                </section>
+
+                <section className="w-full shrink-0 space-y-3 px-0.5" aria-hidden={detailsPage !== 1}>
+                  <div className="flex items-center gap-3 rounded-xl bg-orange-50 px-3 py-2.5 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300">
+                    <UserRound size={18} className="shrink-0" />
+                    <p className="text-[11px] font-bold leading-relaxed">Create the owner login for your new business.</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Owner Name</label>
+                      <input type="text" required value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="Full name" tabIndex={detailsPage === 1 ? 0 : -1} className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Email</label>
+                      <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" tabIndex={detailsPage === 1 ? 0 : -1} className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Username</label>
+                    <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Choose a username for login" tabIndex={detailsPage === 1 ? 0 : -1} className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all" />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Password</label>
+                      <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 6 characters" tabIndex={detailsPage === 1 ? 0 : -1} className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Confirm Password</label>
+                      <input type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password" tabIndex={detailsPage === 1 ? 0 : -1} className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all" />
+                    </div>
+                  </div>
+                  <button type="submit" disabled={isSubmitting} className="w-full py-3 mt-4 bg-orange-500 text-white rounded-xl font-black text-sm shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                    {isSubmitting ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : <>Start Free Trial</>}
+                  </button>
+                </section>
               </div>
             </div>
-
-            {/* Email & Phone */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@email.com"
-                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Phone</label>
-                <input
-                  type="tel"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+60 12-345 6789"
-                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Username */}
-            <div>
-              <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Username</label>
-              <input
-                type="text"
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Choose a username for login"
-                className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all"
-              />
-            </div>
-
-            {/* Password */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Password</label>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min 6 characters"
-                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Confirm Password</label>
-                <input
-                  type="password"
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Re-enter password"
-                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-3 mt-4 bg-orange-500 text-white rounded-xl font-black text-sm shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>Start Free Trial</>
-              )}
-            </button>
           </form>
 
           <p className="text-center text-gray-400 text-[10px] font-medium mt-3">

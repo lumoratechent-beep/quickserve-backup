@@ -225,7 +225,7 @@ async function startServer() {
 
   // Registration endpoint
   app.post('/api/register', async (req, res) => {
-    const { restaurantName, ownerName, email, phone, username, password, planId } = req.body || {};
+    const { restaurantName, businessAddressLine1, businessAddressLine2, ownerName, email, phone, username, password, planId } = req.body || {};
     const VALID_PLANS = ['basic', 'pro', 'pro_plus'];
     const TRIAL_DAYS = 30;
 
@@ -259,7 +259,14 @@ async function startServer() {
           vendor_id: null,
           location_name: 'QuickServe Hub',
           is_online: true,
-          settings: {},
+          settings: {
+            receipt: {
+              businessName: String(restaurantName).trim(),
+              businessAddressLine1: String(businessAddressLine1 || '').trim(),
+              businessAddressLine2: String(businessAddressLine2 || '').trim(),
+              businessPhone: String(phone).trim(),
+            },
+          },
           kitchen_enabled: kitchenEnabled,
           slug: null,
         })
