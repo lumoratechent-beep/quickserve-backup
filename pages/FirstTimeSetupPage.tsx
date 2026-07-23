@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Building2, ImagePlus, Loader2, Receipt, Upload, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, Building2, ImagePlus, Loader2, Receipt, Upload, X } from 'lucide-react';
+import { OTHER_COUNTRIES, POPULAR_COUNTRIES } from '../lib/countries';
 
 export interface FirstTimeSetupValues {
   businessName: string;
@@ -41,6 +42,12 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
     setLogoPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [logoFile]);
+
+  useEffect(() => {
+    if (!error) return;
+    const timer = window.setTimeout(() => setError(''), 4000);
+    return () => window.clearTimeout(timer);
+  }, [error]);
 
   const continueToLogo = () => {
     setError('');
@@ -93,6 +100,15 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
       aria-modal="true"
       aria-labelledby="first-time-setup-title"
     >
+      {error && (
+        <div className="fixed left-1/2 top-3 z-[10001] w-[min(92vw,520px)] -translate-x-1/2" role="alert" aria-live="assertive">
+          <div className="qs-setup-error-shake flex items-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-xs font-bold text-red-600 shadow-2xl dark:border-red-500/40 dark:bg-red-950 dark:text-red-300">
+            <AlertCircle size={17} className="shrink-0" />
+            <span>{error}</span>
+          </div>
+        </div>
+      )}
+
       <div className="w-full max-w-[560px] overflow-hidden rounded-[1.75rem] border border-white/20 bg-gray-50 shadow-2xl dark:bg-gray-900">
         <div className="px-5 pb-3 pt-4 text-center sm:px-6">
           <p className="text-[9px] font-black uppercase tracking-[0.24em] text-orange-500">First-time setup</p>
@@ -113,12 +129,6 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
         </div>
 
         <div className="mx-3 mb-3 flex h-[390px] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-lg shadow-gray-200/70 dark:border-gray-700 dark:bg-gray-800 dark:shadow-none sm:mx-4 sm:mb-4">
-          {error && (
-            <div className="mb-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-400">
-              {error}
-            </div>
-          )}
-
           {page === 0 ? (
             <section key="business" className="qs-setup-page-enter flex min-h-0 flex-1 flex-col gap-3">
               <div className="flex items-center gap-3 rounded-xl bg-orange-50 p-3 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300">
@@ -134,12 +144,12 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
                   <label className="mb-1 ml-1 block text-[10px] font-bold text-gray-700 dark:text-gray-300 sm:text-xs">Business Name</label>
                   <div className="relative">
                     <Building2 size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input autoFocus value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="Your store name" className="w-full min-w-0 rounded-xl border-none bg-gray-50 py-2.5 pl-9 pr-3 text-xs font-medium focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white sm:text-sm" />
+                    <input autoFocus value={businessName} onChange={e => { setBusinessName(e.target.value); setError(''); }} placeholder="Your store name" className="w-full min-w-0 rounded-xl border-none bg-gray-50 py-2.5 pl-9 pr-3 text-xs font-medium focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white sm:text-sm" />
                   </div>
                 </div>
                 <div className="min-w-0">
                   <label className="mb-1 ml-1 block text-[10px] font-bold text-gray-700 dark:text-gray-300 sm:text-xs">Business Phone</label>
-                  <input type="tel" value={businessPhone} onChange={e => setBusinessPhone(e.target.value)} placeholder="+60 12-345 6789" className="w-full min-w-0 rounded-xl border-none bg-gray-50 px-3 py-2.5 text-xs font-medium focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white sm:text-sm" />
+                  <input type="tel" value={businessPhone} onChange={e => { setBusinessPhone(e.target.value); setError(''); }} placeholder="+60 12-345 6789" className="w-full min-w-0 rounded-xl border-none bg-gray-50 px-3 py-2.5 text-xs font-medium focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white sm:text-sm" />
                 </div>
                 <div className="min-w-0">
                   <label className="mb-1 ml-1 block text-[10px] font-bold text-gray-700 dark:text-gray-300 sm:text-xs">Address Line 1 <span className="font-medium text-gray-400">(optional)</span></label>
@@ -162,7 +172,14 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
                 </div>
                 <div className="min-w-0">
                   <label className="mb-1 ml-1 block text-[10px] font-bold text-gray-700 dark:text-gray-300 sm:text-xs">Country</label>
-                  <input value={businessCountry} onChange={e => setBusinessCountry(e.target.value)} placeholder="Malaysia" className="w-full min-w-0 rounded-xl border-none bg-gray-50 px-2.5 py-2.5 text-xs font-medium focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white sm:px-3 sm:text-sm" />
+                  <select value={businessCountry} onChange={e => setBusinessCountry(e.target.value)} className="w-full min-w-0 rounded-xl border-none bg-gray-50 px-2 py-2.5 text-xs font-medium focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white sm:px-3 sm:text-sm">
+                    <optgroup label="Popular">
+                      {POPULAR_COUNTRIES.map(country => <option key={country} value={country}>{country}</option>)}
+                    </optgroup>
+                    <optgroup label="All countries">
+                      {OTHER_COUNTRIES.map(country => <option key={country} value={country}>{country}</option>)}
+                    </optgroup>
+                  </select>
                 </div>
               </div>
 
