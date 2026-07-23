@@ -6,7 +6,7 @@ export interface FirstTimeSetupValues {
   businessAddressLine1: string;
   businessAddressLine2: string;
   businessPhone: string;
-  logoFile: File;
+  logoFile?: File;
 }
 
 interface Props {
@@ -60,10 +60,6 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
   };
 
   const handleSubmit = async () => {
-    if (!logoFile) {
-      setError('Please upload your business logo.');
-      return;
-    }
     setError('');
     setIsSubmitting(true);
     try {
@@ -72,7 +68,7 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
         businessAddressLine1: businessAddressLine1.trim(),
         businessAddressLine2: businessAddressLine2.trim(),
         businessPhone: businessPhone.trim(),
-        logoFile,
+        logoFile: logoFile || undefined,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Setup could not be completed. Please try again.');
@@ -107,7 +103,7 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
           </div>
         </div>
 
-        <div className="mx-3 mb-3 overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-lg shadow-gray-200/70 dark:border-gray-700 dark:bg-gray-800 dark:shadow-none sm:mx-4 sm:mb-4">
+        <div className="mx-3 mb-3 flex h-[370px] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-lg shadow-gray-200/70 dark:border-gray-700 dark:bg-gray-800 dark:shadow-none sm:mx-4 sm:mb-4">
           {error && (
             <div className="mb-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-400">
               {error}
@@ -115,12 +111,12 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
           )}
 
           {page === 0 ? (
-            <section key="business" className="qs-setup-page-enter space-y-3">
+            <section key="business" className="qs-setup-page-enter flex min-h-0 flex-1 flex-col gap-3">
               <div className="flex items-center gap-3 rounded-xl bg-orange-50 p-3 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300">
                 <Receipt size={19} className="shrink-0" />
                 <div className="min-w-0">
                   <p className="text-xs font-black">Business Information</p>
-                  <p className="mt-0.5 text-[10px] font-medium leading-relaxed sm:text-[11px]">Saved automatically to Receipt Settings for printing.</p>
+                  <p className="mt-0.5 text-[10px] font-medium leading-relaxed sm:text-[11px]">Saved to Receipt Settings for printing. You can change these details anytime later.</p>
                 </div>
               </div>
 
@@ -146,17 +142,17 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
                 </div>
               </div>
 
-              <button type="button" onClick={continueToLogo} className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 py-3 text-xs font-black text-white shadow-lg shadow-orange-100 transition-all hover:bg-orange-600 active:scale-[0.99] dark:shadow-none sm:text-sm">
+              <button type="button" onClick={continueToLogo} className="mt-auto flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 py-3 text-xs font-black text-white shadow-lg shadow-orange-100 transition-all hover:bg-orange-600 active:scale-[0.99] dark:shadow-none sm:text-sm">
                 Continue <ArrowRight size={17} />
               </button>
             </section>
           ) : (
-            <section key="logo" className="qs-setup-page-enter space-y-3">
+            <section key="logo" className="qs-setup-page-enter flex min-h-0 flex-1 flex-col gap-3">
               <div className="flex items-center gap-3 rounded-xl bg-orange-50 p-3 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300">
                 <ImagePlus size={19} className="shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-xs font-black">Add your store logo</p>
-                  <p className="mt-0.5 text-[10px] font-medium leading-relaxed sm:text-[11px]">A square image looks best across POS and customer pages.</p>
+                  <p className="text-xs font-black">Add your store logo <span className="font-medium text-orange-500/80">(optional)</span></p>
+                  <p className="mt-0.5 text-[10px] font-medium leading-relaxed sm:text-[11px]">Add one now or continue without it. You can upload a logo later.</p>
                 </div>
               </div>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleFile(e.target.files?.[0])} />
@@ -165,7 +161,7 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
                 onClick={() => fileInputRef.current?.click()}
                 onDrop={e => { e.preventDefault(); handleFile(e.dataTransfer.files?.[0]); }}
                 onDragOver={e => e.preventDefault()}
-                className="relative flex min-h-[180px] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 p-4 transition-colors hover:border-orange-400 dark:border-gray-600 dark:bg-gray-700/50"
+                className="relative flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 p-4 transition-colors hover:border-orange-400 dark:border-gray-600 dark:bg-gray-700/50"
               >
                 {logoPreview ? (
                   <img src={logoPreview} alt="Business logo preview" className="h-32 w-32 rounded-2xl object-cover shadow-lg" />
@@ -183,10 +179,10 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
                   <button type="button" onClick={() => setLogoFile(null)} className="ml-3 rounded-lg p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20" aria-label="Remove logo"><X size={15} /></button>
                 </div>
               )}
-              <div className="grid grid-cols-[auto_1fr] gap-3">
+              <div className="mt-auto grid grid-cols-[auto_1fr] gap-3">
                 <button type="button" onClick={() => { setError(''); setPage(0); }} className="rounded-xl bg-gray-100 px-5 py-3 text-xs font-black text-gray-600 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 sm:text-sm">Back</button>
                 <button type="button" onClick={handleSubmit} disabled={isSubmitting} className="flex items-center justify-center gap-2 rounded-xl bg-orange-500 py-3 text-xs font-black text-white shadow-lg shadow-orange-100 transition-all hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50 dark:shadow-none sm:text-sm">
-                  {isSubmitting ? <><Loader2 size={17} className="animate-spin" /> Saving...</> : 'Finish Setup'}
+                  {isSubmitting ? <><Loader2 size={17} className="animate-spin" /> Saving...</> : (logoFile ? 'Finish Setup' : 'Skip Logo & Finish')}
                 </button>
               </div>
             </section>

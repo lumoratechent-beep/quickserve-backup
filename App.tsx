@@ -3195,14 +3195,18 @@ const App: React.FC = () => {
       throw new Error('Your restaurant could not be found. Please log in again.');
     }
 
-    const formData = new FormData();
-    formData.append('file', values.logoFile);
-    formData.append('filename', `restaurant-${currentUser.restaurantId}-logo-${values.logoFile.name}`);
+    let logoUrl = activeVendorRes.logo || '';
+    if (values.logoFile) {
+      const formData = new FormData();
+      formData.append('file', values.logoFile);
+      formData.append('filename', `restaurant-${currentUser.restaurantId}-logo-${values.logoFile.name}`);
 
-    const uploadResponse = await fetch('/api/upload', { method: 'POST', body: formData });
-    const uploadData = await uploadResponse.json().catch(() => ({}));
-    if (!uploadResponse.ok || !uploadData.url) {
-      throw new Error(uploadData.error || 'Logo upload failed. Please try again.');
+      const uploadResponse = await fetch('/api/upload', { method: 'POST', body: formData });
+      const uploadData = await uploadResponse.json().catch(() => ({}));
+      if (!uploadResponse.ok || !uploadData.url) {
+        throw new Error(uploadData.error || 'Logo upload failed. Please try again.');
+      }
+      logoUrl = uploadData.url;
     }
 
     const settings = {
@@ -3219,7 +3223,7 @@ const App: React.FC = () => {
 
     const { error } = await supabase
       .from('restaurants')
-      .update({ name: values.businessName, logo: uploadData.url, settings })
+      .update({ name: values.businessName, ...(values.logoFile ? { logo: logoUrl } : {}), settings })
       .eq('id', currentUser.restaurantId);
 
     if (error) {
@@ -3230,7 +3234,7 @@ const App: React.FC = () => {
     localStorage.setItem(`receipt_config_${currentUser.restaurantId}`, JSON.stringify(settings.receipt));
     setRestaurants(prev => {
       const updated = prev.map(restaurant => restaurant.id === currentUser.restaurantId
-        ? { ...restaurant, name: values.businessName, logo: uploadData.url, settings }
+        ? { ...restaurant, name: values.businessName, logo: logoUrl, settings }
         : restaurant);
       persistCache('qs_cache_restaurants', updated);
       return updated;
