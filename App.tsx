@@ -3449,24 +3449,19 @@ const App: React.FC = () => {
               <span className="sm:hidden">Back</span>
             </button>
           )}
-          <button
-            type="button"
-            className={view === 'COMPARE_PLANS'
-              ? 'absolute left-1/2 flex min-w-0 -translate-x-1/2 items-center'
-              : 'flex min-w-0 items-center'}
-            onClick={handleBrandClick}
-            title="QuickServe POS"
-          >
-            <img
-              src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"}
-              alt="QuickServe"
-              className="h-7 w-auto sm:h-8"
-              onError={(e) => {
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="40"><text x="0" y="28" font-family="Arial,sans-serif" font-size="24" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`;
-              }}
-            />
-          </button>
+          {view !== 'COMPARE_PLANS' && (
+            <button type="button" className="flex min-w-0 items-center" onClick={handleBrandClick} title="QuickServe POS">
+              <img
+                src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"}
+                alt="QuickServe"
+                className="h-7 w-auto sm:h-8"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="40"><text x="0" y="28" font-family="Arial,sans-serif" font-size="24" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`;
+                }}
+              />
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-1.5 sm:gap-3">
           {/* Shift button — rectangular, before mail. Only if shiftEnabled feature is on */}
