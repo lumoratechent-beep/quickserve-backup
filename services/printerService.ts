@@ -1553,6 +1553,7 @@ class PrinterService {
           r.bold(true);
           r.columns2('TOTAL', `RM ${this.formatPrice(order.total)}`);
           r.bold(false);
+          if (hasPayment) r.feed(1);
         }
 
         // ── Payment method ──

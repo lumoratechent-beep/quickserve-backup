@@ -12117,7 +12117,7 @@ const PosOnlyView: React.FC<Props> = ({
             ${shiftRequired ? 'opacity-40' : ''}
           `} style={shiftRequired ? { filter: 'grayscale(0.3)' } : undefined}>
             {/* Sidebar header */}
-            <div className="p-4 border-b dark:border-gray-700">
+            <div className="px-4 py-2.5 border-b dark:border-gray-700">
               {editingQrOrderId && (
                 <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 mb-3">
                   <Edit3 size={13} className="text-blue-500 shrink-0" />
@@ -12125,11 +12125,11 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               )}
                   {(showSavedBillFeature || showQrFeature) && (
-                    <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 mb-3">
+                    <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 mb-2">
                       {showSavedBillFeature && (
                         <button
                           onClick={() => { if (editingQrOrderId) return; switchCounterMode('SAVED_BILL'); }}
-                          className={`relative flex h-7 flex-1 items-center justify-center rounded-md text-[9px] font-black uppercase tracking-widest leading-none transition-all ${
+                          className={`relative flex h-6 flex-1 items-center justify-center rounded-md text-[9px] font-black uppercase tracking-widest leading-none transition-all ${
                             editingQrOrderId
                               ? 'bg-blue-500 text-white shadow-sm'
                               : counterMode === 'SAVED_BILL' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
@@ -12142,12 +12142,12 @@ const PosOnlyView: React.FC<Props> = ({
                       )}
                       {!showSavedBillFeature && editingQrOrderId && (
                         <button
-                          className="relative flex h-7 flex-1 items-center justify-center rounded-md text-[9px] font-black uppercase tracking-widest leading-none transition-all bg-blue-500 text-white shadow-sm"
+                          className="relative flex h-6 flex-1 items-center justify-center rounded-md text-[9px] font-black uppercase tracking-widest leading-none transition-all bg-blue-500 text-white shadow-sm"
                         >Edit Order</button>
                       )}
                       <button
                         onClick={() => switchCounterMode('COUNTER_ORDER')}
-                        className={`flex h-7 flex-1 items-center justify-center rounded-md text-[9px] font-black uppercase tracking-widest leading-none transition-all ${
+                        className={`flex h-6 flex-1 items-center justify-center rounded-md text-[9px] font-black uppercase tracking-widest leading-none transition-all ${
                           !editingQrOrderId && counterMode === 'COUNTER_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                         }`}
                       >Counter</button>
@@ -12156,7 +12156,7 @@ const PosOnlyView: React.FC<Props> = ({
                         return (
                         <button
                           onClick={() => switchCounterMode('QR_ORDER')}
-                          className={`relative flex h-7 flex-1 items-center justify-center rounded-md text-[9px] font-black uppercase tracking-widest leading-none transition-all ${
+                          className={`relative flex h-6 flex-1 items-center justify-center rounded-md text-[9px] font-black uppercase tracking-widest leading-none transition-all ${
                             !editingQrOrderId && counterMode === 'QR_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                           }`}
                         >QR Order
@@ -12168,7 +12168,7 @@ const PosOnlyView: React.FC<Props> = ({
                       })()}
                     </div>
                   )}
-                  <div className="flex min-h-8 items-center justify-between">
+                  <div className="flex min-h-6 items-center justify-between">
                     <h3 className="font-black dark:text-white uppercase tracking-tighter text-sm leading-none">
                       {editingQrOrderId
                         ? `Editing Order #${editingQrOrderId.slice(-6).toUpperCase()}`
@@ -12199,7 +12199,7 @@ const PosOnlyView: React.FC<Props> = ({
                     )}
                     {!editingQrOrderId && (counterMode === 'COUNTER_ORDER' || (!showQrFeature && counterMode !== 'SAVED_BILL')) && (
                       <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors">
-                        <Trash2 size={18} />
+                        <Trash2 size={16} />
                       </button>
                     )}
                     {showQrFeature && counterMode === 'QR_ORDER' && selectedQrOrderForPayment && (
@@ -12449,7 +12449,7 @@ const PosOnlyView: React.FC<Props> = ({
               )}
             </div>
 
-            <div className="p-6 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-4">
+            <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-3">
               {showPaymentSuccess && (
                 <div className="px-3 py-2 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-300 text-[10px] font-black uppercase tracking-widest text-center">
                   Payment Completed Successfully
@@ -12462,7 +12462,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               )}
 
-              <div className="space-y-2">
+              <div className="space-y-1 leading-none">
                 <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                   <span>Subtotal</span>
                   <span>{currencySymbol}{cartPreDiscountSubtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
