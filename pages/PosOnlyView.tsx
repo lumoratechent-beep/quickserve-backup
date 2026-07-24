@@ -2048,9 +2048,22 @@ const PosOnlyView: React.FC<Props> = ({
     }));
   };
 
-  const cartTotal = useMemo(() => {
-    return posCart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  }, [posCart]);
+  const getItemsSubtotal = (items: CartItem[]): number => {
+    return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  };
+
+  const getItemsDiscount = (items: CartItem[]): number => {
+    return items.reduce((sum, item) => {
+      const originalPrice = Number(item.originalPrice || 0);
+      const currentPrice = Number(item.price || 0);
+      const quantity = Number(item.quantity || 0);
+      return sum + (originalPrice > currentPrice + 0.005 ? (originalPrice - currentPrice) * quantity : 0);
+    }, 0);
+  };
+
+  const cartTotal = useMemo(() => getItemsSubtotal(posCart), [posCart]);
+  const cartDiscount = useMemo(() => getItemsDiscount(posCart), [posCart]);
+  const cartPreDiscountSubtotal = useMemo(() => cartTotal + cartDiscount, [cartTotal, cartDiscount]);
 
   const activeTaxEntries = useMemo(() => {
     return taxEntries.filter(tax => tax.applyToItems);
@@ -2068,6 +2081,11 @@ const PosOnlyView: React.FC<Props> = ({
   const cartGrandTotal = useMemo(() => cartTotal + cartTaxTotal, [cartTotal, cartTaxTotal]);
 
   const selectedQrOrderSubtotal = selectedQrOrderForPayment?.total ?? 0;
+  const selectedQrOrderDiscount = useMemo(
+    () => getItemsDiscount((selectedQrOrderForPayment?.items || []) as CartItem[]),
+    [selectedQrOrderForPayment]
+  );
+  const selectedQrPreDiscountSubtotal = selectedQrOrderSubtotal + selectedQrOrderDiscount;
   const selectedQrTaxLines = useMemo(() => {
     return activeTaxEntries.map(tax => ({
       id: tax.id,
@@ -2078,10 +2096,6 @@ const PosOnlyView: React.FC<Props> = ({
   }, [activeTaxEntries, selectedQrOrderSubtotal]);
   const selectedQrTaxTotal = useMemo(() => selectedQrTaxLines.reduce((sum, tax) => sum + tax.amount, 0), [selectedQrTaxLines]);
   const selectedQrGrandTotal = useMemo(() => selectedQrOrderSubtotal + selectedQrTaxTotal, [selectedQrOrderSubtotal, selectedQrTaxTotal]);
-
-  const getItemsSubtotal = (items: CartItem[]): number => {
-    return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  };
 
   const getItemsGrandTotal = (items: CartItem[]): number => {
     const subtotal = getItemsSubtotal(items);
@@ -2158,6 +2172,11 @@ const PosOnlyView: React.FC<Props> = ({
     if (!selectedSavedBillEntry) return 0;
     return getItemsSubtotal(selectedSavedBillEntry.items);
   }, [selectedSavedBillEntry]);
+  const selectedSavedBillDiscount = useMemo(() => {
+    if (!selectedSavedBillEntry) return 0;
+    return getItemsDiscount(selectedSavedBillEntry.items);
+  }, [selectedSavedBillEntry]);
+  const selectedSavedBillPreDiscountSubtotal = selectedSavedBillSubtotal + selectedSavedBillDiscount;
 
   const selectedSavedBillTaxLines = useMemo(() => {
     return activeTaxEntries.map(tax => ({
@@ -4323,8 +4342,8 @@ const PosOnlyView: React.FC<Props> = ({
       cashierName: cashierName || '',
       showAmountReceived: receiptConfig.showAmountReceived,
       showChange: receiptConfig.showChange,
-      showTaxes: receiptConfig.showTaxes,
-      taxes: taxEntries.map(t => ({ name: t.name, amount: t.percentage })),
+      showTaxes: activeTaxEntries.length > 0,
+      taxes: activeTaxEntries.map(t => ({ name: t.name, percentage: t.percentage })),
       documentSize: receiptConfig.documentSize,
       documentFont: receiptConfig.documentFont,
       documentAlignment: receiptConfig.documentAlignment,
@@ -12246,8 +12265,14 @@ const PosOnlyView: React.FC<Props> = ({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                     <span>Subtotal</span>
-                    <span>{currencySymbol}{selectedSavedBillSubtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span>{currencySymbol}{selectedSavedBillPreDiscountSubtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
+                  {selectedSavedBillDiscount > 0.005 && (
+                    <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-green-600 dark:text-green-400">
+                      <span>Discount</span>
+                      <span>-{currencySymbol}{selectedSavedBillDiscount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
                   {selectedSavedBillTaxLines.map(tax => (
                     <div key={`saved-tax-${tax.id}`} className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                       <span>{tax.name} ({tax.percentage.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)</span>
@@ -12319,8 +12344,14 @@ const PosOnlyView: React.FC<Props> = ({
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                       <span>Subtotal</span>
-                      <span>{currencySymbol}{selectedQrOrderSubtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span>{currencySymbol}{selectedQrPreDiscountSubtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
+                    {selectedQrOrderDiscount > 0.005 && (
+                      <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-green-600 dark:text-green-400">
+                        <span>Discount</span>
+                        <span>-{currencySymbol}{selectedQrOrderDiscount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
                     {selectedQrTaxLines.map(tax => (
                       <div key={`qr-tax-${tax.id}`} className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                         <span>{tax.name} ({tax.percentage.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)</span>
@@ -12434,8 +12465,14 @@ const PosOnlyView: React.FC<Props> = ({
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                   <span>Subtotal</span>
-                  <span>{currencySymbol}{cartTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span>{currencySymbol}{cartPreDiscountSubtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
+                {cartDiscount > 0.005 && (
+                  <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-green-600 dark:text-green-400">
+                    <span>Discount</span>
+                    <span>-{currencySymbol}{cartDiscount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
                 {cartTaxLines.map(tax => (
                   <div key={`cart-tax-${tax.id}`} className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                     <span>{tax.name} ({tax.percentage.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)</span>
@@ -13292,6 +13329,8 @@ const PosOnlyView: React.FC<Props> = ({
               <div className="border-t dark:border-gray-700 pt-3 space-y-1.5">
                 {(() => {
                   const subtotal = selectedReportOrder.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+                  const discount = getItemsDiscount(selectedReportOrder.items as CartItem[]);
+                  const preDiscountSubtotal = subtotal + discount;
                   const taxLines = activeTaxEntries.map(tax => ({
                     id: tax.id,
                     name: tax.name,
@@ -13302,8 +13341,14 @@ const PosOnlyView: React.FC<Props> = ({
                     <>
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400 uppercase tracking-widest">Subtotal</span>
-                        <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{subtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{preDiscountSubtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
+                      {discount > 0.005 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-normal text-green-600 dark:text-green-400 uppercase tracking-widest">Discount</span>
+                          <span className="text-[11px] font-semibold text-green-600 dark:text-green-400">-{currencySymbol}{discount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      )}
                       {taxLines.map(tax => (
                         <div key={tax.id} className="flex items-center justify-between">
                           <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">{tax.name} ({tax.percentage.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)</span>

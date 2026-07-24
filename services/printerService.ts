@@ -232,7 +232,7 @@ export interface ReceiptPrintOptions {
   showAmountReceived?: boolean;
   showChange?: boolean;
   showTaxes?: boolean;
-  taxes?: Array<{ name: string; amount: number }>;
+  taxes?: Array<{ name: string; percentage?: number; amount?: number }>;
   // Text customization
   documentSize?: TextSize;
   documentFont?: TextFont;
@@ -1509,13 +1509,6 @@ class PrinterService {
       }
 
       // ── Taxes ──
-      if (options?.showTaxes && options.taxes && options.taxes.length > 0) {
-        r.separator();
-        for (const tax of options.taxes) {
-          r.columns2(this.sanitize(tax.name), this.formatPrice(tax.amount));
-        }
-      }
-
       // ── Total / Payment details ──
       const hasTotal = showTotal;
       const hasPayment = showPaymentMethod && order.paymentMethod;
@@ -1523,9 +1516,40 @@ class PrinterService {
       const hasChange = options?.showChange !== false && order.changeAmount != null && Number(order.changeAmount) >= 0;
       const hasTotalSection = hasTotal || hasPayment || hasAmountReceived || hasChange;
 
+      const discountAmount = Array.isArray(order.items)
+        ? order.items.reduce((sum: number, item: any) => {
+            const originalPrice = Number(item.originalPrice || 0);
+            const currentPrice = Number(item.price || 0);
+            const quantity = Number(item.quantity || 0);
+            return sum + (originalPrice > currentPrice + 0.005 ? (originalPrice - currentPrice) * quantity : 0);
+          }, 0)
+        : 0;
+      const discountedItemsSubtotal = Array.isArray(order.items)
+        ? order.items.reduce((sum: number, item: any) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0)
+        : 0;
+      const receiptTaxLines = options?.showTaxes && Array.isArray(options.taxes)
+        ? options.taxes.map(tax => {
+            const percentage = Number(tax.percentage ?? tax.amount ?? 0);
+            return {
+              name: this.sanitize(tax.name),
+              percentage,
+              amount: (discountedItemsSubtotal * percentage) / 100,
+            };
+          }).filter(tax => tax.percentage > 0)
+        : [];
+
       if (hasTotalSection) {
         r.separator();
         if (showTotal) {
+          if (discountAmount > 0.005 || receiptTaxLines.length > 0) {
+            r.columns2('SUBTOTAL', `RM ${this.formatPrice(discountedItemsSubtotal + discountAmount)}`);
+          }
+          if (discountAmount > 0.005) {
+            r.columns2('DISCOUNT', `-RM ${this.formatPrice(discountAmount)}`);
+          }
+          for (const tax of receiptTaxLines) {
+            r.columns2(`${tax.name} (${tax.percentage.toFixed(2)}%)`, `RM ${this.formatPrice(tax.amount)}`);
+          }
           r.bold(true);
           r.columns2('TOTAL', `RM ${this.formatPrice(order.total)}`);
           r.bold(false);
