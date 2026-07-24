@@ -12462,7 +12462,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               )}
 
-              <div className="space-y-1 leading-none">
+              <div className="space-y-1.5 leading-none">
                 <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                   <span>Subtotal</span>
                   <span>{currencySymbol}{cartPreDiscountSubtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>

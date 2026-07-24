@@ -16,7 +16,7 @@ import HelpTutorialPage from './pages/HelpTutorialPage';
 import TableSideOrderPage from './pages/TableSideOrderPage';
 import { supabase } from './lib/supabase';
 import { expandPosSettings, fetchSettingsFromServer, syncBackofficeToDb } from './lib/sharedSettings';
-import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock, AlertCircle, ShoppingBag, ChevronLeft, WandSparkles } from 'lucide-react';
+import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock, AlertCircle, ShoppingBag, ChevronLeft } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
 import { getConnectivityMonitor, destroyConnectivityMonitor, type ConnectivityStatus } from './lib/connectivityMonitor';
 import { toast } from './components/Toast';
@@ -3550,17 +3550,6 @@ const App: React.FC = () => {
               </button>
             );
           })()}
-          {currentRole === 'VENDOR' && activeVendorRes && activeVendorRes.settings?.onboardingRequired !== true && (
-            <button
-              type="button"
-              onClick={() => setShowTemporaryFirstTimeSetup(true)}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-orange-200 bg-orange-50 text-orange-500 transition-colors hover:bg-orange-100 dark:border-orange-500/30 dark:bg-orange-500/10 dark:hover:bg-orange-500/20"
-              title="Open first-time setup (temporary)"
-              aria-label="Open first-time setup"
-            >
-              <WandSparkles size={15} />
-            </button>
-          )}
           {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (
             <div className="flex h-8 items-center gap-1 rounded-full bg-gray-100/80 px-1.5 dark:bg-gray-700/70">
               <div
