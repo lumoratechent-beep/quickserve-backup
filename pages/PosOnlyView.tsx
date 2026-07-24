@@ -31,7 +31,7 @@ import {
   Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
   ArrowLeft, Star, Package, Monitor, Info, ExternalLink,
   Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail,
-  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2, Delete, UtensilsCrossed
+  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2, Delete, UtensilsCrossed, ConciergeBell
 } from 'lucide-react';
 
 type CashierAccessPermissionKey = 'viewOwnSalesOnly' | 'requireManagerApprovalForRefund';
@@ -1793,6 +1793,11 @@ const PosOnlyView: React.FC<Props> = ({
       return matchesSearch && matchesCategory && !item.isArchived;
     });
   }, [restaurant.menu, menuSearch, selectedCategory]);
+
+  const hasActiveMenuItems = useMemo(
+    () => restaurant.menu.some(item => !item.isArchived),
+    [restaurant.menu],
+  );
 
   const groupedMenu = useMemo(() => {
     const groups: Record<string, MenuItem[]> = {};
@@ -7807,27 +7812,37 @@ const PosOnlyView: React.FC<Props> = ({
 
               <div className="flex-1 overflow-y-auto p-2 pb-24 lg:pb-2 scroll-smooth">
                 {filteredMenu.length === 0 ? (
-                  <div className="h-full min-h-64 flex flex-col items-center justify-center px-6 text-center">
-                    <div className="w-16 h-16 rounded-2xl bg-orange-100 text-orange-500 dark:bg-orange-500/15 flex items-center justify-center">
-                      <UtensilsCrossed size={30} />
-                    </div>
-                    <h3 className="mt-4 text-sm font-black uppercase tracking-wider text-gray-800 dark:text-white">
-                      {restaurant.menu.some(item => !item.isArchived) ? 'No menu items found' : 'No menu added yet'}
+                  <div className="h-full min-h-56 flex flex-col items-center justify-center px-6 text-center">
+                    <ConciergeBell size={44} strokeWidth={1.6} className="text-orange-500" />
+                    <h3 className="mt-2.5 text-sm font-black text-gray-800 dark:text-white">
+                      {hasActiveMenuItems ? 'No menu items found' : 'Your Menu Awaits'}
                     </h3>
-                    <p className="mt-2 max-w-sm text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-                      {restaurant.menu.some(item => !item.isArchived)
+                    <p className="mt-1 max-w-xs text-[10px] leading-4 text-gray-400 dark:text-gray-500">
+                      {hasActiveMenuItems
                         ? 'Try another search or choose a different category.'
                         : 'Add your first item in Menu Editor so it appears here at the counter.'}
                     </p>
-                    {!restaurant.menu.some(item => !item.isArchived) && (
-                      <button
-                        type="button"
-                        onClick={() => handleTabSelection('MENU_EDITOR')}
-                        className="mt-5 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition hover:bg-orange-600"
-                      >
-                        <PlusCircle size={16} />
-                        Add menu item
-                      </button>
+                    {!hasActiveMenuItems && (
+                      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleTabSelection('MENU_EDITOR');
+                            handleOpenAddModal();
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 text-[9px] font-black uppercase tracking-wider text-white shadow-sm transition hover:bg-orange-600"
+                        >
+                          <PlusCircle size={12} />
+                          Add Menu Item
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleTabSelection('MENU_EDITOR')}
+                          className="inline-flex items-center rounded-lg border border-gray-300 px-3 py-2 text-[9px] font-bold text-gray-600 transition hover:border-orange-400 hover:text-orange-500 dark:border-gray-600 dark:text-gray-300"
+                        >
+                          Open Menu Editor
+                        </button>
+                      </div>
                     )}
                   </div>
                 ) : groupMenuByCategory ? (
