@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, ArrowRight, Building2, ImagePlus, Loader2, Receipt, Upload, X } from 'lucide-react';
 import { OTHER_COUNTRIES, POPULAR_COUNTRIES } from '../lib/countries';
+import ImageCropModal from '../components/ImageCropModal';
 
 export interface FirstTimeSetupValues {
   businessName: string;
@@ -29,8 +30,10 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
   const [businessCountry, setBusinessCountry] = useState('Malaysia');
   const [businessPhone, setBusinessPhone] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState('');
   const [error, setError] = useState('');
+  const [errorAlertKey, setErrorAlertKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -48,12 +51,17 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
     if (!error) return;
     const timer = window.setTimeout(() => setError(''), 4000);
     return () => window.clearTimeout(timer);
-  }, [error]);
+  }, [error, errorAlertKey]);
+
+  const showError = (message: string) => {
+    setError(message);
+    setErrorAlertKey(current => current + 1);
+  };
 
   const continueToLogo = () => {
     setError('');
     if (!businessName.trim() || !businessPhone.trim()) {
-      setError('Business name and phone are required.');
+      showError('Business name and phone are required.');
       return;
     }
     setSlideDirection('forward');
@@ -70,14 +78,31 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
     setError('');
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      setError('Please choose a valid image file.');
+      showError('Please choose a valid image file.');
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setError('Logo must be smaller than 5 MB.');
+      showError('Logo must be smaller than 5 MB.');
       return;
     }
-    setLogoFile(file);
+    setCropFile(file);
+  };
+
+  const handleCropApply = (blob: Blob) => {
+    if (!cropFile) return;
+    const baseName = cropFile.name.replace(/\.[^.]+$/, '') || 'store-logo';
+    const croppedFile = new File([blob], `${baseName}-cropped.webp`, {
+      type: 'image/webp',
+      lastModified: Date.now(),
+    });
+    setLogoFile(croppedFile);
+    setCropFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const cancelCrop = () => {
+    setCropFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSubmit = async () => {
@@ -95,13 +120,21 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
         logoFile: logoFile || undefined,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Setup could not be completed. Please try again.');
+      showError(err instanceof Error ? err.message : 'Setup could not be completed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
+    <>
+    {cropFile && (
+      <ImageCropModal
+        imageFile={cropFile}
+        onCrop={handleCropApply}
+        onCancel={cancelCrop}
+      />
+    )}
     <div
       className="fixed inset-0 z-[10000] flex items-center justify-center overflow-hidden bg-gray-950/60 p-2 backdrop-blur-sm sm:p-4"
       role="dialog"
@@ -110,7 +143,7 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
     >
       {error && (
         <div className="fixed left-1/2 top-3 z-[10001] w-[min(92vw,520px)] -translate-x-1/2" role="alert" aria-live="assertive">
-          <div className="qs-setup-error-shake flex items-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-xs font-bold text-red-600 shadow-2xl dark:border-red-500/40 dark:bg-red-950 dark:text-red-300">
+          <div key={errorAlertKey} className="qs-setup-error-shake flex items-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-xs font-bold text-red-600 shadow-2xl dark:border-red-500/40 dark:bg-red-950 dark:text-red-300">
             <AlertCircle size={17} className="shrink-0" />
             <span>{error}</span>
           </div>
@@ -218,7 +251,7 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
                   <>
                     <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-orange-100 text-orange-500 dark:bg-orange-900/30"><Upload size={21} /></span>
                     <span className="text-xs font-black text-gray-800 dark:text-white sm:text-sm">Choose or drop your logo</span>
-                    <span className="mt-1 text-[10px] font-medium text-gray-400 sm:text-xs">PNG, JPG or WEBP · maximum 5 MB</span>
+                    <span className="mt-1 text-[10px] font-medium text-gray-400 sm:text-xs">PNG, JPG or WEBP · crop before saving · maximum 5 MB</span>
                   </>
                 )}
               </button>
@@ -239,6 +272,7 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
         </div>
       </div>
     </div>
+    </>
   );
 };
 
