@@ -31,7 +31,7 @@ import {
   Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
   ArrowLeft, Star, Package, Monitor, Info, ExternalLink,
   Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail,
-  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2, Delete, UtensilsCrossed, ConciergeBell
+  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2, Delete, Store, ConciergeBell
 } from 'lucide-react';
 
 type CashierAccessPermissionKey = 'viewOwnSalesOnly' | 'requireManagerApprovalForRefund';
@@ -253,11 +253,11 @@ const RestaurantLogo: React.FC<{
 
   return (
     <div
-      className={`${className} flex items-center justify-center bg-orange-100 text-orange-500 dark:bg-orange-500/15`}
+      className={`${className} flex items-center justify-center bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300`}
       role="img"
       aria-label={`${restaurantName} restaurant icon`}
     >
-      <UtensilsCrossed size={iconSize} />
+      <Store size={iconSize} />
     </div>
   );
 };
@@ -7838,9 +7838,9 @@ const PosOnlyView: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={() => handleTabSelection('MENU_EDITOR')}
-                          className="inline-flex items-center rounded-lg border border-gray-300 px-3 py-2 text-[9px] font-bold text-gray-600 transition hover:border-orange-400 hover:text-orange-500 dark:border-gray-600 dark:text-gray-300"
+                          className="inline-flex items-center rounded-lg border border-gray-300 px-3 py-2 text-[9px] font-bold uppercase tracking-wider text-gray-600 transition hover:border-orange-400 hover:text-orange-500 dark:border-gray-600 dark:text-gray-300"
                         >
-                          Open Menu Editor
+                          OPEN MENU EDITOR
                         </button>
                       </div>
                     )}
