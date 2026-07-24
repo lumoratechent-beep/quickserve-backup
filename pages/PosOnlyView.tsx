@@ -31,7 +31,7 @@ import {
   Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
   ArrowLeft, Star, Package, Monitor, Info, ExternalLink,
   Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail,
-  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2, Delete
+  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2, Delete, UtensilsCrossed
 } from 'lucide-react';
 
 type CashierAccessPermissionKey = 'viewOwnSalesOnly' | 'requireManagerApprovalForRefund';
@@ -204,7 +204,7 @@ const getDefaultFeatureSettings = (): FeatureSettings => ({
   tablesideOrderingEnabled: false,
   onlineShopEnabled: false,
   shiftEnabled: false,
-  groupMenuByCategory: true,
+  groupMenuByCategory: false,
 });
 
 const getInitialGroupMenuByCategory = (restaurant: Restaurant): boolean => {
@@ -227,7 +227,39 @@ const getInitialGroupMenuByCategory = (restaurant: Restaurant): boolean => {
     }
   } catch {}
 
-  return true;
+  return false;
+};
+
+const RestaurantLogo: React.FC<{
+  logo?: string;
+  restaurantName: string;
+  className: string;
+  iconSize?: number;
+}> = ({ logo, restaurantName, className, iconSize = 18 }) => {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => setImageFailed(false), [logo]);
+
+  if (logo && !imageFailed) {
+    return (
+      <img
+        src={logo}
+        alt={`${restaurantName} logo`}
+        className={`${className} object-cover`}
+        onError={() => setImageFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`${className} flex items-center justify-center bg-orange-100 text-orange-500 dark:bg-orange-500/15`}
+      role="img"
+      aria-label={`${restaurantName} restaurant icon`}
+    >
+      <UtensilsCrossed size={iconSize} />
+    </div>
+  );
 };
 
 const REJECTION_REASONS = [
@@ -7091,10 +7123,10 @@ const PosOnlyView: React.FC<Props> = ({
         <div className={`flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
           {isSidebarCollapsed ? (
             <button onClick={openProfilePanel} title="Account & Settings" className="rounded-lg hover:ring-2 hover:ring-orange-300 transition-all">
-              <img key={restaurant.logo || 'fallback'} src={restaurant.logo || '/LOGO/icon-192x192.png'} className="w-8 h-8 rounded-lg shadow-sm cursor-pointer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
+              <RestaurantLogo logo={restaurant.logo} restaurantName={restaurant.name} className="w-8 h-8 rounded-lg shadow-sm cursor-pointer" iconSize={16} />
             </button>
           ) : (
-            <img key={restaurant.logo || 'fallback'} src={restaurant.logo || '/LOGO/icon-192x192.png'} className="w-10 h-10 rounded-lg shadow-sm flex-shrink-0" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
+            <RestaurantLogo logo={restaurant.logo} restaurantName={restaurant.name} className="w-10 h-10 rounded-lg shadow-sm flex-shrink-0" iconSize={20} />
           )}
           {!isSidebarCollapsed && (
             <>
@@ -7394,7 +7426,7 @@ const PosOnlyView: React.FC<Props> = ({
               <Menu size={24} />
             </button>
             <div className="ml-4 flex items-center gap-2 flex-1 min-w-0">
-              <img key={restaurant.logo || 'fallback'} src={restaurant.logo || '/LOGO/icon-192x192.png'} className="w-8 h-8 landscape:w-6 landscape:h-6 rounded-lg shadow-sm flex-shrink-0" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
+              <RestaurantLogo logo={restaurant.logo} restaurantName={restaurant.name} className="w-8 h-8 landscape:w-6 landscape:h-6 rounded-lg shadow-sm flex-shrink-0" iconSize={16} />
               <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm landscape:text-xs truncate">
                 {activeTab === 'COUNTER' ? 'POS Counter' : 
                  activeTab === 'MENU_EDITOR' ? (isFormModalOpen ? (formItem.id ? 'Edit Item' : 'New Item') : 'Menu Editor') : 
@@ -7774,7 +7806,31 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
 
               <div className="flex-1 overflow-y-auto p-2 pb-24 lg:pb-2 scroll-smooth">
-                {groupMenuByCategory ? (
+                {filteredMenu.length === 0 ? (
+                  <div className="h-full min-h-64 flex flex-col items-center justify-center px-6 text-center">
+                    <div className="w-16 h-16 rounded-2xl bg-orange-100 text-orange-500 dark:bg-orange-500/15 flex items-center justify-center">
+                      <UtensilsCrossed size={30} />
+                    </div>
+                    <h3 className="mt-4 text-sm font-black uppercase tracking-wider text-gray-800 dark:text-white">
+                      {restaurant.menu.some(item => !item.isArchived) ? 'No menu items found' : 'No menu added yet'}
+                    </h3>
+                    <p className="mt-2 max-w-sm text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                      {restaurant.menu.some(item => !item.isArchived)
+                        ? 'Try another search or choose a different category.'
+                        : 'Add your first item in Menu Editor so it appears here at the counter.'}
+                    </p>
+                    {!restaurant.menu.some(item => !item.isArchived) && (
+                      <button
+                        type="button"
+                        onClick={() => handleTabSelection('MENU_EDITOR')}
+                        className="mt-5 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition hover:bg-orange-600"
+                      >
+                        <PlusCircle size={16} />
+                        Add menu item
+                      </button>
+                    )}
+                  </div>
+                ) : groupMenuByCategory ? (
                   <div className="space-y-4">
                     {Object.entries(groupedMenu).map(([category, items]) => (
                       <section key={category}>

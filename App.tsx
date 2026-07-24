@@ -2507,11 +2507,11 @@ const App: React.FC = () => {
       const { error: resError } = await supabase.from('restaurants').insert({
         id: resId, 
         name: restaurant.name, 
-        logo: restaurant.logo || 'https://picsum.photos/seed/default/200/200', 
+        logo: restaurant.logo || '',
         vendor_id: null,
         location_name: restaurant.location, 
         is_online: true,
-        settings: {},
+        settings: { features: { groupMenuByCategory: false } },
         slug: restaurant.slug || null
       });
       

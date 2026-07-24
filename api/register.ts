@@ -65,7 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         vendor_id: null,
         location_name: 'QuickServe Hub',
         is_online: true,
-        settings: { onboardingRequired: true },
+        settings: { onboardingRequired: true, features: { groupMenuByCategory: false } },
         kitchen_enabled: kitchenEnabled,
         slug: null,
       })
