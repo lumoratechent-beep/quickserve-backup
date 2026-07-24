@@ -319,7 +319,7 @@ export const DEFAULT_RECEIPT_CONFIG: ReceiptConfig = {
   documentFont: 'A',
   documentAlignment: 'center',
   titleSize: 2,
-  titleFont: 'A',
+  titleFont: 'B',
   titleAlignment: 'center',
   headerSize: 1,
   headerFont: 'A',

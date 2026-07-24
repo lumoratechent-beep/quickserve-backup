@@ -16,19 +16,21 @@ export interface FirstTimeSetupValues {
 
 interface Props {
   initialBusinessName: string;
+  initialValues?: Partial<FirstTimeSetupValues>;
   onComplete: (values: FirstTimeSetupValues) => Promise<void>;
+  onClose?: () => void;
 }
 
-const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }) => {
+const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, initialValues, onComplete, onClose }) => {
   const [page, setPage] = useState(0);
   const [slideDirection, setSlideDirection] = useState<'forward' | 'backward'>('forward');
-  const [businessName, setBusinessName] = useState(initialBusinessName);
-  const [businessAddressLine1, setBusinessAddressLine1] = useState('');
-  const [businessAddressLine2, setBusinessAddressLine2] = useState('');
-  const [businessCity, setBusinessCity] = useState('');
-  const [businessState, setBusinessState] = useState('');
-  const [businessCountry, setBusinessCountry] = useState('Malaysia');
-  const [businessPhone, setBusinessPhone] = useState('');
+  const [businessName, setBusinessName] = useState(initialValues?.businessName || initialBusinessName);
+  const [businessAddressLine1, setBusinessAddressLine1] = useState(initialValues?.businessAddressLine1 || '');
+  const [businessAddressLine2, setBusinessAddressLine2] = useState(initialValues?.businessAddressLine2 || '');
+  const [businessCity, setBusinessCity] = useState(initialValues?.businessCity || '');
+  const [businessState, setBusinessState] = useState(initialValues?.businessState || '');
+  const [businessCountry, setBusinessCountry] = useState(initialValues?.businessCountry || 'Malaysia');
+  const [businessPhone, setBusinessPhone] = useState(initialValues?.businessPhone || '');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [cropFile, setCropFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState('');
@@ -150,7 +152,18 @@ const FirstTimeSetupPage: React.FC<Props> = ({ initialBusinessName, onComplete }
         </div>
       )}
 
-      <div className="w-full max-w-[640px] overflow-hidden rounded-[1.75rem] border border-white/20 bg-gray-50 shadow-2xl dark:bg-gray-900">
+      <div className="relative w-full max-w-[640px] overflow-hidden rounded-[1.75rem] border border-white/20 bg-gray-50 shadow-2xl dark:bg-gray-900">
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-gray-200/80 text-gray-500 transition-colors hover:bg-gray-300 hover:text-gray-800 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 dark:hover:text-white"
+            aria-label="Close setup"
+            title="Close setup"
+          >
+            <X size={16} />
+          </button>
+        )}
         <div className="px-5 pb-3 pt-4 text-center sm:px-6">
           <p className="text-[9px] font-black uppercase tracking-[0.24em] text-orange-500">First-time setup</p>
           <h1 id="first-time-setup-title" className="mt-1 text-xl font-black tracking-tight text-gray-900 dark:text-white sm:text-2xl">Let's set up your store</h1>

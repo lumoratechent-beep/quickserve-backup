@@ -458,7 +458,7 @@ const MenuItemFormModal: React.FC<Props> = ({
     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 shadow-sm space-y-3">
       <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Tag size={16} className="text-amber-500" /> Item Details</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
+        <div className="min-w-0">
           <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Name *</label>
           <input
             required
@@ -469,7 +469,7 @@ const MenuItemFormModal: React.FC<Props> = ({
             placeholder="e.g. Signature Beef Burger"
           />
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Category *</label>
           <select
             className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
@@ -489,11 +489,11 @@ const MenuItemFormModal: React.FC<Props> = ({
             <option value="__add_new__">＋ Add new category...</option>
           </select>
           {isAddingCategory && (
-            <div className="flex gap-2 mt-2">
+            <div className="flex min-w-0 gap-2 mt-2">
               <input
                 autoFocus
                 type="text"
-                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-amber-400 dark:border-amber-500 rounded-lg outline-none font-bold dark:text-white text-sm focus:ring-2 focus:ring-amber-500"
+                className="min-w-0 w-full flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-amber-400 dark:border-amber-500 rounded-lg outline-none font-bold dark:text-white text-sm focus:ring-2 focus:ring-amber-500"
                 placeholder="New category name"
                 value={newCategoryName}
                 onChange={e => setNewCategoryName(e.target.value)}
@@ -525,7 +525,7 @@ const MenuItemFormModal: React.FC<Props> = ({
                   setIsAddingCategory(false);
                   setNewCategoryName('');
                 }}
-                className="px-3 py-2 bg-amber-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all"
+                className="shrink-0 px-3 py-2 bg-amber-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all"
               >Add</button>
             </div>
           )}

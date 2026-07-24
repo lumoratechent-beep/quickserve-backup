@@ -1007,9 +1007,9 @@ const PrinterSettings: React.FC<Props> = ({
         </div>
         <div className="min-w-0 space-y-3">
           {([
-            { prefix: 'document' as const, label: 'Type (Payment Receipt)' },
             { prefix: 'title' as const, label: 'Title (Business Name)' },
             { prefix: 'header' as const, label: 'Header Text' },
+            { prefix: 'document' as const, label: 'Type (Payment Receipt)' },
             { prefix: 'footer' as const, label: 'Footer Text' },
           ]).map(({ prefix, label }) => (
             <div key={prefix} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl space-y-2">
