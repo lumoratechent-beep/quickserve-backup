@@ -7380,15 +7380,17 @@ const PosOnlyView: React.FC<Props> = ({
                 </>
               )}
             </button>
-            <button
-              type="button"
-              onClick={() => setPrinterModeMenuOpen(prev => !prev)}
-              title="Printer mode"
-              className="flex h-auto w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 shadow-lg transition hover:border-orange-200 hover:text-orange-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-            >
-              <MoreVertical size={17} />
-            </button>
-            {printerModeMenuOpen && (
+            {!isSidebarCollapsed && (
+              <button
+                type="button"
+                onClick={() => setPrinterModeMenuOpen(prev => !prev)}
+                title="Printer mode"
+                className="flex h-auto w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 shadow-lg transition hover:border-orange-200 hover:text-orange-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+              >
+                <MoreVertical size={17} />
+              </button>
+            )}
+            {!isSidebarCollapsed && printerModeMenuOpen && (
               <div className={`absolute bottom-full mb-2 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white p-1 shadow-2xl dark:border-gray-700 dark:bg-gray-800 ${isSidebarCollapsed ? 'left-0' : 'right-0'}`}>
                 {([
                   { type: 'bluetooth' as ConnectionType, label: 'Bluetooth', icon: Bluetooth },
