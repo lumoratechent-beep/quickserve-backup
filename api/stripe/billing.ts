@@ -47,6 +47,17 @@ type StripeRepairResult = {
   newPeriodEnd?: string | null;
 };
 
+type DuitNowRepairResult = {
+  paymentId: string;
+  restaurantId: string;
+  referenceCode: string | null;
+  repaired: boolean;
+  billingRecordId: string | null;
+  newPeriodEnd: string | null;
+  actions: string[];
+  error?: string;
+};
+
 function isMissingColumnError(error: any, columns: string[] = []): boolean {
   const code = String(error?.code || '').toUpperCase();
   const message = String(error?.message || '').toLowerCase();
@@ -64,6 +75,177 @@ function isDuplicateKeyError(error: any): boolean {
   const code = String(error?.code || '').toUpperCase();
   const message = String(error?.message || '').toLowerCase();
   return code === '23505' || message.includes('duplicate key');
+}
+
+async function ensureDuitNowBillingRecord(
+  dnPay: any,
+  isUpgrade: boolean,
+  isAnnual: boolean
+): Promise<{ id: string | null; created: boolean }> {
+  const { data: existingDuitNowIncome, error: lookupError } = await supabase
+    .from('billing_records')
+    .select('id')
+    .eq('duitnow_payment_id', dnPay.id)
+    .maybeSingle();
+
+  if (!lookupError && existingDuitNowIncome?.id) {
+    return { id: existingDuitNowIncome.id, created: false };
+  }
+
+  if (lookupError && !isMissingColumnError(lookupError, ['duitnow_payment_id'])) {
+    throw new Error(lookupError.message || 'Failed to check existing DuitNow income.');
+  }
+
+  if (lookupError && isMissingColumnError(lookupError, ['duitnow_payment_id']) && dnPay.reference_code) {
+    const { data: existingByReference, error: referenceLookupError } = await supabase
+      .from('billing_records')
+      .select('id')
+      .eq('reference_code', dnPay.reference_code)
+      .limit(1);
+    if (referenceLookupError) throw new Error(referenceLookupError.message || 'Failed to check DuitNow reference income.');
+    if (existingByReference?.[0]?.id) return { id: existingByReference[0].id, created: false };
+  }
+
+  const { data: rest } = await supabase
+    .from('restaurants')
+    .select('name')
+    .eq('id', dnPay.restaurant_id)
+    .single();
+
+  const incomeRecord = {
+    restaurant_id: dnPay.restaurant_id,
+    description: `SUBSCRIPTION INCOME - DuitNow ${isUpgrade ? 'Upgrade' : 'Renewal'} (${isAnnual ? 'Annual' : 'Monthly'})`,
+    amount: Number(dnPay.amount),
+    type: 'subscription_income',
+    gross: Number(dnPay.amount),
+    fee: 0,
+    net: Number(dnPay.amount),
+    plan_id: dnPay.plan_id || 'basic',
+    restaurant_name: rest?.name || 'Unknown',
+    created_by: 'duitnow',
+    reference_code: dnPay.reference_code || null,
+    created_at: dnPay.reviewed_at || dnPay.updated_at || dnPay.created_at || new Date().toISOString(),
+  };
+
+  const insertPayload = lookupError && isMissingColumnError(lookupError, ['duitnow_payment_id'])
+    ? incomeRecord
+    : { ...incomeRecord, duitnow_payment_id: dnPay.id };
+
+  const { data: inserted, error: insertError } = await supabase
+    .from('billing_records')
+    .insert(insertPayload)
+    .select('id')
+    .maybeSingle();
+
+  if (insertError) {
+    if (isDuplicateKeyError(insertError)) {
+      const { data: existingAfterDuplicate } = await supabase
+        .from('billing_records')
+        .select('id')
+        .eq('duitnow_payment_id', dnPay.id)
+        .maybeSingle();
+      return { id: existingAfterDuplicate?.id || null, created: false };
+    }
+    throw new Error(insertError.message || 'Failed to create DuitNow income.');
+  }
+
+  return { id: inserted?.id || null, created: true };
+}
+
+async function repairApprovedDuitNowPayment(dnPay: any): Promise<DuitNowRepairResult> {
+  const actions: string[] = [];
+  const planId = dnPay.plan_id || 'basic';
+  const interval = dnPay.billing_interval || 'monthly';
+  const isAnnual = interval === 'annual';
+  const isUpgrade = dnPay.change_type === 'upgrade'
+    || PLAN_ORDER.indexOf(planId) > PLAN_ORDER.indexOf(dnPay.original_plan_id || planId);
+  const reference = dnPay.reference_code || `duitnow-${dnPay.id}`;
+
+  try {
+    const { data: sub, error: subError } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('restaurant_id', dnPay.restaurant_id)
+      .single();
+    if (subError || !sub) throw new Error('Subscription not found for approved DuitNow payment.');
+
+    const originalExpiry = dnPay.original_current_period_end || dnPay.original_trial_end;
+    const { periodStart, periodEnd } = calculateNextSubscriptionPeriod(
+      isUpgrade ? undefined : originalExpiry,
+      isAnnual,
+      dnPay.reviewed_at ? new Date(dnPay.reviewed_at) : new Date(dnPay.created_at || Date.now())
+    );
+
+    const currentEnd = sub.current_period_end ? new Date(sub.current_period_end) : null;
+    const targetEndMs = periodEnd.getTime();
+    const currentEndMs = currentEnd && !Number.isNaN(currentEnd.getTime()) ? currentEnd.getTime() : 0;
+    const subscriptionNeedsRepair = sub.status !== 'active'
+      || sub.plan_id !== planId
+      || (sub.billing_interval || 'monthly') !== interval
+      || Math.abs(currentEndMs - targetEndMs) > 1000
+      || sub.access_locked
+      || sub.access_lock_at;
+
+    if (subscriptionNeedsRepair) {
+      const { error: updateError } = await supabase
+        .from('subscriptions')
+        .update({
+          status: 'active',
+          plan_id: planId,
+          billing_interval: interval,
+          current_period_start: periodStart.toISOString(),
+          current_period_end: periodEnd.toISOString(),
+          pending_plan_id: null,
+          pending_billing_interval: null,
+          pending_change_effective_at: null,
+          ...ACCESS_UNLOCK_PATCH,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('restaurant_id', dnPay.restaurant_id);
+      if (updateError) throw new Error(updateError.message || 'Failed to repair subscription expiry.');
+      actions.push('subscription');
+    }
+
+    const { error: kitchenError } = await supabase
+      .from('restaurants')
+      .update({ kitchen_enabled: planId === 'pro_plus' })
+      .eq('id', dnPay.restaurant_id);
+    if (kitchenError) throw new Error(kitchenError.message || 'Failed to repair plan access.');
+
+    const billing = await ensureDuitNowBillingRecord(dnPay, isUpgrade, isAnnual);
+    if (billing.created) actions.push('income');
+
+    await upsertSubscriptionPayment(supabase, {
+      restaurantId: dnPay.restaurant_id,
+      provider: 'duitnow',
+      status: 'approved',
+      providerReference: reference,
+      billingRecordId: billing.id,
+      duitnowPaymentId: dnPay.id,
+    });
+    actions.push('payment_status');
+
+    return {
+      paymentId: dnPay.id,
+      restaurantId: dnPay.restaurant_id,
+      referenceCode: dnPay.reference_code || null,
+      repaired: actions.some(action => action !== 'payment_status'),
+      billingRecordId: billing.id,
+      newPeriodEnd: periodEnd.toISOString(),
+      actions,
+    };
+  } catch (error: any) {
+    return {
+      paymentId: dnPay.id,
+      restaurantId: dnPay.restaurant_id,
+      referenceCode: dnPay.reference_code || null,
+      repaired: false,
+      billingRecordId: null,
+      newPeriodEnd: null,
+      actions,
+      error: error?.message || 'Failed to repair approved DuitNow payment.',
+    };
+  }
 }
 
 async function getOrCreateStripeCustomerId(restaurantId: string, inputCustomerId?: string): Promise<string> {
@@ -1602,6 +1784,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
+      // POST /api/stripe/billing?action=duitnow-reconcile
+      // Replays approved DuitNow finalization when income/subscription updates are missing.
+      case 'duitnow-reconcile': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { restaurantId: dnRepairRestId, paymentId: dnRepairPaymentId, limit: dnRepairLimit } = req.body || {};
+        const repairLimit = Math.min(Math.max(Number(dnRepairLimit) || 200, 1), 500);
+
+        let query = supabase
+          .from('duitnow_payments')
+          .select('*')
+          .eq('status', 'approved')
+          .order('reviewed_at', { ascending: false, nullsFirst: false })
+          .limit(repairLimit);
+
+        if (dnRepairPaymentId) query = query.eq('id', dnRepairPaymentId);
+        if (dnRepairRestId) query = query.eq('restaurant_id', dnRepairRestId);
+
+        const { data: approvedPayments, error: repairFetchErr } = await query;
+        if (repairFetchErr) {
+          return res.status(500).json({ error: repairFetchErr.message || 'Failed to fetch approved DuitNow payments.' });
+        }
+
+        const results: DuitNowRepairResult[] = [];
+        for (const payment of approvedPayments || []) {
+          results.push(await repairApprovedDuitNowPayment(payment));
+        }
+
+        const repaired = results.filter(result => result.repaired).length;
+        const failed = results.filter(result => result.error).length;
+
+        return res.status(failed > 0 ? 207 : 200).json({
+          success: failed === 0,
+          checked: results.length,
+          repaired,
+          failed,
+          results,
+          message: `Checked ${results.length} approved DuitNow payment(s), repaired ${repaired}, failed ${failed}.`,
+        });
+      }
+
       // GET /api/stripe/billing?action=duitnow-list&restaurantId=...&status=...
       case 'duitnow-list': {
         if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -1918,7 +2140,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       default:
-        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, wallet-topup-direct, plan-change-wallet, renew-wallet, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access, admin-extend, duitnow-submit, duitnow-list, duitnow-review' });
+        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, wallet-topup-direct, plan-change-wallet, renew-wallet, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access, admin-extend, duitnow-submit, duitnow-reconcile, duitnow-list, duitnow-review' });
     }
   } catch (err: any) {
     console.error(`Stripe billing error (${action}):`, err);

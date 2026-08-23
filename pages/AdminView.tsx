@@ -308,6 +308,63 @@ const SystemStatusDashboard: React.FC = () => {
   // I'm not including it here to save space, but keep your existing implementation
   const [status, setStatus] = useState<Record<string, { status: 'CHECKING' | 'OK' | 'ERROR'; message: string; lastChecked?: string }>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isReconcilingDuitNow, setIsReconcilingDuitNow] = useState(false);
+  const [duitNowReconcileResult, setDuitNowReconcileResult] = useState<{
+    checked: number;
+    repaired: number;
+    failed: number;
+    message: string;
+    failedRefs: string[];
+  } | null>(null);
+
+  const runDuitNowReconcile = async () => {
+    setIsReconcilingDuitNow(true);
+    setDuitNowReconcileResult(null);
+    try {
+      const response = await fetch('/api/stripe/billing?action=duitnow-reconcile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 500 }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok && response.status !== 207) {
+        throw new Error(data.error || 'DuitNow reconciliation failed.');
+      }
+
+      const failedRefs = Array.isArray(data.results)
+        ? data.results
+          .filter((result: any) => result.error)
+          .map((result: any) => result.referenceCode || result.paymentId)
+        : [];
+      setDuitNowReconcileResult({
+        checked: Number(data.checked || 0),
+        repaired: Number(data.repaired || 0),
+        failed: Number(data.failed || 0),
+        message: data.message || 'DuitNow reconciliation completed.',
+        failedRefs,
+      });
+
+      if (Number(data.failed || 0) > 0) {
+        toast(`DuitNow reconciliation completed with ${data.failed} failed item(s).`, 'warning');
+      } else if (Number(data.repaired || 0) > 0) {
+        toast(`DuitNow reconciliation repaired ${data.repaired} payment(s).`, 'success');
+      } else {
+        toast('DuitNow reconciliation found no repairs needed.', 'success');
+      }
+    } catch (error: any) {
+      const message = error?.message || 'DuitNow reconciliation failed.';
+      setDuitNowReconcileResult({
+        checked: 0,
+        repaired: 0,
+        failed: 1,
+        message,
+        failedRefs: [],
+      });
+      toast(message, 'error');
+    } finally {
+      setIsReconcilingDuitNow(false);
+    }
+  };
 
   const runAllChecks = async () => {
     setIsRefreshing(true);
@@ -588,6 +645,42 @@ const SystemStatusDashboard: React.FC = () => {
           <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
           {isRefreshing ? 'Checking...' : 'Run All Checks'}
         </button>
+      </div>
+
+      <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 dark:border-orange-900/30 dark:bg-orange-900/10">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Receipt size={16} className="text-orange-500" />
+              <h4 className="text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">DuitNow Reconciliation</h4>
+            </div>
+            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+              Repairs approved DuitNow payments missing income, expiry, or payment status links.
+            </p>
+          </div>
+          <button
+            onClick={runDuitNowReconcile}
+            disabled={isReconcilingDuitNow}
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={isReconcilingDuitNow ? 'animate-spin' : ''} />
+            {isReconcilingDuitNow ? 'Reconciling...' : 'Run DuitNow Repair'}
+          </button>
+        </div>
+        {duitNowReconcileResult && (
+          <div className={`mt-3 rounded-lg border px-3 py-2 text-xs font-bold ${
+            duitNowReconcileResult.failed > 0
+              ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/30 dark:bg-red-900/20 dark:text-red-300'
+              : 'border-green-200 bg-green-50 text-green-700 dark:border-green-900/30 dark:bg-green-900/20 dark:text-green-300'
+          }`}>
+            <p>{duitNowReconcileResult.message}</p>
+            {duitNowReconcileResult.failedRefs.length > 0 && (
+              <p className="mt-1 text-[10px] uppercase tracking-widest">
+                Failed: {duitNowReconcileResult.failedRefs.join(', ')}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
