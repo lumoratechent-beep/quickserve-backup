@@ -2895,6 +2895,10 @@ const PosOnlyView: React.FC<Props> = ({
     if (mailSubTab === 'REFUND_REQUESTS' || mailSubTab === 'ALL') return announcements;
     return announcements.filter(announcement => getAnnouncementInboxTab(announcement.category) === mailSubTab);
   }, [announcements, mailSubTab]);
+  const mobileFilteredAnnouncements = useMemo(() => {
+    if (mailSubTab === 'REFUND_REQUESTS') return filteredAnnouncements;
+    return announcements;
+  }, [announcements, filteredAnnouncements, mailSubTab]);
   const latestPaymentNotice = useMemo(() => {
     return announcements.find((announcement) => {
       if (announcement.is_read || announcement.category !== 'billing') return false;
@@ -10413,7 +10417,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Document-style inbox tabs */}
-                <div className="flex gap-0 relative overflow-x-auto hide-scrollbar">
+                <div className="hidden md:flex gap-0 relative overflow-x-auto hide-scrollbar">
                   {([
                     ...announcementInboxTabs,
                     ...(showRefundApprovalSection
@@ -10520,14 +10524,14 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {filteredAnnouncements.length === 0 ? (
+                      {mobileFilteredAnnouncements.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-24 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
                           <Mail size={28} className="text-gray-300 dark:text-gray-600 mb-3" />
                           <p className="text-sm font-bold dark:text-gray-300">No mail in this tab</p>
                         </div>
                       ) : (
                       <div className="rounded-2xl border dark:border-gray-700 overflow-hidden divide-y dark:divide-gray-700">
-                      {filteredAnnouncements.map(a => (
+                      {mobileFilteredAnnouncements.map(a => (
                         <div
                           key={a.id}
                           onClick={() => {
