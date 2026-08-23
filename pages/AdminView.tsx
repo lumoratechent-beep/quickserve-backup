@@ -3627,9 +3627,8 @@ const AdminView: React.FC<Props> = ({
                       />
                     </div>
                     <div className="relative shrink-0">
-                      <Filter size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                       <select
-                        className={`${adminSelectBase} min-w-[108px] py-2 pl-10 pr-8 dark:bg-gray-900 border dark:border-gray-700`}
+                        className={`${adminSelectBase} min-w-[108px] py-2 pl-4 pr-8 dark:bg-gray-900 border dark:border-gray-700`}
                         value={vendorFilter}
                         onChange={e => setVendorFilter(e.target.value as any)}
                       >
@@ -3640,14 +3639,13 @@ const AdminView: React.FC<Props> = ({
                       <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
                     <div className="relative w-[142px] shrink-0">
-                      <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 pointer-events-none" />
                       <select
                         value={vendorSortValue}
                         onChange={event => {
                           const [field, direction] = event.target.value.split('_');
                           setVendorSort({ field: field as 'KITCHEN' | 'HUB' | 'EXPIRY', direction: direction as 'asc' | 'desc' });
                         }}
-                        className={`${adminSelectBase} w-full pl-9 pr-9 dark:bg-gray-900 border dark:border-gray-700`}
+                        className={`${adminSelectBase} w-full pl-4 pr-9 dark:bg-gray-900 border dark:border-gray-700`}
                         title="Sort vendors"
                       >
                         <option value="EXPIRY_desc">Expiry Des.</option>
@@ -3683,11 +3681,10 @@ const AdminView: React.FC<Props> = ({
                       />
                     </div>
                     <div className="relative w-[126px] shrink-0">
-                      <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 pointer-events-none" />
                       <select
                         value={hubSortDirection}
                         onChange={event => setHubSortDirection(event.target.value as 'asc' | 'desc')}
-                        className={`${adminSelectBase} w-full pl-9 pr-9 dark:bg-gray-900 border dark:border-gray-700`}
+                        className={`${adminSelectBase} w-full pl-4 pr-9 dark:bg-gray-900 border dark:border-gray-700`}
                         title="Sort hubs"
                       >
                         <option value="asc">Name Asc.</option>
@@ -4106,11 +4103,10 @@ const AdminView: React.FC<Props> = ({
                     />
                   </div>
                   <div className="relative w-full sm:w-[180px] shrink-0">
-                    <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 pointer-events-none" />
                     <select
                       value={incomePaymentFilter}
                       onChange={e => setIncomePaymentFilter(e.target.value)}
-                      className={`${adminSelectBase} w-full pl-9 pr-9`}
+                      className={`${adminSelectBase} w-full pl-4 pr-9`}
                     >
                       {incomePaymentOptions.map(option => (
                         <option key={option.value} value={option.value}>{option.label}</option>
@@ -4152,21 +4148,20 @@ const AdminView: React.FC<Props> = ({
                       <tr className="bg-gray-50 dark:bg-gray-900/50">
                         <th className="w-[10%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Date</th>
                         <th className="w-[14%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Restaurant</th>
-                        <th className="w-[8%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Plan</th>
-                        <th className="w-[8%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Type</th>
-                        <th className="w-[16%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest hidden lg:table-cell">Description</th>
+                        <th className="w-[10%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Plan</th>
+                        <th className="w-[11%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Type</th>
+                        <th className="w-[18%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest hidden lg:table-cell">Description</th>
                         <th className="w-[9%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Gross</th>
                         <th className="w-[9%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest hidden md:table-cell">Fee</th>
                         <th className="w-[9%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Net</th>
-                        <th className="w-[9%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Status</th>
                         <th className="w-[8%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                       {incomeLoading && incomeTransactions.length === 0 ? (
-                        <tr><td colSpan={10} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
+                        <tr><td colSpan={9} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
                       ) : filteredIncomeTransactions.length === 0 ? (
-                        <tr><td colSpan={10} className="text-center py-12">
+                        <tr><td colSpan={9} className="text-center py-12">
                           <FileText size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
                           <p className="text-sm font-bold text-gray-400">No transactions found</p>
                           <p className="text-xs text-gray-400 mt-1">Try adjusting the search or date range</p>
@@ -4183,7 +4178,7 @@ const AdminView: React.FC<Props> = ({
                           <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 truncate">{txn.restaurantName}</td>
                           <td className="px-3 py-2">
                             {txn.planName !== '—' ? (
-                              <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                              <span className={`inline-flex max-w-full whitespace-nowrap px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
                                 txn.planId === 'pro_plus' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' :
                                 txn.planId === 'pro' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' :
                                 'bg-gray-100 dark:bg-gray-700 text-gray-500'
@@ -4192,30 +4187,21 @@ const AdminView: React.FC<Props> = ({
                           </td>
                           <td className="px-3 py-2 text-center">
                             {(txn.provider === 'duitnow' || String(txn.description || '').toLowerCase().includes('duitnow')) ? (
-                              <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-orange-50 dark:bg-orange-900/20 text-orange-600">DuitNow</span>
+                              <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-pink-50 dark:bg-pink-900/20 text-pink-600">DuitNow</span>
                             ) : txn.extensionType === 'subscription_income' ? (
                               <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-pink-50 dark:bg-pink-900/20 text-pink-600">Subscription Income</span>
                             ) : txn.extensionType === 'stripe' ? (
-                              <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/20 text-blue-600">Stripe</span>
+                              <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-purple-50 dark:bg-purple-900/20 text-purple-600">Stripe</span>
                             ) : txn.extensionType === 'paid' ? (
                               <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-orange-50 dark:bg-orange-900/20 text-orange-600">Cash</span>
                             ) : (
-                              <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-green-50 dark:bg-green-900/20 text-green-600">Free</span>
+                              <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-white dark:bg-white text-gray-700">Free</span>
                             )}
                           </td>
                           <td className="px-3 py-2 text-xs dark:text-gray-300 truncate hidden lg:table-cell">{txn.description}</td>
                           <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 text-right">{txn.amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                           <td className="px-3 py-2 text-xs text-red-400 text-right hidden md:table-cell">-{txn.fee.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                           <td className="px-3 py-2 text-xs font-black text-orange-500 text-right">{txn.net.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                          <td className="px-3 py-2 text-center">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
-                              txn.status === 'succeeded' ? 'bg-green-50 dark:bg-green-900/20 text-green-600' :
-                              txn.status === 'failed' ? 'bg-red-50 dark:bg-red-900/20 text-red-600' :
-                              'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600'
-                            }`}>
-                              <CheckCircle2 size={10} /> {txn.status === 'succeeded' ? 'Success' : txn.status}
-                            </span>
-                          </td>
                           <td className="px-3 py-2 text-center">
                             <button
                               onClick={() => handleDeleteIncome(txn)}
@@ -4267,11 +4253,10 @@ const AdminView: React.FC<Props> = ({
                       />
                     </div>
                     <div className="relative w-[142px] shrink-0">
-                      <Filter size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 pointer-events-none" />
                       <select
                         value={subscriptionScheduleSort}
                         onChange={event => setSubscriptionScheduleSort(event.target.value as SubscriptionScheduleSort)}
-                        className={`${adminSelectBase} w-full pl-9 pr-9`}
+                        className={`${adminSelectBase} w-full pl-4 pr-9`}
                         title="Sort subscription schedule"
                       >
                         <option value="EXPIRY_DESC">Expiry Des.</option>
