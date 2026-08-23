@@ -802,6 +802,13 @@ const AdminView: React.FC<Props> = ({
   onFetchStats,
   onFetchDashboardAnalytics
 }) => {
+  const adminControlBase = 'h-9 rounded-lg text-[10px] font-black uppercase tracking-widest outline-none transition-all';
+  const adminSelectBase = `${adminControlBase} bg-gray-50 dark:bg-gray-700 border-none dark:text-white appearance-none cursor-pointer focus:ring-1 focus:ring-orange-500`;
+  const adminButtonBase = `${adminControlBase} px-4 flex items-center justify-center gap-2 whitespace-nowrap shrink-0`;
+  const adminSecondaryButton = `${adminButtonBase} bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 hover:text-orange-500 hover:border-orange-200 dark:hover:border-orange-500/40`;
+  const adminPrimaryButton = `${adminButtonBase} bg-black dark:bg-white text-white dark:text-gray-900 hover:bg-orange-500 hover:text-white disabled:opacity-30`;
+  const adminOrangeButton = `${adminButtonBase} bg-orange-500 text-white`;
+
   const [activeTab, setActiveTab] = useState<AdminTab>('DASHBOARD');
   const [vendorHubSubTab, setVendorHubSubTab] = useState<'VENDORS' | 'HUBS'>('VENDORS');
   const [incomeReportSubTab, setIncomeReportSubTab] = useState<'INCOME' | 'REPORTS'>('INCOME');
@@ -1798,8 +1805,9 @@ const AdminView: React.FC<Props> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [hubSearchQuery, setHubSearchQuery] = useState('');
   const [vendorFilter, setVendorFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
-  const [vendorSort, setVendorSort] = useState<{ field: 'KITCHEN' | 'HUB' | 'EXPIRY'; direction: 'asc' | 'desc' }>({ field: 'EXPIRY', direction: 'asc' });
+  const [vendorSort, setVendorSort] = useState<{ field: 'KITCHEN' | 'HUB' | 'EXPIRY'; direction: 'asc' | 'desc' }>({ field: 'EXPIRY', direction: 'desc' });
   const [hubSortDirection, setHubSortDirection] = useState<'asc' | 'desc'>('asc');
+  const vendorSortValue = `${vendorSort.field}_${vendorSort.direction}` as const;
   
   // Registration / Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -3603,7 +3611,7 @@ const AdminView: React.FC<Props> = ({
                     <div className="relative shrink-0">
                       <Filter size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                       <select
-                        className="h-9 min-w-[108px] py-2 pl-10 pr-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black uppercase dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500"
+                        className={`${adminSelectBase} min-w-[108px] py-2 pl-10 pr-8`}
                         value={vendorFilter}
                         onChange={e => setVendorFilter(e.target.value as any)}
                       >
@@ -3611,22 +3619,36 @@ const AdminView: React.FC<Props> = ({
                         <option value="ACTIVE">Active</option>
                         <option value="INACTIVE">Deactive</option>
                       </select>
+                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
-                    <button
-                      onClick={() => handleVendorSort('EXPIRY')}
-                      className="h-9 px-4 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:text-orange-500 hover:border-orange-200 dark:hover:border-orange-500/40 transition-all whitespace-nowrap shrink-0"
-                      title="Sort vendors by plan expiry"
-                    >
-                      <Calendar size={14} /> Expiry {vendorSort.field === 'EXPIRY' && vendorSort.direction === 'desc' ? 'Latest' : 'Soonest'}
-                    </button>
+                    <div className="relative w-[220px] shrink-0">
+                      <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 pointer-events-none" />
+                      <select
+                        value={vendorSortValue}
+                        onChange={event => {
+                          const [field, direction] = event.target.value.split('_');
+                          setVendorSort({ field: field as 'KITCHEN' | 'HUB' | 'EXPIRY', direction: direction as 'asc' | 'desc' });
+                        }}
+                        className={`${adminSelectBase} w-full pl-9 pr-9`}
+                        title="Sort vendors"
+                      >
+                        <option value="EXPIRY_desc">Descending by expiry</option>
+                        <option value="EXPIRY_asc">Ascending by expiry</option>
+                        <option value="KITCHEN_asc">Alphabetical A-Z</option>
+                        <option value="KITCHEN_desc">Alphabetical Z-A</option>
+                        <option value="HUB_asc">Hub A-Z</option>
+                        <option value="HUB_desc">Hub Z-A</option>
+                      </select>
+                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
                     <button
                       onClick={handleDownloadVendors}
                       disabled={filteredVendors.length === 0}
-                      className="h-9 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-orange-500 hover:text-white transition-all whitespace-nowrap disabled:opacity-30 shrink-0"
+                      className={adminPrimaryButton}
                     >
                       <Download size={14} /> Download
                     </button>
-                    <button onClick={handleOpenAdd} className="h-9 px-4 bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest text-[10px] transition-all whitespace-nowrap shrink-0">Register</button>
+                    <button onClick={handleOpenAdd} className={adminOrangeButton}>Register</button>
                   </div>
                 )}
 
@@ -3642,24 +3664,30 @@ const AdminView: React.FC<Props> = ({
                         onChange={e => setHubSearchQuery(e.target.value)}
                       />
                     </div>
-                    <button
-                      onClick={() => setHubSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
-                      className="h-9 px-4 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:text-orange-500 hover:border-orange-200 dark:hover:border-orange-500/40 transition-all whitespace-nowrap shrink-0"
-                      title="Sort hubs by name"
-                    >
-                      <Filter size={14} /> Sort {hubSortDirection === 'asc' ? 'A-Z' : 'Z-A'}
-                    </button>
+                    <div className="relative w-[180px] shrink-0">
+                      <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 pointer-events-none" />
+                      <select
+                        value={hubSortDirection}
+                        onChange={event => setHubSortDirection(event.target.value as 'asc' | 'desc')}
+                        className={`${adminSelectBase} w-full pl-9 pr-9`}
+                        title="Sort hubs"
+                      >
+                        <option value="asc">Alphabetical A-Z</option>
+                        <option value="desc">Alphabetical Z-A</option>
+                      </select>
+                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
                     <button
                       onClick={handleDownloadHubs}
                       disabled={filteredHubs.length === 0}
-                      className="h-9 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-orange-500 hover:text-white transition-all whitespace-nowrap disabled:opacity-30 shrink-0"
+                      className={adminPrimaryButton}
                     >
                       <Download size={14} /> Download
                     </button>
-                    <button onClick={() => setIsHubSelectionModalOpen(true)} className="h-9 px-4 bg-white dark:bg-gray-700 text-orange-500 border border-orange-200 dark:border-orange-500/40 rounded-lg font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all whitespace-nowrap shrink-0">
+                    <button onClick={() => setIsHubSelectionModalOpen(true)} className={`${adminSecondaryButton} text-orange-500 border-orange-200 dark:border-orange-500/40 hover:bg-orange-50 dark:hover:bg-orange-900/20`}>
                       <QrCode size={14} /> QR
                     </button>
-                    <button onClick={handleOpenHubAdd} className="h-9 px-4 bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest text-[10px] whitespace-nowrap shrink-0">Register Hub</button>
+                    <button onClick={handleOpenHubAdd} className={adminOrangeButton}>Register Hub</button>
                   </div>
                 )}
               </div>
@@ -4064,7 +4092,7 @@ const AdminView: React.FC<Props> = ({
                     <select
                       value={incomePaymentFilter}
                       onChange={e => setIncomePaymentFilter(e.target.value)}
-                      className="w-full h-10 pl-9 pr-9 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none appearance-none cursor-pointer focus:ring-1 focus:ring-orange-500 dark:text-white"
+                      className={`${adminSelectBase} w-full pl-9 pr-9`}
                     >
                       {incomePaymentOptions.map(option => (
                         <option key={option.value} value={option.value}>{option.label}</option>
@@ -4072,13 +4100,13 @@ const AdminView: React.FC<Props> = ({
                     </select>
                     <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   </div>
-                  <div className="flex items-center gap-2 h-10 px-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl">
+                  <div className="flex h-9 items-center gap-2 px-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <Calendar size={14} className="text-orange-500 shrink-0" />
-                    <input type="date" className="w-[126px] bg-transparent text-[10px] outline-none font-black dark:text-white" value={incomeStartDate} onChange={e => setIncomeStartDate(e.target.value)} />
-                    <span className="text-gray-400 font-black text-[10px]">to</span>
-                    <input type="date" className="w-[126px] bg-transparent text-[10px] outline-none font-black dark:text-white" value={incomeEndDate} onChange={e => setIncomeEndDate(e.target.value)} />
+                    <input type="date" className="admin-date-input w-[126px] bg-transparent text-[10px] outline-none font-black dark:text-white" value={incomeStartDate} onChange={e => setIncomeStartDate(e.target.value)} />
+                    <span className="text-gray-400 font-black text-[10px]">TO</span>
+                    <input type="date" className="admin-date-input w-[126px] bg-transparent text-[10px] outline-none font-black dark:text-white" value={incomeEndDate} onChange={e => setIncomeEndDate(e.target.value)} />
                   </div>
-                  <button onClick={() => fetchIncome()} disabled={incomeLoading} className="h-10 w-10 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl transition-all active:scale-95 flex items-center justify-center disabled:opacity-50 shrink-0" title="Apply date range" aria-label="Apply date range">
+                  <button onClick={() => fetchIncome()} disabled={incomeLoading} className="h-9 w-9 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg transition-all active:scale-95 flex items-center justify-center disabled:opacity-50 shrink-0" title="Apply date range" aria-label="Apply date range">
                     <RefreshCw size={14} className={incomeLoading ? 'animate-spin' : ''} />
                   </button>
                 </div>
@@ -4199,7 +4227,7 @@ const AdminView: React.FC<Props> = ({
                         value={subscriptionScheduleSearch}
                         onChange={event => setSubscriptionScheduleSearch(event.target.value)}
                         placeholder="Search vendor or hub..."
-                        className="w-full h-[36px] pl-9 pr-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 dark:text-white"
+                        className="w-full h-9 pl-9 pr-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 dark:text-white"
                       />
                     </div>
                     <div className="relative w-[220px] shrink-0">
@@ -4207,7 +4235,7 @@ const AdminView: React.FC<Props> = ({
                       <select
                         value={subscriptionScheduleSort}
                         onChange={event => setSubscriptionScheduleSort(event.target.value as SubscriptionScheduleSort)}
-                        className="w-full h-[36px] pl-9 pr-9 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-xl font-black text-[10px] uppercase tracking-widest appearance-none cursor-pointer outline-none hover:text-orange-500 hover:border-orange-200 dark:hover:border-orange-500/40 transition-all"
+                        className={`${adminSelectBase} w-full pl-9 pr-9`}
                         title="Sort subscription schedule"
                       >
                         <option value="EXPIRY_DESC">Descending by expiry</option>
@@ -4220,7 +4248,7 @@ const AdminView: React.FC<Props> = ({
                     <button
                       onClick={() => Promise.all([refreshSubscriptions(), refreshSubscriptionHistory()])}
                       disabled={subscriptionScheduleLoading}
-                      className="h-[36px] px-4 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 disabled:opacity-50"
+                      className={`${adminButtonBase} bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-50`}
                     >
                       <RefreshCw size={13} className={subscriptionScheduleLoading ? 'animate-spin' : ''} />
                       Refresh
@@ -4427,7 +4455,7 @@ const AdminView: React.FC<Props> = ({
                       <input 
                         type="text" 
                         placeholder="ID or Kitchen..." 
-                        className="w-full h-[34px] pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 transition-all dark:text-white"
+                        className="w-full h-9 pl-9 pr-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 transition-all dark:text-white"
                         value={reportSearchQuery}
                         onChange={e => {setReportSearchQuery(e.target.value); setCurrentPage(1);}}
                       />
@@ -4435,7 +4463,7 @@ const AdminView: React.FC<Props> = ({
                     <button 
                       onClick={handleDownloadReport} 
                       disabled={!reportData || reportData.totalCount === 0} 
-                      className="h-[34px] px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-orange-500 hover:text-white transition-all shadow-lg whitespace-nowrap"
+                      className={adminPrimaryButton}
                     >
                       <Download size={14} /> Download Sales
                     </button>
@@ -4446,11 +4474,11 @@ const AdminView: React.FC<Props> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     {/* Period selection */}
                     <div>
-                      <div className="flex h-[34px] items-center gap-2 bg-white dark:bg-gray-800 px-3 rounded-xl border dark:border-gray-600">
+                      <div className="flex h-9 items-center gap-2 bg-white dark:bg-gray-800 px-3 rounded-lg border dark:border-gray-600">
                         <Calendar size={12} className="text-orange-500 shrink-0" />
-                        <input type="date" value={reportStart} onChange={(e) => {setReportStart(e.target.value); setCurrentPage(1);}} className="flex-1 bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
-                        <span className="text-gray-400 font-black text-[10px]">–</span>
-                        <input type="date" value={reportEnd} onChange={(e) => {setReportEnd(e.target.value); setCurrentPage(1);}} className="flex-1 bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
+                        <input type="date" value={reportStart} onChange={(e) => {setReportStart(e.target.value); setCurrentPage(1);}} className="admin-date-input flex-1 bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
+                        <span className="text-gray-400 font-black text-[10px]">TO</span>
+                        <input type="date" value={reportEnd} onChange={(e) => {setReportEnd(e.target.value); setCurrentPage(1);}} className="admin-date-input flex-1 bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
                       </div>
                     </div>
 
@@ -4461,7 +4489,7 @@ const AdminView: React.FC<Props> = ({
                         <select 
                           value={reportVendor} 
                           onChange={(e) => {setReportVendor(e.target.value); setCurrentPage(1);}}
-                          className="w-full h-[34px] pl-8 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-[10px] font-black dark:text-white appearance-none cursor-pointer outline-none"
+                          className={`${adminSelectBase} w-full pl-8 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600`}
                         >
                           <option value="ALL">All Kitchens</option>
                           {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -4477,7 +4505,7 @@ const AdminView: React.FC<Props> = ({
                         <select 
                           value={reportHub} 
                           onChange={(e) => {setReportHub(e.target.value); setCurrentPage(1);}}
-                          className="w-full h-[34px] pl-8 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-[10px] font-black dark:text-white appearance-none cursor-pointer outline-none"
+                          className={`${adminSelectBase} w-full pl-8 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600`}
                         >
                           <option value="ALL">All Hubs</option>
                           {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
@@ -4493,7 +4521,7 @@ const AdminView: React.FC<Props> = ({
                         <select 
                           value={reportPaymentMethod}
                           onChange={(e) => {setReportPaymentMethod(e.target.value); setCurrentPage(1);}}
-                          className="w-full h-[34px] pl-8 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-[10px] font-black dark:text-white appearance-none cursor-pointer outline-none"
+                          className={`${adminSelectBase} w-full pl-8 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600`}
                         >
                           {reportPaymentOptions.map(option => (
                             <option key={option} value={option}>{option === 'ALL' ? 'All' : option}</option>

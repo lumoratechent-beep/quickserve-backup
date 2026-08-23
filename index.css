@@ -98,6 +98,16 @@
   scrollbar-width: none;
 }
 
+.admin-date-input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  display: none;
+}
+
+.admin-date-input {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
 /* Scroll-triggered animation base */
 .scroll-animate {
   opacity: 0;
