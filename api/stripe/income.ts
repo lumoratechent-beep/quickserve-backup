@@ -65,6 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       planId: br.plan_id || null,
       planName: br.plan_id ? (PLAN_LABELS[br.plan_id] || br.plan_id) : '—',
       extensionType: br.type || 'free',
+      provider: br.created_by || null,
     }));
 
     const totalGross = transactions.reduce((s, t) => s + t.amount, 0);

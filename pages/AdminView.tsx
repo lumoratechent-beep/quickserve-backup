@@ -2223,7 +2223,9 @@ const AdminView: React.FC<Props> = ({
   const filteredIncomeTransactions = useMemo(() => {
     const query = incomeSearchQuery.trim().toLowerCase();
     return incomeTransactions.filter(txn => {
-      if (incomePaymentFilter !== 'ALL' && txn.extensionType !== incomePaymentFilter) return false;
+      const isDuitNowIncome = txn.provider === 'duitnow' || String(txn.description || '').toLowerCase().includes('duitnow');
+      const transactionType = isDuitNowIncome ? 'duitnow' : txn.extensionType;
+      if (incomePaymentFilter !== 'ALL' && transactionType !== incomePaymentFilter) return false;
       if (!query) return true;
       return [
         txn.id,
@@ -2232,6 +2234,7 @@ const AdminView: React.FC<Props> = ({
         txn.description,
         txn.status,
         txn.extensionType,
+        txn.provider,
       ].some(value => String(value || '').toLowerCase().includes(query));
     });
   }, [incomeTransactions, incomePaymentFilter, incomeSearchQuery]);
@@ -2239,12 +2242,17 @@ const AdminView: React.FC<Props> = ({
   const incomePaymentOptions = useMemo(() => {
     const labels: Record<string, string> = {
       ALL: 'All',
+      duitnow: 'DuitNow',
       subscription_income: 'Subscription',
       stripe: 'Stripe',
       paid: 'Cash',
       free: 'Free',
     };
-    const values = Array.from(new Set(incomeTransactions.map(txn => String(txn.extensionType || 'free'))));
+    const values = Array.from(new Set(incomeTransactions.map(txn => String(
+      txn.provider === 'duitnow' || String(txn.description || '').toLowerCase().includes('duitnow')
+        ? 'duitnow'
+        : (txn.extensionType || 'free')
+    ))));
     return ['ALL', ...values].map(value => ({ value, label: labels[value] || value.replace(/_/g, ' ') }));
   }, [incomeTransactions]);
 
@@ -3584,28 +3592,28 @@ const AdminView: React.FC<Props> = ({
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm">
-              <div className="p-5 border-b border-gray-100 dark:border-gray-700 space-y-5">
-                <div className="flex w-fit gap-1 rounded-xl bg-gray-100 dark:bg-gray-900 p-1">
-                  {([
-                    { id: 'VENDORS' as const, label: 'Vendors', icon: <Store size={14} /> },
-                    { id: 'HUBS' as const, label: 'Hubs', icon: <MapPin size={14} /> },
-                  ]).map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setVendorHubSubTab(tab.id)}
-                      className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all whitespace-nowrap ${
-                        vendorHubSubTab === tab.id
-                          ? 'bg-white dark:bg-gray-700 text-orange-500 shadow-sm'
-                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                      }`}
-                    >
-                      {tab.icon}
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
+            <div className="flex gap-0 relative">
+              {([
+                { id: 'VENDORS' as const, label: 'Vendors', icon: <Store size={13} /> },
+                { id: 'HUBS' as const, label: 'Hubs', icon: <MapPin size={13} /> },
+              ]).map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setVendorHubSubTab(tab.id)}
+                  style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                  className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
+                    vendorHubSubTab === tab.id
+                      ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
+                      : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
+                  }`}
+                >
+                  {tab.icon} {tab.label}
+                </button>
+              ))}
+            </div>
 
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm rounded-b-2xl rounded-tr-2xl">
+              <div className="p-5 border-b border-gray-100 dark:border-gray-700 space-y-5">
                 {vendorHubSubTab === 'VENDORS' && (
                   <div className="flex items-center gap-2 sm:gap-3 flex-nowrap overflow-x-auto hide-scrollbar">
                     <div className="relative min-w-[180px] sm:min-w-[220px] flex-1">
@@ -4183,7 +4191,9 @@ const AdminView: React.FC<Props> = ({
                             ) : <span className="text-xs text-gray-400">—</span>}
                           </td>
                           <td className="px-3 py-2 text-center">
-                            {txn.extensionType === 'subscription_income' ? (
+                            {(txn.provider === 'duitnow' || String(txn.description || '').toLowerCase().includes('duitnow')) ? (
+                              <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-orange-50 dark:bg-orange-900/20 text-orange-600">DuitNow</span>
+                            ) : txn.extensionType === 'subscription_income' ? (
                               <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-pink-50 dark:bg-pink-900/20 text-pink-600">Subscription Income</span>
                             ) : txn.extensionType === 'stripe' ? (
                               <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/20 text-blue-600">Stripe</span>
