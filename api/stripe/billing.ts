@@ -437,6 +437,21 @@ async function rejectApprovedDuitNowPayment(dnPay: any): Promise<DuitNowRepairRe
     if (paymentUpdateError) throw new Error(paymentUpdateError.message || 'Failed to update DuitNow status.');
     actions.push('duitnow_rejected');
 
+    const correctionPlanName = PLAN_NAMES[dnPay.plan_id] || String(dnPay.plan_id || 'Plan').replace('_', ' ');
+    await supabase.from('announcements').insert({
+      title: 'DuitNow approval corrected',
+      body: [
+        `The approval for your DuitNow payment (${correctionPlanName}) was corrected to rejected by admin.`,
+        `Amount: RM ${Number(dnPay.amount || 0).toFixed(2)}.`,
+        'No subscription renewal has been granted for this payment. Please contact support or submit a new payment if needed.',
+      ].join('\n\n'),
+      category: 'billing',
+      is_active: true,
+      hub: 'all',
+      restaurant_id: dnPay.restaurant_id,
+    });
+    actions.push('vendor_mail');
+
     await upsertSubscriptionPayment(supabase, {
       restaurantId: dnPay.restaurant_id,
       provider: 'duitnow',
@@ -2291,6 +2306,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               result,
             });
           }
+
+          const approvalPlanName = PLAN_NAMES[dnPay.plan_id] || String(dnPay.plan_id || 'Plan').replace('_', ' ');
+          const approvalInterval = dnPay.billing_interval === 'annual' ? 'Annual' : 'Monthly';
+          const approvalExpiry = result.newPeriodEnd ? new Date(result.newPeriodEnd) : null;
+          await supabase.from('announcements').insert({
+            title: 'DuitNow payment approved',
+            body: [
+              `Your DuitNow subscription payment for ${approvalPlanName} (${approvalInterval}) was approved.`,
+              `Amount: RM ${Number(dnPay.amount || 0).toFixed(2)}.`,
+              approvalExpiry ? `Your subscription is active until ${approvalExpiry.toLocaleDateString('en-MY', { day: 'numeric', month: 'long', year: 'numeric' })}.` : null,
+            ].filter(Boolean).join('\n\n'),
+            category: 'billing',
+            is_active: true,
+            hub: 'all',
+            restaurant_id: dnPay.restaurant_id,
+          });
 
           return res.status(200).json({
             success: true,

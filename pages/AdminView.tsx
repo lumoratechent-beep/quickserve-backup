@@ -1604,16 +1604,9 @@ const AdminView: React.FC<Props> = ({
       });
       if (res.ok) {
         toast(`Payment ${decision} successfully`, 'success');
-        fetchDuitnowPayments();
-        // Refresh subscriptions if approved
-        if (decision === 'approved') {
-          const { data: subs } = await supabase.from('subscriptions').select('*');
-          if (subs) {
-            const map: Record<string, Subscription> = {};
-            subs.forEach((s: any) => { map[s.restaurant_id] = s; });
-            setSubscriptions(map);
-          }
-        }
+        setDuitnowActionModalItem(null);
+        // Stay on DuitNow while both the list and access state refresh.
+        await Promise.all([fetchDuitnowPayments(), refreshSubscriptions()]);
       } else {
         const err = await res.json().catch(() => ({}));
         toast(err.error || 'Failed to review payment', 'error');
@@ -1787,6 +1780,7 @@ const AdminView: React.FC<Props> = ({
   const [incomeHasMore, setIncomeHasMore] = useState(false);
   const [incomeLastId, setIncomeLastId] = useState<string | null>(null);
   const [deletingIncomeId, setDeletingIncomeId] = useState<string | null>(null);
+  const [hasUnreadStripeIncome, setHasUnreadStripeIncome] = useState(false);
 
   const generateSlug = (name: string): string => {
     const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -2199,6 +2193,39 @@ const AdminView: React.FC<Props> = ({
       setIncomeLoading(false);
     }
   };
+
+  const markStripeIncomeSeen = () => {
+    localStorage.setItem('qs_admin_seen_stripe_income_at', new Date().toISOString());
+    setHasUnreadStripeIncome(false);
+  };
+
+  useEffect(() => {
+    let active = true;
+    const checkForUnreadStripeIncome = async () => {
+      const storageKey = 'qs_admin_seen_stripe_income_at';
+      const seenAt = localStorage.getItem(storageKey);
+      if (!seenAt) {
+        // Do not alert for the entire historic Stripe ledger on first use.
+        localStorage.setItem(storageKey, new Date().toISOString());
+        return;
+      }
+
+      const { data } = await supabase
+        .from('billing_records')
+        .select('id')
+        .eq('created_by', 'stripe')
+        .gt('created_at', seenAt)
+        .limit(1);
+      if (active) setHasUnreadStripeIncome(Boolean(data?.length));
+    };
+
+    checkForUnreadStripeIncome();
+    const intervalId = window.setInterval(checkForUnreadStripeIncome, 30_000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   const handleDeleteIncome = async (transaction: any) => {
     if (!confirm(`Delete the canceled income record for "${transaction.restaurantName}"? This only removes the income report record.`)) {
@@ -3376,7 +3403,11 @@ const AdminView: React.FC<Props> = ({
           ] as { id: AdminTab; label: string; icon: React.ElementType }[]).map(item => (
             <button
               key={item.id}
-              onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
+              onClick={() => {
+                if (item.id === 'INCOME_REPORT') markStripeIncomeSeen();
+                setActiveTab(item.id);
+                setIsMobileMenuOpen(false);
+              }}
               title={item.label}
               className={`w-full flex items-center gap-3 ${sidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
                 activeTab === item.id
@@ -3386,7 +3417,7 @@ const AdminView: React.FC<Props> = ({
             >
               <div className="relative shrink-0">
                 <item.icon size={20} />
-                {((item.id === 'CASHOUT' && hasPendingCashouts) || (item.id === 'DUITNOW' && hasPendingDuitnow)) && (
+                {((item.id === 'CASHOUT' && hasPendingCashouts) || (item.id === 'DUITNOW' && hasPendingDuitnow) || (item.id === 'INCOME_REPORT' && hasUnreadStripeIncome)) && (
                   <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-gray-800" />
                 )}
               </div>
