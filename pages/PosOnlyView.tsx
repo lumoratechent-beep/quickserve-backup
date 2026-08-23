@@ -38,6 +38,7 @@ type CashierAccessPermissionKey = 'viewOwnSalesOnly' | 'requireManagerApprovalFo
 type RefundApprovalRole = 'MANAGER' | 'VENDOR';
 type RefundApprovalRequestStatus = 'PENDING' | 'APPROVED' | 'DELETED';
 type MailSubTab = 'ANNOUNCEMENTS' | 'REFUND_REQUESTS';
+type AnnouncementInboxTab = 'ALL' | 'BILLING' | 'SYSTEM' | 'ANNOUNCEMENT' | 'OTHER';
 
 interface RefundApprovalRequestRecord {
   id: string;
@@ -68,6 +69,23 @@ const getRefundApprovalRole = (permissions?: Record<string, any>): RefundApprova
 
 const getRefundApprovalRoleLabel = (role: RefundApprovalRole): string =>
   role === 'VENDOR' ? 'Vendor' : 'Manager';
+
+const getAnnouncementInboxTab = (category?: string): AnnouncementInboxTab => {
+  const normalized = String(category || '').toLowerCase();
+  if (normalized === 'billing' || normalized === 'payment') return 'BILLING';
+  if (normalized === 'update' || normalized === 'maintenance' || normalized === 'system') return 'SYSTEM';
+  if (normalized === 'general' || normalized === 'announcement') return 'ANNOUNCEMENT';
+  return 'OTHER';
+};
+
+const getAnnouncementCategoryLabel = (category?: string): string => {
+  const normalized = String(category || '').toLowerCase();
+  if (normalized === 'billing' || normalized === 'payment') return 'Payment';
+  if (normalized === 'update') return 'System Update';
+  if (normalized === 'maintenance') return 'Maintenance';
+  if (normalized === 'general' || normalized === 'announcement') return 'Announcement';
+  return normalized || 'Other';
+};
 
 const CASHIER_ACCESS_SETTINGS: Array<{
   key: CashierAccessPermissionKey;
@@ -528,6 +546,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [showProfilePanel, setShowProfilePanel] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<AnnouncementRecord | null>(null);
   const [mailSubTab, setMailSubTab] = useState<MailSubTab>('ANNOUNCEMENTS');
+  const [announcementInboxTab, setAnnouncementInboxTab] = useState<AnnouncementInboxTab>('ALL');
   const [offlineBlockedMessage, setOfflineBlockedMessage] = useState<string | null>(null);
   const [profileRestaurantName, setProfileRestaurantName] = useState('');
   const [profileCurrentPassword, setProfileCurrentPassword] = useState('');
@@ -2858,6 +2877,25 @@ const PosOnlyView: React.FC<Props> = ({
   const hasRefundApprovalEnabled = cashierStaffEntries.some(({ staff }) => staff.access_permissions?.requireManagerApprovalForRefund === true);
   const showRefundApprovalSection = canReviewRefundRequests && (hasRefundApprovalEnabled || refundApprovalRequests.length > 0);
   const combinedMailUnreadCount = unreadMailCount + (showRefundApprovalSection ? refundApprovalRequests.length : 0);
+  const announcementInboxTabs = useMemo(() => ([
+    { id: 'ALL' as const, label: 'All' },
+    { id: 'BILLING' as const, label: 'Billing' },
+    { id: 'SYSTEM' as const, label: 'System Update & Maintenance' },
+    { id: 'ANNOUNCEMENT' as const, label: 'Announcement' },
+    { id: 'OTHER' as const, label: 'Other' },
+  ]).map(tab => ({
+    ...tab,
+    count: tab.id === 'ALL'
+      ? announcements.length
+      : announcements.filter(announcement => getAnnouncementInboxTab(announcement.category) === tab.id).length,
+    unreadCount: tab.id === 'ALL'
+      ? announcements.filter(announcement => !announcement.is_read).length
+      : announcements.filter(announcement => !announcement.is_read && getAnnouncementInboxTab(announcement.category) === tab.id).length,
+  })), [announcements]);
+  const filteredAnnouncements = useMemo(() => {
+    if (announcementInboxTab === 'ALL') return announcements;
+    return announcements.filter(announcement => getAnnouncementInboxTab(announcement.category) === announcementInboxTab);
+  }, [announcementInboxTab, announcements]);
   const latestPaymentNotice = useMemo(() => {
     return announcements.find((announcement) => {
       if (announcement.is_read || announcement.category !== 'billing') return false;
@@ -10348,7 +10386,9 @@ const PosOnlyView: React.FC<Props> = ({
                     <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter flex items-center gap-2">
                       <Mail size={18} className="text-orange-500" /> Inbox
                       {combinedMailUnreadCount > 0 && (
-                        <span className="text-[10px] bg-orange-500 text-white px-2 py-0.5 rounded-full font-black">{combinedMailUnreadCount} new</span>
+                        <span className="inline-flex h-[1.35rem] min-w-[3.75rem] items-center justify-center rounded-full bg-orange-500 px-3 text-[10px] font-black leading-none text-white">
+                          {combinedMailUnreadCount} NEW
+                        </span>
                       )}
                     </h2>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Announcements, refund approvals, and updates from QuickServe.</p>
@@ -10481,8 +10521,40 @@ const PosOnlyView: React.FC<Props> = ({
                       <p className="text-sm text-gray-400 mt-1">When the admin sends updates, they will appear here.</p>
                     </div>
                   ) : (
-                    <div className="rounded-2xl border dark:border-gray-700 overflow-hidden divide-y dark:divide-gray-700">
-                      {announcements.map(a => (
+                    <div className="space-y-4">
+                      <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+                        {announcementInboxTabs.map(tab => (
+                          <button
+                            key={tab.id}
+                            onClick={() => setAnnouncementInboxTab(tab.id)}
+                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-colors ${
+                              announcementInboxTab === tab.id
+                                ? 'bg-orange-500 text-white shadow-sm'
+                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            {tab.label}
+                            <span className={`min-w-5 rounded-full px-1.5 py-0.5 text-[9px] leading-none ${
+                              announcementInboxTab === tab.id
+                                ? 'bg-white/20 text-white'
+                                : tab.unreadCount > 0
+                                  ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-300'
+                                  : 'bg-white text-gray-400 dark:bg-gray-800 dark:text-gray-500'
+                            }`}>
+                              {tab.unreadCount > 0 ? tab.unreadCount : tab.count}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+
+                      {filteredAnnouncements.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-24 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
+                          <Mail size={28} className="text-gray-300 dark:text-gray-600 mb-3" />
+                          <p className="text-sm font-bold dark:text-gray-300">No mail in this tab</p>
+                        </div>
+                      ) : (
+                      <div className="rounded-2xl border dark:border-gray-700 overflow-hidden divide-y dark:divide-gray-700">
+                      {filteredAnnouncements.map(a => (
                         <div
                           key={a.id}
                           onClick={() => {
@@ -10519,7 +10591,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
                                 a.category === 'promotion' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
                                 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                              }`}>{a.category}</span>
+                              }`}>{getAnnouncementCategoryLabel(a.category)}</span>
                             </div>
                             <p className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-slate-600 dark:group-hover:text-gray-300 whitespace-pre-line leading-relaxed line-clamp-2">{a.body}</p>
                           </div>
@@ -10539,6 +10611,8 @@ const PosOnlyView: React.FC<Props> = ({
                           </div>
                         </div>
                       ))}
+                      </div>
+                      )}
                     </div>
                   )
                 )}

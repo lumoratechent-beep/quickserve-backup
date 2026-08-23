@@ -6032,6 +6032,7 @@ const AdminView: React.FC<Props> = ({
                         className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-xs font-bold dark:text-white outline-none appearance-none cursor-pointer"
                       >
                         <option value="general">General</option>
+                        <option value="billing">Payment / Billing</option>
                         <option value="update">Update</option>
                         <option value="maintenance">Maintenance</option>
                         <option value="promotion">Promotion</option>
@@ -6107,11 +6108,12 @@ const AdminView: React.FC<Props> = ({
                               <div className="flex items-center gap-2 mb-1">
                                 <h4 className="text-xs font-black dark:text-white uppercase tracking-tight truncate">{ann.title}</h4>
                                 <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                                  ann.category === 'update' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' :
+                                  ann.category === 'billing' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' :
+                                  ann.category === 'update' ? 'bg-green-50 dark:bg-green-900/20 text-green-600' :
                                   ann.category === 'maintenance' ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600' :
                                   ann.category === 'promotion' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' :
                                   'bg-gray-100 dark:bg-gray-700 text-gray-500'
-                                }`}>{ann.category}</span>
+                                }`}>{ann.category === 'billing' ? 'payment' : ann.category}</span>
                                 {ann.is_active ? (
                                   <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-600 uppercase tracking-wider">Active</span>
                                 ) : (
