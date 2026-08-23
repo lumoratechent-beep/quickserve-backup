@@ -241,6 +241,26 @@ export interface ReportResponse {
   syncCursor?: string;
 }
 
+export interface AdminDashboardAnalytics {
+  revenue: number;
+  completedOrders: number;
+  totalOrders: number;
+  averageOrder: number;
+  completionRate: number;
+  dailySales: { date: string; sales: number; orders: number }[];
+  vendors: {
+    restaurantId: string;
+    hub: string;
+    sales: number;
+    completed: number;
+    total: number;
+    cancelled: number;
+  }[];
+  payments: { name: string; value: number; orders: number }[];
+  statusBreakdown: { name: string; value: number }[];
+  topItems: { name: string; quantity: number; sales: number }[];
+}
+
 export interface OrderChangesResponse {
   orders: Order[];
   syncCursor: string;

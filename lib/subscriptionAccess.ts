@@ -20,6 +20,7 @@ export function isSubscriptionLockDue(
 ): boolean {
   const scheduledLock = parseValidDate(input.access_lock_at);
   if (scheduledLock && scheduledLock <= now) return true;
+  if (scheduledLock && scheduledLock > now) return false;
 
   const expiry = getEffectiveSubscriptionExpiry(input);
   return Boolean(expiry && expiry <= now);

@@ -98,6 +98,9 @@ export function isSubscriptionActive(sub: Subscription, now: Date = new Date()):
   if (sub.status === 'canceled' || sub.status === 'unpaid' || sub.status === 'pending_payment') return false;
   if (sub.status === 'trialing') return isTrialActive(sub, now);
 
+  const lockAt = sub.access_lock_at ? new Date(sub.access_lock_at) : null;
+  if (lockAt && !Number.isNaN(lockAt.getTime()) && lockAt > now) return true;
+
   // For active / past_due statuses, access ends at the stored expiry.
   const end = getSubscriptionEndDate(sub);
   if (!end) return sub.status === 'active';

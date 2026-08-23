@@ -1,4 +1,3 @@
-
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
@@ -7,10 +6,41 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const BATCH_SIZE = 1000;
+const MAX_PAGE_SIZE = 200;
+const MAX_EXPORT_ROWS = 10000;
+const MAX_REPORT_RANGE_MS = 366 * 24 * 60 * 60 * 1000;
+const PAGE_COLUMNS = 'id,total,status,timestamp,restaurant_id,table_number,location_name,payment_method,cashier_name,order_source,updated_at';
+const DETAIL_COLUMNS = `${PAGE_COLUMNS},items,customer_id,dining_type,remark,rejection_reason,rejection_note,amount_received,change_amount`;
+const rateLimitBuckets = new Map<string, { startedAt: number; count: number }>();
+
+const enforceRateLimit = (req: VercelRequest, res: VercelResponse, isExport: boolean) => {
+  const forwardedFor = req.headers['x-forwarded-for'];
+  const clientAddress = String(Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor || req.socket?.remoteAddress || 'unknown')
+    .split(',')[0].trim();
+  const now = Date.now();
+  const windowMs = 60_000;
+  const requestLimit = isExport ? 5 : 120;
+  const key = `${clientAddress}:${isExport ? 'export' : 'report'}`;
+  let bucket = rateLimitBuckets.get(key);
+  if (!bucket || now - bucket.startedAt >= windowMs) bucket = { startedAt: now, count: 0 };
+  bucket.count += 1;
+  rateLimitBuckets.set(key, bucket);
+  res.setHeader('X-RateLimit-Limit', requestLimit.toString());
+  res.setHeader('X-RateLimit-Remaining', Math.max(0, requestLimit - bucket.count).toString());
+  if (rateLimitBuckets.size > 5000) {
+    for (const [bucketKey, value] of rateLimitBuckets) {
+      if (now - value.startedAt >= windowMs) rateLimitBuckets.delete(bucketKey);
+    }
+  }
+  if (bucket.count <= requestLimit) return true;
+  res.setHeader('Retry-After', '60');
+  res.status(429).json({ error: 'Too many report requests. Please wait and try again.' });
+  return false;
+};
 
 const mapOrder = (o: any) => ({
   id: o.id,
-  items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
+  items: typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []),
   total: Number(o.total || 0),
   status: o.status,
   timestamp: Number(o.timestamp),
@@ -30,188 +60,146 @@ const mapOrder = (o: any) => ({
   updatedAt: o.updated_at || undefined,
 });
 
-/**
- * Fetch all rows matching a query by paginating in batches of BATCH_SIZE.
- * This avoids Supabase's default 1000-row PostgREST limit.
- */
-async function fetchAllRows(buildQuery: () => any): Promise<any[]> {
-  let allRows: any[] = [];
-  let offset = 0;
-  while (true) {
-    const { data, error } = await buildQuery().range(offset, offset + BATCH_SIZE - 1);
-    if (error) throw error;
-    if (!data || data.length === 0) break;
-    allRows = allRows.concat(data);
-    if (data.length < BATCH_SIZE) break;
-    offset += BATCH_SIZE;
-  }
-  return allRows;
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const {
-    restaurantId,
-    startDate,
-    endDate,
-    status,
-    search,
-    page = 1,
-    limit = 30,
-    locationName,
-    timezoneOffsetMinutes,
-    updatedSince,
-    includeSummary = 'true',
+    restaurantId, startDate, endDate, status, search, page = '1', limit = '30',
+    locationName, timezoneOffsetMinutes, includeSummary = 'true',
+    includeBreakdowns = 'true', includeItems = 'true', mode, export: exportMode = 'false',
   } = req.query;
+  if (!enforceRateLimit(req, res, exportMode === 'true')) return;
   const syncCursor = new Date().toISOString();
-  
-  const start = (Number(page) - 1) * Number(limit);
-  const end = start + Number(limit) - 1;
-  
-  // Get timezone offset from client (in minutes). If not provided, assume UTC (0)
   const tzOffset = timezoneOffsetMinutes ? Number(timezoneOffsetMinutes) : 0;
   const getDateBoundary = (value: string | string[], endOfDay: boolean) => {
     const [year, month, day] = String(value).split('-').map(Number);
-    return Date.UTC(
-      year,
-      month - 1,
-      day,
-      endOfDay ? 23 : 0,
-      endOfDay ? 59 : 0,
-      endOfDay ? 59 : 0,
-      endOfDay ? 999 : 0
-    ) + (tzOffset * 60000);
+    return Date.UTC(year, month - 1, day, endOfDay ? 23 : 0, endOfDay ? 59 : 0,
+      endOfDay ? 59 : 0, endOfDay ? 999 : 0) + (tzOffset * 60000);
   };
 
   try {
-    if (updatedSince) {
-      const since = new Date(String(updatedSince));
-      if (Number.isNaN(since.getTime())) {
-        return res.status(400).json({ error: 'Invalid updatedSince cursor' });
+    const normalizedRestaurantId = restaurantId && restaurantId !== 'ALL' ? String(restaurantId) : null;
+    const normalizedLocationName = locationName && locationName !== 'ALL' ? String(locationName) : null;
+    const normalizedStatus = status && status !== 'ALL' ? String(status) : null;
+    const normalizedSearch = search ? String(search).trim() || null : null;
+    const startTimestamp = startDate ? getDateBoundary(startDate, false) : null;
+    const endTimestamp = endDate ? getDateBoundary(endDate, true) : null;
+    if ((startTimestamp !== null && !Number.isFinite(startTimestamp)) || (endTimestamp !== null && !Number.isFinite(endTimestamp))) {
+      return res.status(400).json({ error: 'Invalid report date range' });
+    }
+    if ((mode === 'summary' || mode === 'dashboard' || includeSummary !== 'false' || exportMode === 'true')
+      && (startTimestamp === null || endTimestamp === null)) {
+      return res.status(400).json({ error: 'A start date and end date are required' });
+    }
+    if (startTimestamp !== null && endTimestamp !== null
+      && (endTimestamp < startTimestamp || endTimestamp - startTimestamp > MAX_REPORT_RANGE_MS)) {
+      return res.status(400).json({ error: 'Report date ranges are limited to 366 days' });
+    }
+
+    if (mode === 'dashboard') {
+      if (startTimestamp === null || endTimestamp === null) {
+        return res.status(400).json({ error: 'Dashboard analytics require a date range' });
       }
-
-      const changedRows = await fetchAllRows(() => (
-        supabase
-          .from('orders')
-          .select('*')
-          .gt('updated_at', since.toISOString())
-          .lte('updated_at', syncCursor)
-          .order('updated_at', { ascending: true })
-          .order('id', { ascending: true })
-      ));
-
-      return res.status(200).json({
-        orders: changedRows.map(mapOrder),
-        syncCursor,
+      const { data, error } = await supabase.rpc('get_admin_dashboard_analytics', {
+        p_start_timestamp: startTimestamp,
+        p_end_timestamp: endTimestamp,
+        p_timezone_offset_minutes: tzOffset,
       });
+      if (error) throw error;
+      res.setHeader('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
+      return res.status(200).json(data);
+    }
+
+    if (mode === 'summary') {
+      const { data, error } = await supabase.rpc('get_order_report_summary', {
+        p_start_timestamp: startTimestamp,
+        p_end_timestamp: endTimestamp,
+        p_restaurant_id: normalizedRestaurantId,
+        p_location_name: normalizedLocationName,
+        p_status: normalizedStatus,
+        p_search: normalizedSearch,
+        p_include_breakdowns: includeBreakdowns !== 'false',
+      });
+      if (error) throw error;
+      res.setHeader('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
+      return res.status(200).json(data);
     }
 
     const buildOrderQuery = (columns: string, withCount = false) => {
       let query = supabase.from('orders').select(columns, withCount ? { count: 'exact' } : undefined);
-      if (restaurantId && restaurantId !== 'ALL') query = query.eq('restaurant_id', restaurantId);
-      if (locationName && locationName !== 'ALL') query = query.eq('location_name', locationName);
-      if (status && status !== 'ALL') query = query.eq('status', status);
-      if (startDate) {
-        query = query.gte('timestamp', getDateBoundary(startDate, false));
-      }
-      if (endDate) {
-        query = query.lte('timestamp', getDateBoundary(endDate, true));
-      }
-      if (search) query = query.ilike('id', `%${search}%`);
+      if (normalizedRestaurantId) query = query.eq('restaurant_id', normalizedRestaurantId);
+      if (normalizedLocationName) query = query.eq('location_name', normalizedLocationName);
+      if (normalizedStatus) query = query.eq('status', normalizedStatus);
+      if (startTimestamp !== null) query = query.gte('timestamp', startTimestamp);
+      if (endTimestamp !== null) query = query.lte('timestamp', endTimestamp);
+      if (normalizedSearch) query = query.ilike('id', `%${normalizedSearch}%`);
       return query;
     };
 
-    // For large limits (e.g. CSV export), paginate in batches to avoid Supabase's 1000-row default cap
-    let data: any[];
-    let count: number | null;
+    const requestedPage = Number(page);
     const requestedLimit = Number(limit);
-    if (requestedLimit > BATCH_SIZE) {
-      count = null;
-      if (includeSummary !== 'false') {
-        const { count: exactCount, error: countError } = await buildOrderQuery('id', true).range(0, 0);
-        if (countError) throw countError;
-        count = exactCount;
-      }
+    const isExport = exportMode === 'true';
+    if (!Number.isInteger(requestedPage) || requestedPage < 1 || !Number.isInteger(requestedLimit) || requestedLimit < 1) {
+      return res.status(400).json({ error: 'Invalid report pagination' });
+    }
+    const maximumLimit = isExport ? MAX_EXPORT_ROWS : MAX_PAGE_SIZE;
+    if (requestedLimit > maximumLimit) {
+      return res.status(400).json({
+        error: isExport
+          ? `Exports are limited to ${MAX_EXPORT_ROWS} rows; narrow the selected date range.`
+          : `Report pages are limited to ${MAX_PAGE_SIZE} rows.`,
+      });
+    }
 
-      // Fetch all requested rows in batches
-      data = [];
-      let offset = start;
-      while (offset <= end) {
+    const summaryResult = includeSummary === 'false' ? null : await supabase.rpc('get_order_report_summary', {
+      p_start_timestamp: startTimestamp,
+      p_end_timestamp: endTimestamp,
+      p_restaurant_id: normalizedRestaurantId,
+      p_location_name: normalizedLocationName,
+      p_status: normalizedStatus,
+      p_search: normalizedSearch,
+      p_include_breakdowns: includeBreakdowns !== 'false',
+    });
+    if (summaryResult?.error) throw summaryResult.error;
+    const summary = summaryResult?.data || {
+      totalRevenue: 0, orderVolume: 0, efficiency: 0, byTransactionType: [], byCashier: [],
+    };
+    if (isExport && includeSummary !== 'false' && Number(summary.orderVolume || 0) > MAX_EXPORT_ROWS) {
+      return res.status(413).json({
+        error: `This export contains more than ${MAX_EXPORT_ROWS} orders. Select a shorter date range or a specific kitchen.`,
+      });
+    }
+
+    const start = (requestedPage - 1) * requestedLimit;
+    const end = start + requestedLimit - 1;
+    const selectedColumns = isExport ? '*' : (includeItems === 'false' ? PAGE_COLUMNS : DETAIL_COLUMNS);
+    let data: any[] = [];
+    let count: number | null = includeSummary === 'false' ? null : Number(summary.orderVolume || 0);
+
+    if (requestedLimit > BATCH_SIZE) {
+      for (let offset = start; offset <= end; offset += BATCH_SIZE) {
         const batchEnd = Math.min(offset + BATCH_SIZE - 1, end);
-        const { data: batch, error: batchError } = await buildOrderQuery('*')
-          .order('timestamp', { ascending: false })
-          .range(offset, batchEnd);
-        if (batchError) throw batchError;
-        if (!batch || batch.length === 0) break;
-        data = data.concat(batch);
-        if (batch.length < (batchEnd - offset + 1)) break;
-        offset += BATCH_SIZE;
+        const { data: batch, error } = await buildOrderQuery(selectedColumns)
+          .order('timestamp', { ascending: false }).range(offset, batchEnd);
+        if (error) throw error;
+        if (!batch?.length) break;
+        data.push(...batch);
+        if (batch.length < batchEnd - offset + 1) break;
       }
       if (count === null) count = data.length;
     } else {
-      const result = await buildOrderQuery('*', true)
-        .order('timestamp', { ascending: false })
-        .range(start, end);
+      const result = await buildOrderQuery(selectedColumns)
+        .order('timestamp', { ascending: false }).range(start, end);
       if (result.error) throw result.error;
-      data = result.data;
-      count = result.count;
+      data = result.data || [];
+      count = includeSummary === 'false' ? null : Number(summary.orderVolume || 0);
     }
-
-    // Summary query – paginate through ALL matching rows to avoid Supabase's default 1000-row limit
-    const summaryData = includeSummary === 'false'
-      ? []
-      : await fetchAllRows(() => buildOrderQuery('total, status, payment_method, cashier_name'));
-
-    const totalRevenue = summaryData
-      .filter(o => o.status === 'COMPLETED')
-      .reduce((acc, o) => acc + Number(o.total || 0), 0);
-    
-    const orderVolume = summaryData.length;
-    const completedCount = summaryData.filter(o => o.status === 'COMPLETED').length;
-    const efficiency = orderVolume > 0 ? Math.round((completedCount / orderVolume) * 100) : 0;
-
-    // Compute breakdowns from non-cancelled orders
-    const nonCancelled = summaryData.filter(o => o.status !== 'CANCELLED');
-
-    const txMap: Record<string, { count: number; total: number }> = {};
-    nonCancelled.forEach(o => {
-      const method = o.payment_method || '-';
-      if (!txMap[method]) txMap[method] = { count: 0, total: 0 };
-      txMap[method].count += 1;
-      txMap[method].total += Number(o.total || 0);
-    });
-    const byTransactionType = Object.entries(txMap)
-      .map(([name, d]) => ({ name, ...d }))
-      .sort((a, b) => b.total - a.total);
-
-    const cashierMap: Record<string, { count: number; total: number }> = {};
-    nonCancelled.forEach(o => {
-      const name = o.cashier_name || '-';
-      if (!cashierMap[name]) cashierMap[name] = { count: 0, total: 0 };
-      cashierMap[name].count += 1;
-      cashierMap[name].total += Number(o.total || 0);
-    });
-    const byCashier = Object.entries(cashierMap)
-      .map(([name, d]) => ({ name, ...d }))
-      .sort((a, b) => b.total - a.total);
 
     return res.status(200).json({
       orders: data.map(mapOrder),
-      summary: {
-        totalRevenue,
-        orderVolume,
-        efficiency,
-        byTransactionType,
-        byCashier
-      },
-      totalCount: count || 0,
+      summary,
+      totalCount: count ?? 0,
       syncCursor,
     });
   } catch (error) {

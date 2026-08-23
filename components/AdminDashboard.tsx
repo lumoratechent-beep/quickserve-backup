@@ -27,17 +27,12 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Order, OrderStatus, ReportFilters, Restaurant, User } from '../src/types';
+import { AdminDashboardAnalytics, ReportFilters, Restaurant, User } from '../src/types';
 
 interface Props {
   vendors: User[];
   restaurants: Restaurant[];
-  cachedOrders: Order[];
-  onEnsureReportRange: (filters: ReportFilters) => Promise<Order[]>;
-  onRefreshReportRange: (filters: ReportFilters) => Promise<Order[]>;
-  isReportLoading?: boolean;
-  reportError?: string;
-  lastUpdated?: Date | null;
+  onFetchAnalytics: (filters: ReportFilters) => Promise<AdminDashboardAnalytics>;
 }
 
 type DatePreset = 'THIS_MONTH' | 'LAST_MONTH' | 'LAST_7_DAYS' | 'LAST_30_DAYS' | 'CUSTOM';
@@ -82,12 +77,7 @@ const csvCell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}
 const AdminDashboard: React.FC<Props> = ({
   vendors,
   restaurants,
-  cachedOrders,
-  onEnsureReportRange,
-  onRefreshReportRange,
-  isReportLoading = false,
-  reportError = '',
-  lastUpdated = null,
+  onFetchAnalytics,
 }) => {
   const initialRange = getPresetRange('THIS_MONTH');
   const [preset, setPreset] = useState<DatePreset>('THIS_MONTH');
@@ -95,45 +85,71 @@ const AdminDashboard: React.FC<Props> = ({
   const [endDate, setEndDate] = useState(initialRange.endDate);
   const [isRangeLoading, setIsRangeLoading] = useState(false);
   const [rangeError, setRangeError] = useState('');
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const analyticsRequestIdRef = React.useRef(0);
+  const [rawAnalytics, setRawAnalytics] = useState<AdminDashboardAnalytics>({
+    revenue: 0,
+    completedOrders: 0,
+    totalOrders: 0,
+    averageOrder: 0,
+    completionRate: 0,
+    dailySales: [],
+    vendors: [],
+    payments: [],
+    statusBreakdown: [],
+    topItems: [],
+  });
 
-  useEffect(() => {
-    let active = true;
-    setIsRangeLoading(true);
-    setRangeError('');
-    onEnsureReportRange({
-      restaurantId: 'ALL',
-      locationName: 'ALL',
-      status: 'ALL',
-      startDate,
-      endDate,
-    }).catch(error => {
-      if (active) setRangeError(error instanceof Error ? error.message : 'Unable to load dashboard data.');
-    }).finally(() => {
-      if (active) setIsRangeLoading(false);
-    });
-    return () => { active = false; };
-  }, [endDate, onEnsureReportRange, startDate]);
-
-  const dashboardOrders = useMemo(() => {
-    const start = new Date(`${startDate}T00:00:00`).getTime();
-    const end = new Date(`${endDate}T23:59:59.999`).getTime();
-    return cachedOrders.filter(order => order.timestamp >= start && order.timestamp <= end);
-  }, [cachedOrders, endDate, startDate]);
-
-  const isLoading = isRangeLoading || isReportLoading;
-  const loadError = rangeError || reportError;
-
-  const handleRefresh = async () => {
+  const loadAnalytics = React.useCallback(async () => {
+    const requestId = ++analyticsRequestIdRef.current;
     setIsRangeLoading(true);
     setRangeError('');
     try {
-      await onRefreshReportRange({
+      const result = await onFetchAnalytics({
         restaurantId: 'ALL',
         locationName: 'ALL',
         status: 'ALL',
         startDate,
         endDate,
       });
+      if (requestId !== analyticsRequestIdRef.current) return;
+      setRawAnalytics(result);
+      setLastUpdated(new Date());
+    } catch (error) {
+      if (requestId === analyticsRequestIdRef.current) {
+        setRangeError(error instanceof Error ? error.message : 'Unable to load dashboard data.');
+      }
+    } finally {
+      if (requestId === analyticsRequestIdRef.current) setIsRangeLoading(false);
+    }
+  }, [endDate, onFetchAnalytics, startDate]);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [loadAnalytics]);
+
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) loadAnalytics();
+    };
+    const interval = window.setInterval(refreshIfVisible, 2 * 60 * 1000);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    window.addEventListener('online', refreshIfVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+      window.removeEventListener('online', refreshIfVisible);
+    };
+  }, [loadAnalytics]);
+
+  const isLoading = isRangeLoading;
+  const loadError = rangeError;
+
+  const handleRefresh = async () => {
+    setIsRangeLoading(true);
+    setRangeError('');
+    try {
+      await loadAnalytics();
     } catch (error) {
       setRangeError(error instanceof Error ? error.message : 'Unable to refresh dashboard data.');
     } finally {
@@ -141,68 +157,26 @@ const AdminDashboard: React.FC<Props> = ({
     }
   };
 
-  const restaurantById = useMemo(
-    () => new Map(restaurants.map(restaurant => [restaurant.id, restaurant])),
-    [restaurants]
-  );
-
   const analytics = useMemo(() => {
-    const completed = dashboardOrders.filter(order => order.status === OrderStatus.COMPLETED);
-    const revenue = completed.reduce((sum, order) => sum + Number(order.total || 0), 0);
-    const completionRate = dashboardOrders.length > 0 ? (completed.length / dashboardOrders.length) * 100 : 0;
-    const averageOrder = completed.length > 0 ? revenue / completed.length : 0;
-
-    const vendorMap = new Map<string, {
-      restaurantId: string;
-      name: string;
-      hub: string;
-      sales: number;
-      completed: number;
-      total: number;
-      cancelled: number;
-      isOnline: boolean;
-    }>();
-
-    restaurants.forEach(restaurant => {
-      vendorMap.set(restaurant.id, {
+    const aggregateByVendor = new Map(rawAnalytics.vendors.map(row => [row.restaurantId, row]));
+    const vendorPerformance = restaurants.map(restaurant => {
+      const aggregate = aggregateByVendor.get(restaurant.id);
+      return {
         restaurantId: restaurant.id,
         name: restaurant.name,
-        hub: restaurant.location || 'Unassigned',
-        sales: 0,
-        completed: 0,
-        total: 0,
-        cancelled: 0,
+        hub: restaurant.location || aggregate?.hub || 'Unassigned',
+        sales: Number(aggregate?.sales || 0),
+        completed: Number(aggregate?.completed || 0),
+        total: Number(aggregate?.total || 0),
+        cancelled: Number(aggregate?.cancelled || 0),
         isOnline: Boolean(restaurant.isOnline),
-      });
-    });
-
-    dashboardOrders.forEach(order => {
-      const restaurant = restaurantById.get(order.restaurantId);
-      const row = vendorMap.get(order.restaurantId) || {
-        restaurantId: order.restaurantId,
-        name: restaurant?.name || 'Unknown vendor',
-        hub: restaurant?.location || order.locationName || 'Unassigned',
-        sales: 0,
-        completed: 0,
-        total: 0,
-        cancelled: 0,
-        isOnline: Boolean(restaurant?.isOnline),
       };
-      row.total += 1;
-      if (order.status === OrderStatus.COMPLETED) {
-        row.completed += 1;
-        row.sales += Number(order.total || 0);
-      }
-      if (order.status === OrderStatus.CANCELLED) row.cancelled += 1;
-      vendorMap.set(order.restaurantId, row);
-    });
-
-    const vendorPerformance = Array.from(vendorMap.values())
+    })
       .map(row => ({
         ...row,
         averageOrder: row.completed > 0 ? row.sales / row.completed : 0,
         completionRate: row.total > 0 ? (row.completed / row.total) * 100 : 0,
-        salesShare: revenue > 0 ? (row.sales / revenue) * 100 : 0,
+        salesShare: rawAnalytics.revenue > 0 ? (row.sales / rawAnalytics.revenue) * 100 : 0,
       }))
       .sort((a, b) => b.sales - a.sales || b.completed - a.completed);
 
@@ -213,62 +187,29 @@ const AdminDashboard: React.FC<Props> = ({
       const key = toInputDate(cursor);
       trendMap.set(key, { date: key, sales: 0, orders: 0 });
     }
-    completed.forEach(order => {
-      const key = toInputDate(new Date(order.timestamp));
-      const point = trendMap.get(key);
-      if (point) {
-        point.sales += Number(order.total || 0);
-        point.orders += 1;
-      }
+    rawAnalytics.dailySales.forEach(row => {
+      const point = trendMap.get(row.date);
+      if (point) Object.assign(point, { sales: Number(row.sales), orders: Number(row.orders) });
     });
     const salesTrend = Array.from(trendMap.values()).map(point => ({
       ...point,
       label: new Date(`${point.date}T00:00:00`).toLocaleDateString('en-MY', { day: 'numeric', month: 'short' }),
     }));
 
-    const paymentMap = new Map<string, { name: string; value: number; orders: number }>();
-    completed.forEach(order => {
-      const name = order.paymentMethod?.trim() || 'Unspecified';
-      const current = paymentMap.get(name) || { name, value: 0, orders: 0 };
-      current.value += Number(order.total || 0);
-      current.orders += 1;
-      paymentMap.set(name, current);
-    });
-    const payments = Array.from(paymentMap.values()).sort((a, b) => b.value - a.value);
-
-    const statusMap = new Map<string, number>();
-    dashboardOrders.forEach(order => statusMap.set(order.status, (statusMap.get(order.status) || 0) + 1));
-    const statusBreakdown = Array.from(statusMap.entries())
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-
-    const itemMap = new Map<string, { name: string; quantity: number; sales: number }>();
-    completed.forEach(order => {
-      order.items.forEach(item => {
-        const key = item.id || item.name;
-        const current = itemMap.get(key) || { name: item.name, quantity: 0, sales: 0 };
-        const quantity = Number(item.quantity || 0);
-        current.quantity += quantity;
-        current.sales += Number(item.price || 0) * quantity;
-        itemMap.set(key, current);
-      });
-    });
-    const topItems = Array.from(itemMap.values()).sort((a, b) => b.quantity - a.quantity).slice(0, 5);
-
     return {
-      revenue,
-      completedOrders: completed.length,
-      totalOrders: dashboardOrders.length,
-      completionRate,
-      averageOrder,
+      revenue: Number(rawAnalytics.revenue || 0),
+      completedOrders: Number(rawAnalytics.completedOrders || 0),
+      totalOrders: Number(rawAnalytics.totalOrders || 0),
+      completionRate: Number(rawAnalytics.completionRate || 0),
+      averageOrder: Number(rawAnalytics.averageOrder || 0),
       activeVendors: vendorPerformance.filter(row => row.total > 0).length,
       vendorPerformance,
       salesTrend,
-      payments,
-      statusBreakdown,
-      topItems,
+      payments: rawAnalytics.payments.map(row => ({ ...row, value: Number(row.value), orders: Number(row.orders) })),
+      statusBreakdown: rawAnalytics.statusBreakdown.map(row => ({ ...row, value: Number(row.value) })),
+      topItems: rawAnalytics.topItems.map(row => ({ ...row, quantity: Number(row.quantity), sales: Number(row.sales) })),
     };
-  }, [dashboardOrders, endDate, restaurantById, restaurants, startDate]);
+  }, [endDate, rawAnalytics, restaurants, startDate]);
 
   const handlePreset = (nextPreset: DatePreset) => {
     setPreset(nextPreset);
@@ -302,23 +243,6 @@ const AdminDashboard: React.FC<Props> = ({
         `${row.completionRate.toFixed(1)}%`,
         `${row.salesShare.toFixed(1)}%`,
       ]),
-      [],
-      ['Order details'],
-      ['Order ID', 'Date', 'Vendor', 'Hub', 'Status', 'Payment method', 'Source', 'Items', 'Total (MYR)'],
-      ...dashboardOrders.map(order => {
-        const restaurant = restaurantById.get(order.restaurantId);
-        return [
-          order.id,
-          new Date(order.timestamp).toLocaleString('en-MY'),
-          restaurant?.name || 'Unknown vendor',
-          restaurant?.location || order.locationName || 'Unassigned',
-          order.status,
-          order.paymentMethod || '',
-          order.orderSource || '',
-          order.items.map(item => `${item.name} x${item.quantity}`).join('; '),
-          Number(order.total || 0).toFixed(2),
-        ];
-      }),
     ];
     const csv = `\uFEFF${summaryRows.map(row => row.map(csvCell).join(',')).join('\r\n')}`;
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -420,7 +344,7 @@ const AdminDashboard: React.FC<Props> = ({
           <button
             type="button"
             onClick={handleDownload}
-            disabled={isLoading || dashboardOrders.length === 0}
+            disabled={isLoading || analytics.totalOrders === 0}
             className="flex h-8 shrink-0 items-center gap-2 rounded-md bg-red-600 px-4 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Download size={14} /> Download

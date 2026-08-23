@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, OrderChangesResponse, QS_DEFAULT_HUB, Subscription, KitchenDepartment, OrderSource, CashierShift, IngredientItem } from './src/types';
+import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, AdminDashboardAnalytics, QS_DEFAULT_HUB, Subscription, KitchenDepartment, OrderSource, CashierShift, IngredientItem } from './src/types';
 import CustomerView from './pages/CustomerView';
 import AdminView from './pages/AdminView';
 import PosOnlyView from './pages/PosOnlyView';
@@ -1195,7 +1195,9 @@ const App: React.FC = () => {
   }, [currentRole, currentUser?.restaurantId, fetchRestaurants, fetchSubscriptions]);
 
   const fetchOrders = useCallback(async () => {
-    if (isFetchingRef.current || !currentRole) return;
+    // Admin reporting is server-paginated/aggregated and must never prime the
+    // session by downloading a cross-restaurant order cache.
+    if (isFetchingRef.current || !currentRole || currentRole === 'ADMIN') return;
     isFetchingRef.current = true;
     try {
       let query = supabase.from('orders').select('*').order('timestamp', { ascending: false }).limit(200);
@@ -1530,9 +1532,12 @@ const App: React.FC = () => {
       : undefined;
 
     const channel = supabase.channel('qs-realtime-optimized');
-    const insertFilter: any = { event: 'INSERT', schema: 'public', table: 'orders' };
-    if (orderFilter) insertFilter.filter = orderFilter;
-    channel.on('postgres_changes', insertFilter, (payload) => {
+    // Admin dashboards refresh compact aggregates; subscribing an admin to
+    // every order event would recreate the same cross-platform data flood.
+    if (currentRole !== 'ADMIN') {
+      const insertFilter: any = { event: 'INSERT', schema: 'public', table: 'orders' };
+      if (orderFilter) insertFilter.filter = orderFilter;
+      channel.on('postgres_changes', insertFilter, (payload) => {
         const o = payload.new as any;
         const mappedOrder: Order = {
           id: o.id, 
@@ -1568,9 +1573,9 @@ const App: React.FC = () => {
         setLastSyncTime(new Date());
       })
       ;
-    const updateFilter: any = { event: 'UPDATE', schema: 'public', table: 'orders' };
-    if (orderFilter) updateFilter.filter = orderFilter;
-    channel.on('postgres_changes', updateFilter, (payload) => {
+      const updateFilter: any = { event: 'UPDATE', schema: 'public', table: 'orders' };
+      if (orderFilter) updateFilter.filter = orderFilter;
+      channel.on('postgres_changes', updateFilter, (payload) => {
       console.debug('[realtime] ORDER UPDATE payload', payload);
       const o = payload.new as any;
         setOrders(prev => {
@@ -1647,8 +1652,10 @@ const App: React.FC = () => {
           return updated;
         });
         setLastSyncTime(new Date());
-      })
-      .on('postgres_changes', { 
+      });
+    }
+
+    channel.on('postgres_changes', {
         event: 'UPDATE', 
         schema: 'public', 
         table: 'restaurants',
@@ -2723,14 +2730,16 @@ const App: React.FC = () => {
     }
   };
 
-  const onFetchPaginatedOrders = async (filters: ReportFilters, page: number, pageSize: number): Promise<ReportResponse> => {
+  const onFetchPaginatedOrders = async (filters: ReportFilters, page: number, pageSize: number, includeSummary = true, includeItems = true): Promise<ReportResponse> => {
     // Include timezone offset for proper date filtering
     const tzOffset = new Date().getTimezoneOffset();
     const params = new URLSearchParams({
       ...filters as any,
       timezoneOffsetMinutes: tzOffset.toString(),
       page: page.toString(),
-      limit: pageSize.toString()
+      limit: pageSize.toString(),
+      includeSummary: includeSummary.toString(),
+      includeItems: includeItems.toString(),
     });
     const response = await fetch(`/api/orders/report?${params.toString()}`);
     if (!response.ok) throw new Error('Failed to fetch report');
@@ -2744,20 +2753,18 @@ const App: React.FC = () => {
       ...filters as any,
       timezoneOffsetMinutes: tzOffset.toString(),
       page: '1',
-      limit: '1000000',
-      includeSummary: 'false',
+      limit: '10000',
+      includeSummary: 'true',
+      includeBreakdowns: 'false',
+      export: 'true',
     });
     const response = await fetch(`/api/orders/report?${params.toString()}`);
-    if (!response.ok) throw new Error('Failed to fetch report');
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || 'Failed to export report');
+    }
     const data = await response.json();
     return data.orders;
-  };
-
-  const onFetchOrderChanges = async (updatedSince: string): Promise<OrderChangesResponse> => {
-    const params = new URLSearchParams({ updatedSince });
-    const response = await fetch(`/api/orders/report?${params.toString()}`);
-    if (!response.ok) throw new Error('Failed to synchronize report changes');
-    return await response.json();
   };
 
   const onFetchStats = async (filters: ReportFilters): Promise<any> => {
@@ -2766,13 +2773,24 @@ const App: React.FC = () => {
     const params = new URLSearchParams({
       ...filters as any,
       timezoneOffsetMinutes: tzOffset.toString(),
-      page: '1',
-      limit: '1'
+      mode: 'summary',
+      includeBreakdowns: 'false',
     });
     const response = await fetch(`/api/orders/report?${params.toString()}`);
     if (!response.ok) throw new Error('Failed to fetch report');
     const data = await response.json();
-    return data.summary;
+    return data;
+  };
+
+  const onFetchAdminDashboardAnalytics = async (filters: ReportFilters): Promise<AdminDashboardAnalytics> => {
+    const params = new URLSearchParams({
+      ...filters as any,
+      timezoneOffsetMinutes: new Date().getTimezoneOffset().toString(),
+      mode: 'dashboard',
+    });
+    const response = await fetch(`/api/orders/report?${params.toString()}`);
+    if (!response.ok) throw new Error('Failed to fetch dashboard analytics');
+    return await response.json();
   };
 
     /**
@@ -3705,8 +3723,8 @@ const App: React.FC = () => {
             || undefined;
           return <CustomerView
             restaurants={filteredRestaurants}
-            cart={cart}
             orders={orders}
+            cart={cart}
             onAddToCart={addToCart}
             onRemoveFromCart={removeFromCart}
             onPlaceOrder={placeOrder}
@@ -3889,7 +3907,6 @@ const App: React.FC = () => {
           <AdminView 
             vendors={allUsers.filter(u => u.role === 'VENDOR')} 
             restaurants={restaurants} 
-            orders={orders} 
             locations={locations} 
             onAddVendor={handleAddVendor} 
             onUpdateVendor={handleUpdateVendor} 
@@ -3903,8 +3920,8 @@ const App: React.FC = () => {
             onRemoveVendorFromHub={(rid) => supabase.from('restaurants').update({ location_name: null }).eq('id', rid).then(() => fetchRestaurants())} 
             onFetchPaginatedOrders={onFetchPaginatedOrders}
             onFetchAllFilteredOrders={onFetchAllFilteredOrders}
-            onFetchOrderChanges={onFetchOrderChanges}
             onFetchStats={onFetchStats}
+            onFetchDashboardAnalytics={onFetchAdminDashboardAnalytics}
           />
         )}
       </main>

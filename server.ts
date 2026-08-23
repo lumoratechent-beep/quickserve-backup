@@ -80,7 +80,8 @@ async function startServer() {
   app.get('/api/orders/report', async (req, res) => {
     const {
       restaurantId, startDate, endDate, status, search, page = 1, limit = 30,
-      locationName, timezoneOffsetMinutes, updatedSince, includeSummary = 'true',
+      locationName, timezoneOffsetMinutes, includeSummary = 'true', includeBreakdowns = 'true', includeItems = 'true', mode,
+      export: exportMode = 'false',
     } = req.query;
     const batchSize = 1000;
     const start = (Number(page) - 1) * Number(limit);
@@ -101,7 +102,7 @@ async function startServer() {
     };
     const mapOrder = (o: any) => ({
       id: o.id,
-      items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
+      items: typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []),
       total: Number(o.total || 0),
       status: o.status,
       timestamp: Number(o.timestamp),
@@ -120,30 +121,47 @@ async function startServer() {
       orderSource: o.order_source || undefined,
       updatedAt: o.updated_at || undefined,
     });
-    const fetchAllRows = async (buildQuery: () => any) => {
-      const rows: any[] = [];
-      for (let offset = 0; ; offset += batchSize) {
-        const { data, error } = await buildQuery().range(offset, offset + batchSize - 1);
-        if (error) throw error;
-        if (!data?.length) break;
-        rows.push(...data);
-        if (data.length < batchSize) break;
-      }
-      return rows;
-    };
-
     try {
-      if (updatedSince) {
-        const since = new Date(String(updatedSince));
-        if (Number.isNaN(since.getTime())) return res.status(400).json({ error: 'Invalid updatedSince cursor' });
-        const changedRows = await fetchAllRows(() => supabase
-          .from('orders')
-          .select('*')
-          .gt('updated_at', since.toISOString())
-          .lte('updated_at', syncCursor)
-          .order('updated_at', { ascending: true })
-          .order('id', { ascending: true }));
-        return res.json({ orders: changedRows.map(mapOrder), syncCursor });
+      const reportStartTimestamp = startDate ? getDateBoundary(startDate, false) : null;
+      const reportEndTimestamp = endDate ? getDateBoundary(endDate, true) : null;
+      if ((reportStartTimestamp !== null && !Number.isFinite(reportStartTimestamp))
+        || (reportEndTimestamp !== null && !Number.isFinite(reportEndTimestamp))) {
+        return res.status(400).json({ error: 'Invalid report date range' });
+      }
+      if ((mode === 'summary' || mode === 'dashboard' || includeSummary !== 'false' || exportMode === 'true')
+        && (reportStartTimestamp === null || reportEndTimestamp === null)) {
+        return res.status(400).json({ error: 'A start date and end date are required' });
+      }
+      if (reportStartTimestamp !== null && reportEndTimestamp !== null
+        && (reportEndTimestamp < reportStartTimestamp || reportEndTimestamp - reportStartTimestamp > 366 * 24 * 60 * 60 * 1000)) {
+        return res.status(400).json({ error: 'Report date ranges are limited to 366 days' });
+      }
+
+      if (mode === 'dashboard') {
+        if (!startDate || !endDate) return res.status(400).json({ error: 'Dashboard analytics require a date range' });
+        const { data, error } = await supabase.rpc('get_admin_dashboard_analytics', {
+          p_start_timestamp: reportStartTimestamp,
+          p_end_timestamp: reportEndTimestamp,
+          p_timezone_offset_minutes: tzOffset,
+        });
+        if (error) throw error;
+        res.setHeader('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
+        return res.json(data);
+      }
+
+      if (mode === 'summary') {
+        const { data, error } = await supabase.rpc('get_order_report_summary', {
+          p_start_timestamp: startDate ? getDateBoundary(startDate, false) : null,
+          p_end_timestamp: endDate ? getDateBoundary(endDate, true) : null,
+          p_restaurant_id: restaurantId && restaurantId !== 'ALL' ? restaurantId : null,
+          p_location_name: locationName && locationName !== 'ALL' ? locationName : null,
+          p_status: status && status !== 'ALL' ? status : null,
+          p_search: search ? String(search).trim() || null : null,
+          p_include_breakdowns: includeBreakdowns !== 'false',
+        });
+        if (error) throw error;
+        res.setHeader('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
+        return res.json(data);
       }
 
       const applyFilters = (query: any) => {
@@ -161,13 +179,21 @@ async function startServer() {
       };
 
       const requestedLimit = Number(limit);
+      const maximumLimit = exportMode === 'true' ? 10000 : 200;
+      if (!Number.isInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > maximumLimit) {
+        return res.status(400).json({ error: `Report limit must be between 1 and ${maximumLimit}` });
+      }
       let data: any[];
       let totalCount = 0;
       if (requestedLimit > batchSize) {
         data = [];
         for (let offset = start; offset <= end; offset += batchSize) {
           const batchEnd = Math.min(offset + batchSize - 1, end);
-          const result = await applyFilters(supabase.from('orders').select('*'))
+          const result = await applyFilters(supabase.from('orders').select(exportMode === 'true'
+            ? '*'
+            : includeItems === 'false'
+              ? 'id,total,status,timestamp,restaurant_id,table_number,location_name,payment_method,cashier_name,order_source,updated_at'
+              : 'id,total,status,timestamp,restaurant_id,table_number,location_name,payment_method,cashier_name,order_source,updated_at,items,customer_id,dining_type,remark,rejection_reason,rejection_note,amount_received,change_amount'))
             .order('timestamp', { ascending: false })
             .range(offset, batchEnd);
           if (result.error) throw result.error;
@@ -177,7 +203,11 @@ async function startServer() {
         }
         totalCount = data.length;
       } else {
-        const result = await applyFilters(supabase.from('orders').select('*', { count: 'exact' }))
+        const result = await applyFilters(supabase.from('orders').select(exportMode === 'true'
+          ? '*'
+          : includeItems === 'false'
+            ? 'id,total,status,timestamp,restaurant_id,table_number,location_name,payment_method,cashier_name,order_source,updated_at'
+            : 'id,total,status,timestamp,restaurant_id,table_number,location_name,payment_method,cashier_name,order_source,updated_at,items,customer_id,dining_type,remark,rejection_reason,rejection_note,amount_received,change_amount'))
           .order('timestamp', { ascending: false })
           .range(start, end);
         if (result.error) throw result.error;
@@ -185,36 +215,27 @@ async function startServer() {
         totalCount = result.count || 0;
       }
 
-      const summaryData = includeSummary === 'false'
-        ? []
-        : await fetchAllRows(() => applyFilters(supabase.from('orders').select('total, status, payment_method, cashier_name')));
-      const completed = summaryData.filter(order => order.status === 'COMPLETED');
-      const totalRevenue = completed.reduce((sum, order) => sum + Number(order.total || 0), 0);
-      const transactionMap = new Map<string, { count: number; total: number }>();
-      const cashierMap = new Map<string, { count: number; total: number }>();
-      summaryData.filter(order => order.status !== 'CANCELLED').forEach(order => {
-        const transaction = order.payment_method || '-';
-        const transactionRow = transactionMap.get(transaction) || { count: 0, total: 0 };
-        transactionRow.count += 1;
-        transactionRow.total += Number(order.total || 0);
-        transactionMap.set(transaction, transactionRow);
-        const cashier = order.cashier_name || '-';
-        const cashierRow = cashierMap.get(cashier) || { count: 0, total: 0 };
-        cashierRow.count += 1;
-        cashierRow.total += Number(order.total || 0);
-        cashierMap.set(cashier, cashierRow);
+      const summaryResult = includeSummary === 'false' ? null : await supabase.rpc('get_order_report_summary', {
+        p_start_timestamp: startDate ? getDateBoundary(startDate, false) : null,
+        p_end_timestamp: endDate ? getDateBoundary(endDate, true) : null,
+        p_restaurant_id: restaurantId && restaurantId !== 'ALL' ? restaurantId : null,
+        p_location_name: locationName && locationName !== 'ALL' ? locationName : null,
+        p_status: status && status !== 'ALL' ? status : null,
+        p_search: search ? String(search).trim() || null : null,
+        p_include_breakdowns: includeBreakdowns !== 'false',
       });
+      if (summaryResult?.error) throw summaryResult.error;
+      const summary = summaryResult?.data || { totalRevenue: 0, orderVolume: 0, efficiency: 0, byTransactionType: [], byCashier: [] };
+      if (exportMode === 'true' && includeSummary !== 'false' && Number(summary.orderVolume || 0) > maximumLimit) {
+        return res.status(413).json({
+          error: `This export contains more than ${maximumLimit} orders. Select a shorter date range or a specific kitchen.`,
+        });
+      }
 
       return res.json({
         orders: data.map(mapOrder),
-        summary: {
-          totalRevenue,
-          orderVolume: summaryData.length,
-          efficiency: summaryData.length ? Math.round((completed.length / summaryData.length) * 100) : 0,
-          byTransactionType: Array.from(transactionMap, ([name, values]) => ({ name, ...values })),
-          byCashier: Array.from(cashierMap, ([name, values]) => ({ name, ...values })),
-        },
-        totalCount,
+        summary,
+        totalCount: includeSummary === 'false' ? 0 : Number(summary.orderVolume || 0),
         syncCursor,
       });
     } catch (error) {

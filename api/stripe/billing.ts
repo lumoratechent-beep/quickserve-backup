@@ -1570,10 +1570,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               status: 'active',
               plan_id: dnSub.plan_id,
               billing_interval: dnSub.billing_interval || 'monthly',
-              current_period_start: dnOriginalExpiryDate && dnOriginalExpiryDate > dnSubmittedAt
-                ? dnSub.current_period_start
-                : dnSubmittedAt.toISOString(),
-              current_period_end: dnAccessUntil.toISOString(),
               access_locked: false,
               access_lock_at: dnAccessUntil.toISOString(),
               access_locked_at: null,
@@ -1666,10 +1662,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .single();
 
         if (dnFetchErr || !dnPay) return res.status(404).json({ error: 'Payment not found.' });
-        if (dnPay.status !== 'pending') return res.status(409).json({ error: 'Payment has already been reviewed.' });
+        const dnAlreadyReviewed = dnPay.status !== 'pending';
+        if (dnAlreadyReviewed && dnPay.status !== dnDecision) {
+          return res.status(409).json({ error: 'Payment has already been reviewed.' });
+        }
 
         const dnReviewedAt = new Date().toISOString();
         const finalizeDuitNowReview = async () => {
+          if (dnAlreadyReviewed) return null;
           const { error } = await supabase
             .from('duitnow_payments')
             .update({
@@ -1685,6 +1685,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         };
 
         if (dnDecision === 'rejected') {
+          if (dnAlreadyReviewed) return res.status(200).json({ success: true, decision: dnDecision });
+
           const dnHasOriginalSnapshot = Boolean(dnPay.original_status || dnPay.original_plan_id);
           if (dnHasOriginalSnapshot) {
             const dnOriginalExpiry = dnPay.original_current_period_end || dnPay.original_trial_end;

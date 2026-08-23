@@ -71,3 +71,15 @@ test('honors an admin-scheduled lock before the plan expiry', () => {
     'locked'
   );
 });
+
+test('keeps provisional DuitNow access active without changing expired plan expiry', () => {
+  const sub = makeSubscription({
+    current_period_end: '2026-06-30T00:00:00.000Z',
+    access_lock_at: '2026-07-01T00:00:00.000Z',
+  });
+  const duringGrace = new Date('2026-06-30T12:00:00.000Z');
+
+  assert.equal(getSubscriptionAccessLockState(sub, duringGrace), 'scheduled');
+  assert.equal(getRenewalStatus(sub, duringGrace), 'urgent');
+  assert.equal(isSubscriptionActive(sub, duringGrace), true);
+});
