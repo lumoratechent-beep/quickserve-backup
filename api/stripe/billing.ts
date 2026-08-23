@@ -77,20 +77,37 @@ function isDuplicateKeyError(error: any): boolean {
   return code === '23505' || message.includes('duplicate key');
 }
 
+function parseDateOrNull(value: any): Date | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function calculateDuitNowApprovedPeriod(dnPay: any, isAnnual: boolean): { periodStart: Date; periodEnd: Date } {
+  const paidAt = parseDateOrNull(dnPay.reviewed_at)
+    || parseDateOrNull(dnPay.created_at)
+    || parseDateOrNull(dnPay.updated_at)
+    || new Date();
+  const originalEnd = parseDateOrNull(dnPay.original_current_period_end || dnPay.original_trial_end);
+  const periodStart = originalEnd && originalEnd > paidAt
+    ? new Date(originalEnd.getTime())
+    : new Date(paidAt.getTime());
+  const durationDays = isAnnual ? 365 : 30;
+  const periodEnd = new Date(periodStart.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+  return { periodStart, periodEnd };
+}
+
 async function ensureDuitNowBillingRecord(
   dnPay: any,
   isUpgrade: boolean,
   isAnnual: boolean
-): Promise<{ id: string | null; created: boolean }> {
+): Promise<{ id: string | null; created: boolean; repaired: boolean }> {
   const { data: existingDuitNowIncome, error: lookupError } = await supabase
     .from('billing_records')
     .select('id')
     .eq('duitnow_payment_id', dnPay.id)
     .maybeSingle();
-
-  if (!lookupError && existingDuitNowIncome?.id) {
-    return { id: existingDuitNowIncome.id, created: false };
-  }
 
   if (lookupError && !isMissingColumnError(lookupError, ['duitnow_payment_id'])) {
     throw new Error(lookupError.message || 'Failed to check existing DuitNow income.');
@@ -103,7 +120,24 @@ async function ensureDuitNowBillingRecord(
       .eq('reference_code', dnPay.reference_code)
       .limit(1);
     if (referenceLookupError) throw new Error(referenceLookupError.message || 'Failed to check DuitNow reference income.');
-    if (existingByReference?.[0]?.id) return { id: existingByReference[0].id, created: false };
+    if (existingByReference?.[0]?.id) {
+      const { error: patchError } = await supabase
+        .from('billing_records')
+        .update({
+          description: `SUBSCRIPTION INCOME - DuitNow ${isUpgrade ? 'Upgrade' : 'Renewal'} (${isAnnual ? 'Annual' : 'Monthly'})`,
+          amount: Number(dnPay.amount),
+          type: 'subscription_income',
+          gross: Number(dnPay.amount),
+          fee: 0,
+          net: Number(dnPay.amount),
+          plan_id: dnPay.plan_id || 'basic',
+          created_by: 'duitnow',
+          created_at: dnPay.reviewed_at || dnPay.created_at || dnPay.updated_at || new Date().toISOString(),
+        })
+        .eq('id', existingByReference[0].id);
+      if (patchError) throw new Error(patchError.message || 'Failed to repair DuitNow income.');
+      return { id: existingByReference[0].id, created: false, repaired: true };
+    }
   }
 
   const { data: rest } = await supabase
@@ -124,8 +158,17 @@ async function ensureDuitNowBillingRecord(
     restaurant_name: rest?.name || 'Unknown',
     created_by: 'duitnow',
     reference_code: dnPay.reference_code || null,
-    created_at: dnPay.reviewed_at || dnPay.updated_at || dnPay.created_at || new Date().toISOString(),
+    created_at: dnPay.reviewed_at || dnPay.created_at || dnPay.updated_at || new Date().toISOString(),
   };
+
+  if (!lookupError && existingDuitNowIncome?.id) {
+    const { error: patchError } = await supabase
+      .from('billing_records')
+      .update(incomeRecord)
+      .eq('id', existingDuitNowIncome.id);
+    if (patchError) throw new Error(patchError.message || 'Failed to repair DuitNow income.');
+    return { id: existingDuitNowIncome.id, created: false, repaired: true };
+  }
 
   const insertPayload = lookupError && isMissingColumnError(lookupError, ['duitnow_payment_id'])
     ? incomeRecord
@@ -144,12 +187,12 @@ async function ensureDuitNowBillingRecord(
         .select('id')
         .eq('duitnow_payment_id', dnPay.id)
         .maybeSingle();
-      return { id: existingAfterDuplicate?.id || null, created: false };
+      return { id: existingAfterDuplicate?.id || null, created: false, repaired: false };
     }
     throw new Error(insertError.message || 'Failed to create DuitNow income.');
   }
 
-  return { id: inserted?.id || null, created: true };
+  return { id: inserted?.id || null, created: true, repaired: true };
 }
 
 async function repairApprovedDuitNowPayment(dnPay: any): Promise<DuitNowRepairResult> {
@@ -169,11 +212,9 @@ async function repairApprovedDuitNowPayment(dnPay: any): Promise<DuitNowRepairRe
       .single();
     if (subError || !sub) throw new Error('Subscription not found for approved DuitNow payment.');
 
-    const originalExpiry = dnPay.original_current_period_end || dnPay.original_trial_end;
-    const { periodStart, periodEnd } = calculateNextSubscriptionPeriod(
-      isUpgrade ? undefined : originalExpiry,
-      isAnnual,
-      dnPay.reviewed_at ? new Date(dnPay.reviewed_at) : new Date(dnPay.created_at || Date.now())
+    const { periodStart, periodEnd } = calculateDuitNowApprovedPeriod(
+      isUpgrade ? { ...dnPay, original_current_period_end: null, original_trial_end: null } : dnPay,
+      isAnnual
     );
 
     const currentEnd = sub.current_period_end ? new Date(sub.current_period_end) : null;
@@ -234,6 +275,7 @@ async function repairApprovedDuitNowPayment(dnPay: any): Promise<DuitNowRepairRe
 
     const billing = await ensureDuitNowBillingRecord(dnPay, isUpgrade, isAnnual);
     if (billing.created) actions.push('income');
+    else if (billing.repaired) actions.push('income_repaired');
 
     await upsertSubscriptionPayment(supabase, {
       restaurantId: dnPay.restaurant_id,
@@ -306,10 +348,9 @@ async function rejectApprovedDuitNowPayment(dnPay: any): Promise<DuitNowRepairRe
     const isUpgrade = dnPay.change_type === 'upgrade'
       || PLAN_ORDER.indexOf(planId) > PLAN_ORDER.indexOf(dnPay.original_plan_id || planId);
     const originalExpiry = dnPay.original_current_period_end || dnPay.original_trial_end;
-    const { periodEnd } = calculateNextSubscriptionPeriod(
-      isUpgrade ? undefined : originalExpiry,
-      isAnnual,
-      reviewedAt ? new Date(reviewedAt) : new Date()
+    const { periodEnd } = calculateDuitNowApprovedPeriod(
+      isUpgrade ? { ...dnPay, original_current_period_end: null, original_trial_end: null } : dnPay,
+      isAnnual
     );
 
     const { data: sub } = await supabase
