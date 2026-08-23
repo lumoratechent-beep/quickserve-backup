@@ -69,7 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const {
-    restaurantId, startDate, endDate, status, search, page = '1', limit = '30',
+    restaurantId, startDate, endDate, status, search, paymentMethod, page = '1', limit = '30',
     locationName, timezoneOffsetMinutes, includeSummary = 'true',
     includeBreakdowns = 'true', includeItems = 'true', mode, export: exportMode = 'false',
   } = req.query;
@@ -86,6 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const normalizedRestaurantId = restaurantId && restaurantId !== 'ALL' ? String(restaurantId) : null;
     const normalizedLocationName = locationName && locationName !== 'ALL' ? String(locationName) : null;
     const normalizedStatus = status && status !== 'ALL' ? String(status) : null;
+    const normalizedPaymentMethod = paymentMethod && paymentMethod !== 'ALL' ? String(paymentMethod) : null;
     const normalizedSearch = search ? String(search).trim() || null : null;
     const startTimestamp = startDate ? getDateBoundary(startDate, false) : null;
     const endTimestamp = endDate ? getDateBoundary(endDate, true) : null;
@@ -100,6 +101,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       && (endTimestamp < startTimestamp || endTimestamp - startTimestamp > MAX_REPORT_RANGE_MS)) {
       return res.status(400).json({ error: 'Report date ranges are limited to 366 days' });
     }
+
+    const buildOrderQuery = (columns: string, withCount = false) => {
+      let query = supabase.from('orders').select(columns, withCount ? { count: 'exact' } : undefined);
+      if (normalizedRestaurantId) query = query.eq('restaurant_id', normalizedRestaurantId);
+      if (normalizedLocationName) query = query.eq('location_name', normalizedLocationName);
+      if (normalizedStatus) query = query.eq('status', normalizedStatus);
+      if (normalizedPaymentMethod) query = query.eq('payment_method', normalizedPaymentMethod);
+      if (startTimestamp !== null) query = query.gte('timestamp', startTimestamp);
+      if (endTimestamp !== null) query = query.lte('timestamp', endTimestamp);
+      if (normalizedSearch) query = query.ilike('id', `%${normalizedSearch}%`);
+      return query;
+    };
+
+    const buildManualSummary = async () => {
+      const { data, count, error } = await buildOrderQuery('id,total,status,payment_method,cashier_name', true)
+        .range(0, MAX_EXPORT_ROWS - 1);
+      if (error) throw error;
+      const rows = (data || []) as any[];
+      const completedRows = rows.filter(row => row.status === 'COMPLETED');
+      const byTransactionType = new Map<string, { name: string; count: number; total: number }>();
+      const byCashier = new Map<string, { name: string; count: number; total: number }>();
+      completedRows.forEach(row => {
+        const total = Number(row.total || 0);
+        const paymentName = row.payment_method || 'Unknown';
+        const cashierName = row.cashier_name || 'Unknown';
+        const payment = byTransactionType.get(paymentName) || { name: paymentName, count: 0, total: 0 };
+        payment.count += 1;
+        payment.total += total;
+        byTransactionType.set(paymentName, payment);
+        const cashier = byCashier.get(cashierName) || { name: cashierName, count: 0, total: 0 };
+        cashier.count += 1;
+        cashier.total += total;
+        byCashier.set(cashierName, cashier);
+      });
+      const totalRevenue = completedRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
+      const orderVolume = count ?? rows.length;
+      return {
+        totalRevenue,
+        orderVolume,
+        efficiency: orderVolume > 0 ? Math.round((completedRows.length / orderVolume) * 1000) / 10 : 0,
+        byTransactionType: Array.from(byTransactionType.values()),
+        byCashier: Array.from(byCashier.values()),
+      };
+    };
 
     if (mode === 'dashboard') {
       if (startTimestamp === null || endTimestamp === null) {
@@ -119,6 +164,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (mode === 'summary') {
+      if (normalizedPaymentMethod) {
+        const summary = await buildManualSummary();
+        res.setHeader('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
+        return res.status(200).json(summary);
+      }
       const { data, error } = await supabase.rpc('get_order_report_summary', {
         p_start_timestamp: startTimestamp,
         p_end_timestamp: endTimestamp,
@@ -132,17 +182,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.setHeader('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
       return res.status(200).json(data);
     }
-
-    const buildOrderQuery = (columns: string, withCount = false) => {
-      let query = supabase.from('orders').select(columns, withCount ? { count: 'exact' } : undefined);
-      if (normalizedRestaurantId) query = query.eq('restaurant_id', normalizedRestaurantId);
-      if (normalizedLocationName) query = query.eq('location_name', normalizedLocationName);
-      if (normalizedStatus) query = query.eq('status', normalizedStatus);
-      if (startTimestamp !== null) query = query.gte('timestamp', startTimestamp);
-      if (endTimestamp !== null) query = query.lte('timestamp', endTimestamp);
-      if (normalizedSearch) query = query.ilike('id', `%${normalizedSearch}%`);
-      return query;
-    };
 
     const requestedPage = Number(page);
     const requestedLimit = Number(limit);
@@ -159,7 +198,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const summaryResult = includeSummary === 'false' ? null : await supabase.rpc('get_order_report_summary', {
+    const summaryResult = includeSummary === 'false' || normalizedPaymentMethod ? null : await supabase.rpc('get_order_report_summary', {
       p_start_timestamp: startTimestamp,
       p_end_timestamp: endTimestamp,
       p_restaurant_id: normalizedRestaurantId,
@@ -169,7 +208,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_include_breakdowns: includeBreakdowns !== 'false',
     });
     if (summaryResult?.error) throw summaryResult.error;
-    const summary = summaryResult?.data || {
+    const summary = normalizedPaymentMethod && includeSummary !== 'false' ? await buildManualSummary() : summaryResult?.data || {
       totalRevenue: 0, orderVolume: 0, efficiency: 0, byTransactionType: [], byCashier: [],
     };
     if (isExport && includeSummary !== 'false' && Number(summary.orderVolume || 0) > MAX_EXPORT_ROWS) {

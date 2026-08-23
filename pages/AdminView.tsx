@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, AdminDashboardAnalytics, Subscription, SubscriptionExpiryHistory, PlanId, MenuItem } from '../src/types';
 import { uploadImage } from '../lib/storage';
-import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2, Lock, Unlock, MoreVertical, BookOpen, Package } from 'lucide-react';
+import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, ChevronDown, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2, Lock, Unlock, MoreVertical, BookOpen, Package } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
@@ -31,6 +31,7 @@ interface Props {
 }
 
 type AdminTab = 'DASHBOARD' | 'VENDORS' | 'INCOME_REPORT' | 'VENDOR_SUBSCRIPTION' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SHOP' | 'DOCUMENTS' | 'SYSTEM';
+type SubscriptionScheduleSort = 'EXPIRY_DESC' | 'EXPIRY_ASC' | 'ALPHA_ASC' | 'ALPHA_DESC';
 type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'paid' | 'expired';
 type QuotationDocumentType = 'quotation' | 'invoice';
 type QuotationThemeId = 'orange' | 'blue' | 'emerald' | 'slate' | 'rose' | 'custom';
@@ -1778,6 +1779,7 @@ const AdminView: React.FC<Props> = ({
   });
   const [incomeEndDate, setIncomeEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [incomeSearchQuery, setIncomeSearchQuery] = useState('');
+  const [incomePaymentFilter, setIncomePaymentFilter] = useState('ALL');
   const [incomeHasMore, setIncomeHasMore] = useState(false);
   const [incomeLastId, setIncomeLastId] = useState<string | null>(null);
   const [deletingIncomeId, setDeletingIncomeId] = useState<string | null>(null);
@@ -1826,7 +1828,7 @@ const AdminView: React.FC<Props> = ({
   const [subscriptionHistory, setSubscriptionHistory] = useState<SubscriptionExpiryHistory[]>([]);
   const [subscriptionScheduleLoading, setSubscriptionScheduleLoading] = useState(false);
   const [subscriptionScheduleSearch, setSubscriptionScheduleSearch] = useState('');
-  const [subscriptionScheduleSortDirection, setSubscriptionScheduleSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [subscriptionScheduleSort, setSubscriptionScheduleSort] = useState<SubscriptionScheduleSort>('EXPIRY_DESC');
   const [expiryEditModal, setExpiryEditModal] = useState<{
     restaurantId: string;
     restaurantName: string;
@@ -1901,15 +1903,19 @@ const AdminView: React.FC<Props> = ({
           .some(value => value?.toLowerCase().includes(query));
       })
       .sort((a, b) => {
+        if (subscriptionScheduleSort === 'ALPHA_ASC' || subscriptionScheduleSort === 'ALPHA_DESC') {
+          const order = a.name.localeCompare(b.name);
+          return subscriptionScheduleSort === 'ALPHA_ASC' ? order : -order;
+        }
         const aSub = subscriptions[a.id];
         const bSub = subscriptions[b.id];
         const aExpiry = aSub?.current_period_end || aSub?.trial_end;
         const bExpiry = bSub?.current_period_end || bSub?.trial_end;
         const order = (aExpiry ? new Date(aExpiry).getTime() : Number.MAX_SAFE_INTEGER)
           - (bExpiry ? new Date(bExpiry).getTime() : Number.MAX_SAFE_INTEGER);
-        return subscriptionScheduleSortDirection === 'asc' ? order : -order;
+        return subscriptionScheduleSort === 'EXPIRY_ASC' ? order : -order;
       });
-  }, [restaurants, vendors, subscriptions, subscriptionScheduleSearch, subscriptionScheduleSortDirection]);
+  }, [restaurants, vendors, subscriptions, subscriptionScheduleSearch, subscriptionScheduleSort]);
 
   const openExpiryEditor = (restaurant: Restaurant) => {
     const sub = subscriptions[restaurant.id];
@@ -2200,16 +2206,31 @@ const AdminView: React.FC<Props> = ({
 
   const filteredIncomeTransactions = useMemo(() => {
     const query = incomeSearchQuery.trim().toLowerCase();
-    if (!query) return incomeTransactions;
-    return incomeTransactions.filter(txn => [
-      txn.id,
-      txn.restaurantName,
-      txn.planName,
-      txn.description,
-      txn.status,
-      txn.extensionType,
-    ].some(value => String(value || '').toLowerCase().includes(query)));
-  }, [incomeTransactions, incomeSearchQuery]);
+    return incomeTransactions.filter(txn => {
+      if (incomePaymentFilter !== 'ALL' && txn.extensionType !== incomePaymentFilter) return false;
+      if (!query) return true;
+      return [
+        txn.id,
+        txn.restaurantName,
+        txn.planName,
+        txn.description,
+        txn.status,
+        txn.extensionType,
+      ].some(value => String(value || '').toLowerCase().includes(query));
+    });
+  }, [incomeTransactions, incomePaymentFilter, incomeSearchQuery]);
+
+  const incomePaymentOptions = useMemo(() => {
+    const labels: Record<string, string> = {
+      ALL: 'All',
+      subscription_income: 'Subscription',
+      stripe: 'Stripe',
+      paid: 'Cash',
+      free: 'Free',
+    };
+    const values = Array.from(new Set(incomeTransactions.map(txn => String(txn.extensionType || 'free'))));
+    return ['ALL', ...values].map(value => ({ value, label: labels[value] || value.replace(/_/g, ' ') }));
+  }, [incomeTransactions]);
 
   const visibleIncomeSummary = useMemo(() => {
     if (!incomeSearchQuery.trim()) return incomeSummary;
@@ -2920,6 +2941,7 @@ const AdminView: React.FC<Props> = ({
   const [reportStatus, setReportStatus] = useState<'ALL' | OrderStatus>('ALL');
   const [reportVendor, setReportVendor] = useState<string>('ALL');
   const [reportHub, setReportHub] = useState<string>('ALL');
+  const [reportPaymentMethod, setReportPaymentMethod] = useState<string>('ALL');
   const [reportStart, setReportStart] = useState<string>(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
@@ -3101,6 +3123,7 @@ const AdminView: React.FC<Props> = ({
         startDate: reportStart,
         endDate: reportEnd,
         status: reportStatus,
+        paymentMethod: reportPaymentMethod,
         search: debouncedReportSearch
       };
       if (isExport) {
@@ -3134,10 +3157,24 @@ const AdminView: React.FC<Props> = ({
     if (activeTab === 'INCOME_REPORT' && incomeReportSubTab === 'REPORTS') {
       fetchReport();
     }
-  }, [activeTab, incomeReportSubTab, reportStart, reportEnd, reportStatus, debouncedReportSearch, reportVendor, reportHub, currentPage, entriesPerPage]);
+  }, [activeTab, incomeReportSubTab, reportStart, reportEnd, reportStatus, reportPaymentMethod, debouncedReportSearch, reportVendor, reportHub, currentPage, entriesPerPage]);
 
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
+  const reportPaymentOptions = useMemo(() => {
+    const values = new Set<string>();
+    restaurants.forEach(restaurant => {
+      restaurant.settings?.paymentTypes?.forEach(type => {
+        if (type?.name) values.add(type.name);
+      });
+    });
+    paginatedReports.forEach(order => {
+      if (order.paymentMethod) values.add(order.paymentMethod);
+    });
+    ['Cash', 'Card', 'QR', 'Other'].forEach(value => values.add(value));
+    if (reportPaymentMethod !== 'ALL') values.add(reportPaymentMethod);
+    return ['ALL', ...Array.from(values).sort((a, b) => a.localeCompare(b))];
+  }, [paginatedReports, reportPaymentMethod, restaurants]);
   const visibleReportPages = useMemo(() => {
     const pages = new Set<number>();
     if (totalPages > 0) {
@@ -4022,14 +4059,27 @@ const AdminView: React.FC<Props> = ({
                       className="w-full h-10 pl-9 pr-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 dark:text-white"
                     />
                   </div>
+                  <div className="relative w-full sm:w-[180px] shrink-0">
+                    <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 pointer-events-none" />
+                    <select
+                      value={incomePaymentFilter}
+                      onChange={e => setIncomePaymentFilter(e.target.value)}
+                      className="w-full h-10 pl-9 pr-9 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none appearance-none cursor-pointer focus:ring-1 focus:ring-orange-500 dark:text-white"
+                    >
+                      {incomePaymentOptions.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
                   <div className="flex items-center gap-2 h-10 px-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl">
                     <Calendar size={14} className="text-orange-500 shrink-0" />
                     <input type="date" className="w-[126px] bg-transparent text-[10px] outline-none font-black dark:text-white" value={incomeStartDate} onChange={e => setIncomeStartDate(e.target.value)} />
                     <span className="text-gray-400 font-black text-[10px]">to</span>
                     <input type="date" className="w-[126px] bg-transparent text-[10px] outline-none font-black dark:text-white" value={incomeEndDate} onChange={e => setIncomeEndDate(e.target.value)} />
                   </div>
-                  <button onClick={() => fetchIncome()} disabled={incomeLoading} className="h-10 px-5 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap">
-                    {incomeLoading ? <RefreshCw size={14} className="animate-spin" /> : <Filter size={14} />} Filter
+                  <button onClick={() => fetchIncome()} disabled={incomeLoading} className="h-10 w-10 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl transition-all active:scale-95 flex items-center justify-center disabled:opacity-50 shrink-0" title="Apply date range" aria-label="Apply date range">
+                    <RefreshCw size={14} className={incomeLoading ? 'animate-spin' : ''} />
                   </button>
                 </div>
 
@@ -4152,14 +4202,21 @@ const AdminView: React.FC<Props> = ({
                         className="w-full h-[36px] pl-9 pr-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 dark:text-white"
                       />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setSubscriptionScheduleSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
-                      className="h-[36px] px-4 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:text-orange-500 hover:border-orange-200 dark:hover:border-orange-500/40 transition-all whitespace-nowrap"
-                      title="Sort subscription schedule by expiry date"
-                    >
-                      <Calendar size={13} /> Expiry {subscriptionScheduleSortDirection === 'asc' ? 'Soonest' : 'Latest'}
-                    </button>
+                    <div className="relative w-[220px] shrink-0">
+                      <Filter size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 pointer-events-none" />
+                      <select
+                        value={subscriptionScheduleSort}
+                        onChange={event => setSubscriptionScheduleSort(event.target.value as SubscriptionScheduleSort)}
+                        className="w-full h-[36px] pl-9 pr-9 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-xl font-black text-[10px] uppercase tracking-widest appearance-none cursor-pointer outline-none hover:text-orange-500 hover:border-orange-200 dark:hover:border-orange-500/40 transition-all"
+                        title="Sort subscription schedule"
+                      >
+                        <option value="EXPIRY_DESC">Descending by expiry</option>
+                        <option value="EXPIRY_ASC">Ascending by expiry</option>
+                        <option value="ALPHA_ASC">Alphabetical A-Z</option>
+                        <option value="ALPHA_DESC">Alphabetical Z-A</option>
+                      </select>
+                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
                     <button
                       onClick={() => Promise.all([refreshSubscriptions(), refreshSubscriptionHistory()])}
                       disabled={subscriptionScheduleLoading}
@@ -4376,13 +4433,6 @@ const AdminView: React.FC<Props> = ({
                       />
                     </div>
                     <button 
-                      onClick={() => fetchReport()} 
-                      disabled={isReportLoading}
-                      className="h-[34px] px-4 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:text-orange-500 hover:border-orange-200 dark:hover:border-orange-500/40 transition-all whitespace-nowrap disabled:opacity-50"
-                    >
-                      {isReportLoading ? <RefreshCw size={14} className="animate-spin" /> : <Filter size={14} />} Filter
-                    </button>
-                    <button 
                       onClick={handleDownloadReport} 
                       disabled={!reportData || reportData.totalCount === 0} 
                       className="h-[34px] px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-orange-500 hover:text-white transition-all shadow-lg whitespace-nowrap"
@@ -4405,53 +4455,51 @@ const AdminView: React.FC<Props> = ({
                     </div>
 
                     {/* Vendor Filter */}
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Kitchen</label>
+                    <div>
                       <div className="relative">
                         <Store size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <select 
                           value={reportVendor} 
                           onChange={(e) => {setReportVendor(e.target.value); setCurrentPage(1);}}
-                          className="w-full pl-8 pr-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-[10px] font-black dark:text-white appearance-none cursor-pointer outline-none"
+                          className="w-full h-[34px] pl-8 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-[10px] font-black dark:text-white appearance-none cursor-pointer outline-none"
                         >
                           <option value="ALL">All Kitchens</option>
                           {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                         </select>
+                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                       </div>
                     </div>
 
                     {/* Hub Filter */}
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Hub</label>
+                    <div>
                       <div className="relative">
                         <MapPin size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <select 
                           value={reportHub} 
                           onChange={(e) => {setReportHub(e.target.value); setCurrentPage(1);}}
-                          className="w-full pl-8 pr-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-[10px] font-black dark:text-white appearance-none cursor-pointer outline-none"
+                          className="w-full h-[34px] pl-8 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-[10px] font-black dark:text-white appearance-none cursor-pointer outline-none"
                         >
                           <option value="ALL">All Hubs</option>
                           {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
                         </select>
+                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                       </div>
                     </div>
 
-                    {/* Status Filter */}
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Outcome</label>
+                    {/* Payment Filter */}
+                    <div>
                       <div className="relative">
-                        <Filter size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <Filter size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500" />
                         <select 
-                          value={reportStatus} 
-                          onChange={(e) => {setReportStatus(e.target.value as any); setCurrentPage(1);}}
-                          className="w-full pl-8 pr-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-[10px] font-black dark:text-white appearance-none cursor-pointer outline-none"
+                          value={reportPaymentMethod}
+                          onChange={(e) => {setReportPaymentMethod(e.target.value); setCurrentPage(1);}}
+                          className="w-full h-[34px] pl-8 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-[10px] font-black dark:text-white appearance-none cursor-pointer outline-none"
                         >
-                          <option value="ALL">All Outcomes</option>
-                          <option value={OrderStatus.COMPLETED}>Served</option>
-                          <option value={OrderStatus.PENDING}>Pending</option>
-                          <option value={OrderStatus.ONGOING}>Ongoing</option>
-                          <option value={OrderStatus.CANCELLED}>Rejected</option>
+                          {reportPaymentOptions.map(option => (
+                            <option key={option} value={option}>{option === 'ALL' ? 'All' : option}</option>
+                          ))}
                         </select>
+                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                       </div>
                     </div>
                   </div>

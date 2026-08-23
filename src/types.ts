@@ -272,6 +272,7 @@ export interface ReportFilters {
   startDate?: string;
   endDate?: string;
   status?: string;
+  paymentMethod?: string;
   search?: string;
   timezoneOffsetMinutes?: string;
 }
