@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Order, OrderStatus, ReportResponse, CashierShift } from '../src/types';
 import { Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users, Check } from 'lucide-react';
 
-export type ReportSectionKey = 'salesSummary' | 'dailyBreakdown' | 'hourlyDistribution' | 'byItem' | 'byCategory' | 'byEmployee' | 'byPayment' | 'byModifier' | 'transactions';
+export type ReportSectionKey = 'salesSummary' | 'dailyBreakdown' | 'hourlyDistribution' | 'byItem' | 'byCategory' | 'byEmployee' | 'byPayment' | 'transactions';
 export type ReportDownloadInfoType = 'all' | 'summary' | 'transactions' | 'dailyBreakdown';
 export type ReportDownloadFileType = 'csv' | 'pdf';
 
@@ -77,7 +77,6 @@ const StandardReport: React.FC<Props> = ({
     { key: 'byCategory', label: 'By Category', group: 'By Category' },
     { key: 'byEmployee', label: 'By Employee', group: 'By Employee' },
     { key: 'byPayment', label: 'By Payment', group: 'By Payment' },
-    { key: 'byModifier', label: 'By Modifier', group: 'By Modifier' },
   ];
   const allReportSectionKeys = reportSectionOptions.map((option) => option.key);
   const [downloadSections, setDownloadSections] = useState<ReportSectionKey[]>(allReportSectionKeys);

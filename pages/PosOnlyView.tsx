@@ -4957,7 +4957,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [isDownloadingReport, setIsDownloadingReport] = useState(false);
 
   const getNormalizedPaymentMethod = (method?: string) => String(method || 'CASH').trim().toUpperCase();
-  const defaultReportSections: ReportSectionKey[] = ['salesSummary', 'dailyBreakdown', 'hourlyDistribution', 'byItem', 'byCategory', 'byEmployee', 'byPayment', 'byModifier'];
+  const defaultReportSections: ReportSectionKey[] = ['salesSummary', 'dailyBreakdown', 'hourlyDistribution', 'byItem', 'byCategory', 'byEmployee', 'byPayment'];
   const getSelectedReportSections = (options: ReportDownloadOptions): ReportSectionKey[] => {
     if (options.sections?.length) return options.sections;
     if (options.infoType === 'summary') return ['salesSummary'];
@@ -5154,26 +5154,6 @@ const PosOnlyView: React.FC<Props> = ({
       ]));
     }
 
-    if (includeSection('byModifier')) {
-      const modifierMap = new Map<string, { count: number; revenue: number; items: Set<string> }>();
-      completed.forEach((order) => order.items.forEach((item) => {
-        Object.entries(item.selectedModifiers || {}).forEach(([group, value]) => {
-          const name = `${group}: ${value}`;
-          const row = modifierMap.get(name) || { count: 0, revenue: 0, items: new Set<string>() };
-          row.count += item.quantity;
-          row.revenue += item.price * item.quantity;
-          row.items.add(item.name);
-          modifierMap.set(name, row);
-        });
-      }));
-      appendTable('By Modifier', ['Modifier', 'Times Used', 'Revenue', 'Used In'], Array.from(modifierMap.entries()).sort((a, b) => b[1].revenue - a[1].revenue).map(([name, data]) => [
-        name,
-        String(data.count),
-        data.revenue.toFixed(2),
-        Array.from(data.items).join('; '),
-      ]));
-    }
-
     if (includeSection('transactions')) {
       appendTable('Transactions', ['Order ID', 'Table', 'Dining Option', 'Date', 'Time', 'Status', 'Payment Method', 'Cashier', 'Items', 'Total'], orders.map((o) => [
           o.id,
@@ -5203,13 +5183,14 @@ const PosOnlyView: React.FC<Props> = ({
     const pageH = doc.internal.pageSize.getHeight();
     const amber = [217, 119, 6] as [number, number, number];
     const darkGray = [55, 65, 81] as [number, number, number];
-    const lightAmber = [255, 247, 237] as [number, number, number];
+    const tableTextColor = [80, 80, 80] as [number, number, number];
     const contentW = pageW - margin * 2;
     let y = 16;
 
     const completed = orders.filter((o) => o.status === OrderStatus.COMPLETED);
     const cancelled = orders.filter((o) => o.status === OrderStatus.CANCELLED);
     const totalRevenue = completed.reduce((sum, o) => sum + o.total, 0);
+    const cancelledRevenue = cancelled.reduce((sum, o) => sum + o.total, 0);
     const avgOrder = completed.length > 0 ? totalRevenue / completed.length : 0;
     const daily = buildDailySalesBreakdown(orders);
     const paymentMap: Record<string, { count: number; total: number }> = {};
@@ -5260,15 +5241,98 @@ const PosOnlyView: React.FC<Props> = ({
       if (y + needed > pageH - 16) beginPage();
     };
 
+    const sectionDescriptions: Record<string, string> = {
+      'Sales Overview': 'Key sales performance for the selected period.',
+      'Daily Sales Breakdown Trend': 'Daily revenue movement across the selected period.',
+      'Daily Sales Breakdown': 'Daily order totals and payment-method sales.',
+      'Hourly Sales Distribution Trend': 'Revenue pattern by trading hour.',
+      'Hourly Sales Distribution': 'Orders and revenue grouped by hourly interval.',
+      'By Item': 'Sales performance for each menu item.',
+      'By Category': 'Sales performance grouped by menu category.',
+      'By Employee': 'Completed order performance by employee.',
+      'By Payment': 'Completed sales by payment method.',
+      Transactions: 'Detailed record of all orders in the selected period.',
+    };
+
     const section = (title: string, minimumContentHeight = 46) => {
-      ensureSpace(minimumContentHeight + 9);
-      doc.setFillColor(...lightAmber);
-      doc.roundedRect(margin, y - 4.5, contentW, 8, 1.5, 1.5, 'F');
+      const description = sectionDescriptions[title];
+      ensureSpace(minimumContentHeight + (description ? 14 : 9));
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10.5);
+      doc.setFontSize(11);
       doc.setTextColor(...darkGray);
-      doc.text(title, margin + 3, y + 0.8);
-      y += 7;
+      doc.text(title.toUpperCase(), margin, y);
+      if (description) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.8);
+        doc.setTextColor(125, 125, 125);
+        doc.text(description, margin, y + 3.5);
+        y += 8;
+      } else {
+        y += 4;
+      }
+    };
+
+    const centeredCurrencyHooks = (columnIndexes: number[], leftAlignedColumns: number[] = []) => ({
+      didParseCell: (data: any) => {
+        if (data.section === 'body' && leftAlignedColumns.includes(data.column.index)) {
+          data.cell.styles.halign = 'left';
+          data.cell.styles.cellPadding = { top: 1.4, right: 1.4, bottom: 1.4, left: 3.2 };
+        }
+        if (data.section === 'body' && columnIndexes.includes(data.column.index)) {
+          data.cell.text = [''];
+        }
+      },
+      didDrawCell: (data: any) => {
+        if (data.section !== 'body' || !columnIndexes.includes(data.column.index)) return;
+        const value = String(data.cell.raw || '');
+        const amount = value.startsWith('RM ') ? value.slice(3) : value;
+        const fontSize = data.cell.styles.fontSize || 8;
+        const prefix = 'RM ';
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(fontSize);
+        doc.setTextColor(...tableTextColor);
+        const groupWidth = doc.getTextWidth(prefix) + doc.getTextWidth(amount);
+        const startX = data.cell.x + (data.cell.width - groupWidth) / 2;
+        const textHeight = doc.getTextDimensions(`${prefix}${amount}`).h;
+        const baselineY = data.cell.y + (data.cell.height - textHeight) / 2 + textHeight * 0.72;
+        doc.text(prefix, startX, baselineY);
+        doc.text(amount, startX + doc.getTextWidth(prefix), baselineY);
+      },
+    });
+
+    const drawSalesOverview = () => {
+      section('Sales Overview', 44);
+      const gap = 3;
+      const cardW = (contentW - gap * 3) / 4;
+      const cardH = 30;
+      const cards = [
+        { label: 'TOTAL REVENUE', value: `RM ${totalRevenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, detail: `${completed.length} paid orders`, color: [217, 119, 6] as [number, number, number] },
+        { label: 'TOTAL ORDERS', value: String(orders.length), detail: `${completed.length} completed`, color: [59, 130, 246] as [number, number, number] },
+        { label: 'AVG ORDER VALUE', value: `RM ${avgOrder.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, detail: 'per completed order', color: [16, 185, 129] as [number, number, number] },
+        { label: 'CANCELLED', value: String(cancelled.length), detail: `RM ${cancelledRevenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} lost`, color: [239, 68, 68] as [number, number, number] },
+      ];
+
+      cards.forEach((card, index) => {
+        const x = margin + index * (cardW + gap);
+        doc.setDrawColor(...card.color);
+        doc.setLineWidth(0.7);
+        doc.setFillColor(250, 251, 252);
+        doc.roundedRect(x, y, cardW, cardH, 3, 3, 'FD');
+        doc.setFillColor(...card.color);
+        doc.rect(x + 1.2, y + 4, 2.2, cardH - 8, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.6);
+        doc.setTextColor(105, 105, 105);
+        doc.text(card.label, x + 6, y + 8);
+        doc.setFontSize(10.5);
+        doc.setTextColor(...darkGray);
+        doc.text(card.value, x + 6, y + 17);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.2);
+        doc.setTextColor(125, 125, 125);
+        doc.text(card.detail, x + 6, y + 24);
+      });
+      y += cardH + 16;
     };
 
     const drawSmoothLineChart = (title: string, rows: { label: string; value: number }[]) => {
@@ -5286,6 +5350,12 @@ const PosOnlyView: React.FC<Props> = ({
         })
         : rows;
       const maxValue = Math.max(...chartRows.map((row) => row.value), 1);
+      const sortedValues = chartRows.map((row) => row.value).sort((a, b) => a - b);
+      const minValue = sortedValues[0] || 0;
+      const middleIndex = Math.floor(sortedValues.length / 2);
+      const medianValue = sortedValues.length % 2 === 0
+        ? (sortedValues[middleIndex - 1] + sortedValues[middleIndex]) / 2
+        : sortedValues[middleIndex];
       const chartTop = y + 4;
       const chartHeight = 38;
       const chartX = margin + 20;
@@ -5352,37 +5422,34 @@ const PosOnlyView: React.FC<Props> = ({
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7);
       doc.setTextColor(...darkGray);
-      doc.text(`Peak: RM ${maxValue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, pageW - margin - 3, y + 49, { align: 'right' });
-      y += 59;
+      doc.text(
+        `LOWEST: RM ${minValue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} - MEDIAN: RM ${medianValue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} - PEAK: RM ${maxValue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        pageW - margin,
+        y + 58,
+        { align: 'right' },
+      );
+      y += 70;
     };
 
     if (includeSection('salesSummary')) {
-      section('Sales Summary');
-      autoTable(doc, {
-        startY: y,
-        head: [['Metric', 'Value']],
-        body: [
-          ['Total Revenue', `RM ${totalRevenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
-          ['Total Transactions', String(completed.length)],
-          ['Total Orders', String(orders.length)],
-          ['Cancelled Orders', String(cancelled.length)],
-          ['Average Order Value', `RM ${avgOrder.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
-        ],
-        margin: { left: margin, right: margin },
-        styles: { fontSize: 8, cellPadding: 2.5 },
-        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
-        theme: 'grid',
-      });
-      y = (doc as any).lastAutoTable.finalY + 8;
-
+      drawSalesOverview();
     }
 
     if (includeSection('dailyBreakdown')) {
       drawSmoothLineChart('Daily Sales Breakdown', daily.rows.map((row) => ({ label: row.dateLabel, value: row.totalSales })));
       section('Daily Sales Breakdown');
+      const dailyPaymentColumnWidth = (contentW - 94) / Math.max(daily.paymentColumns.length, 1);
+      const dailyColumnStyles: Record<number, { cellWidth: number; halign: 'center' }> = {
+        0: { cellWidth: 34, halign: 'center' },
+        1: { cellWidth: 40, halign: 'center' },
+        2: { cellWidth: 20, halign: 'center' },
+      };
+      daily.paymentColumns.forEach((_, index) => {
+        dailyColumnStyles[index + 3] = { cellWidth: dailyPaymentColumnWidth, halign: 'center' };
+      });
       autoTable(doc, {
         startY: y,
-        head: [['Date', 'Total Sales', 'Total Transactions', ...daily.paymentColumns]],
+        head: [['DATE', 'TOTAL SALES', 'ORDERS', ...daily.paymentColumns]],
         body: daily.rows.map((row) => [
           row.dateLabel,
           `RM ${row.totalSales.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
@@ -5390,11 +5457,13 @@ const PosOnlyView: React.FC<Props> = ({
           ...daily.paymentColumns.map((column) => `RM ${row.paymentTotals[column].toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`),
         ]),
         margin: { left: margin, right: margin },
-        styles: { fontSize: 8, cellPadding: 2.2 },
-        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+        styles: { fontSize: 8, cellPadding: 1.5, halign: 'center', valign: 'middle', textColor: tableTextColor },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5, halign: 'center', valign: 'middle', overflow: 'ellipsize' },
+        columnStyles: dailyColumnStyles,
+        ...centeredCurrencyHooks([1, ...daily.paymentColumns.map((_, index) => index + 3)]),
         theme: 'grid',
       });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      y = (doc as any).lastAutoTable.finalY + 18;
     }
 
     if (includeSection('hourlyDistribution')) {
@@ -5411,14 +5480,16 @@ const PosOnlyView: React.FC<Props> = ({
       section('Hourly Sales Distribution');
       autoTable(doc, {
         startY: y,
-        head: [['Hour', 'Orders', 'Revenue']],
-        body: hourlyRows.map(([hour, data]) => [`${String(hour).padStart(2, '0')}:00`, String(data.orders), `RM ${data.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]),
+        head: [['HOUR', 'ORDERS', 'REVENUE']],
+        body: hourlyRows.map(([hour, data]) => [`${String(hour).padStart(2, '0')}:00 - ${String((hour + 1) % 24).padStart(2, '0')}:00`, String(data.orders), `RM ${data.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]),
         margin: { left: margin, right: margin },
-        styles: { fontSize: 8, cellPadding: 2.2 },
-        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 8, cellPadding: 1.5, halign: 'center', valign: 'middle', textColor: tableTextColor },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', valign: 'middle', overflow: 'ellipsize' },
+        columnStyles: { 0: { halign: 'center' }, 1: { halign: 'center' } },
+        ...centeredCurrencyHooks([2]),
         theme: 'grid',
       });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      y = (doc as any).lastAutoTable.finalY + 18;
     }
 
     if (includeSection('byItem')) {
@@ -5432,19 +5503,21 @@ const PosOnlyView: React.FC<Props> = ({
       section('By Item');
       autoTable(doc, {
         startY: y,
-        head: [['Item', 'Qty Sold', 'Revenue', 'Avg Price']],
+        head: [['ITEM', 'QUANTITY SOLD', 'REVENUE', 'AVG PRICE']],
         body: Array.from(itemMap.entries()).sort((a, b) => b[1].revenue - a[1].revenue).map(([name, data]) => [
-          name,
+          name.toUpperCase(),
           String(data.qty),
           `RM ${data.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           `RM ${(data.qty > 0 ? data.revenue / data.qty : 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         ]),
         margin: { left: margin, right: margin },
-        styles: { fontSize: 7, cellPadding: 2 },
-        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 7, cellPadding: 1.4, halign: 'center', valign: 'middle', textColor: tableTextColor },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', valign: 'middle', overflow: 'ellipsize' },
+        columnStyles: { 1: { halign: 'center' } },
+        ...centeredCurrencyHooks([2, 3], [0]),
         theme: 'grid',
       });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      y = (doc as any).lastAutoTable.finalY + 18;
     }
 
     if (includeSection('byCategory')) {
@@ -5464,19 +5537,21 @@ const PosOnlyView: React.FC<Props> = ({
       section('By Category');
       autoTable(doc, {
         startY: y,
-        head: [['Category', 'Items Sold', 'Orders', 'Revenue']],
+        head: [['CATEGORY', 'ITEMS SOLD', 'ORDERS', 'REVENUE']],
         body: Array.from(catMap.entries()).sort((a, b) => b[1].revenue - a[1].revenue).map(([name, data]) => [
-          name,
+          name.toUpperCase(),
           String(data.qty),
           String(data.orders),
           `RM ${data.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         ]),
         margin: { left: margin, right: margin },
-        styles: { fontSize: 8, cellPadding: 2.2 },
-        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 8, cellPadding: 1.5, halign: 'center', valign: 'middle', textColor: tableTextColor },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', valign: 'middle', overflow: 'ellipsize' },
+        columnStyles: { 1: { halign: 'center' }, 2: { halign: 'center' } },
+        ...centeredCurrencyHooks([3], [0]),
         theme: 'grid',
       });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      y = (doc as any).lastAutoTable.finalY + 18;
     }
 
     if (includeSection('byEmployee')) {
@@ -5491,70 +5566,42 @@ const PosOnlyView: React.FC<Props> = ({
       section('By Employee');
       autoTable(doc, {
         startY: y,
-        head: [['Employee', 'Orders', 'Revenue', 'Avg Order']],
+        head: [['EMPLOYEE', 'ORDERS', 'REVENUE', 'AVG ORDER']],
         body: Array.from(employeeMap.entries()).sort((a, b) => b[1].total - a[1].total).map(([name, row]) => [
-          name,
+          name.toUpperCase(),
           String(row.count),
           `RM ${row.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           `RM ${(row.count > 0 ? row.total / row.count : 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         ]),
         margin: { left: margin, right: margin },
-        styles: { fontSize: 8, cellPadding: 2.2 },
-        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 8, cellPadding: 1.5, halign: 'center', valign: 'middle', textColor: tableTextColor },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', valign: 'middle', overflow: 'ellipsize' },
+        ...centeredCurrencyHooks([2, 3], [0]),
         theme: 'grid',
       });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      y = (doc as any).lastAutoTable.finalY + 18;
     }
 
     if (includeSection('byPayment') && paymentRows.length > 0) {
       section('By Payment');
       autoTable(doc, {
         startY: y,
-        head: [['Payment Method', 'Transactions', 'Revenue']],
+        head: [['PAYMENT METHOD', 'ORDERS', 'REVENUE']],
         body: paymentRows,
         margin: { left: margin, right: margin },
-        styles: { fontSize: 8, cellPadding: 2.5 },
-        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 8, cellPadding: 1.5, halign: 'center', valign: 'middle', textColor: tableTextColor },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', valign: 'middle', overflow: 'ellipsize' },
+        ...centeredCurrencyHooks([2]),
         theme: 'grid',
       });
-      y = (doc as any).lastAutoTable.finalY + 8;
-    }
-
-    if (includeSection('byModifier')) {
-      const modifierMap = new Map<string, { count: number; revenue: number; items: Set<string> }>();
-      completed.forEach((order) => order.items.forEach((item) => {
-        Object.entries(item.selectedModifiers || {}).forEach(([group, value]) => {
-          const name = `${group}: ${value}`;
-          const row = modifierMap.get(name) || { count: 0, revenue: 0, items: new Set<string>() };
-          row.count += item.quantity;
-          row.revenue += item.price * item.quantity;
-          row.items.add(item.name);
-          modifierMap.set(name, row);
-        });
-      }));
-      section('By Modifier');
-      autoTable(doc, {
-        startY: y,
-        head: [['Modifier', 'Times Used', 'Revenue', 'Used In']],
-        body: Array.from(modifierMap.entries()).sort((a, b) => b[1].revenue - a[1].revenue).map(([name, data]) => [
-          name,
-          String(data.count),
-          `RM ${data.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-          Array.from(data.items).slice(0, 4).join(', '),
-        ]),
-        margin: { left: margin, right: margin },
-        styles: { fontSize: 7, cellPadding: 2 },
-        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
-        theme: 'grid',
-      });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      y = (doc as any).lastAutoTable.finalY + 18;
     }
 
     if (includeSection('transactions')) {
       section('Transactions');
       autoTable(doc, {
         startY: y,
-        head: [['Order ID', 'Date', 'Status', 'Payment', 'Cashier', 'Total']],
+        head: [['ORDER ID', 'DATE', 'STATUS', 'PAYMENT', 'CASHIER', 'TOTAL']],
         body: orders.map((order) => [
           order.id,
           new Date(order.timestamp).toLocaleString('en-MY'),
@@ -5564,8 +5611,9 @@ const PosOnlyView: React.FC<Props> = ({
           `RM ${order.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         ]),
         margin: { left: margin, right: margin },
-        styles: { fontSize: 7, cellPadding: 1.8 },
-        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 7, cellPadding: 1.2, halign: 'center', valign: 'middle', textColor: tableTextColor },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', valign: 'middle', overflow: 'ellipsize' },
+        ...centeredCurrencyHooks([5]),
         theme: 'grid',
       });
     }
@@ -5586,7 +5634,7 @@ const PosOnlyView: React.FC<Props> = ({
     setIsDownloadingReport(true);
     try {
       const selectedSections = getSelectedReportSections(options);
-      const needsItemDetails = selectedSections.some((section) => ['byItem', 'byCategory', 'byModifier', 'transactions'].includes(section));
+      const needsItemDetails = selectedSections.some((section) => ['byItem', 'byCategory', 'transactions'].includes(section));
       const allOrders = await fetchReport(true, needsItemDetails) as Order[];
       if (!allOrders || allOrders.length === 0) {
         toast('No report data found for the selected filters.', 'warning');
