@@ -1645,7 +1645,11 @@ const AdminView: React.FC<Props> = ({
         return;
       }
 
-      toast(result?.repaired ? 'DuitNow approval repaired successfully' : 'No repair needed for this DuitNow approval', 'success');
+      if (result?.reason) {
+        toast(result.reason, result.subscriptionUpdated ? 'success' : 'error');
+      } else {
+        toast(result?.repaired ? 'DuitNow approval repaired successfully' : 'No repair needed for this DuitNow approval', 'success');
+      }
       setDuitnowActionModalItem(null);
       fetchDuitnowPayments();
       const { data: subs } = await supabase.from('subscriptions').select('*');

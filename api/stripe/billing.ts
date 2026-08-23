@@ -54,6 +54,9 @@ type DuitNowRepairResult = {
   repaired: boolean;
   billingRecordId: string | null;
   newPeriodEnd: string | null;
+  expectedPeriodEnd?: string | null;
+  subscriptionUpdated?: boolean;
+  reason?: string;
   actions: string[];
   error?: string;
 };
@@ -239,6 +242,7 @@ async function repairApprovedDuitNowPayment(dnPay: any): Promise<DuitNowRepairRe
     const currentEndMs = currentEnd && !Number.isNaN(currentEnd.getTime()) ? currentEnd.getTime() : 0;
     const currentExpiryIsFuture = currentEndMs > Date.now();
     const canMoveSubscriptionForward = currentEndMs === 0 || targetEndMs > currentEndMs + 1000;
+    const targetPeriodExpired = targetEndMs <= Date.now();
     const subscriptionNeedsRepair = canMoveSubscriptionForward && (
       sub.status !== 'active'
       || sub.plan_id !== planId
@@ -310,7 +314,14 @@ async function repairApprovedDuitNowPayment(dnPay: any): Promise<DuitNowRepairRe
       referenceCode: dnPay.reference_code || null,
       repaired: actions.some(action => action !== 'payment_status'),
       billingRecordId: billing.id,
-      newPeriodEnd: periodEnd.toISOString(),
+      newPeriodEnd: subscriptionNeedsRepair ? periodEnd.toISOString() : (sub.current_period_end || sub.trial_end || null),
+      expectedPeriodEnd: periodEnd.toISOString(),
+      subscriptionUpdated: subscriptionNeedsRepair,
+      reason: subscriptionNeedsRepair
+        ? undefined
+        : targetPeriodExpired
+          ? 'The approved DuitNow payment period has already expired. Income was repaired, but a new payment is required to restore access.'
+          : 'The subscription already has an equal or later expiry, so no subscription change was made.',
       actions,
     };
   } catch (error: any) {
