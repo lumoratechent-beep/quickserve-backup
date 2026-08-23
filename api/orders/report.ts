@@ -1,5 +1,9 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import {
+  buildAdminDashboardAnalyticsFallback,
+  isDashboardRpcUnavailable,
+} from '../../lib/adminDashboardAnalytics.js';
 
 const supabaseUrl = 'https://anknjpuiklglykguneax.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFua25qcHVpa2xnbHlrZ3VuZWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5ODkwNTAsImV4cCI6MjA4NzU2NTA1MH0.DUMHeKg0v-1oI9nLT-nZP9cg1eYPI0R4fRNBzE9K2MI';
@@ -106,9 +110,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         p_end_timestamp: endTimestamp,
         p_timezone_offset_minutes: tzOffset,
       });
-      if (error) throw error;
+      if (error && !isDashboardRpcUnavailable(error)) throw error;
+      const dashboardData = error
+        ? await buildAdminDashboardAnalyticsFallback(supabase, startTimestamp, endTimestamp, tzOffset)
+        : data;
       res.setHeader('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
-      return res.status(200).json(data);
+      return res.status(200).json(dashboardData);
     }
 
     if (mode === 'summary') {
@@ -204,6 +211,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (error) {
     console.error('Report error:', error);
+    if (mode === 'dashboard') {
+      const message = error instanceof Error ? error.message : 'Failed to fetch dashboard analytics';
+      return res.status(500).json({ error: `Failed to fetch dashboard analytics: ${message}` });
+    }
     return res.status(500).json({ error: 'Failed to fetch report' });
   }
 }

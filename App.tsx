@@ -2789,7 +2789,10 @@ const App: React.FC = () => {
       mode: 'dashboard',
     });
     const response = await fetch(`/api/orders/report?${params.toString()}`);
-    if (!response.ok) throw new Error('Failed to fetch dashboard analytics');
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || 'Failed to fetch dashboard analytics');
+    }
     return await response.json();
   };
 

@@ -6,6 +6,10 @@ import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { ensureAdminShopQuotationForSession, normalizeAdminShopItem } from './lib/adminShopOrders.js';
+import {
+  buildAdminDashboardAnalyticsFallback,
+  isDashboardRpcUnavailable,
+} from './lib/adminDashboardAnalytics.js';
 
 async function startServer() {
   const app = express();
@@ -144,9 +148,12 @@ async function startServer() {
           p_end_timestamp: reportEndTimestamp,
           p_timezone_offset_minutes: tzOffset,
         });
-        if (error) throw error;
+        if (error && !isDashboardRpcUnavailable(error)) throw error;
+        const dashboardData = error
+          ? await buildAdminDashboardAnalyticsFallback(supabase, reportStartTimestamp!, reportEndTimestamp!, tzOffset)
+          : data;
         res.setHeader('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
-        return res.json(data);
+        return res.json(dashboardData);
       }
 
       if (mode === 'summary') {
@@ -240,6 +247,10 @@ async function startServer() {
       });
     } catch (error) {
       console.error('Report error:', error);
+      if (mode === 'dashboard') {
+        const message = error instanceof Error ? error.message : 'Failed to fetch dashboard analytics';
+        return res.status(500).json({ error: `Failed to fetch dashboard analytics: ${message}` });
+      }
       res.status(500).json({ error: 'Failed to fetch report' });
     }
   });
