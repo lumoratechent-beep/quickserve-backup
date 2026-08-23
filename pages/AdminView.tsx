@@ -808,6 +808,7 @@ const AdminView: React.FC<Props> = ({
   const adminSecondaryButton = `${adminButtonBase} bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 hover:text-orange-500 hover:border-orange-200 dark:hover:border-orange-500/40`;
   const adminPrimaryButton = `${adminButtonBase} bg-black dark:bg-white text-white dark:text-gray-900 hover:bg-orange-500 hover:text-white disabled:opacity-30`;
   const adminOrangeButton = `${adminButtonBase} bg-orange-500 text-white`;
+  const adminDateSlotClass = 'flex h-7 w-[92px] cursor-pointer items-center justify-center rounded-md px-1.5 transition-colors hover:bg-white/70 focus:bg-white/70 focus:outline-none dark:hover:bg-gray-600 dark:focus:bg-gray-600';
   const openAdminDatePicker = (input: HTMLInputElement | null) => {
     if (!input) return;
     input.focus();
@@ -3583,7 +3584,7 @@ const AdminView: React.FC<Props> = ({
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm">
               <div className="p-5 border-b border-gray-100 dark:border-gray-700 space-y-5">
                 <div className="flex w-fit gap-1 rounded-xl bg-gray-100 dark:bg-gray-900 p-1">
                   {([
@@ -3630,7 +3631,7 @@ const AdminView: React.FC<Props> = ({
                       </select>
                       <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
-                    <div className="relative w-[220px] shrink-0">
+                    <div className="relative w-[142px] shrink-0">
                       <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 pointer-events-none" />
                       <select
                         value={vendorSortValue}
@@ -3641,12 +3642,12 @@ const AdminView: React.FC<Props> = ({
                         className={`${adminSelectBase} w-full pl-9 pr-9`}
                         title="Sort vendors"
                       >
-                        <option value="EXPIRY_desc">Descending by expiry</option>
-                        <option value="EXPIRY_asc">Ascending by expiry</option>
-                        <option value="KITCHEN_asc">Alphabetical A-Z</option>
-                        <option value="KITCHEN_desc">Alphabetical Z-A</option>
-                        <option value="HUB_asc">Hub A-Z</option>
-                        <option value="HUB_desc">Hub Z-A</option>
+                        <option value="EXPIRY_desc">Expiry Des.</option>
+                        <option value="EXPIRY_asc">Expiry Asc.</option>
+                        <option value="KITCHEN_asc">Name Asc.</option>
+                        <option value="KITCHEN_desc">Name Des.</option>
+                        <option value="HUB_asc">Hub Asc.</option>
+                        <option value="HUB_desc">Hub Des.</option>
                       </select>
                       <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
@@ -3673,7 +3674,7 @@ const AdminView: React.FC<Props> = ({
                         onChange={e => setHubSearchQuery(e.target.value)}
                       />
                     </div>
-                    <div className="relative w-[180px] shrink-0">
+                    <div className="relative w-[126px] shrink-0">
                       <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 pointer-events-none" />
                       <select
                         value={hubSortDirection}
@@ -3681,8 +3682,8 @@ const AdminView: React.FC<Props> = ({
                         className={`${adminSelectBase} w-full pl-9 pr-9`}
                         title="Sort hubs"
                       >
-                        <option value="asc">Alphabetical A-Z</option>
-                        <option value="desc">Alphabetical Z-A</option>
+                        <option value="asc">Name Asc.</option>
+                        <option value="desc">Name Des.</option>
                       </select>
                       <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
@@ -3703,7 +3704,7 @@ const AdminView: React.FC<Props> = ({
 
               {vendorHubSubTab === 'VENDORS' && (
                 <>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto rounded-b-2xl">
                     <table className="w-full">
                       <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                         <tr>
@@ -3911,7 +3912,7 @@ const AdminView: React.FC<Props> = ({
 
               {vendorHubSubTab === 'HUBS' && (
                 <>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto rounded-b-2xl">
                     <table className="w-full">
                       <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                         <tr>
@@ -4109,14 +4110,14 @@ const AdminView: React.FC<Props> = ({
                     </select>
                     <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   </div>
-                  <div className="inline-flex h-9 w-fit items-center gap-2 px-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="inline-flex h-9 w-fit items-center gap-1.5 px-2.5 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <Calendar size={14} className="text-orange-500 shrink-0" />
                     <div
                       role="button"
                       tabIndex={0}
                       onClick={() => openAdminDatePicker(incomeStartDateInputRef.current)}
                       onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') openAdminDatePicker(incomeStartDateInputRef.current); }}
-                      className="flex h-full w-[112px] cursor-pointer items-center px-2"
+                      className={adminDateSlotClass}
                     >
                       <input ref={incomeStartDateInputRef} type="date" className="admin-date-input pointer-events-none w-full bg-transparent text-[10px] outline-none font-black dark:text-white" value={incomeStartDate} onChange={e => setIncomeStartDate(e.target.value)} />
                     </div>
@@ -4126,7 +4127,7 @@ const AdminView: React.FC<Props> = ({
                       tabIndex={0}
                       onClick={() => openAdminDatePicker(incomeEndDateInputRef.current)}
                       onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') openAdminDatePicker(incomeEndDateInputRef.current); }}
-                      className="flex h-full w-[112px] cursor-pointer items-center px-2"
+                      className={adminDateSlotClass}
                     >
                       <input ref={incomeEndDateInputRef} type="date" className="admin-date-input pointer-events-none w-full bg-transparent text-[10px] outline-none font-black dark:text-white" value={incomeEndDate} onChange={e => setIncomeEndDate(e.target.value)} />
                     </div>
@@ -4255,7 +4256,7 @@ const AdminView: React.FC<Props> = ({
                         className="w-full h-9 pl-9 pr-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 dark:text-white"
                       />
                     </div>
-                    <div className="relative w-[220px] shrink-0">
+                    <div className="relative w-[142px] shrink-0">
                       <Filter size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 pointer-events-none" />
                       <select
                         value={subscriptionScheduleSort}
@@ -4263,10 +4264,10 @@ const AdminView: React.FC<Props> = ({
                         className={`${adminSelectBase} w-full pl-9 pr-9`}
                         title="Sort subscription schedule"
                       >
-                        <option value="EXPIRY_DESC">Descending by expiry</option>
-                        <option value="EXPIRY_ASC">Ascending by expiry</option>
-                        <option value="ALPHA_ASC">Alphabetical A-Z</option>
-                        <option value="ALPHA_DESC">Alphabetical Z-A</option>
+                        <option value="EXPIRY_DESC">Expiry Des.</option>
+                        <option value="EXPIRY_ASC">Expiry Asc.</option>
+                        <option value="ALPHA_ASC">Name Asc.</option>
+                        <option value="ALPHA_DESC">Name Des.</option>
                       </select>
                       <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
@@ -4499,14 +4500,14 @@ const AdminView: React.FC<Props> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     {/* Period selection */}
                     <div>
-                      <div className="inline-flex h-9 w-fit items-center gap-2 bg-white dark:bg-gray-800 px-3 rounded-lg border dark:border-gray-600">
+                      <div className="inline-flex h-9 w-fit items-center gap-1.5 bg-white dark:bg-gray-800 px-2.5 rounded-lg border dark:border-gray-600">
                         <Calendar size={12} className="text-orange-500 shrink-0" />
                         <div
                           role="button"
                           tabIndex={0}
                           onClick={() => openAdminDatePicker(reportStartDateInputRef.current)}
                           onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') openAdminDatePicker(reportStartDateInputRef.current); }}
-                          className="flex h-full w-[112px] cursor-pointer items-center px-2"
+                          className={adminDateSlotClass}
                         >
                           <input ref={reportStartDateInputRef} type="date" value={reportStart} onChange={(e) => {setReportStart(e.target.value); setCurrentPage(1);}} className="admin-date-input pointer-events-none w-full bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
                         </div>
@@ -4516,7 +4517,7 @@ const AdminView: React.FC<Props> = ({
                           tabIndex={0}
                           onClick={() => openAdminDatePicker(reportEndDateInputRef.current)}
                           onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') openAdminDatePicker(reportEndDateInputRef.current); }}
-                          className="flex h-full w-[112px] cursor-pointer items-center px-2"
+                          className={adminDateSlotClass}
                         >
                           <input ref={reportEndDateInputRef} type="date" value={reportEnd} onChange={(e) => {setReportEnd(e.target.value); setCurrentPage(1);}} className="admin-date-input pointer-events-none w-full bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
                         </div>
