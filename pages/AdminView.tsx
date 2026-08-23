@@ -1777,6 +1777,7 @@ const AdminView: React.FC<Props> = ({
     const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0];
   });
   const [incomeEndDate, setIncomeEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [incomeSearchQuery, setIncomeSearchQuery] = useState('');
   const [incomeHasMore, setIncomeHasMore] = useState(false);
   const [incomeLastId, setIncomeLastId] = useState<string | null>(null);
   const [deletingIncomeId, setDeletingIncomeId] = useState<string | null>(null);
@@ -1795,7 +1796,8 @@ const AdminView: React.FC<Props> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [hubSearchQuery, setHubSearchQuery] = useState('');
   const [vendorFilter, setVendorFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
-  const [vendorSort, setVendorSort] = useState<{ field: 'KITCHEN' | 'HUB'; direction: 'asc' | 'desc' } | null>(null);
+  const [vendorSort, setVendorSort] = useState<{ field: 'KITCHEN' | 'HUB' | 'EXPIRY'; direction: 'asc' | 'desc' }>({ field: 'EXPIRY', direction: 'asc' });
+  const [hubSortDirection, setHubSortDirection] = useState<'asc' | 'desc'>('asc');
   
   // Registration / Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1824,6 +1826,7 @@ const AdminView: React.FC<Props> = ({
   const [subscriptionHistory, setSubscriptionHistory] = useState<SubscriptionExpiryHistory[]>([]);
   const [subscriptionScheduleLoading, setSubscriptionScheduleLoading] = useState(false);
   const [subscriptionScheduleSearch, setSubscriptionScheduleSearch] = useState('');
+  const [subscriptionScheduleSortDirection, setSubscriptionScheduleSortDirection] = useState<'asc' | 'desc'>('asc');
   const [expiryEditModal, setExpiryEditModal] = useState<{
     restaurantId: string;
     restaurantName: string;
@@ -1902,10 +1905,11 @@ const AdminView: React.FC<Props> = ({
         const bSub = subscriptions[b.id];
         const aExpiry = aSub?.current_period_end || aSub?.trial_end;
         const bExpiry = bSub?.current_period_end || bSub?.trial_end;
-        return (aExpiry ? new Date(aExpiry).getTime() : Number.MAX_SAFE_INTEGER)
+        const order = (aExpiry ? new Date(aExpiry).getTime() : Number.MAX_SAFE_INTEGER)
           - (bExpiry ? new Date(bExpiry).getTime() : Number.MAX_SAFE_INTEGER);
+        return subscriptionScheduleSortDirection === 'asc' ? order : -order;
       });
-  }, [restaurants, vendors, subscriptions, subscriptionScheduleSearch]);
+  }, [restaurants, vendors, subscriptions, subscriptionScheduleSearch, subscriptionScheduleSortDirection]);
 
   const openExpiryEditor = (restaurant: Restaurant) => {
     const sub = subscriptions[restaurant.id];
@@ -2193,6 +2197,29 @@ const AdminView: React.FC<Props> = ({
       setIncomeLoading(false);
     }
   };
+
+  const filteredIncomeTransactions = useMemo(() => {
+    const query = incomeSearchQuery.trim().toLowerCase();
+    if (!query) return incomeTransactions;
+    return incomeTransactions.filter(txn => [
+      txn.id,
+      txn.restaurantName,
+      txn.planName,
+      txn.description,
+      txn.status,
+      txn.extensionType,
+    ].some(value => String(value || '').toLowerCase().includes(query)));
+  }, [incomeTransactions, incomeSearchQuery]);
+
+  const visibleIncomeSummary = useMemo(() => {
+    if (!incomeSearchQuery.trim()) return incomeSummary;
+    return {
+      totalGross: filteredIncomeTransactions.reduce((sum, txn) => sum + (Number(txn.amount) || 0), 0),
+      totalFees: filteredIncomeTransactions.reduce((sum, txn) => sum + (Number(txn.fee) || 0), 0),
+      totalNet: filteredIncomeTransactions.reduce((sum, txn) => sum + (Number(txn.net) || 0), 0),
+      count: filteredIncomeTransactions.length,
+    };
+  }, [filteredIncomeTransactions, incomeSearchQuery, incomeSummary]);
 
   const markStripeIncomeSeen = () => {
     localStorage.setItem('qs_admin_seen_stripe_income_at', new Date().toISOString());
@@ -2925,11 +2952,20 @@ const AdminView: React.FC<Props> = ({
       return matchesSearch && matchesStatus;
     });
 
-    if (!vendorSort) return base;
-
     return [...base].sort((a, b) => {
       const restaurantA = restaurants.find(r => r.id === a.restaurantId);
       const restaurantB = restaurants.find(r => r.id === b.restaurantId);
+
+      if (vendorSort.field === 'EXPIRY') {
+        const subA = restaurantA ? subscriptions[restaurantA.id] : null;
+        const subB = restaurantB ? subscriptions[restaurantB.id] : null;
+        const expiryA = subA?.current_period_end || subA?.trial_end;
+        const expiryB = subB?.current_period_end || subB?.trial_end;
+        const valueA = expiryA ? new Date(expiryA).getTime() : Number.MAX_SAFE_INTEGER;
+        const valueB = expiryB ? new Date(expiryB).getTime() : Number.MAX_SAFE_INTEGER;
+        const order = valueA - valueB;
+        return vendorSort.direction === 'asc' ? order : -order;
+      }
 
       const valueA = vendorSort.field === 'KITCHEN'
         ? (restaurantA?.name || '').toLowerCase()
@@ -2941,9 +2977,9 @@ const AdminView: React.FC<Props> = ({
       const order = valueA.localeCompare(valueB);
       return vendorSort.direction === 'asc' ? order : -order;
     });
-  }, [vendors, restaurants, searchQuery, vendorFilter, vendorSort]);
+  }, [vendors, restaurants, subscriptions, searchQuery, vendorFilter, vendorSort]);
 
-  const handleVendorSort = (field: 'KITCHEN' | 'HUB') => {
+  const handleVendorSort = (field: 'KITCHEN' | 'HUB' | 'EXPIRY') => {
     setVendorSort(prev => {
       if (!prev || prev.field !== field) {
         return { field, direction: 'asc' };
@@ -2953,12 +2989,17 @@ const AdminView: React.FC<Props> = ({
   };
 
   const filteredHubs = useMemo(() => {
-    return locations.filter(loc => 
-      loc.name.toLowerCase().includes(hubSearchQuery.toLowerCase()) ||
-      loc.city.toLowerCase().includes(hubSearchQuery.toLowerCase()) ||
-      loc.code.toLowerCase().includes(hubSearchQuery.toLowerCase())
-    );
-  }, [locations, hubSearchQuery]);
+    return locations
+      .filter(loc => 
+        loc.name.toLowerCase().includes(hubSearchQuery.toLowerCase()) ||
+        loc.city.toLowerCase().includes(hubSearchQuery.toLowerCase()) ||
+        loc.code.toLowerCase().includes(hubSearchQuery.toLowerCase())
+      )
+      .sort((a, b) => {
+        const order = a.name.localeCompare(b.name);
+        return hubSortDirection === 'asc' ? order : -order;
+      });
+  }, [locations, hubSearchQuery, hubSortDirection]);
 
   const vendorTotalPages = Math.ceil(filteredVendors.length / entriesPerPage);
   const paginatedVendors = useMemo(() => {
@@ -3005,7 +3046,7 @@ const AdminView: React.FC<Props> = ({
 
   // Reset pages when filters change
   useEffect(() => { setVendorPage(1); }, [searchQuery, vendorFilter, vendorSort]);
-  useEffect(() => { setHubPage(1); }, [hubSearchQuery]);
+  useEffect(() => { setHubPage(1); }, [hubSearchQuery, hubSortDirection]);
 
   const handleDownloadVendors = () => {
     if (filteredVendors.length === 0) return;
@@ -3535,6 +3576,13 @@ const AdminView: React.FC<Props> = ({
                       </select>
                     </div>
                     <button
+                      onClick={() => handleVendorSort('EXPIRY')}
+                      className="h-9 px-4 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:text-orange-500 hover:border-orange-200 dark:hover:border-orange-500/40 transition-all whitespace-nowrap shrink-0"
+                      title="Sort vendors by plan expiry"
+                    >
+                      <Calendar size={14} /> Expiry {vendorSort.field === 'EXPIRY' && vendorSort.direction === 'desc' ? 'Latest' : 'Soonest'}
+                    </button>
+                    <button
                       onClick={handleDownloadVendors}
                       disabled={filteredVendors.length === 0}
                       className="h-9 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-orange-500 hover:text-white transition-all whitespace-nowrap disabled:opacity-30 shrink-0"
@@ -3557,6 +3605,13 @@ const AdminView: React.FC<Props> = ({
                         onChange={e => setHubSearchQuery(e.target.value)}
                       />
                     </div>
+                    <button
+                      onClick={() => setHubSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+                      className="h-9 px-4 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:text-orange-500 hover:border-orange-200 dark:hover:border-orange-500/40 transition-all whitespace-nowrap shrink-0"
+                      title="Sort hubs by name"
+                    >
+                      <Filter size={14} /> Sort {hubSortDirection === 'asc' ? 'A-Z' : 'Z-A'}
+                    </button>
                     <button
                       onClick={handleDownloadHubs}
                       disabled={filteredHubs.length === 0}
@@ -3922,51 +3977,59 @@ const AdminView: React.FC<Props> = ({
             {activeTab === 'INCOME_REPORT' && incomeReportSubTab === 'INCOME' && (
               <div className="space-y-6">
                 {/* Summary Cards */}
-                {incomeSummary && (
+                {visibleIncomeSummary && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl border dark:border-gray-700 p-4">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-8 h-8 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center justify-center"><ArrowUpRight size={16} className="text-green-500" /></div>
                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Gross Income</span>
                       </div>
-                      <p className="text-xl font-black dark:text-white">RM {incomeSummary.totalGross.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <p className="text-xl font-black dark:text-white">RM {visibleIncomeSummary.totalGross.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                     <div className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl border dark:border-gray-700 p-4">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-8 h-8 bg-red-50 dark:bg-red-900/20 rounded-lg flex items-center justify-center"><ArrowDownRight size={16} className="text-red-500" /></div>
                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Fees</span>
                       </div>
-                      <p className="text-xl font-black dark:text-white">RM {incomeSummary.totalFees.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <p className="text-xl font-black dark:text-white">RM {visibleIncomeSummary.totalFees.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                     <div className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl border dark:border-gray-700 p-4">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-8 h-8 bg-orange-50 dark:bg-orange-900/20 rounded-lg flex items-center justify-center"><DollarSign size={16} className="text-orange-500" /></div>
                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Net Income</span>
                       </div>
-                      <p className="text-xl font-black text-orange-500">RM {incomeSummary.totalNet.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <p className="text-xl font-black text-orange-500">RM {visibleIncomeSummary.totalNet.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                     <div className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl border dark:border-gray-700 p-4">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-8 h-8 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center"><Receipt size={16} className="text-blue-500" /></div>
                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Transactions</span>
                       </div>
-                      <p className="text-xl font-black dark:text-white">{incomeSummary.count}</p>
+                      <p className="text-xl font-black dark:text-white">{visibleIncomeSummary.count}</p>
                     </div>
                   </div>
                 )}
 
                 {/* Date Filters */}
-                <div className="flex flex-col sm:flex-row items-end gap-3">
-                  <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">From</label>
-                    <input type="date" className="px-3 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-xs outline-none font-bold dark:text-white" value={incomeStartDate} onChange={e => setIncomeStartDate(e.target.value)} />
+                <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                  <div className="relative flex-1 min-w-[220px]">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={incomeSearchQuery}
+                      onChange={e => setIncomeSearchQuery(e.target.value)}
+                      placeholder="Search income, vendor, plan..."
+                      className="w-full h-10 pl-9 pr-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 dark:text-white"
+                    />
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">To</label>
-                    <input type="date" className="px-3 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-xs outline-none font-bold dark:text-white" value={incomeEndDate} onChange={e => setIncomeEndDate(e.target.value)} />
+                  <div className="flex items-center gap-2 h-10 px-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl">
+                    <Calendar size={14} className="text-orange-500 shrink-0" />
+                    <input type="date" className="w-[126px] bg-transparent text-[10px] outline-none font-black dark:text-white" value={incomeStartDate} onChange={e => setIncomeStartDate(e.target.value)} />
+                    <span className="text-gray-400 font-black text-[10px]">to</span>
+                    <input type="date" className="w-[126px] bg-transparent text-[10px] outline-none font-black dark:text-white" value={incomeEndDate} onChange={e => setIncomeEndDate(e.target.value)} />
                   </div>
-                  <button onClick={() => fetchIncome()} className="px-5 py-2 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg transition-all active:scale-95 flex items-center gap-2">
-                    <Search size={14} /> Filter
+                  <button onClick={() => fetchIncome()} disabled={incomeLoading} className="h-10 px-5 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap">
+                    {incomeLoading ? <RefreshCw size={14} className="animate-spin" /> : <Filter size={14} />} Filter
                   </button>
                 </div>
 
@@ -3990,13 +4053,13 @@ const AdminView: React.FC<Props> = ({
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                       {incomeLoading && incomeTransactions.length === 0 ? (
                         <tr><td colSpan={10} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
-                      ) : incomeTransactions.length === 0 ? (
+                      ) : filteredIncomeTransactions.length === 0 ? (
                         <tr><td colSpan={10} className="text-center py-12">
                           <FileText size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
                           <p className="text-sm font-bold text-gray-400">No transactions found</p>
-                          <p className="text-xs text-gray-400 mt-1">Try adjusting the date range</p>
+                          <p className="text-xs text-gray-400 mt-1">Try adjusting the search or date range</p>
                         </td></tr>
-                      ) : incomeTransactions.map(txn => (
+                      ) : filteredIncomeTransactions.map(txn => (
                         <tr key={txn.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                           <td className="px-3 py-2 text-xs font-bold dark:text-gray-300">
                             <DateTimeRows
@@ -4089,6 +4152,14 @@ const AdminView: React.FC<Props> = ({
                         className="w-full h-[36px] pl-9 pr-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 dark:text-white"
                       />
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setSubscriptionScheduleSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+                      className="h-[36px] px-4 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:text-orange-500 hover:border-orange-200 dark:hover:border-orange-500/40 transition-all whitespace-nowrap"
+                      title="Sort subscription schedule by expiry date"
+                    >
+                      <Calendar size={13} /> Expiry {subscriptionScheduleSortDirection === 'asc' ? 'Soonest' : 'Latest'}
+                    </button>
                     <button
                       onClick={() => Promise.all([refreshSubscriptions(), refreshSubscriptionHistory()])}
                       disabled={subscriptionScheduleLoading}
@@ -4305,11 +4376,18 @@ const AdminView: React.FC<Props> = ({
                       />
                     </div>
                     <button 
+                      onClick={() => fetchReport()} 
+                      disabled={isReportLoading}
+                      className="h-[34px] px-4 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:text-orange-500 hover:border-orange-200 dark:hover:border-orange-500/40 transition-all whitespace-nowrap disabled:opacity-50"
+                    >
+                      {isReportLoading ? <RefreshCw size={14} className="animate-spin" /> : <Filter size={14} />} Filter
+                    </button>
+                    <button 
                       onClick={handleDownloadReport} 
                       disabled={!reportData || reportData.totalCount === 0} 
                       className="h-[34px] px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-orange-500 hover:text-white transition-all shadow-lg whitespace-nowrap"
                     >
-                      <Download size={14} /> Download
+                      <Download size={14} /> Download Sales
                     </button>
                   </div>
                 </div>
@@ -4317,9 +4395,8 @@ const AdminView: React.FC<Props> = ({
                 <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border dark:border-gray-700 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     {/* Period selection */}
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Period</label>
-                      <div className="flex items-center gap-2 bg-white dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-600">
+                    <div>
+                      <div className="flex h-[34px] items-center gap-2 bg-white dark:bg-gray-800 px-3 rounded-xl border dark:border-gray-600">
                         <Calendar size={12} className="text-orange-500 shrink-0" />
                         <input type="date" value={reportStart} onChange={(e) => {setReportStart(e.target.value); setCurrentPage(1);}} className="flex-1 bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
                         <span className="text-gray-400 font-black text-[10px]">–</span>
