@@ -2757,7 +2757,7 @@ const App: React.FC = () => {
     return await response.json();
   };
 
-  const onFetchAllFilteredOrders = async (filters: ReportFilters): Promise<Order[]> => {
+  const onFetchAllFilteredOrders = async (filters: ReportFilters, includeItems = true): Promise<Order[]> => {
     // Include timezone offset for proper date filtering
     const tzOffset = new Date().getTimezoneOffset();
     const params = new URLSearchParams({
@@ -2767,6 +2767,7 @@ const App: React.FC = () => {
       limit: '10000',
       includeSummary: 'true',
       includeBreakdowns: 'false',
+      includeItems: includeItems.toString(),
       export: 'true',
     });
     const response = await fetch(`/api/orders/report?${params.toString()}`);

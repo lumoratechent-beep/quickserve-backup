@@ -219,7 +219,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const start = (requestedPage - 1) * requestedLimit;
     const end = start + requestedLimit - 1;
-    const selectedColumns = isExport ? '*' : (includeItems === 'false' ? PAGE_COLUMNS : DETAIL_COLUMNS);
+    const selectedColumns = isExport
+      ? (includeItems === 'false' ? PAGE_COLUMNS : '*')
+      : (includeItems === 'false' ? PAGE_COLUMNS : DETAIL_COLUMNS);
     let data: any[] = [];
     let count: number | null = includeSummary === 'false' ? null : Number(summary.orderVolume || 0);
 

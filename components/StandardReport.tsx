@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, OrderStatus, ReportResponse, CashierShift } from '../src/types';
-import { Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users } from 'lucide-react';
+import { Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users, Check } from 'lucide-react';
 
+export type ReportSectionKey = 'salesSummary' | 'dailyBreakdown' | 'hourlyDistribution' | 'byItem' | 'byCategory' | 'byEmployee' | 'byPayment' | 'byModifier' | 'transactions';
 export type ReportDownloadInfoType = 'all' | 'summary' | 'transactions' | 'dailyBreakdown';
 export type ReportDownloadFileType = 'csv' | 'pdf';
 
 export interface ReportDownloadOptions {
-  infoType: ReportDownloadInfoType;
+  infoType?: ReportDownloadInfoType;
+  sections?: ReportSectionKey[];
   fileType: ReportDownloadFileType;
 }
 
@@ -67,7 +69,18 @@ const StandardReport: React.FC<Props> = ({
   const [filterPayment, setFilterPayment] = useState<string>('ALL');
   const [filterCashier, setFilterCashier] = useState<string>('ALL');
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
-  const [downloadInfoType, setDownloadInfoType] = useState<ReportDownloadInfoType>('all');
+  const reportSectionOptions: { key: ReportSectionKey; label: string; group?: string }[] = [
+    { key: 'salesSummary', label: 'Sales Summary', group: 'Sales Summary' },
+    { key: 'dailyBreakdown', label: 'Daily Sales Breakdown (graph + table)' },
+    { key: 'hourlyDistribution', label: 'Hourly Sales Distribution (graph + table)' },
+    { key: 'byItem', label: 'By Item', group: 'By Item' },
+    { key: 'byCategory', label: 'By Category', group: 'By Category' },
+    { key: 'byEmployee', label: 'By Employee', group: 'By Employee' },
+    { key: 'byPayment', label: 'By Payment', group: 'By Payment' },
+    { key: 'byModifier', label: 'By Modifier', group: 'By Modifier' },
+  ];
+  const allReportSectionKeys = reportSectionOptions.map((option) => option.key);
+  const [downloadSections, setDownloadSections] = useState<ReportSectionKey[]>(allReportSectionKeys);
   const [downloadFileType, setDownloadFileType] = useState<ReportDownloadFileType>('pdf');
   const [showDateRangeModal, setShowDateRangeModal] = useState(false);
   const [draftReportStart, setDraftReportStart] = useState(reportStart);
@@ -314,6 +327,19 @@ const StandardReport: React.FC<Props> = ({
     );
   };
 
+  const toggleDownloadSection = (section: ReportSectionKey) => {
+    setDownloadSections((prev) => {
+      if (prev.includes(section)) {
+        return prev.filter((key) => key !== section);
+      }
+      return [...prev, section];
+    });
+  };
+
+  const setAllDownloadSections = () => {
+    setDownloadSections((prev) => prev.length === allReportSectionKeys.length ? [] : allReportSectionKeys);
+  };
+
   return (
     <div className="animate-in fade-in duration-500">
       {showHeader && (
@@ -392,45 +418,91 @@ const StandardReport: React.FC<Props> = ({
 
       {showDownloadOptions && (
         <div className="fixed inset-0 z-[140] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 md:p-5 shadow-xl">
+          <div className="w-full max-w-3xl max-h-[88vh] overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5 md:p-7 shadow-xl">
             <p className="text-sm font-black dark:text-white uppercase tracking-wider mb-1">Download report</p>
             <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">
-              Choose report info and file type.
+              Choose report sections and file type.
             </p>
 
-            <div className="mb-4">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Report Info</p>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-xs dark:text-gray-200">
-                  <input type="radio" name="download-info-type" checked={downloadInfoType === 'all'} onChange={() => setDownloadInfoType('all')} />
-                  All
-                </label>
-                <label className="flex items-center gap-2 text-xs dark:text-gray-200">
-                  <input type="radio" name="download-info-type" checked={downloadInfoType === 'summary'} onChange={() => setDownloadInfoType('summary')} />
-                  Summary
-                </label>
-                <label className="flex items-center gap-2 text-xs dark:text-gray-200">
-                  <input type="radio" name="download-info-type" checked={downloadInfoType === 'transactions'} onChange={() => setDownloadInfoType('transactions')} />
-                  Transactions
-                </label>
-                <label className="flex items-center gap-2 text-xs dark:text-gray-200">
-                  <input type="radio" name="download-info-type" checked={downloadInfoType === 'dailyBreakdown'} onChange={() => setDownloadInfoType('dailyBreakdown')} />
-                  Daily Sales Breakdown
-                </label>
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_180px] gap-5">
+              <div>
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Report Sections</p>
+                  <button
+                    onClick={setAllDownloadSections}
+                    className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:text-orange-500 transition-colors"
+                  >
+                    {downloadSections.length === allReportSectionKeys.length ? 'Clear All' : 'Select All'}
+                  </button>
+                </div>
+                <button
+                  onClick={setAllDownloadSections}
+                  className={`w-full mb-3 p-3 rounded-lg border text-left flex items-center gap-3 transition-colors ${
+                    downloadSections.length === allReportSectionKeys.length
+                      ? 'border-orange-300 bg-orange-50 dark:bg-orange-900/20 dark:border-orange-700'
+                      : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40 hover:border-orange-300'
+                  }`}
+                >
+                  <span className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 ${
+                    downloadSections.length === allReportSectionKeys.length ? 'bg-orange-500 border-orange-500 text-white' : 'border-gray-300 dark:border-gray-500'
+                  }`}>
+                    {downloadSections.length === allReportSectionKeys.length && <Check size={13} />}
+                  </span>
+                  <span>
+                    <span className="block text-xs font-black dark:text-white uppercase tracking-wider">All</span>
+                    <span className="block text-[10px] text-gray-500 dark:text-gray-400 font-bold mt-0.5">Include every available report section.</span>
+                  </span>
+                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {reportSectionOptions.map((option) => {
+                    const checked = downloadSections.includes(option.key);
+                    return (
+                      <button
+                        key={option.key}
+                        onClick={() => toggleDownloadSection(option.key)}
+                        className={`p-3 rounded-lg border text-left flex items-start gap-3 transition-colors ${
+                          checked
+                            ? 'border-orange-300 bg-orange-50 dark:bg-orange-900/20 dark:border-orange-700'
+                            : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40 hover:border-orange-300'
+                        }`}
+                      >
+                        <span className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0 ${
+                          checked ? 'bg-orange-500 border-orange-500 text-white' : 'border-gray-300 dark:border-gray-500'
+                        }`}>
+                          {checked && <Check size={13} />}
+                        </span>
+                        <span>
+                          {option.group && <span className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">{option.group}</span>}
+                          <span className="block text-xs font-black dark:text-gray-100 leading-snug">{option.label}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
 
-            <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">File Type</p>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-xs dark:text-gray-200">
-                  <input type="radio" name="download-file-type" checked={downloadFileType === 'csv'} onChange={() => setDownloadFileType('csv')} />
-                  CSV
-                </label>
-                <label className="flex items-center gap-2 text-xs dark:text-gray-200">
-                  <input type="radio" name="download-file-type" checked={downloadFileType === 'pdf'} onChange={() => setDownloadFileType('pdf')} />
-                  PDF
-                </label>
+              <div>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">File Type</p>
+                <div className="space-y-2">
+                  {(['pdf', 'csv'] as ReportDownloadFileType[]).map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => setDownloadFileType(type)}
+                      className={`w-full p-3 rounded-lg border text-left flex items-center gap-3 transition-colors ${
+                        downloadFileType === type
+                          ? 'border-orange-300 bg-orange-50 dark:bg-orange-900/20 dark:border-orange-700'
+                          : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40 hover:border-orange-300'
+                      }`}
+                    >
+                      <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                        downloadFileType === type ? 'border-orange-500' : 'border-gray-300 dark:border-gray-500'
+                      }`}>
+                        {downloadFileType === type && <span className="w-2 h-2 rounded-full bg-orange-500" />}
+                      </span>
+                      <span className="text-xs font-black dark:text-gray-100 uppercase tracking-wider">{type}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -442,11 +514,12 @@ const StandardReport: React.FC<Props> = ({
                 Cancel
               </button>
               <button
+                disabled={downloadSections.length === 0}
                 onClick={async () => {
-                  await onDownloadReport({ infoType: downloadInfoType, fileType: downloadFileType });
+                  await onDownloadReport({ sections: downloadSections, fileType: downloadFileType });
                   setShowDownloadOptions(false);
                 }}
-                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Download
               </button>

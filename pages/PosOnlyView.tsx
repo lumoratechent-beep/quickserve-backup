@@ -16,7 +16,7 @@ import PromotionDiscountManager from '../components/PromotionDiscountManager';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import PriceEntryModal from '../components/PriceEntryModal';
 import { toast } from '../components/Toast';
-import StandardReport, { type ReportDownloadOptions } from '../components/StandardReport';
+import StandardReport, { type ReportDownloadOptions, type ReportSectionKey } from '../components/StandardReport';
 import UpgradePlanModal from '../components/UpgradePlanModal';
 import ImageCropModal from '../components/ImageCropModal';
 import WalletBillingPage from './WalletBillingPage';
@@ -104,8 +104,8 @@ interface Props {
   onUpdateMenu?: (restaurantId: string, updatedItem: MenuItem) => void | Promise<void>;
   onAddMenuItem?: (restaurantId: string, newItem: MenuItem) => void | Promise<void>;
   onPermanentDeleteMenuItem?: (restaurantId: string, itemId: string) => void | Promise<void>;
-  onFetchPaginatedOrders?: (filters: ReportFilters, page: number, pageSize: number) => Promise<ReportResponse>;
-  onFetchAllFilteredOrders?: (filters: ReportFilters) => Promise<Order[]>;
+  onFetchPaginatedOrders?: (filters: ReportFilters, page: number, pageSize: number, includeSummary?: boolean, includeItems?: boolean) => Promise<ReportResponse>;
+  onFetchAllFilteredOrders?: (filters: ReportFilters, includeItems?: boolean) => Promise<Order[]>;
   isOnline?: boolean;
   pendingOfflineOrdersCount?: number;
   cashierName?: string;
@@ -3207,7 +3207,7 @@ const PosOnlyView: React.FC<Props> = ({
     };
   };
 
-  const fetchReport = async (isExport = false) => {
+  const fetchReport = async (isExport = false, includeItems = true) => {
     // ─── OFFLINE: serve directly from local cache ───────────────────────────
     if (!isOnline) {
       if (isExport) return buildCachedReportData(true) as Order[];
@@ -3230,13 +3230,13 @@ const PosOnlyView: React.FC<Props> = ({
       };
 
       if (isExport && onFetchAllFilteredOrders) {
-        const orders = await onFetchAllFilteredOrders(filters);
+        const orders = await onFetchAllFilteredOrders(filters, includeItems);
         counterOrdersCache.mergeReportOrdersCache(restaurant.id, orders);
         return applyReportAccess(orders);
       }
 
       if (!isExport && onFetchPaginatedOrders) {
-        const data = await onFetchPaginatedOrders(filters, currentPage, entriesPerPage);
+        const data = await onFetchPaginatedOrders(filters, currentPage, entriesPerPage, true, false);
         // Persist fetched orders into local cache for offline access
         counterOrdersCache.mergeReportOrdersCache(restaurant.id, data.orders);
         setReportData(data);
@@ -3246,7 +3246,8 @@ const PosOnlyView: React.FC<Props> = ({
       const params = new URLSearchParams({
         ...filters as any,
         page: isExport ? '1' : currentPage.toString(),
-        limit: isExport ? '10000' : entriesPerPage.toString()
+        limit: isExport ? '10000' : entriesPerPage.toString(),
+        includeItems: isExport && includeItems ? 'true' : 'false',
       });
 
       const response = await fetch(`/api/orders/report?${params.toString()}`);
@@ -4956,6 +4957,16 @@ const PosOnlyView: React.FC<Props> = ({
   const [isDownloadingReport, setIsDownloadingReport] = useState(false);
 
   const getNormalizedPaymentMethod = (method?: string) => String(method || 'CASH').trim().toUpperCase();
+  const defaultReportSections: ReportSectionKey[] = ['salesSummary', 'dailyBreakdown', 'hourlyDistribution', 'byItem', 'byCategory', 'byEmployee', 'byPayment', 'byModifier'];
+  const getSelectedReportSections = (options: ReportDownloadOptions): ReportSectionKey[] => {
+    if (options.sections?.length) return options.sections;
+    if (options.infoType === 'summary') return ['salesSummary'];
+    if (options.infoType === 'dailyBreakdown') return ['dailyBreakdown'];
+    if (options.infoType === 'transactions') return ['transactions'];
+    return defaultReportSections;
+  };
+  const reportGeneratedBy = cashierName || currentStaff?.username || 'Unknown';
+  const restaurantAddress = restaurant.location || restaurant.settings?.qrLocationLabel || '';
 
   const buildDailySalesBreakdown = (orders: Order[]) => {
     const basePaymentColumns = ['CASH', 'QR', 'CARD'];
@@ -5011,24 +5022,157 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const buildExportCsv = (orders: Order[], options: ReportDownloadOptions) => {
+    const sections = getSelectedReportSections(options);
+    const includeSection = (section: ReportSectionKey) => sections.includes(section);
     const completed = orders.filter((o) => o.status === OrderStatus.COMPLETED);
     const cancelled = orders.filter((o) => o.status === OrderStatus.CANCELLED);
     const totalRevenue = completed.reduce((sum, o) => sum + o.total, 0);
     const avgOrder = completed.length > 0 ? totalRevenue / completed.length : 0;
     const daily = buildDailySalesBreakdown(orders);
     const rows: string[][] = [];
+    const appendGap = () => { if (rows.length > 0) rows.push([]); };
+    const appendTable = (title: string, header: string[], body: string[][]) => {
+      appendGap();
+      rows.push([title]);
+      rows.push(header);
+      rows.push(...body);
+    };
 
-    if (options.infoType === 'summary') {
-      rows.push(['Metric', 'Value']);
-      rows.push(['Total Revenue', totalRevenue.toFixed(2)]);
-      rows.push(['Total Transactions', String(completed.length)]);
-      rows.push(['Total Orders', String(orders.length)]);
-      rows.push(['Cancelled Orders', String(cancelled.length)]);
-      rows.push(['Average Order Value', avgOrder.toFixed(2)]);
-    } else if (options.infoType === 'transactions') {
-      rows.push(['Order ID', 'Table', 'Dining Option', 'Date', 'Time', 'Status', 'Payment Method', 'Cashier', 'Items', 'Total']);
-      orders.forEach((o) => {
-        rows.push([
+    rows.push([restaurant.name || 'Sales Report']);
+    if (restaurantAddress) rows.push([restaurantAddress]);
+    rows.push([`Report Period: ${reportStart} to ${reportEnd}`]);
+    rows.push([`Generated: ${new Date().toLocaleString()}`]);
+    rows.push([`Generated by: ${reportGeneratedBy}`]);
+
+    if (includeSection('salesSummary')) {
+      appendTable('Sales Summary', ['Metric', 'Value'], [
+        ['Total Revenue', totalRevenue.toFixed(2)],
+        ['Total Transactions', String(completed.length)],
+        ['Total Orders', String(orders.length)],
+        ['Cancelled Orders', String(cancelled.length)],
+        ['Average Order Value', avgOrder.toFixed(2)],
+      ]);
+    }
+
+    if (includeSection('dailyBreakdown')) {
+      appendTable('Daily Sales Breakdown', ['Date', 'Total Sales', 'Total Transactions', ...daily.paymentColumns], daily.rows.map((row) => [
+        row.dateLabel,
+        row.totalSales.toFixed(2),
+        String(row.totalTransactions),
+        ...daily.paymentColumns.map((column) => row.paymentTotals[column].toFixed(2)),
+      ]));
+    }
+
+    if (includeSection('hourlyDistribution')) {
+      const hourlyMap = new Map<number, { orders: number; revenue: number }>();
+      completed.forEach((order) => {
+        const hour = new Date(order.timestamp).getHours();
+        const row = hourlyMap.get(hour) || { orders: 0, revenue: 0 };
+        row.orders += 1;
+        row.revenue += order.total;
+        hourlyMap.set(hour, row);
+      });
+      appendTable('Hourly Sales Distribution', ['Hour', 'Orders', 'Revenue'], Array.from(hourlyMap.entries()).sort((a, b) => a[0] - b[0]).map(([hour, data]) => [
+        `${String(hour).padStart(2, '0')}:00`,
+        String(data.orders),
+        data.revenue.toFixed(2),
+      ]));
+    }
+
+    if (includeSection('byItem')) {
+      const itemMap = new Map<string, { qty: number; revenue: number }>();
+      completed.forEach((order) => order.items.forEach((item) => {
+        const row = itemMap.get(item.name) || { qty: 0, revenue: 0 };
+        row.qty += item.quantity;
+        row.revenue += item.price * item.quantity;
+        itemMap.set(item.name, row);
+      }));
+      appendTable('By Item', ['Item', 'Qty Sold', 'Revenue', 'Avg Price'], Array.from(itemMap.entries()).sort((a, b) => b[1].revenue - a[1].revenue).map(([name, data]) => [
+        name,
+        String(data.qty),
+        data.revenue.toFixed(2),
+        (data.qty > 0 ? data.revenue / data.qty : 0).toFixed(2),
+      ]));
+    }
+
+    if (includeSection('byCategory')) {
+      const catMap = new Map<string, { qty: number; orders: number; revenue: number }>();
+      completed.forEach((order) => {
+        const seen = new Set<string>();
+        order.items.forEach((item) => {
+          const category = item.category || 'Uncategorized';
+          const row = catMap.get(category) || { qty: 0, orders: 0, revenue: 0 };
+          row.qty += item.quantity;
+          row.revenue += item.price * item.quantity;
+          catMap.set(category, row);
+          seen.add(category);
+        });
+        seen.forEach((category) => { const row = catMap.get(category); if (row) row.orders += 1; });
+      });
+      appendTable('By Category', ['Category', 'Items Sold', 'Orders', 'Revenue'], Array.from(catMap.entries()).sort((a, b) => b[1].revenue - a[1].revenue).map(([name, data]) => [
+        name,
+        String(data.qty),
+        String(data.orders),
+        data.revenue.toFixed(2),
+      ]));
+    }
+
+    if (includeSection('byEmployee')) {
+      const employeeMap = new Map<string, { orders: number; revenue: number }>();
+      completed.forEach((order) => {
+        const name = order.cashierName || 'Unknown';
+        const row = employeeMap.get(name) || { orders: 0, revenue: 0 };
+        row.orders += 1;
+        row.revenue += order.total;
+        employeeMap.set(name, row);
+      });
+      appendTable('By Employee', ['Employee', 'Orders', 'Revenue', 'Avg Order'], Array.from(employeeMap.entries()).sort((a, b) => b[1].revenue - a[1].revenue).map(([name, data]) => [
+        name,
+        String(data.orders),
+        data.revenue.toFixed(2),
+        (data.orders > 0 ? data.revenue / data.orders : 0).toFixed(2),
+      ]));
+    }
+
+    if (includeSection('byPayment')) {
+      const paymentMap = new Map<string, { count: number; total: number }>();
+      completed.forEach((order) => {
+        const method = getNormalizedPaymentMethod(order.paymentMethod);
+        const row = paymentMap.get(method) || { count: 0, total: 0 };
+        row.count += 1;
+        row.total += order.total;
+        paymentMap.set(method, row);
+      });
+      appendTable('By Payment', ['Payment Method', 'Transactions', 'Revenue', '% of Total'], Array.from(paymentMap.entries()).sort((a, b) => b[1].total - a[1].total).map(([method, data]) => [
+        method,
+        String(data.count),
+        data.total.toFixed(2),
+        `${totalRevenue > 0 ? ((data.total / totalRevenue) * 100).toFixed(1) : '0'}%`,
+      ]));
+    }
+
+    if (includeSection('byModifier')) {
+      const modifierMap = new Map<string, { count: number; revenue: number; items: Set<string> }>();
+      completed.forEach((order) => order.items.forEach((item) => {
+        Object.entries(item.selectedModifiers || {}).forEach(([group, value]) => {
+          const name = `${group}: ${value}`;
+          const row = modifierMap.get(name) || { count: 0, revenue: 0, items: new Set<string>() };
+          row.count += item.quantity;
+          row.revenue += item.price * item.quantity;
+          row.items.add(item.name);
+          modifierMap.set(name, row);
+        });
+      }));
+      appendTable('By Modifier', ['Modifier', 'Times Used', 'Revenue', 'Used In'], Array.from(modifierMap.entries()).sort((a, b) => b[1].revenue - a[1].revenue).map(([name, data]) => [
+        name,
+        String(data.count),
+        data.revenue.toFixed(2),
+        Array.from(data.items).join('; '),
+      ]));
+    }
+
+    if (includeSection('transactions')) {
+      appendTable('Transactions', ['Order ID', 'Table', 'Dining Option', 'Date', 'Time', 'Status', 'Payment Method', 'Cashier', 'Items', 'Total'], orders.map((o) => [
           o.id,
           o.tableNumber || '-',
           o.diningType || '-',
@@ -5039,58 +5183,15 @@ const PosOnlyView: React.FC<Props> = ({
           o.cashierName || '',
           o.items.map((i) => `${i.name} (x${i.quantity})`).join('; '),
           o.total.toFixed(2),
-        ]);
-      });
-    } else if (options.infoType === 'dailyBreakdown') {
-      rows.push(['Date', 'Total Sales', 'Total Transactions', ...daily.paymentColumns]);
-      daily.rows.forEach((row) => {
-        rows.push([
-          row.dateLabel,
-          row.totalSales.toFixed(2),
-          String(row.totalTransactions),
-          ...daily.paymentColumns.map((column) => row.paymentTotals[column].toFixed(2)),
-        ]);
-      });
-    } else {
-      rows.push(['Summary']);
-      rows.push(['Metric', 'Value']);
-      rows.push(['Total Revenue', totalRevenue.toFixed(2)]);
-      rows.push(['Total Transactions', String(completed.length)]);
-      rows.push(['Total Orders', String(orders.length)]);
-      rows.push([]);
-      rows.push(['Daily Sales Breakdown']);
-      rows.push(['Date', 'Total Sales', 'Total Transactions', ...daily.paymentColumns]);
-      daily.rows.forEach((row) => {
-        rows.push([
-          row.dateLabel,
-          row.totalSales.toFixed(2),
-          String(row.totalTransactions),
-          ...daily.paymentColumns.map((column) => row.paymentTotals[column].toFixed(2)),
-        ]);
-      });
-      rows.push([]);
-      rows.push(['Transactions']);
-      rows.push(['Order ID', 'Table', 'Dining Option', 'Date', 'Time', 'Status', 'Payment Method', 'Cashier', 'Items', 'Total']);
-      orders.forEach((o) => {
-        rows.push([
-          o.id,
-          o.tableNumber || '-',
-          o.diningType || '-',
-          new Date(o.timestamp).toLocaleDateString('en-MY'),
-          new Date(o.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          o.status,
-          o.paymentMethod || '',
-          o.cashierName || '',
-          o.items.map((i) => `${i.name} (x${i.quantity})`).join('; '),
-          o.total.toFixed(2),
-        ]);
-      });
+        ]));
     }
 
     downloadCsvRows(rows, `POS_Report_${reportStart}_to_${reportEnd}.csv`);
   };
 
   const buildExportPdf = async (orders: Order[], options: ReportDownloadOptions) => {
+    const sections = getSelectedReportSections(options);
+    const includeSection = (section: ReportSectionKey) => sections.includes(section);
     const { default: jsPDF } = await import('jspdf');
     const { default: autoTable } = await import('jspdf-autotable');
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
@@ -5126,11 +5227,20 @@ const PosOnlyView: React.FC<Props> = ({
     doc.setFontSize(18);
     doc.text(restaurant.name || 'Sales Report', margin, y);
     y += 6;
+    if (restaurantAddress) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text(restaurantAddress, margin, y);
+      y += 5;
+    }
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(120, 120, 120);
     doc.setFontSize(9);
     doc.text(`Report Period: ${reportStart} to ${reportEnd}`, margin, y);
     doc.text(`Generated: ${new Date().toLocaleString()}`, pageW - margin, y, { align: 'right' });
+    y += 5;
+    doc.text(`Generated by: ${reportGeneratedBy}`, pageW - margin, y, { align: 'right' });
     y += 8;
 
     const section = (title: string) => {
@@ -5142,8 +5252,32 @@ const PosOnlyView: React.FC<Props> = ({
       y += 5;
     };
 
-    if (options.infoType === 'all' || options.infoType === 'summary') {
-      section('Summary');
+    const drawSimpleBarChart = (title: string, rows: { label: string; value: number }[]) => {
+      if (rows.length === 0) return;
+      section(`${title} Chart`);
+      const chartRows = rows.slice(0, 14);
+      const maxValue = Math.max(...chartRows.map((row) => row.value), 1);
+      chartRows.forEach((row) => {
+        if (y > pageH - 18) { doc.addPage(); y = 16; }
+        const barW = ((pageW - margin * 2 - 54) * row.value) / maxValue;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(80, 80, 80);
+        doc.text(row.label.slice(0, 18), margin, y + 3.5);
+        doc.setFillColor(242, 242, 242);
+        doc.roundedRect(margin + 36, y, pageW - margin * 2 - 54, 5, 1, 1, 'F');
+        doc.setFillColor(...amber);
+        doc.roundedRect(margin + 36, y, Math.max(barW, 1), 5, 1, 1, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...darkGray);
+        doc.text(`RM ${row.value.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, pageW - margin, y + 3.5, { align: 'right' });
+        y += 7;
+      });
+      y += 3;
+    };
+
+    if (includeSection('salesSummary')) {
+      section('Sales Summary');
       autoTable(doc, {
         startY: y,
         head: [['Metric', 'Value']],
@@ -5161,22 +5295,10 @@ const PosOnlyView: React.FC<Props> = ({
       });
       y = (doc as any).lastAutoTable.finalY + 8;
 
-      if (paymentRows.length > 0) {
-        section('Sales by Payment Type');
-        autoTable(doc, {
-          startY: y,
-          head: [['Payment Method', 'Transactions', 'Total Sales']],
-          body: paymentRows,
-          margin: { left: margin, right: margin },
-          styles: { fontSize: 8, cellPadding: 2.5 },
-          headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
-          theme: 'grid',
-        });
-        y = (doc as any).lastAutoTable.finalY + 8;
-      }
     }
 
-    if (options.infoType === 'all' || options.infoType === 'dailyBreakdown') {
+    if (includeSection('dailyBreakdown')) {
+      drawSimpleBarChart('Daily Sales Breakdown', daily.rows.map((row) => ({ label: row.dateLabel, value: row.totalSales })));
       section('Daily Sales Breakdown');
       autoTable(doc, {
         startY: y,
@@ -5195,59 +5317,160 @@ const PosOnlyView: React.FC<Props> = ({
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // Daily Sales Breakdown (daily totals + dynamic payment columns)
-    const basePaymentColumns = ['CASH', 'QR', 'CARD'];
-    const customPaymentColumns = paymentTypes
-      .map((type) => type.name.trim().toUpperCase())
-      .filter((name) => name && !basePaymentColumns.includes(name));
-    const dailyPaymentColumns = [...basePaymentColumns, ...customPaymentColumns, 'OTHER'];
-    const dailyRowsMap = new Map<string, { sortKey: number; totalSales: number; totalTransactions: number; paymentTotals: Record<string, number> }>();
-    completed.forEach((order) => {
-      const date = new Date(order.timestamp);
-      const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-      const dateLabel = date.toLocaleDateString('en-US', { month: 'long', day: '2-digit' });
-      const method = String(order.paymentMethod || 'CASH').trim().toUpperCase();
-      const paymentKey = dailyPaymentColumns.includes(method) ? method : 'OTHER';
-
-      if (!dailyRowsMap.has(dateKey)) {
-        const paymentTotals: Record<string, number> = {};
-        dailyPaymentColumns.forEach((col) => { paymentTotals[col] = 0; });
-        dailyRowsMap.set(dateKey, { sortKey: date.getTime(), totalSales: 0, totalTransactions: 0, paymentTotals });
-      }
-
-      const row = dailyRowsMap.get(dateKey)!;
-      row.totalSales += order.total;
-      row.totalTransactions += 1;
-      row.paymentTotals[paymentKey] += order.total;
-      // Keep readable label while sorting by stable key
-      (row as any).dateLabel = dateLabel;
-    });
-    const dailyBreakdownRows = Array.from(dailyRowsMap.values())
-      .sort((a, b) => a.sortKey - b.sortKey)
-      .map((row: any) => [
-        row.dateLabel as string,
-        `RM ${row.totalSales.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        `${row.totalTransactions}`,
-        ...dailyPaymentColumns.map((col) => `RM ${row.paymentTotals[col].toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`),
-      ]);
-    if (dailyBreakdownRows.length > 0) {
-      if (y > 220) { doc.addPage(); y = 14; }
-      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-      doc.text('Daily Sales Breakdown', margin, y); y += 6;
+    if (includeSection('hourlyDistribution')) {
+      const hourlyMap = new Map<number, { orders: number; revenue: number }>();
+      completed.forEach((order) => {
+        const hour = new Date(order.timestamp).getHours();
+        const row = hourlyMap.get(hour) || { orders: 0, revenue: 0 };
+        row.orders += 1;
+        row.revenue += order.total;
+        hourlyMap.set(hour, row);
+      });
+      const hourlyRows = Array.from(hourlyMap.entries()).sort((a, b) => a[0] - b[0]);
+      drawSimpleBarChart('Hourly Sales Distribution', hourlyRows.map(([hour, data]) => ({ label: `${String(hour).padStart(2, '0')}:00`, value: data.revenue })));
+      section('Hourly Sales Distribution');
       autoTable(doc, {
         startY: y,
-        head: [['Date', 'Total Sales', 'Total Transactions', ...dailyPaymentColumns]],
-        body: dailyBreakdownRows,
+        head: [['Hour', 'Orders', 'Revenue']],
+        body: hourlyRows.map(([hour, data]) => [`${String(hour).padStart(2, '0')}:00`, String(data.orders), `RM ${data.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]),
         margin: { left: margin, right: margin },
-        styles: { fontSize: 7.2, cellPadding: 2 },
+        styles: { fontSize: 8, cellPadding: 2.2 },
         headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [254, 243, 199] },
         theme: 'grid',
       });
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    if (options.infoType === 'all' || options.infoType === 'transactions') {
+    if (includeSection('byItem')) {
+      const itemMap = new Map<string, { qty: number; revenue: number }>();
+      completed.forEach((order) => order.items.forEach((item) => {
+        const row = itemMap.get(item.name) || { qty: 0, revenue: 0 };
+        row.qty += item.quantity;
+        row.revenue += item.price * item.quantity;
+        itemMap.set(item.name, row);
+      }));
+      section('By Item');
+      autoTable(doc, {
+        startY: y,
+        head: [['Item', 'Qty Sold', 'Revenue', 'Avg Price']],
+        body: Array.from(itemMap.entries()).sort((a, b) => b[1].revenue - a[1].revenue).map(([name, data]) => [
+          name,
+          String(data.qty),
+          `RM ${data.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `RM ${(data.qty > 0 ? data.revenue / data.qty : 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        ]),
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 7, cellPadding: 2 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    if (includeSection('byCategory')) {
+      const catMap = new Map<string, { qty: number; orders: number; revenue: number }>();
+      completed.forEach((order) => {
+        const seen = new Set<string>();
+        order.items.forEach((item) => {
+          const category = item.category || 'Uncategorized';
+          const row = catMap.get(category) || { qty: 0, orders: 0, revenue: 0 };
+          row.qty += item.quantity;
+          row.revenue += item.price * item.quantity;
+          catMap.set(category, row);
+          seen.add(category);
+        });
+        seen.forEach((category) => { const row = catMap.get(category); if (row) row.orders += 1; });
+      });
+      section('By Category');
+      autoTable(doc, {
+        startY: y,
+        head: [['Category', 'Items Sold', 'Orders', 'Revenue']],
+        body: Array.from(catMap.entries()).sort((a, b) => b[1].revenue - a[1].revenue).map(([name, data]) => [
+          name,
+          String(data.qty),
+          String(data.orders),
+          `RM ${data.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        ]),
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.2 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    if (includeSection('byEmployee')) {
+      const employeeMap = new Map<string, { count: number; total: number }>();
+      completed.forEach((order) => {
+        const name = order.cashierName || 'Unknown';
+        const row = employeeMap.get(name) || { count: 0, total: 0 };
+        row.count += 1;
+        row.total += order.total;
+        employeeMap.set(name, row);
+      });
+      section('By Employee');
+      autoTable(doc, {
+        startY: y,
+        head: [['Employee', 'Orders', 'Revenue', 'Avg Order']],
+        body: Array.from(employeeMap.entries()).sort((a, b) => b[1].total - a[1].total).map(([name, row]) => [
+          name,
+          String(row.count),
+          `RM ${row.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `RM ${(row.count > 0 ? row.total / row.count : 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        ]),
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.2 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    if (includeSection('byPayment') && paymentRows.length > 0) {
+      section('By Payment');
+      autoTable(doc, {
+        startY: y,
+        head: [['Payment Method', 'Transactions', 'Revenue']],
+        body: paymentRows,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.5 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    if (includeSection('byModifier')) {
+      const modifierMap = new Map<string, { count: number; revenue: number; items: Set<string> }>();
+      completed.forEach((order) => order.items.forEach((item) => {
+        Object.entries(item.selectedModifiers || {}).forEach(([group, value]) => {
+          const name = `${group}: ${value}`;
+          const row = modifierMap.get(name) || { count: 0, revenue: 0, items: new Set<string>() };
+          row.count += item.quantity;
+          row.revenue += item.price * item.quantity;
+          row.items.add(item.name);
+          modifierMap.set(name, row);
+        });
+      }));
+      section('By Modifier');
+      autoTable(doc, {
+        startY: y,
+        head: [['Modifier', 'Times Used', 'Revenue', 'Used In']],
+        body: Array.from(modifierMap.entries()).sort((a, b) => b[1].revenue - a[1].revenue).map(([name, data]) => [
+          name,
+          String(data.count),
+          `RM ${data.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          Array.from(data.items).slice(0, 4).join(', '),
+        ]),
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 7, cellPadding: 2 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    if (includeSection('transactions')) {
       section('Transactions');
       autoTable(doc, {
         startY: y,
@@ -5282,15 +5505,17 @@ const PosOnlyView: React.FC<Props> = ({
   const handleDownloadReportWithOptions = async (options: ReportDownloadOptions) => {
     setIsDownloadingReport(true);
     try {
+      const selectedSections = getSelectedReportSections(options);
+      const needsItemDetails = selectedSections.some((section) => ['byItem', 'byCategory', 'byModifier', 'transactions'].includes(section));
+      const allOrders = await fetchReport(true, needsItemDetails) as Order[];
+      if (!allOrders || allOrders.length === 0) {
+        toast('No report data found for the selected filters.', 'warning');
+        return;
+      }
       if (options.fileType === 'csv') {
-        const allOrders = await fetchReport(true) as Order[];
-        if (!allOrders || allOrders.length === 0) {
-          toast('No report data found for the selected filters.', 'warning');
-          return;
-        }
         buildExportCsv(allOrders, options);
       } else {
-        await handleDownloadPDF(options);
+        await buildExportPdf(allOrders, options);
       }
     } catch (error) {
       console.error('Report download error:', error);
