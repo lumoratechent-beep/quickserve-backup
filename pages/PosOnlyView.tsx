@@ -2861,7 +2861,9 @@ const PosOnlyView: React.FC<Props> = ({
   const latestPaymentNotice = useMemo(() => {
     return announcements.find((announcement) => {
       if (announcement.is_read || announcement.category !== 'billing') return false;
-      return /duitnow|payment|billing|rejected|update/i.test(`${announcement.title} ${announcement.body}`);
+      const text = `${announcement.title} ${announcement.body}`;
+      if (/\bapproved\b|\bsuccess\b|\bsucceeded\b/i.test(text)) return false;
+      return /rejected|failed|declined|past due|overdue|expired|blocked|locked|corrected|action required|urgent|could not|cannot/i.test(text);
     }) || null;
   }, [announcements]);
 

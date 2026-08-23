@@ -3615,13 +3615,13 @@ const AdminView: React.FC<Props> = ({
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm rounded-b-2xl rounded-tr-2xl">
               <div className="p-5 border-b border-gray-100 dark:border-gray-700 space-y-5">
                 {vendorHubSubTab === 'VENDORS' && (
-                  <div className="flex items-center gap-2 sm:gap-3 flex-nowrap overflow-x-auto hide-scrollbar">
+                  <div className="relative z-20 flex items-center gap-2 sm:gap-3 flex-wrap overflow-visible">
                     <div className="relative min-w-[180px] sm:min-w-[220px] flex-1">
                       <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input
                         type="text"
                         placeholder="Search kitchen or username..."
-                        className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500"
+                        className="w-full h-9 pl-10 pr-4 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-lg text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500"
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
                       />
@@ -3629,7 +3629,7 @@ const AdminView: React.FC<Props> = ({
                     <div className="relative shrink-0">
                       <Filter size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                       <select
-                        className={`${adminSelectBase} min-w-[108px] py-2 pl-10 pr-8`}
+                        className={`${adminSelectBase} min-w-[108px] py-2 pl-10 pr-8 dark:bg-gray-900 border dark:border-gray-700`}
                         value={vendorFilter}
                         onChange={e => setVendorFilter(e.target.value as any)}
                       >
@@ -3647,7 +3647,7 @@ const AdminView: React.FC<Props> = ({
                           const [field, direction] = event.target.value.split('_');
                           setVendorSort({ field: field as 'KITCHEN' | 'HUB' | 'EXPIRY', direction: direction as 'asc' | 'desc' });
                         }}
-                        className={`${adminSelectBase} w-full pl-9 pr-9`}
+                        className={`${adminSelectBase} w-full pl-9 pr-9 dark:bg-gray-900 border dark:border-gray-700`}
                         title="Sort vendors"
                       >
                         <option value="EXPIRY_desc">Expiry Des.</option>
@@ -3662,22 +3662,22 @@ const AdminView: React.FC<Props> = ({
                     <button
                       onClick={handleDownloadVendors}
                       disabled={filteredVendors.length === 0}
-                      className={adminPrimaryButton}
+                      className={`${adminPrimaryButton} shadow-lg`}
                     >
                       <Download size={14} /> Download
                     </button>
-                    <button onClick={handleOpenAdd} className={adminOrangeButton}>Register</button>
+                    <button onClick={handleOpenAdd} className={`${adminOrangeButton} shadow-lg shadow-orange-500/10`}>Register</button>
                   </div>
                 )}
 
                 {vendorHubSubTab === 'HUBS' && (
-                  <div className="flex items-center gap-2 sm:gap-3 flex-nowrap overflow-x-auto hide-scrollbar">
+                  <div className="relative z-20 flex items-center gap-2 sm:gap-3 flex-wrap overflow-visible">
                     <div className="relative min-w-[180px] sm:min-w-[220px] flex-1">
                       <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input
                         type="text"
                         placeholder="Search hubs..."
-                        className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500"
+                        className="w-full h-9 pl-10 pr-4 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-lg text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500"
                         value={hubSearchQuery}
                         onChange={e => setHubSearchQuery(e.target.value)}
                       />
@@ -3687,7 +3687,7 @@ const AdminView: React.FC<Props> = ({
                       <select
                         value={hubSortDirection}
                         onChange={event => setHubSortDirection(event.target.value as 'asc' | 'desc')}
-                        className={`${adminSelectBase} w-full pl-9 pr-9`}
+                        className={`${adminSelectBase} w-full pl-9 pr-9 dark:bg-gray-900 border dark:border-gray-700`}
                         title="Sort hubs"
                       >
                         <option value="asc">Name Asc.</option>
@@ -3698,14 +3698,14 @@ const AdminView: React.FC<Props> = ({
                     <button
                       onClick={handleDownloadHubs}
                       disabled={filteredHubs.length === 0}
-                      className={adminPrimaryButton}
+                      className={`${adminPrimaryButton} shadow-lg`}
                     >
                       <Download size={14} /> Download
                     </button>
-                    <button onClick={() => setIsHubSelectionModalOpen(true)} className={`${adminSecondaryButton} text-orange-500 border-orange-200 dark:border-orange-500/40 hover:bg-orange-50 dark:hover:bg-orange-900/20`}>
+                    <button onClick={() => setIsHubSelectionModalOpen(true)} className={`${adminSecondaryButton} text-orange-500 border-orange-200 dark:border-orange-500/40 dark:bg-gray-900 hover:bg-orange-50 dark:hover:bg-orange-900/20`}>
                       <QrCode size={14} /> QR
                     </button>
-                    <button onClick={handleOpenHubAdd} className={adminOrangeButton}>Register Hub</button>
+                    <button onClick={handleOpenHubAdd} className={`${adminOrangeButton} shadow-lg shadow-orange-500/10`}>Register Hub</button>
                   </div>
                 )}
               </div>
