@@ -37,8 +37,7 @@ import {
 type CashierAccessPermissionKey = 'viewOwnSalesOnly' | 'requireManagerApprovalForRefund';
 type RefundApprovalRole = 'MANAGER' | 'VENDOR';
 type RefundApprovalRequestStatus = 'PENDING' | 'APPROVED' | 'DELETED';
-type AnnouncementInboxTab = 'ALL' | 'BILLING' | 'SYSTEM' | 'ANNOUNCEMENT' | 'OTHER';
-type MailSubTab = AnnouncementInboxTab | 'REFUND_REQUESTS';
+type MailSubTab = 'ALL' | 'UNREAD' | 'REFUND_REQUESTS';
 
 interface RefundApprovalRequestRecord {
   id: string;
@@ -69,14 +68,6 @@ const getRefundApprovalRole = (permissions?: Record<string, any>): RefundApprova
 
 const getRefundApprovalRoleLabel = (role: RefundApprovalRole): string =>
   role === 'VENDOR' ? 'Vendor' : 'Manager';
-
-const getAnnouncementInboxTab = (category?: string): AnnouncementInboxTab => {
-  const normalized = String(category || '').toLowerCase();
-  if (normalized === 'billing' || normalized === 'payment') return 'BILLING';
-  if (normalized === 'update' || normalized === 'maintenance' || normalized === 'system') return 'SYSTEM';
-  if (normalized === 'general' || normalized === 'announcement') return 'ANNOUNCEMENT';
-  return 'OTHER';
-};
 
 const getAnnouncementCategoryLabel = (category?: string): string => {
   const normalized = String(category || '').toLowerCase();
@@ -132,6 +123,7 @@ interface Props {
   onMarkAnnouncementRead?: (id: string) => void;
   onMarkAllAnnouncementsRead?: () => void;
   onClearAnnouncements?: () => void;
+  onDeleteAnnouncement?: (id: string) => void;
   unreadMailCount?: number;
   openMailTab?: boolean;
   onMailTabOpened?: () => void;
@@ -447,6 +439,7 @@ const PosOnlyView: React.FC<Props> = ({
   onMarkAnnouncementRead,
   onMarkAllAnnouncementsRead,
   onClearAnnouncements,
+  onDeleteAnnouncement,
   unreadMailCount = 0,
   openMailTab = false,
   onMailTabOpened,
@@ -2876,29 +2869,14 @@ const PosOnlyView: React.FC<Props> = ({
   const hasRefundApprovalEnabled = cashierStaffEntries.some(({ staff }) => staff.access_permissions?.requireManagerApprovalForRefund === true);
   const showRefundApprovalSection = canReviewRefundRequests && (hasRefundApprovalEnabled || refundApprovalRequests.length > 0);
   const combinedMailUnreadCount = unreadMailCount + (showRefundApprovalSection ? refundApprovalRequests.length : 0);
-  const announcementInboxTabs = useMemo(() => ([
-    { id: 'ALL' as const, label: 'All' },
-    { id: 'BILLING' as const, label: 'Billing' },
-    { id: 'SYSTEM' as const, label: 'System Update & Maintenance' },
-    { id: 'ANNOUNCEMENT' as const, label: 'Announcement' },
-    { id: 'OTHER' as const, label: 'Other' },
-  ]).map(tab => ({
-    ...tab,
-    count: tab.id === 'ALL'
-      ? announcements.length
-      : announcements.filter(announcement => getAnnouncementInboxTab(announcement.category) === tab.id).length,
-    unreadCount: tab.id === 'ALL'
-      ? announcements.filter(announcement => !announcement.is_read).length
-      : announcements.filter(announcement => !announcement.is_read && getAnnouncementInboxTab(announcement.category) === tab.id).length,
-  })), [announcements]);
+  const mailTabs = useMemo(() => ([
+    { id: 'ALL' as const, label: 'All', count: announcements.length },
+    { id: 'UNREAD' as const, label: 'Unread', count: unreadMailCount },
+  ]), [announcements.length, unreadMailCount]);
   const filteredAnnouncements = useMemo(() => {
-    if (mailSubTab === 'REFUND_REQUESTS' || mailSubTab === 'ALL') return announcements;
-    return announcements.filter(announcement => getAnnouncementInboxTab(announcement.category) === mailSubTab);
-  }, [announcements, mailSubTab]);
-  const mobileFilteredAnnouncements = useMemo(() => {
-    if (mailSubTab === 'REFUND_REQUESTS') return filteredAnnouncements;
+    if (mailSubTab === 'UNREAD') return announcements.filter(announcement => !announcement.is_read);
     return announcements;
-  }, [announcements, filteredAnnouncements, mailSubTab]);
+  }, [announcements, mailSubTab]);
   const latestPaymentNotice = useMemo(() => {
     return announcements.find((announcement) => {
       if (announcement.is_read || announcement.category !== 'billing') return false;
@@ -7141,7 +7119,7 @@ const PosOnlyView: React.FC<Props> = ({
               onClick={() => {
                 onMarkAnnouncementRead?.(latestPaymentNotice.id);
                 setSelectedAnnouncement({ ...latestPaymentNotice, is_read: true });
-                setMailSubTab('BILLING');
+                setMailSubTab('ALL');
                 setActiveTab('MAIL');
                 setIsMobileMenuOpen(false);
               }}
@@ -10417,11 +10395,11 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Document-style inbox tabs */}
-                <div className="hidden md:flex gap-0 relative overflow-x-auto hide-scrollbar">
+                <div className="flex gap-0 relative overflow-x-auto hide-scrollbar">
                   {([
-                    ...announcementInboxTabs,
+                    ...mailTabs,
                     ...(showRefundApprovalSection
-                      ? [{ id: 'REFUND_REQUESTS' as const, label: 'Refund Requests', count: refundApprovalRequests.length, unreadCount: refundApprovalRequests.length }]
+                      ? [{ id: 'REFUND_REQUESTS' as const, label: 'Refund Requests', count: refundApprovalRequests.length }]
                       : []),
                   ]).map(tab => (
                     <button
@@ -10524,14 +10502,14 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {mobileFilteredAnnouncements.length === 0 ? (
+                      {filteredAnnouncements.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-24 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
                           <Mail size={28} className="text-gray-300 dark:text-gray-600 mb-3" />
                           <p className="text-sm font-bold dark:text-gray-300">No mail in this tab</p>
                         </div>
                       ) : (
                       <div className="rounded-2xl border dark:border-gray-700 overflow-hidden divide-y dark:divide-gray-700">
-                      {mobileFilteredAnnouncements.map(a => (
+                      {filteredAnnouncements.map(a => (
                         <div
                           key={a.id}
                           onClick={() => {
@@ -10622,12 +10600,23 @@ const PosOnlyView: React.FC<Props> = ({
                       {new Date(selectedAnnouncement.created_at).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
-                  <button
-                    onClick={() => setSelectedAnnouncement(null)}
-                    className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <X size={18} />
-                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      onClick={() => {
+                        onDeleteAnnouncement?.(selectedAnnouncement.id);
+                        setSelectedAnnouncement(null);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 transition-colors hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
+                    >
+                      <Trash2 size={13} /> Delete
+                    </button>
+                    <button
+                      onClick={() => setSelectedAnnouncement(null)}
+                      className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="px-6 py-6 max-h-[65vh] overflow-y-auto">

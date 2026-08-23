@@ -779,9 +779,10 @@ const App: React.FC = () => {
 
       // Filter out announcements cleared by the user
       const clearedAt = localStorage.getItem(`qs_mail_cleared_${rid}`);
+      const deletedIds = new Set(JSON.parse(localStorage.getItem(`qs_mail_deleted_${rid}`) || '[]'));
       const visibleItems = clearedAt
-        ? filtered.filter((a: any) => new Date(a.created_at) > new Date(clearedAt))
-        : filtered;
+        ? filtered.filter((a: any) => new Date(a.created_at) > new Date(clearedAt) && !deletedIds.has(a.id))
+        : filtered.filter((a: any) => !deletedIds.has(a.id));
 
       const { data: reads } = await supabase
         .from('announcement_reads')
@@ -824,6 +825,16 @@ const App: React.FC = () => {
       localStorage.setItem(`qs_mail_cleared_${rid}`, new Date().toISOString());
     }
     setAnnouncements([]);
+  };
+
+  const deleteAnnouncement = async (announcementId: string) => {
+    const rid = currentUser?.restaurantId;
+    if (!rid) return;
+    const storageKey = `qs_mail_deleted_${rid}`;
+    const deletedIds = new Set<string>(JSON.parse(localStorage.getItem(storageKey) || '[]'));
+    deletedIds.add(announcementId);
+    localStorage.setItem(storageKey, JSON.stringify(Array.from(deletedIds)));
+    setAnnouncements(prev => prev.filter(a => a.id !== announcementId));
   };
 
   const unreadMailCount = announcements.filter(a => !a.is_read).length;
@@ -3765,6 +3776,7 @@ const App: React.FC = () => {
               onMarkAnnouncementRead={markAnnouncementRead}
               onMarkAllAnnouncementsRead={markAllAnnouncementsRead}
               onClearAnnouncements={clearAnnouncements}
+              onDeleteAnnouncement={deleteAnnouncement}
               unreadMailCount={unreadMailCount}
               openMailTab={openMailInPOS}
               onMailTabOpened={() => setOpenMailInPOS(false)}
@@ -3816,6 +3828,7 @@ const App: React.FC = () => {
                 onMarkAnnouncementRead={markAnnouncementRead}
                 onMarkAllAnnouncementsRead={markAllAnnouncementsRead}
                 onClearAnnouncements={clearAnnouncements}
+                onDeleteAnnouncement={deleteAnnouncement}
                 unreadMailCount={unreadMailCount}
                 openMailTab={openMailInPOS}
                 onMailTabOpened={() => setOpenMailInPOS(false)}
@@ -3861,6 +3874,7 @@ const App: React.FC = () => {
                 onMarkAnnouncementRead={markAnnouncementRead}
                 onMarkAllAnnouncementsRead={markAllAnnouncementsRead}
                 onClearAnnouncements={clearAnnouncements}
+                onDeleteAnnouncement={deleteAnnouncement}
                 unreadMailCount={unreadMailCount}
                 openMailTab={openMailInPOS}
                 onMailTabOpened={() => setOpenMailInPOS(false)}
