@@ -308,63 +308,6 @@ const SystemStatusDashboard: React.FC = () => {
   // I'm not including it here to save space, but keep your existing implementation
   const [status, setStatus] = useState<Record<string, { status: 'CHECKING' | 'OK' | 'ERROR'; message: string; lastChecked?: string }>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isReconcilingDuitNow, setIsReconcilingDuitNow] = useState(false);
-  const [duitNowReconcileResult, setDuitNowReconcileResult] = useState<{
-    checked: number;
-    repaired: number;
-    failed: number;
-    message: string;
-    failedRefs: string[];
-  } | null>(null);
-
-  const runDuitNowReconcile = async () => {
-    setIsReconcilingDuitNow(true);
-    setDuitNowReconcileResult(null);
-    try {
-      const response = await fetch('/api/stripe/billing?action=duitnow-reconcile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit: 500 }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok && response.status !== 207) {
-        throw new Error(data.error || 'DuitNow reconciliation failed.');
-      }
-
-      const failedRefs = Array.isArray(data.results)
-        ? data.results
-          .filter((result: any) => result.error)
-          .map((result: any) => result.referenceCode || result.paymentId)
-        : [];
-      setDuitNowReconcileResult({
-        checked: Number(data.checked || 0),
-        repaired: Number(data.repaired || 0),
-        failed: Number(data.failed || 0),
-        message: data.message || 'DuitNow reconciliation completed.',
-        failedRefs,
-      });
-
-      if (Number(data.failed || 0) > 0) {
-        toast(`DuitNow reconciliation completed with ${data.failed} failed item(s).`, 'warning');
-      } else if (Number(data.repaired || 0) > 0) {
-        toast(`DuitNow reconciliation repaired ${data.repaired} payment(s).`, 'success');
-      } else {
-        toast('DuitNow reconciliation found no repairs needed.', 'success');
-      }
-    } catch (error: any) {
-      const message = error?.message || 'DuitNow reconciliation failed.';
-      setDuitNowReconcileResult({
-        checked: 0,
-        repaired: 0,
-        failed: 1,
-        message,
-        failedRefs: [],
-      });
-      toast(message, 'error');
-    } finally {
-      setIsReconcilingDuitNow(false);
-    }
-  };
 
   const runAllChecks = async () => {
     setIsRefreshing(true);
@@ -645,42 +588,6 @@ const SystemStatusDashboard: React.FC = () => {
           <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
           {isRefreshing ? 'Checking...' : 'Run All Checks'}
         </button>
-      </div>
-
-      <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 dark:border-orange-900/30 dark:bg-orange-900/10">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <Receipt size={16} className="text-orange-500" />
-              <h4 className="text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">DuitNow Reconciliation</h4>
-            </div>
-            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
-              Repairs approved DuitNow payments missing income, expiry, or payment status links.
-            </p>
-          </div>
-          <button
-            onClick={runDuitNowReconcile}
-            disabled={isReconcilingDuitNow}
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={isReconcilingDuitNow ? 'animate-spin' : ''} />
-            {isReconcilingDuitNow ? 'Reconciling...' : 'Run DuitNow Repair'}
-          </button>
-        </div>
-        {duitNowReconcileResult && (
-          <div className={`mt-3 rounded-lg border px-3 py-2 text-xs font-bold ${
-            duitNowReconcileResult.failed > 0
-              ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/30 dark:bg-red-900/20 dark:text-red-300'
-              : 'border-green-200 bg-green-50 text-green-700 dark:border-green-900/30 dark:bg-green-900/20 dark:text-green-300'
-          }`}>
-            <p>{duitNowReconcileResult.message}</p>
-            {duitNowReconcileResult.failedRefs.length > 0 && (
-              <p className="mt-1 text-[10px] uppercase tracking-widest">
-                Failed: {duitNowReconcileResult.failedRefs.join(', ')}
-              </p>
-            )}
-          </div>
-        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1710,6 +1617,74 @@ const AdminView: React.FC<Props> = ({
       } else {
         const err = await res.json().catch(() => ({}));
         toast(err.error || 'Failed to review payment', 'error');
+      }
+    } catch {
+      toast('Connection error', 'error');
+    } finally {
+      setDuitnowReviewing(null);
+    }
+  };
+
+  const handleDuitnowRepair = async (paymentId: string) => {
+    setDuitnowReviewing(paymentId);
+    try {
+      const res = await fetch('/api/stripe/billing?action=duitnow-reconcile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok && res.status !== 207) {
+        toast(data.error || 'Failed to repair DuitNow approval', 'error');
+        return;
+      }
+
+      const result = data.results?.[0];
+      if (result?.error) {
+        toast(result.error, 'error');
+        return;
+      }
+
+      toast(result?.repaired ? 'DuitNow approval repaired successfully' : 'No repair needed for this DuitNow approval', 'success');
+      setDuitnowActionModalItem(null);
+      fetchDuitnowPayments();
+      const { data: subs } = await supabase.from('subscriptions').select('*');
+      if (subs) {
+        const map: Record<string, Subscription> = {};
+        subs.forEach((s: any) => { map[s.restaurant_id] = s; });
+        setSubscriptions(map);
+      }
+    } catch {
+      toast('Connection error', 'error');
+    } finally {
+      setDuitnowReviewing(null);
+    }
+  };
+
+  const handleDuitnowForceReject = async (paymentId: string) => {
+    if (!window.confirm('Mark this approved DuitNow payment as rejected? This removes its linked income record and may restore the old subscription only if this payment owns the current expiry.')) return;
+
+    setDuitnowReviewing(paymentId);
+    try {
+      const res = await fetch('/api/stripe/billing?action=duitnow-force-reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast(data.error || 'Failed to reject approved DuitNow payment', 'error');
+        return;
+      }
+
+      toast('DuitNow approval corrected to rejected', 'success');
+      setDuitnowActionModalItem(null);
+      fetchDuitnowPayments();
+      const { data: subs } = await supabase.from('subscriptions').select('*');
+      if (subs) {
+        const map: Record<string, Subscription> = {};
+        subs.forEach((s: any) => { map[s.restaurant_id] = s; });
+        setSubscriptions(map);
       }
     } catch {
       toast('Connection error', 'error');
@@ -4827,12 +4802,12 @@ const AdminView: React.FC<Props> = ({
                                       <FileImage size={12} /> Proof
                                     </button>
                                   )}
-                                  {payment.status === 'pending' && (
+                                  {(payment.status === 'pending' || (payment.entryKind === 'plan_extension' && payment.status === 'approved')) && (
                                     <button
                                       onClick={() => setDuitnowActionModalItem(payment)}
                                       disabled={duitnowReviewing === payment.id || adminWalletTopupReviewing === payment.id}
                                       className="h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors inline-flex items-center justify-center disabled:opacity-50"
-                                      aria-label={`Review ${payment.referenceLabel}`}
+                                      aria-label={`${payment.status === 'pending' ? 'Review' : 'Manage'} ${payment.referenceLabel}`}
                                     >
                                       {(duitnowReviewing === payment.id || adminWalletTopupReviewing === payment.id)
                                         ? <Loader2 size={13} className="animate-spin" />
@@ -7187,38 +7162,66 @@ const AdminView: React.FC<Props> = ({
                 >
                   Close
                 </button>
-                <button
-                  onClick={() => {
-                    if (duitnowActionModalItem.entryKind === 'plan_extension') {
-                      handleDuitnowReview(duitnowActionModalItem.id, 'rejected');
-                    } else {
-                      handleUpdateWalletTopup(duitnowActionModalItem.id, 'rejected');
-                    }
-                  }}
-                  disabled={duitnowReviewing === duitnowActionModalItem.id || adminWalletTopupReviewing === duitnowActionModalItem.id}
-                  className="w-[108px] py-2.5 rounded-xl text-xs font-bold bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-200 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
-                >
-                  {(duitnowReviewing === duitnowActionModalItem.id || adminWalletTopupReviewing === duitnowActionModalItem.id)
-                    ? <Loader2 size={14} className="animate-spin" />
-                    : <XCircle size={14} />}
-                  Reject
-                </button>
-                <button
-                  onClick={() => {
-                    if (duitnowActionModalItem.entryKind === 'plan_extension') {
-                      handleDuitnowReview(duitnowActionModalItem.id, 'approved');
-                    } else {
-                      handleUpdateWalletTopup(duitnowActionModalItem.id, 'completed');
-                    }
-                  }}
-                  disabled={duitnowReviewing === duitnowActionModalItem.id || adminWalletTopupReviewing === duitnowActionModalItem.id}
-                  className="w-[108px] py-2.5 rounded-xl text-xs font-bold bg-green-500 text-white hover:bg-green-600 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
-                >
-                  {(duitnowReviewing === duitnowActionModalItem.id || adminWalletTopupReviewing === duitnowActionModalItem.id)
-                    ? <Loader2 size={14} className="animate-spin" />
-                    : <CheckCircle size={14} />}
-                  Approve
-                </button>
+                {duitnowActionModalItem.status === 'pending' && (
+                  <>
+                    <button
+                      onClick={() => {
+                        if (duitnowActionModalItem.entryKind === 'plan_extension') {
+                          handleDuitnowReview(duitnowActionModalItem.id, 'rejected');
+                        } else {
+                          handleUpdateWalletTopup(duitnowActionModalItem.id, 'rejected');
+                        }
+                      }}
+                      disabled={duitnowReviewing === duitnowActionModalItem.id || adminWalletTopupReviewing === duitnowActionModalItem.id}
+                      className="w-[108px] py-2.5 rounded-xl text-xs font-bold bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-200 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                    >
+                      {(duitnowReviewing === duitnowActionModalItem.id || adminWalletTopupReviewing === duitnowActionModalItem.id)
+                        ? <Loader2 size={14} className="animate-spin" />
+                        : <XCircle size={14} />}
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (duitnowActionModalItem.entryKind === 'plan_extension') {
+                          handleDuitnowReview(duitnowActionModalItem.id, 'approved');
+                        } else {
+                          handleUpdateWalletTopup(duitnowActionModalItem.id, 'completed');
+                        }
+                      }}
+                      disabled={duitnowReviewing === duitnowActionModalItem.id || adminWalletTopupReviewing === duitnowActionModalItem.id}
+                      className="w-[108px] py-2.5 rounded-xl text-xs font-bold bg-green-500 text-white hover:bg-green-600 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                    >
+                      {(duitnowReviewing === duitnowActionModalItem.id || adminWalletTopupReviewing === duitnowActionModalItem.id)
+                        ? <Loader2 size={14} className="animate-spin" />
+                        : <CheckCircle size={14} />}
+                      Approve
+                    </button>
+                  </>
+                )}
+                {duitnowActionModalItem.entryKind === 'plan_extension' && duitnowActionModalItem.status === 'approved' && (
+                  <>
+                    <button
+                      onClick={() => handleDuitnowForceReject(duitnowActionModalItem.id)}
+                      disabled={duitnowReviewing === duitnowActionModalItem.id}
+                      className="w-[138px] py-2.5 rounded-xl text-xs font-bold bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-200 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                    >
+                      {duitnowReviewing === duitnowActionModalItem.id
+                        ? <Loader2 size={14} className="animate-spin" />
+                        : <XCircle size={14} />}
+                      Mark Rejected
+                    </button>
+                    <button
+                      onClick={() => handleDuitnowRepair(duitnowActionModalItem.id)}
+                      disabled={duitnowReviewing === duitnowActionModalItem.id}
+                      className="w-[132px] py-2.5 rounded-xl text-xs font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                    >
+                      {duitnowReviewing === duitnowActionModalItem.id
+                        ? <Loader2 size={14} className="animate-spin" />
+                        : <RefreshCw size={14} />}
+                      Fix Approval
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
