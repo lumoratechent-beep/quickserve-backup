@@ -808,6 +808,11 @@ const AdminView: React.FC<Props> = ({
   const adminSecondaryButton = `${adminButtonBase} bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 hover:text-orange-500 hover:border-orange-200 dark:hover:border-orange-500/40`;
   const adminPrimaryButton = `${adminButtonBase} bg-black dark:bg-white text-white dark:text-gray-900 hover:bg-orange-500 hover:text-white disabled:opacity-30`;
   const adminOrangeButton = `${adminButtonBase} bg-orange-500 text-white`;
+  const openAdminDatePicker = (input: HTMLInputElement | null) => {
+    if (!input) return;
+    input.focus();
+    (input as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
+  };
 
   const [activeTab, setActiveTab] = useState<AdminTab>('DASHBOARD');
   const [vendorHubSubTab, setVendorHubSubTab] = useState<'VENDORS' | 'HUBS'>('VENDORS');
@@ -1787,6 +1792,8 @@ const AdminView: React.FC<Props> = ({
   const [incomeEndDate, setIncomeEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [incomeSearchQuery, setIncomeSearchQuery] = useState('');
   const [incomePaymentFilter, setIncomePaymentFilter] = useState('ALL');
+  const incomeStartDateInputRef = useRef<HTMLInputElement>(null);
+  const incomeEndDateInputRef = useRef<HTMLInputElement>(null);
   const [incomeHasMore, setIncomeHasMore] = useState(false);
   const [incomeLastId, setIncomeLastId] = useState<string | null>(null);
   const [deletingIncomeId, setDeletingIncomeId] = useState<string | null>(null);
@@ -2958,6 +2965,8 @@ const AdminView: React.FC<Props> = ({
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
   });
+  const reportStartDateInputRef = useRef<HTMLInputElement>(null);
+  const reportEndDateInputRef = useRef<HTMLInputElement>(null);
   const [entriesPerPage, setEntriesPerPage] = useState<number>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [reportData, setReportData] = useState<ReportResponse | null>(null);
@@ -4100,11 +4109,27 @@ const AdminView: React.FC<Props> = ({
                     </select>
                     <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   </div>
-                  <div className="flex h-9 items-center gap-2 px-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="inline-flex h-9 w-fit items-center gap-2 px-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <Calendar size={14} className="text-orange-500 shrink-0" />
-                    <input type="date" className="admin-date-input w-[126px] bg-transparent text-[10px] outline-none font-black dark:text-white" value={incomeStartDate} onChange={e => setIncomeStartDate(e.target.value)} />
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openAdminDatePicker(incomeStartDateInputRef.current)}
+                      onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') openAdminDatePicker(incomeStartDateInputRef.current); }}
+                      className="flex h-full w-[112px] cursor-pointer items-center px-2"
+                    >
+                      <input ref={incomeStartDateInputRef} type="date" className="admin-date-input pointer-events-none w-full bg-transparent text-[10px] outline-none font-black dark:text-white" value={incomeStartDate} onChange={e => setIncomeStartDate(e.target.value)} />
+                    </div>
                     <span className="text-gray-400 font-black text-[10px]">TO</span>
-                    <input type="date" className="admin-date-input w-[126px] bg-transparent text-[10px] outline-none font-black dark:text-white" value={incomeEndDate} onChange={e => setIncomeEndDate(e.target.value)} />
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openAdminDatePicker(incomeEndDateInputRef.current)}
+                      onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') openAdminDatePicker(incomeEndDateInputRef.current); }}
+                      className="flex h-full w-[112px] cursor-pointer items-center px-2"
+                    >
+                      <input ref={incomeEndDateInputRef} type="date" className="admin-date-input pointer-events-none w-full bg-transparent text-[10px] outline-none font-black dark:text-white" value={incomeEndDate} onChange={e => setIncomeEndDate(e.target.value)} />
+                    </div>
                   </div>
                   <button onClick={() => fetchIncome()} disabled={incomeLoading} className="h-9 w-9 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg transition-all active:scale-95 flex items-center justify-center disabled:opacity-50 shrink-0" title="Apply date range" aria-label="Apply date range">
                     <RefreshCw size={14} className={incomeLoading ? 'animate-spin' : ''} />
@@ -4474,11 +4499,27 @@ const AdminView: React.FC<Props> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     {/* Period selection */}
                     <div>
-                      <div className="flex h-9 items-center gap-2 bg-white dark:bg-gray-800 px-3 rounded-lg border dark:border-gray-600">
+                      <div className="inline-flex h-9 w-fit items-center gap-2 bg-white dark:bg-gray-800 px-3 rounded-lg border dark:border-gray-600">
                         <Calendar size={12} className="text-orange-500 shrink-0" />
-                        <input type="date" value={reportStart} onChange={(e) => {setReportStart(e.target.value); setCurrentPage(1);}} className="admin-date-input flex-1 bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openAdminDatePicker(reportStartDateInputRef.current)}
+                          onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') openAdminDatePicker(reportStartDateInputRef.current); }}
+                          className="flex h-full w-[112px] cursor-pointer items-center px-2"
+                        >
+                          <input ref={reportStartDateInputRef} type="date" value={reportStart} onChange={(e) => {setReportStart(e.target.value); setCurrentPage(1);}} className="admin-date-input pointer-events-none w-full bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
+                        </div>
                         <span className="text-gray-400 font-black text-[10px]">TO</span>
-                        <input type="date" value={reportEnd} onChange={(e) => {setReportEnd(e.target.value); setCurrentPage(1);}} className="admin-date-input flex-1 bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openAdminDatePicker(reportEndDateInputRef.current)}
+                          onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') openAdminDatePicker(reportEndDateInputRef.current); }}
+                          className="flex h-full w-[112px] cursor-pointer items-center px-2"
+                        >
+                          <input ref={reportEndDateInputRef} type="date" value={reportEnd} onChange={(e) => {setReportEnd(e.target.value); setCurrentPage(1);}} className="admin-date-input pointer-events-none w-full bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
+                        </div>
                       </div>
                     </div>
 
