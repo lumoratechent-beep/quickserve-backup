@@ -84,14 +84,13 @@ function parseDateOrNull(value: any): Date | null {
 }
 
 function calculateDuitNowApprovedPeriod(dnPay: any, isAnnual: boolean): { periodStart: Date; periodEnd: Date } {
-  const paidAt = parseDateOrNull(dnPay.reviewed_at)
-    || parseDateOrNull(dnPay.created_at)
+  // DuitNow entitlement starts when the customer submitted the payment, not
+  // when an admin happens to review it. This keeps delayed reviews deterministic.
+  const paidAt = parseDateOrNull(dnPay.created_at)
+    || parseDateOrNull(dnPay.reviewed_at)
     || parseDateOrNull(dnPay.updated_at)
     || new Date();
-  const originalEnd = parseDateOrNull(dnPay.original_current_period_end || dnPay.original_trial_end);
-  const periodStart = originalEnd && originalEnd > paidAt
-    ? new Date(originalEnd.getTime())
-    : new Date(paidAt.getTime());
+  const periodStart = new Date(paidAt.getTime());
   const durationDays = isAnnual ? 365 : 30;
   const periodEnd = new Date(periodStart.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
@@ -195,6 +194,20 @@ async function ensureDuitNowBillingRecord(
   return { id: inserted?.id || null, created: true, repaired: true };
 }
 
+async function disableStripeAutoRenewForDuitNow(sub: any): Promise<boolean> {
+  if (!sub?.duitnow_enabled || !sub?.stripe_subscription_id) return false;
+
+  try {
+    await stripe.subscriptions.update(sub.stripe_subscription_id, { cancel_at_period_end: true });
+    return true;
+  } catch (error: any) {
+    // DuitNow settlement is still valid if a historical Stripe subscription
+    // is already gone. The login reconciler is separately blocked from using it.
+    console.error('Failed to disable Stripe auto-renew for DuitNow vendor:', error?.message || error);
+    return false;
+  }
+}
+
 async function repairApprovedDuitNowPayment(dnPay: any): Promise<DuitNowRepairResult> {
   const actions: string[] = [];
   const planId = dnPay.plan_id || 'basic';
@@ -211,6 +224,10 @@ async function repairApprovedDuitNowPayment(dnPay: any): Promise<DuitNowRepairRe
       .eq('restaurant_id', dnPay.restaurant_id)
       .single();
     if (subError || !sub) throw new Error('Subscription not found for approved DuitNow payment.');
+
+    if (await disableStripeAutoRenewForDuitNow(sub)) {
+      actions.push('stripe_auto_renew_disabled');
+    }
 
     const { periodStart, periodEnd } = calculateDuitNowApprovedPeriod(
       isUpgrade ? { ...dnPay, original_current_period_end: null, original_trial_end: null } : dnPay,
@@ -1656,8 +1673,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let reconcilePlan = reconcileSub.plan_id;
         const now = new Date();
         let stripeRepair: StripeRepairResult | null = null;
+        // DuitNow and Stripe are independent payment rails. A DuitNow-enabled
+        // vendor must never have their locked state "repaired" by importing
+        // historic Stripe invoices during login.
         const shouldCheckStripe = Boolean(
-          reconcileSub.stripe_customer_id
+          !reconcileSub.duitnow_enabled
+          && reconcileSub.stripe_customer_id
           && (
             reconcileSub.access_locked
             || reconcileSub.status === 'past_due'
@@ -1818,6 +1839,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           newPeriodEnd: newEnd.toISOString(),
           extensionType: extType,
         });
+      }
+
+      // POST /api/stripe/billing?action=set-duitnow-enabled
+      // Switching to DuitNow prevents Stripe from charging the saved card on
+      // the next renewal. Disabling DuitNow does not re-enable card renewal;
+      // that remains an explicit vendor card setting.
+      case 'set-duitnow-enabled': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { restaurantId: duitNowToggleRestaurantId, enabled: duitNowEnabled } = req.body || {};
+        if (!duitNowToggleRestaurantId || typeof duitNowEnabled !== 'boolean') {
+          return res.status(400).json({ error: 'restaurantId and enabled are required.' });
+        }
+
+        const { data: toggleSub, error: toggleSubError } = await supabase
+          .from('subscriptions')
+          .select('stripe_subscription_id, cancel_at_period_end')
+          .eq('restaurant_id', duitNowToggleRestaurantId)
+          .single();
+        if (toggleSubError || !toggleSub) return res.status(404).json({ error: 'Subscription not found.' });
+
+        if (duitNowEnabled && toggleSub.stripe_subscription_id) {
+          try {
+            await stripe.subscriptions.update(toggleSub.stripe_subscription_id, { cancel_at_period_end: true });
+          } catch (stripeError: any) {
+            return res.status(502).json({
+              error: `DuitNow was not enabled because Stripe auto-renew could not be disabled: ${stripeError?.message || 'Stripe request failed.'}`,
+            });
+          }
+        }
+
+        const { error: toggleUpdateError } = await supabase
+          .from('subscriptions')
+          .update({
+            duitnow_enabled: duitNowEnabled,
+            ...(duitNowEnabled ? { cancel_at_period_end: true } : {}),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('restaurant_id', duitNowToggleRestaurantId);
+        if (toggleUpdateError) return res.status(500).json({ error: 'Failed to update DuitNow setting.' });
+
+        return res.status(200).json({ success: true, enabled: duitNowEnabled });
       }
 
       // POST /api/stripe/billing?action=duitnow-submit
@@ -2198,165 +2260,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         if (dnDecision === 'approved') {
-          const dnApproveRestId = dnPay.restaurant_id;
-          const dnApprovePlan = dnPay.plan_id || 'basic';
-          const dnApproveInterval = dnPay.billing_interval || 'monthly';
-          const dnIsAnnual = dnApproveInterval === 'annual';
-          const dnIsUpgrade = dnPay.change_type === 'upgrade'
-            || PLAN_ORDER.indexOf(dnApprovePlan) > PLAN_ORDER.indexOf(dnPay.original_plan_id || dnApprovePlan);
+          const dnFinalizeErr = await finalizeDuitNowReview();
+          if (dnFinalizeErr) return res.status(500).json({ error: 'Payment could not be marked as approved.' });
 
-          const { data: dnApproveSub } = await supabase
-            .from('subscriptions')
-            .select('*')
-            .eq('restaurant_id', dnApproveRestId)
-            .single();
-
-          if (dnApproveSub) {
-            const { periodStart: dnBaseDate, periodEnd: dnNewEnd } = calculateNextSubscriptionPeriod(
-              dnIsUpgrade ? undefined : (dnPay.original_current_period_end || dnPay.original_trial_end),
-              dnIsAnnual
-            );
-
-            const { error: dnSubscriptionUpdateErr } = await supabase
-              .from('subscriptions')
-              .update({
-                status: 'active',
-                plan_id: dnApprovePlan,
-                billing_interval: dnApproveInterval,
-                current_period_start: dnBaseDate.toISOString(),
-                current_period_end: dnNewEnd.toISOString(),
-                pending_plan_id: null,
-                pending_billing_interval: null,
-                pending_change_effective_at: null,
-                ...ACCESS_UNLOCK_PATCH,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('restaurant_id', dnApproveRestId);
-            if (dnSubscriptionUpdateErr) {
-              return res.status(500).json({ error: 'Failed to activate the approved subscription.' });
-            }
-
-            const dnKitchenEnabled = dnApprovePlan === 'pro_plus';
-            const { error: dnKitchenErr } = await supabase
-              .from('restaurants')
-              .update({ kitchen_enabled: dnKitchenEnabled })
-              .eq('id', dnApproveRestId);
-            if (dnKitchenErr) {
-              return res.status(500).json({ error: 'Subscription activated, but kitchen access could not be updated.' });
-            }
-
-            const { data: dnApproveRest } = await supabase.from('restaurants').select('name').eq('id', dnApproveRestId).single();
-            const dnIncomeRecord = {
-              restaurant_id: dnApproveRestId,
-              description: `SUBSCRIPTION INCOME - DuitNow ${dnIsUpgrade ? 'Upgrade' : 'Renewal'} (${dnIsAnnual ? 'Annual' : 'Monthly'})`,
-              amount: Number(dnPay.amount),
-              type: 'subscription_income',
-              gross: Number(dnPay.amount),
-              fee: 0,
-              net: Number(dnPay.amount),
-              plan_id: dnApprovePlan,
-              restaurant_name: dnApproveRest?.name || 'Unknown',
-              created_by: 'duitnow',
-              reference_code: dnPay.reference_code || null,
-            };
-            let dnIncomeErr: any = null;
-            const { data: existingDuitNowIncome, error: dnIncomeLookupErr } = await supabase
-              .from('billing_records')
-              .select('id')
-              .eq('duitnow_payment_id', dnPay.id)
-              .maybeSingle();
-            let dnBillingRecordId: string | null = existingDuitNowIncome?.id || null;
-
-            if (dnIncomeLookupErr && isMissingColumnError(dnIncomeLookupErr, ['duitnow_payment_id'])) {
-              const { data: existingIncome } = dnPay.reference_code
-                ? await supabase
-                  .from('billing_records')
-                  .select('id')
-                  .eq('reference_code', dnPay.reference_code)
-                  .limit(1)
-                : { data: null };
-
-              if (existingIncome?.length) {
-                dnBillingRecordId = existingIncome[0]?.id || null;
-                dnIncomeErr = null;
-              } else {
-                const fallbackIncomeInsert = await supabase
-                  .from('billing_records')
-                  .insert(dnIncomeRecord)
-                  .select('id')
-                  .maybeSingle();
-                dnBillingRecordId = fallbackIncomeInsert.data?.id || null;
-                dnIncomeErr = fallbackIncomeInsert.error;
-              }
-            } else if (dnIncomeLookupErr) {
-              dnIncomeErr = dnIncomeLookupErr;
-            } else if (!existingDuitNowIncome) {
-              const fallbackIncomeInsert = await supabase
-                .from('billing_records')
-                .insert({
-                  ...dnIncomeRecord,
-                  duitnow_payment_id: dnPay.id,
-                })
-                .select('id')
-                .maybeSingle();
-              dnBillingRecordId = fallbackIncomeInsert.data?.id || null;
-              dnIncomeErr = isDuplicateKeyError(fallbackIncomeInsert.error) ? null : fallbackIncomeInsert.error;
-            }
-
-            if (dnIncomeErr) {
-              console.error('DuitNow subscription income save error:', dnIncomeErr);
-              return res.status(500).json({ error: 'Subscription activated, but subscription income could not be saved.' });
-            }
-
-            const dnPlanName = PLAN_NAMES[dnApprovePlan] || String(dnApprovePlan).replace('_', ' ');
-            const dnIntervalLabel = dnIsAnnual ? 'Annual' : 'Monthly';
-            const dnApprovalBody = [
-              `Your DuitNow ${dnIsUpgrade ? 'plan upgrade' : 'subscription renewal'} has been approved.`,
-              `Plan: ${dnPlanName} (${dnIntervalLabel}).`,
-              `Amount approved: RM ${Number(dnPay.amount || 0).toFixed(2)}.`,
-              `Your subscription is active until ${dnNewEnd.toLocaleDateString('en-MY', { day: 'numeric', month: 'long', year: 'numeric' })}.`,
-            ].join('\n\n');
-
-            const { error: dnApprovalAnnouncementErr } = await supabase.from('announcements').insert({
-              title: dnIsUpgrade ? 'Plan upgrade approved' : 'DuitNow renewal approved',
-              body: dnApprovalBody,
-              category: 'billing',
-              is_active: true,
-              hub: 'all',
-              restaurant_id: dnApproveRestId,
-            });
-            if (dnApprovalAnnouncementErr) {
-              console.error('DuitNow approval announcement error:', dnApprovalAnnouncementErr);
-            }
-
-            const dnFinalizeErr = await finalizeDuitNowReview();
-            if (dnFinalizeErr) return res.status(500).json({ error: 'Subscription was activated, but the payment review could not be finalized.' });
-
-            await upsertSubscriptionPayment(supabase, {
-              restaurantId: dnApproveRestId,
-              provider: 'duitnow',
-              status: 'approved',
-              providerReference: dnPay.reference_code || `duitnow-${dnPay.id}`,
-              billingRecordId: dnBillingRecordId,
-              duitnowPaymentId: dnPay.id,
-            });
-
-            return res.status(200).json({
-              success: true,
-              decision: 'approved',
-              changeType: dnIsUpgrade ? 'upgrade' : 'renew',
-              newPeriodEnd: dnNewEnd.toISOString(),
+          // Approval and the per-reference repair intentionally use the same
+          // finalizer, so subscription access, income, and billing history
+          // cannot drift into different states.
+          const approvedPayment = {
+            ...dnPay,
+            status: 'approved',
+            reviewed_by: 'admin',
+            reviewed_at: dnReviewedAt,
+            updated_at: dnReviewedAt,
+          };
+          const result = await repairApprovedDuitNowPayment(approvedPayment);
+          if (result.error) {
+            return res.status(500).json({
+              error: 'DuitNow was approved, but finalisation failed. Use Fix Approval for this reference.',
+              result,
             });
           }
 
-          return res.status(404).json({ error: 'Subscription not found for this payment.' });
+          return res.status(200).json({
+            success: true,
+            decision: 'approved',
+            newPeriodEnd: result.newPeriodEnd,
+            billingRecordId: result.billingRecordId,
+          });
         }
 
         return res.status(200).json({ success: true, decision: dnDecision });
       }
 
       default:
-        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, wallet-topup-direct, plan-change-wallet, renew-wallet, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access, admin-extend, duitnow-submit, duitnow-reconcile, duitnow-force-reject, duitnow-list, duitnow-review' });
+        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, wallet-topup-direct, plan-change-wallet, renew-wallet, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access, admin-extend, set-duitnow-enabled, duitnow-submit, duitnow-reconcile, duitnow-force-reject, duitnow-list, duitnow-review' });
     }
   } catch (err: any) {
     console.error(`Stripe billing error (${action}):`, err);

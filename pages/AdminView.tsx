@@ -2136,13 +2136,20 @@ const AdminView: React.FC<Props> = ({
   const handleToggleDuitNow = async (restaurantId: string, currentValue: boolean) => {
     setTogglingDuitNow(restaurantId);
     try {
-      const { error } = await supabase
-        .from('subscriptions')
-        .update({ duitnow_enabled: !currentValue })
-        .eq('restaurant_id', restaurantId);
-      if (error) throw error;
+      const response = await fetch('/api/stripe/billing?action=set-duitnow-enabled', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ restaurantId, enabled: !currentValue }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Failed to update DuitNow setting.');
       await refreshSubscriptions();
-      toast(`DuitNow ${!currentValue ? 'enabled' : 'disabled'} successfully`, 'success');
+      toast(
+        !currentValue
+          ? 'DuitNow enabled. Stripe auto-renew is disabled for this vendor.'
+          : 'DuitNow disabled successfully',
+        'success'
+      );
     } catch (err: any) {
       toast(err.message || 'Failed to toggle DuitNow', 'error');
     } finally {
