@@ -37,8 +37,8 @@ import {
 type CashierAccessPermissionKey = 'viewOwnSalesOnly' | 'requireManagerApprovalForRefund';
 type RefundApprovalRole = 'MANAGER' | 'VENDOR';
 type RefundApprovalRequestStatus = 'PENDING' | 'APPROVED' | 'DELETED';
-type MailSubTab = 'ANNOUNCEMENTS' | 'REFUND_REQUESTS';
 type AnnouncementInboxTab = 'ALL' | 'BILLING' | 'SYSTEM' | 'ANNOUNCEMENT' | 'OTHER';
+type MailSubTab = AnnouncementInboxTab | 'REFUND_REQUESTS';
 
 interface RefundApprovalRequestRecord {
   id: string;
@@ -545,8 +545,7 @@ const PosOnlyView: React.FC<Props> = ({
   // Profile panel state
   const [showProfilePanel, setShowProfilePanel] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<AnnouncementRecord | null>(null);
-  const [mailSubTab, setMailSubTab] = useState<MailSubTab>('ANNOUNCEMENTS');
-  const [announcementInboxTab, setAnnouncementInboxTab] = useState<AnnouncementInboxTab>('ALL');
+  const [mailSubTab, setMailSubTab] = useState<MailSubTab>('ALL');
   const [offlineBlockedMessage, setOfflineBlockedMessage] = useState<string | null>(null);
   const [profileRestaurantName, setProfileRestaurantName] = useState('');
   const [profileCurrentPassword, setProfileCurrentPassword] = useState('');
@@ -2893,9 +2892,9 @@ const PosOnlyView: React.FC<Props> = ({
       : announcements.filter(announcement => !announcement.is_read && getAnnouncementInboxTab(announcement.category) === tab.id).length,
   })), [announcements]);
   const filteredAnnouncements = useMemo(() => {
-    if (announcementInboxTab === 'ALL') return announcements;
-    return announcements.filter(announcement => getAnnouncementInboxTab(announcement.category) === announcementInboxTab);
-  }, [announcementInboxTab, announcements]);
+    if (mailSubTab === 'REFUND_REQUESTS' || mailSubTab === 'ALL') return announcements;
+    return announcements.filter(announcement => getAnnouncementInboxTab(announcement.category) === mailSubTab);
+  }, [announcements, mailSubTab]);
   const latestPaymentNotice = useMemo(() => {
     return announcements.find((announcement) => {
       if (announcement.is_read || announcement.category !== 'billing') return false;
@@ -2907,7 +2906,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   useEffect(() => {
     if (mailSubTab === 'REFUND_REQUESTS' && !showRefundApprovalSection) {
-      setMailSubTab('ANNOUNCEMENTS');
+      setMailSubTab('ALL');
     }
   }, [mailSubTab, showRefundApprovalSection]);
 
@@ -7138,7 +7137,7 @@ const PosOnlyView: React.FC<Props> = ({
               onClick={() => {
                 onMarkAnnouncementRead?.(latestPaymentNotice.id);
                 setSelectedAnnouncement({ ...latestPaymentNotice, is_read: true });
-                setMailSubTab('ANNOUNCEMENTS');
+                setMailSubTab('BILLING');
                 setActiveTab('MAIL');
                 setIsMobileMenuOpen(false);
               }}
@@ -10393,7 +10392,7 @@ const PosOnlyView: React.FC<Props> = ({
                     </h2>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Announcements, refund approvals, and updates from QuickServe.</p>
                   </div>
-                  {mailSubTab === 'ANNOUNCEMENTS' && announcements.length > 0 && (
+                  {mailSubTab !== 'REFUND_REQUESTS' && announcements.length > 0 && (
                     <div className="flex flex-wrap justify-end items-center gap-2">
                       {unreadMailCount > 0 && (
                         <button
@@ -10416,9 +10415,9 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* Document-style inbox tabs */}
                 <div className="flex gap-0 relative overflow-x-auto hide-scrollbar">
                   {([
-                    { id: 'ANNOUNCEMENTS' as const, label: 'Announcements', icon: <Mail size={13} />, count: unreadMailCount },
+                    ...announcementInboxTabs,
                     ...(showRefundApprovalSection
-                      ? [{ id: 'REFUND_REQUESTS' as const, label: 'Refund Requests', icon: <RotateCcw size={13} />, count: refundApprovalRequests.length }]
+                      ? [{ id: 'REFUND_REQUESTS' as const, label: 'Refund Requests', count: refundApprovalRequests.length, unreadCount: refundApprovalRequests.length }]
                       : []),
                   ]).map(tab => (
                     <button
@@ -10431,7 +10430,6 @@ const PosOnlyView: React.FC<Props> = ({
                           : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
                       }`}
                     >
-                      {tab.icon}
                       {tab.label}
                       {tab.count > 0 && (
                         <span className={`ml-1 min-w-5 rounded-full px-1.5 py-0.5 text-[9px] font-black leading-none ${
@@ -10507,7 +10505,7 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
                 )}
 
-                {mailSubTab === 'ANNOUNCEMENTS' && (
+                {mailSubTab !== 'REFUND_REQUESTS' && (
                   announcementsLoading ? (
                     <div className="flex items-center justify-center py-32">
                       <RotateCw size={28} className="animate-spin text-gray-400" />
@@ -10522,31 +10520,6 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
-                        {announcementInboxTabs.map(tab => (
-                          <button
-                            key={tab.id}
-                            onClick={() => setAnnouncementInboxTab(tab.id)}
-                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-colors ${
-                              announcementInboxTab === tab.id
-                                ? 'bg-orange-500 text-white shadow-sm'
-                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-700'
-                            }`}
-                          >
-                            {tab.label}
-                            <span className={`min-w-5 rounded-full px-1.5 py-0.5 text-[9px] leading-none ${
-                              announcementInboxTab === tab.id
-                                ? 'bg-white/20 text-white'
-                                : tab.unreadCount > 0
-                                  ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-300'
-                                  : 'bg-white text-gray-400 dark:bg-gray-800 dark:text-gray-500'
-                            }`}>
-                              {tab.unreadCount > 0 ? tab.unreadCount : tab.count}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-
                       {filteredAnnouncements.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-24 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
                           <Mail size={28} className="text-gray-300 dark:text-gray-600 mb-3" />
