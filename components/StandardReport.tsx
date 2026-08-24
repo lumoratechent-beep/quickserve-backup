@@ -1,6 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, OrderStatus, ReportResponse, CashierShift } from '../src/types';
-import { Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users, Check } from 'lucide-react';
+import {
+  Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users,
+  Check, X, FileDown, FileText, Sheet, Info, ShieldCheck, CalendarDays, SlidersHorizontal,
+  BarChart3, Clock3, ShoppingBag, Tags, UserRound, WalletCards,
+} from 'lucide-react';
 
 export type ReportSectionKey = 'salesSummary' | 'dailyBreakdown' | 'hourlyDistribution' | 'byItem' | 'byCategory' | 'byEmployee' | 'byPayment' | 'transactions';
 export type ReportDownloadInfoType = 'all' | 'summary' | 'transactions' | 'dailyBreakdown';
@@ -69,14 +73,14 @@ const StandardReport: React.FC<Props> = ({
   const [filterPayment, setFilterPayment] = useState<string>('ALL');
   const [filterCashier, setFilterCashier] = useState<string>('ALL');
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
-  const reportSectionOptions: { key: ReportSectionKey; label: string; group?: string }[] = [
-    { key: 'salesSummary', label: 'Sales Summary', group: 'Sales Summary' },
-    { key: 'dailyBreakdown', label: 'Daily Sales Breakdown (graph + table)' },
-    { key: 'hourlyDistribution', label: 'Hourly Sales Distribution (graph + table)' },
-    { key: 'byItem', label: 'By Item', group: 'By Item' },
-    { key: 'byCategory', label: 'By Category', group: 'By Category' },
-    { key: 'byEmployee', label: 'By Employee', group: 'By Employee' },
-    { key: 'byPayment', label: 'By Payment', group: 'By Payment' },
+  const reportSectionOptions = [
+    { key: 'salesSummary' as const, label: 'Sales Summary', description: 'Overview of your sales performance.', icon: BarChart3 },
+    { key: 'dailyBreakdown' as const, label: 'Daily Sales Breakdown', description: 'Graph and table view of daily sales.', icon: BarChart3 },
+    { key: 'hourlyDistribution' as const, label: 'Hourly Sales Distribution', description: 'Graph and table view of hourly sales.', icon: Clock3 },
+    { key: 'byItem' as const, label: 'By Item', description: 'Sales performance by individual items.', icon: ShoppingBag },
+    { key: 'byCategory' as const, label: 'By Category', description: 'Sales performance by categories.', icon: Tags },
+    { key: 'byEmployee' as const, label: 'By Employee', description: 'Sales performance by employees.', icon: UserRound },
+    { key: 'byPayment' as const, label: 'By Payment', description: 'Sales performance by payment methods.', icon: WalletCards },
   ];
   const allReportSectionKeys = reportSectionOptions.map((option) => option.key);
   const [downloadSections, setDownloadSections] = useState<ReportSectionKey[]>(allReportSectionKeys);
@@ -416,112 +420,173 @@ const StandardReport: React.FC<Props> = ({
       )}
 
       {showDownloadOptions && (
-        <div className="fixed inset-0 z-[140] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
-          <div className="w-full max-w-3xl max-h-[88vh] overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5 md:p-7 shadow-xl">
-            <p className="text-sm font-black dark:text-white uppercase tracking-wider mb-1">Download report</p>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">
-              Choose report sections and file type.
-            </p>
-
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_180px] gap-5">
-              <div>
-                <div className="flex items-center justify-between gap-3 mb-2">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Report Sections</p>
-                  <button
-                    onClick={setAllDownloadSections}
-                    className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:text-orange-500 transition-colors"
-                  >
-                    {downloadSections.length === allReportSectionKeys.length ? 'Clear All' : 'Select All'}
-                  </button>
-                </div>
-                <button
-                  onClick={setAllDownloadSections}
-                  className={`w-full mb-3 p-3 rounded-lg border text-left flex items-center gap-3 transition-colors ${
-                    downloadSections.length === allReportSectionKeys.length
-                      ? 'border-orange-300 bg-orange-50 dark:bg-orange-900/20 dark:border-orange-700'
-                      : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40 hover:border-orange-300'
-                  }`}
-                >
-                  <span className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 ${
-                    downloadSections.length === allReportSectionKeys.length ? 'bg-orange-500 border-orange-500 text-white' : 'border-gray-300 dark:border-gray-500'
-                  }`}>
-                    {downloadSections.length === allReportSectionKeys.length && <Check size={13} />}
-                  </span>
-                  <span>
-                    <span className="block text-xs font-black dark:text-white uppercase tracking-wider">All</span>
-                    <span className="block text-[10px] text-gray-500 dark:text-gray-400 font-bold mt-0.5">Include every available report section.</span>
-                  </span>
-                </button>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {reportSectionOptions.map((option) => {
-                    const checked = downloadSections.includes(option.key);
-                    return (
-                      <button
-                        key={option.key}
-                        onClick={() => toggleDownloadSection(option.key)}
-                        className={`p-3 rounded-lg border text-left flex items-start gap-3 transition-colors ${
-                          checked
-                            ? 'border-orange-300 bg-orange-50 dark:bg-orange-900/20 dark:border-orange-700'
-                            : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40 hover:border-orange-300'
-                        }`}
-                      >
-                        <span className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0 ${
-                          checked ? 'bg-orange-500 border-orange-500 text-white' : 'border-gray-300 dark:border-gray-500'
-                        }`}>
-                          {checked && <Check size={13} />}
-                        </span>
-                        <span>
-                          {option.group && <span className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">{option.group}</span>}
-                          <span className="block text-xs font-black dark:text-gray-100 leading-snug">{option.label}</span>
-                        </span>
-                      </button>
-                    );
-                  })}
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/65 p-3 backdrop-blur-sm md:p-6">
+          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700 md:px-7 md:py-5">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500 dark:bg-orange-900/25">
+                  <FileDown size={23} />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-base font-black text-gray-900 dark:text-white md:text-lg">Download Sales Report</h3>
+                  <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Select the sections to include and choose your file type.</p>
                 </div>
               </div>
+              <button
+                onClick={() => setShowDownloadOptions(false)}
+                aria-label="Close download report"
+                className="ml-3 rounded-xl border border-gray-200 p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:border-gray-700 dark:hover:bg-gray-700 dark:hover:text-white"
+              >
+                <X size={19} />
+              </button>
+            </div>
 
-              <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">File Type</p>
-                <div className="space-y-2">
-                  {(['pdf', 'csv'] as ReportDownloadFileType[]).map((type) => (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]">
+                <section className="p-5 md:p-7 lg:border-r lg:border-gray-200 lg:dark:border-gray-700">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <p className="text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Report Sections</p>
                     <button
-                      key={type}
-                      onClick={() => setDownloadFileType(type)}
-                      className={`w-full p-3 rounded-lg border text-left flex items-center gap-3 transition-colors ${
-                        downloadFileType === type
-                          ? 'border-orange-300 bg-orange-50 dark:bg-orange-900/20 dark:border-orange-700'
-                          : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40 hover:border-orange-300'
-                      }`}
+                      onClick={setAllDownloadSections}
+                      className="text-[10px] font-black uppercase tracking-widest text-gray-500 transition-colors hover:text-orange-500 dark:text-gray-400"
                     >
-                      <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        downloadFileType === type ? 'border-orange-500' : 'border-gray-300 dark:border-gray-500'
-                      }`}>
-                        {downloadFileType === type && <span className="w-2 h-2 rounded-full bg-orange-500" />}
-                      </span>
-                      <span className="text-xs font-black dark:text-gray-100 uppercase tracking-wider">{type}</span>
+                      {downloadSections.length === allReportSectionKeys.length ? 'Deselect All' : 'Select All'}
                     </button>
-                  ))}
-                </div>
+                  </div>
+
+                  <button
+                    onClick={setAllDownloadSections}
+                    className={`mb-4 flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-all ${
+                      downloadSections.length === allReportSectionKeys.length
+                        ? 'border-orange-400 bg-orange-50/70 shadow-sm dark:border-orange-600 dark:bg-orange-900/20'
+                        : 'border-gray-200 bg-white hover:border-orange-300 dark:border-gray-700 dark:bg-gray-800'
+                    }`}
+                  >
+                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                      downloadSections.length === allReportSectionKeys.length
+                        ? 'border-orange-500 bg-orange-500 text-white'
+                        : 'border-gray-300 dark:border-gray-600'
+                    }`}>
+                      {downloadSections.length === allReportSectionKeys.length && <Check size={13} strokeWidth={3} />}
+                    </span>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500 dark:bg-orange-900/25">
+                      <SlidersHorizontal size={19} />
+                    </span>
+                    <span>
+                      <span className="block text-sm font-black text-gray-900 dark:text-white">All Sections</span>
+                      <span className="mt-0.5 block text-[11px] text-gray-500 dark:text-gray-400">Include every available report section.</span>
+                    </span>
+                  </button>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {reportSectionOptions.map((option) => {
+                      const checked = downloadSections.includes(option.key);
+                      const SectionIcon = option.icon;
+                      return (
+                        <button
+                          key={option.key}
+                          onClick={() => toggleDownloadSection(option.key)}
+                          className={`flex min-h-[92px] items-start gap-3 rounded-xl border p-4 text-left transition-all ${
+                            checked
+                              ? 'border-orange-300 bg-orange-50/40 dark:border-orange-700 dark:bg-orange-900/10'
+                              : 'border-gray-200 bg-white hover:border-orange-300 dark:border-gray-700 dark:bg-gray-800'
+                          }`}
+                        >
+                          <span className={`mt-2 flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                            checked ? 'border-orange-500 bg-orange-500 text-white' : 'border-gray-300 dark:border-gray-600'
+                          }`}>
+                            {checked && <Check size={13} strokeWidth={3} />}
+                          </span>
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500 dark:bg-orange-900/25">
+                            <SectionIcon size={19} />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-xs font-black leading-5 text-gray-900 dark:text-white">{option.label}</span>
+                            <span className="mt-0.5 block text-[10px] leading-4 text-gray-500 dark:text-gray-400">{option.description}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                <aside className="border-t border-gray-200 p-5 dark:border-gray-700 md:p-7 lg:border-t-0">
+                  <p className="mb-4 text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">File Type</p>
+                  <div className="space-y-3">
+                    {(['pdf', 'csv'] as ReportDownloadFileType[]).map((type) => {
+                      const selected = downloadFileType === type;
+                      const TypeIcon = type === 'pdf' ? FileText : Sheet;
+                      return (
+                        <button
+                          key={type}
+                          onClick={() => setDownloadFileType(type)}
+                          className={`flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-all ${
+                            selected
+                              ? 'border-orange-400 bg-orange-50/70 shadow-sm dark:border-orange-600 dark:bg-orange-900/20'
+                              : 'border-gray-200 hover:border-orange-300 dark:border-gray-700 dark:bg-gray-800'
+                          }`}
+                        >
+                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${selected ? 'border-orange-500' : 'border-gray-400'}`}>
+                            {selected && <span className="h-2.5 w-2.5 rounded-full bg-orange-500" />}
+                          </span>
+                          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${type === 'pdf' ? 'bg-red-50 text-red-500 dark:bg-red-900/20' : 'bg-emerald-50 text-emerald-500 dark:bg-emerald-900/20'}`}>
+                            <TypeIcon size={19} />
+                          </span>
+                          <span>
+                            <span className="block text-sm font-black uppercase text-gray-900 dark:text-white">{type}</span>
+                            <span className="mt-0.5 block text-[10px] text-gray-500 dark:text-gray-400">{type === 'pdf' ? 'Best for printing and sharing.' : 'Best for data analysis.'}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-6 flex gap-3 rounded-xl bg-blue-50/70 p-4 dark:bg-blue-900/15">
+                    <Info size={17} className="mt-0.5 shrink-0 text-blue-500" />
+                    <div>
+                      <p className="text-xs font-black text-gray-900 dark:text-white">About the report</p>
+                      <p className="mt-1 text-[10px] leading-4 text-gray-500 dark:text-gray-400">Data is generated from the selected date range and current report filters.</p>
+                    </div>
+                  </div>
+                </aside>
               </div>
             </div>
 
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setShowDownloadOptions(false)}
-                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={downloadSections.length === 0}
-                onClick={async () => {
-                  await onDownloadReport({ sections: downloadSections, fileType: downloadFileType });
-                  setShowDownloadOptions(false);
-                }}
-                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Download
-              </button>
+            <div className="shrink-0 border-t border-gray-200 bg-white px-5 py-4 dark:border-gray-700 dark:bg-gray-800 md:px-7">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 flex-col gap-3 text-[10px] text-gray-500 dark:text-gray-400 sm:flex-row sm:items-center sm:gap-6">
+                  <div className="flex items-center gap-2">
+                    <CalendarDays size={17} className="shrink-0" />
+                    <span><span className="block font-bold">Date Range</span><span className="font-black text-gray-700 dark:text-gray-200">{formatDisplayDate(reportStart)} – {formatDisplayDate(reportEnd)}</span></span>
+                  </div>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <SlidersHorizontal size={17} className="shrink-0" />
+                    <span className="min-w-0"><span className="block font-bold">Filters</span><span className="block truncate font-black text-gray-700 dark:text-gray-200">{filterStatus === 'ALL' ? 'All Statuses' : filterStatus} · {filterCashier === 'ALL' ? 'All Cashiers' : filterCashier} · {filterPayment === 'ALL' ? 'All Payments' : filterPayment}</span></span>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center justify-end gap-2">
+                  <button
+                    onClick={() => setShowDownloadOptions(false)}
+                    className="rounded-xl border border-gray-300 px-5 py-2.5 text-xs font-black text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={downloadSections.length === 0 || isDownloadingReport}
+                    onClick={async () => {
+                      await onDownloadReport({ sections: downloadSections, fileType: downloadFileType });
+                      setShowDownloadOptions(false);
+                    }}
+                    className="flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-2.5 text-xs font-black text-white shadow-sm transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Download size={15} />
+                    {isDownloadingReport ? 'Downloading...' : `Download ${downloadSections.length} Selected`}
+                  </button>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-center gap-2 border-t border-gray-100 pt-3 text-[9px] text-gray-400 dark:border-gray-700">
+                <ShieldCheck size={14} /> Your data is used only to generate this report.
+              </div>
             </div>
           </div>
         </div>
@@ -727,9 +792,9 @@ const StandardReport: React.FC<Props> = ({
                 <th className="px-4 py-3 text-left">Time</th>
                 <th className="px-4 py-3 text-left">Status</th>
                 <th className="px-4 py-3 text-left">Source</th>
-                <th className="px-4 py-3 text-left">Dining Option</th>
-                <th className="px-4 py-3 text-left">Payment</th>
-                <th className="px-4 py-3 text-left">Cashier</th>
+                <th className="px-4 py-3 text-center">Dining Option</th>
+                <th className="px-4 py-3 text-center">Payment</th>
+                <th className="px-4 py-3 text-center">Cashier</th>
                 <th className="px-4 py-3 text-right">Bill</th>
               </tr>
             </thead>
@@ -769,11 +834,11 @@ const StandardReport: React.FC<Props> = ({
                          report.orderSource === 'online' ? 'Online' : '-'}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">
+                    <td className="px-4 py-2 text-center text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">
                       {report.diningType || '-'}
                     </td>
-                    <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">{report.paymentMethod || '-'}</td>
-                    <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300">{report.cashierName || '-'}</td>
+                    <td className="px-4 py-2 text-center text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">{report.paymentMethod || '-'}</td>
+                    <td className="px-4 py-2 text-center text-[10px] font-black text-gray-700 dark:text-gray-300">{report.cashierName || '-'}</td>
                     <td className="px-4 py-2 text-right font-black dark:text-white text-xs">
                       {report.status === OrderStatus.CANCELLED ? 'RM0.00' : `RM${report.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     </td>
