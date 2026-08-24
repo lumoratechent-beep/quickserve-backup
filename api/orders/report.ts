@@ -13,8 +13,8 @@ const BATCH_SIZE = 1000;
 const MAX_PAGE_SIZE = 200;
 const MAX_EXPORT_ROWS = 10000;
 const MAX_REPORT_RANGE_MS = 366 * 24 * 60 * 60 * 1000;
-const PAGE_COLUMNS = 'id,total,status,timestamp,restaurant_id,table_number,location_name,payment_method,cashier_name,order_source,updated_at';
-const DETAIL_COLUMNS = `${PAGE_COLUMNS},items,customer_id,dining_type,remark,rejection_reason,rejection_note,amount_received,change_amount`;
+const PAGE_COLUMNS = 'id,total,status,timestamp,restaurant_id,table_number,location_name,payment_method,cashier_name,order_source,dining_type,updated_at';
+const DETAIL_COLUMNS = `${PAGE_COLUMNS},items,customer_id,remark,rejection_reason,rejection_note,amount_received,change_amount`;
 const rateLimitBuckets = new Map<string, { startedAt: number; count: number }>();
 
 const enforceRateLimit = (req: VercelRequest, res: VercelResponse, isExport: boolean) => {
