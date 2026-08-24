@@ -3,10 +3,10 @@ import { Order, OrderStatus, ReportResponse, CashierShift } from '../src/types';
 import {
   Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users,
   Check, X, FileDown, FileText, Sheet, Info, ShieldCheck, CalendarDays, SlidersHorizontal,
-  BarChart3, Clock3, ShoppingBag, Tags, UserRound, WalletCards,
+  BarChart3, Clock3, ShoppingBag, Tags, UserRound, WalletCards, Utensils,
 } from 'lucide-react';
 
-export type ReportSectionKey = 'salesSummary' | 'dailyBreakdown' | 'hourlyDistribution' | 'byItem' | 'byCategory' | 'byEmployee' | 'byPayment' | 'transactions';
+export type ReportSectionKey = 'salesSummary' | 'dailyBreakdown' | 'hourlyDistribution' | 'byItem' | 'byCategory' | 'byEmployee' | 'byPayment' | 'byDiningOption' | 'transactions';
 export type ReportDownloadInfoType = 'all' | 'summary' | 'transactions' | 'dailyBreakdown';
 export type ReportDownloadFileType = 'csv' | 'pdf';
 
@@ -81,6 +81,7 @@ const StandardReport: React.FC<Props> = ({
     { key: 'byCategory' as const, label: 'By Category', description: 'Sales performance by categories.', icon: Tags },
     { key: 'byEmployee' as const, label: 'By Employee', description: 'Sales performance by employees.', icon: UserRound },
     { key: 'byPayment' as const, label: 'By Payment', description: 'Sales performance by payment methods.', icon: WalletCards },
+    { key: 'byDiningOption' as const, label: 'By Dining Option', description: 'Dine-in, takeaway, and delivery sales.', icon: Utensils },
   ];
   const allReportSectionKeys = reportSectionOptions.map((option) => option.key);
   const [downloadSections, setDownloadSections] = useState<ReportSectionKey[]>(allReportSectionKeys);
@@ -422,10 +423,10 @@ const StandardReport: React.FC<Props> = ({
       {showDownloadOptions && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/65 p-3 backdrop-blur-sm md:p-6">
           <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700 md:px-7 md:py-5">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700 md:px-6 md:py-4">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500 dark:bg-orange-900/25">
-                  <FileDown size={23} />
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500 dark:bg-orange-900/25">
+                  <FileDown size={20} />
                 </span>
                 <div className="min-w-0">
                   <h3 className="text-base font-black text-gray-900 dark:text-white md:text-lg">Download Sales Report</h3>
@@ -441,10 +442,10 @@ const StandardReport: React.FC<Props> = ({
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-hidden">
               <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]">
-                <section className="p-5 md:p-7 lg:border-r lg:border-gray-200 lg:dark:border-gray-700">
-                  <div className="mb-4 flex items-center justify-between gap-3">
+                <section className="p-3 md:p-5 lg:border-r lg:border-gray-200 lg:dark:border-gray-700">
+                  <div className="mb-2 flex items-center justify-between gap-3">
                     <p className="text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Report Sections</p>
                     <button
                       onClick={setAllDownloadSections}
@@ -456,7 +457,7 @@ const StandardReport: React.FC<Props> = ({
 
                   <button
                     onClick={setAllDownloadSections}
-                    className={`mb-4 flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-all ${
+                    className={`mb-2 flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-all ${
                       downloadSections.length === allReportSectionKeys.length
                         ? 'border-orange-400 bg-orange-50/70 shadow-sm dark:border-orange-600 dark:bg-orange-900/20'
                         : 'border-gray-200 bg-white hover:border-orange-300 dark:border-gray-700 dark:bg-gray-800'
@@ -469,16 +470,16 @@ const StandardReport: React.FC<Props> = ({
                     }`}>
                       {downloadSections.length === allReportSectionKeys.length && <Check size={13} strokeWidth={3} />}
                     </span>
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500 dark:bg-orange-900/25">
-                      <SlidersHorizontal size={19} />
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-orange-500 dark:bg-orange-900/25">
+                      <SlidersHorizontal size={17} />
                     </span>
                     <span>
-                      <span className="block text-sm font-black text-gray-900 dark:text-white">All Sections</span>
-                      <span className="mt-0.5 block text-[11px] text-gray-500 dark:text-gray-400">Include every available report section.</span>
+                      <span className="block text-xs font-black text-gray-900 dark:text-white">All Sections</span>
+                      <span className="mt-0.5 hidden text-[10px] text-gray-500 dark:text-gray-400 sm:block">Include every available report section.</span>
                     </span>
                   </button>
 
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {reportSectionOptions.map((option) => {
                       const checked = downloadSections.includes(option.key);
                       const SectionIcon = option.icon;
@@ -486,23 +487,23 @@ const StandardReport: React.FC<Props> = ({
                         <button
                           key={option.key}
                           onClick={() => toggleDownloadSection(option.key)}
-                          className={`flex min-h-[92px] items-start gap-3 rounded-xl border p-4 text-left transition-all ${
+                          className={`flex min-h-[64px] items-center gap-2 rounded-xl border p-2.5 text-left transition-all ${
                             checked
                               ? 'border-orange-300 bg-orange-50/40 dark:border-orange-700 dark:bg-orange-900/10'
                               : 'border-gray-200 bg-white hover:border-orange-300 dark:border-gray-700 dark:bg-gray-800'
                           }`}
                         >
-                          <span className={`mt-2 flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                          <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                             checked ? 'border-orange-500 bg-orange-500 text-white' : 'border-gray-300 dark:border-gray-600'
                           }`}>
-                            {checked && <Check size={13} strokeWidth={3} />}
+                            {checked && <Check size={11} strokeWidth={3} />}
                           </span>
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500 dark:bg-orange-900/25">
-                            <SectionIcon size={19} />
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-orange-500 dark:bg-orange-900/25">
+                            <SectionIcon size={16} />
                           </span>
                           <span className="min-w-0">
-                            <span className="block text-xs font-black leading-5 text-gray-900 dark:text-white">{option.label}</span>
-                            <span className="mt-0.5 block text-[10px] leading-4 text-gray-500 dark:text-gray-400">{option.description}</span>
+                            <span className="block text-[11px] font-black leading-4 text-gray-900 dark:text-white">{option.label}</span>
+                            <span className="mt-0.5 hidden text-[9px] leading-3 text-gray-500 dark:text-gray-400 sm:block">{option.description}</span>
                           </span>
                         </button>
                       );
@@ -510,9 +511,9 @@ const StandardReport: React.FC<Props> = ({
                   </div>
                 </section>
 
-                <aside className="border-t border-gray-200 p-5 dark:border-gray-700 md:p-7 lg:border-t-0">
-                  <p className="mb-4 text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">File Type</p>
-                  <div className="space-y-3">
+                <aside className="border-t border-gray-200 p-3 dark:border-gray-700 md:p-5 lg:border-t-0">
+                  <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">File Type</p>
+                  <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
                     {(['pdf', 'csv'] as ReportDownloadFileType[]).map((type) => {
                       const selected = downloadFileType === type;
                       const TypeIcon = type === 'pdf' ? FileText : Sheet;
@@ -520,7 +521,7 @@ const StandardReport: React.FC<Props> = ({
                         <button
                           key={type}
                           onClick={() => setDownloadFileType(type)}
-                          className={`flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-all ${
+                          className={`flex w-full items-center gap-2 rounded-xl border p-2.5 text-left transition-all ${
                             selected
                               ? 'border-orange-400 bg-orange-50/70 shadow-sm dark:border-orange-600 dark:bg-orange-900/20'
                               : 'border-gray-200 hover:border-orange-300 dark:border-gray-700 dark:bg-gray-800'
@@ -529,19 +530,19 @@ const StandardReport: React.FC<Props> = ({
                           <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${selected ? 'border-orange-500' : 'border-gray-400'}`}>
                             {selected && <span className="h-2.5 w-2.5 rounded-full bg-orange-500" />}
                           </span>
-                          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${type === 'pdf' ? 'bg-red-50 text-red-500 dark:bg-red-900/20' : 'bg-emerald-50 text-emerald-500 dark:bg-emerald-900/20'}`}>
-                            <TypeIcon size={19} />
+                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${type === 'pdf' ? 'bg-red-50 text-red-500 dark:bg-red-900/20' : 'bg-emerald-50 text-emerald-500 dark:bg-emerald-900/20'}`}>
+                            <TypeIcon size={16} />
                           </span>
                           <span>
-                            <span className="block text-sm font-black uppercase text-gray-900 dark:text-white">{type}</span>
-                            <span className="mt-0.5 block text-[10px] text-gray-500 dark:text-gray-400">{type === 'pdf' ? 'Best for printing and sharing.' : 'Best for data analysis.'}</span>
+                            <span className="block text-xs font-black uppercase text-gray-900 dark:text-white">{type}</span>
+                            <span className="mt-0.5 hidden text-[9px] text-gray-500 dark:text-gray-400 sm:block">{type === 'pdf' ? 'Best for printing and sharing.' : 'Best for data analysis.'}</span>
                           </span>
                         </button>
                       );
                     })}
                   </div>
 
-                  <div className="mt-6 flex gap-3 rounded-xl bg-blue-50/70 p-4 dark:bg-blue-900/15">
+                  <div className="mt-4 hidden gap-3 rounded-xl bg-blue-50/70 p-3 dark:bg-blue-900/15 lg:flex">
                     <Info size={17} className="mt-0.5 shrink-0 text-blue-500" />
                     <div>
                       <p className="text-xs font-black text-gray-900 dark:text-white">About the report</p>
@@ -552,9 +553,9 @@ const StandardReport: React.FC<Props> = ({
               </div>
             </div>
 
-            <div className="shrink-0 border-t border-gray-200 bg-white px-5 py-4 dark:border-gray-700 dark:bg-gray-800 md:px-7">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex min-w-0 flex-col gap-3 text-[10px] text-gray-500 dark:text-gray-400 sm:flex-row sm:items-center sm:gap-6">
+            <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800 md:px-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="hidden min-w-0 gap-6 text-[10px] text-gray-500 dark:text-gray-400 md:flex md:items-center">
                   <div className="flex items-center gap-2">
                     <CalendarDays size={17} className="shrink-0" />
                     <span><span className="block font-bold">Date Range</span><span className="font-black text-gray-700 dark:text-gray-200">{formatDisplayDate(reportStart)} – {formatDisplayDate(reportEnd)}</span></span>
@@ -564,7 +565,7 @@ const StandardReport: React.FC<Props> = ({
                     <span className="min-w-0"><span className="block font-bold">Filters</span><span className="block truncate font-black text-gray-700 dark:text-gray-200">{filterStatus === 'ALL' ? 'All Statuses' : filterStatus} · {filterCashier === 'ALL' ? 'All Cashiers' : filterCashier} · {filterPayment === 'ALL' ? 'All Payments' : filterPayment}</span></span>
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center justify-end gap-2">
+                <div className="ml-auto flex shrink-0 items-center justify-end gap-2">
                   <button
                     onClick={() => setShowDownloadOptions(false)}
                     className="rounded-xl border border-gray-300 px-5 py-2.5 text-xs font-black text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
@@ -584,7 +585,7 @@ const StandardReport: React.FC<Props> = ({
                   </button>
                 </div>
               </div>
-              <div className="mt-3 flex items-center justify-center gap-2 border-t border-gray-100 pt-3 text-[9px] text-gray-400 dark:border-gray-700">
+              <div className="mt-2 hidden items-center justify-center gap-2 border-t border-gray-100 pt-2 text-[9px] text-gray-400 dark:border-gray-700 md:flex">
                 <ShieldCheck size={14} /> Your data is used only to generate this report.
               </div>
             </div>

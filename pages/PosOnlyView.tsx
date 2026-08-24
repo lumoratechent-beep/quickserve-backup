@@ -4957,7 +4957,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [isDownloadingReport, setIsDownloadingReport] = useState(false);
 
   const getNormalizedPaymentMethod = (method?: string) => String(method || 'CASH').trim().toUpperCase();
-  const defaultReportSections: ReportSectionKey[] = ['salesSummary', 'dailyBreakdown', 'hourlyDistribution', 'byItem', 'byCategory', 'byEmployee', 'byPayment'];
+  const getNormalizedDiningType = (diningType?: string) => String(diningType || 'Unspecified').trim() || 'Unspecified';
+  const defaultReportSections: ReportSectionKey[] = ['salesSummary', 'dailyBreakdown', 'hourlyDistribution', 'byItem', 'byCategory', 'byEmployee', 'byPayment', 'byDiningOption'];
   const getSelectedReportSections = (options: ReportDownloadOptions): ReportSectionKey[] => {
     if (options.sections?.length) return options.sections;
     if (options.infoType === 'summary') return ['salesSummary'];
@@ -5154,6 +5155,23 @@ const PosOnlyView: React.FC<Props> = ({
       ]));
     }
 
+    if (includeSection('byDiningOption')) {
+      const diningMap = new Map<string, { count: number; total: number }>();
+      completed.forEach((order) => {
+        const diningType = getNormalizedDiningType(order.diningType);
+        const row = diningMap.get(diningType) || { count: 0, total: 0 };
+        row.count += 1;
+        row.total += order.total;
+        diningMap.set(diningType, row);
+      });
+      appendTable('By Dining Option', ['Dining Option', 'Orders', 'Revenue', '% of Total'], Array.from(diningMap.entries()).sort((a, b) => b[1].total - a[1].total).map(([diningType, data]) => [
+        diningType,
+        String(data.count),
+        data.total.toFixed(2),
+        `${totalRevenue > 0 ? ((data.total / totalRevenue) * 100).toFixed(1) : '0'}%`,
+      ]));
+    }
+
     if (includeSection('transactions')) {
       appendTable('Transactions', ['Order ID', 'Table', 'Dining Option', 'Date', 'Time', 'Status', 'Payment Method', 'Cashier', 'Items', 'Total'], orders.map((o) => [
           o.id,
@@ -5205,6 +5223,21 @@ const PosOnlyView: React.FC<Props> = ({
       String(values.count),
       `RM ${values.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
     ]);
+    const diningMap: Record<string, { count: number; total: number }> = {};
+    completed.forEach((order) => {
+      const diningType = getNormalizedDiningType(order.diningType);
+      if (!diningMap[diningType]) diningMap[diningType] = { count: 0, total: 0 };
+      diningMap[diningType].count += 1;
+      diningMap[diningType].total += order.total;
+    });
+    const diningRows = Object.entries(diningMap)
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([diningType, values]) => [
+        diningType.toUpperCase(),
+        String(values.count),
+        `RM ${values.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        `${totalRevenue > 0 ? ((values.total / totalRevenue) * 100).toFixed(1) : '0'}%`,
+      ]);
 
     doc.setFillColor(...amber);
     doc.rect(0, 0, pageW, 3, 'F');
@@ -5588,6 +5621,21 @@ const PosOnlyView: React.FC<Props> = ({
         startY: y,
         head: [['PAYMENT METHOD', 'ORDERS', 'REVENUE']],
         body: paymentRows,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 1.5, halign: 'center', valign: 'middle', textColor: tableTextColor },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', valign: 'middle', overflow: 'ellipsize' },
+        ...centeredCurrencyHooks([2]),
+        theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 18;
+    }
+
+    if (includeSection('byDiningOption') && diningRows.length > 0) {
+      section('By Dining Option');
+      autoTable(doc, {
+        startY: y,
+        head: [['DINING OPTION', 'ORDERS', 'REVENUE', '% OF TOTAL']],
+        body: diningRows,
         margin: { left: margin, right: margin },
         styles: { fontSize: 8, cellPadding: 1.5, halign: 'center', valign: 'middle', textColor: tableTextColor },
         headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', valign: 'middle', overflow: 'ellipsize' },
