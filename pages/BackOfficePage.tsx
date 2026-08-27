@@ -13,7 +13,7 @@ import {
   ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, Eye, Archive, RotateCcw,
   Briefcase, Tag, Layers, Activity, Warehouse, FileBarChart, Contact,
   CreditCard, Percent, FileText, Truck, ArrowUpDown, ClipboardList, Factory, History, Building2, Loader2, LogOut, Sun, Moon, Mail, MoreVertical,
-  Calendar, Download,
+  Download,
 } from 'lucide-react';
 import InventoryManagement from '../components/InventoryManagement';
 import ReportsView from '../components/ReportsView';
@@ -24,6 +24,7 @@ import CashierShiftRecords from '../components/CashierShiftRecords';
 import StaffManagementView from '../components/StaffManagementView';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 import PromotionDiscountManager from '../components/PromotionDiscountManager';
+import StandardReport, { type ReportDownloadOptions } from '../components/StandardReport';
 import { getMenuItemEffectivePrice, isMenuPromotionActive } from '../lib/menuPricing';
 import { deleteIngredientItemFromDb, fetchIngredientItemsFromDb, saveIngredientItemsToDb } from '../lib/ingredientItems';
 import { fetchStockItemsFromDb, saveStockItemsToDb, saveStockMovementsToDb } from '../lib/stockItems';
@@ -32,7 +33,9 @@ interface Props {
   restaurant: Restaurant;
   orders: Order[];
   currencySymbol: string;
+  isActive?: boolean;
   onFetchAllFilteredOrders?: (filters: any) => Promise<Order[]>;
+  onFetchOrderChanges?: (filters: any, updatedSince: string) => Promise<{ orders: Order[]; syncCursor: string }>;
   onBack?: () => void;
   onAddMenuItem?: (restaurantId: string, item: MenuItem) => Promise<void>;
   onUpdateMenu?: (restaurantId: string, item: MenuItem) => Promise<void>;
@@ -57,6 +60,7 @@ interface Props {
   batteryCharging?: boolean;
   unreadMailCount?: number;
   onOpenMail?: () => void;
+  onDownloadSalesReport?: (options: ReportDownloadOptions) => Promise<void>;
   userRole?: Role | null;
 }
 
@@ -70,6 +74,21 @@ const STATUS_COLORS: Record<string, string> = {
   PENDING: '#F59E0B',
   ONGOING: '#8B5CF6',
   CANCELLED: '#EF4444',
+};
+
+interface BackOfficeOrderCacheEntry {
+  orders: Order[];
+  startTimestamp: number;
+  endTimestamp: number;
+  syncCursor: string;
+}
+
+const backOfficeOrderCache = new Map<string, BackOfficeOrderCacheEntry>();
+
+const mergeBackOfficeOrders = (current: Order[], changes: Order[]) => {
+  const merged = new Map(current.map((order) => [order.id, order]));
+  changes.forEach((order) => merged.set(order.id, { ...merged.get(order.id), ...order }));
+  return Array.from(merged.values()).sort((left, right) => right.timestamp - left.timestamp);
 };
 
 const MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX = 'https://picsum.photos/seed/';
@@ -159,8 +178,8 @@ const UNIT_LABELS: Record<string, string> = {
 const getUnitLabel = (unit?: string) => UNIT_LABELS[(unit || 'pcs').toLowerCase()] || unit || 'pcs';
 const formatStockNumber = (value: number) => Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 3 });
 
-const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, networkMeta, batteryMeta, batteryCharging = false, unreadMailCount = 0, onOpenMail, userRole = 'VENDOR' }) => {
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, isActive = true, onFetchAllFilteredOrders, onFetchOrderChanges, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, networkMeta, batteryMeta, batteryCharging = false, unreadMailCount = 0, onOpenMail, onDownloadSalesReport, userRole = 'VENDOR' }) => {
+  const [isInitialLoading, setIsInitialLoading] = useState(() => !backOfficeOrderCache.has(restaurant.id));
   const [activeTab, setActiveTab] = useState<BackOfficeTab>('DASHBOARD');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [reportSubTab, setReportSubTab] = useState<string | undefined>(undefined);
@@ -300,28 +319,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     }
   };
 
-  // â”€â”€â”€ Initial loading overlay â”€â”€â”€
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        // Fetch fresh restaurant data & orders to ensure latest
-        if (onFetchAllFilteredOrders) {
-          const pad = (n: number) => n.toString().padStart(2, '0');
-          const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-          const end = new Date();
-          const start = new Date(); start.setDate(start.getDate() - 30);
-          await onFetchAllFilteredOrders({ restaurantId: restaurant.id, startDate: toLocal(start), endDate: toLocal(end) });
-        }
-      } catch { /* ignore */ }
-      // Small delay so the spinner is visible even on fast loads
-      await new Promise(r => setTimeout(r, 600));
-      if (!cancelled) setIsInitialLoading(false);
-    };
-    load();
-    return () => { cancelled = true; };
-  }, []);
-
   // Detect dark mode for Recharts inline color props
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
   useEffect(() => {
@@ -383,41 +380,141 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   }, [dateRange, customStart, customEnd]);
 
   // â”€â”€â”€ Fetch ALL orders from API for dashboard (avoids 200-order in-memory cap) â”€â”€â”€
-  const [dashboardOrders, setDashboardOrders] = useState<Order[]>([]);
+  const [dashboardOrders, setDashboardOrders] = useState<Order[]>(() => backOfficeOrderCache.get(restaurant.id)?.orders || []);
+  const [hasDashboardSnapshot, setHasDashboardSnapshot] = useState(() => backOfficeOrderCache.has(restaurant.id));
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
+  const [isDownloadingSalesReport, setIsDownloadingSalesReport] = useState(false);
+
+  const handleSharedSalesReportDownload = async (options: ReportDownloadOptions) => {
+    if (!onDownloadSalesReport) {
+      toast('Sales report download is still initializing. Please try again.', 'warning');
+      return;
+    }
+    setIsDownloadingSalesReport(true);
+    try {
+      await onDownloadSalesReport(options);
+    } finally {
+      setIsDownloadingSalesReport(false);
+    }
+  };
 
   useEffect(() => {
-    if (!onFetchAllFilteredOrders) return;
+    if (!isActive) return;
+    if (!onFetchAllFilteredOrders) {
+      setIsInitialLoading(false);
+      return;
+    }
     let cancelled = false;
 
     const fetchDashboardData = async () => {
-      setIsDashboardLoading(true);
-      try {
-        // Fetch orders covering both current period AND previous period (for comparison)
-        const duration = endDate.getTime() - startDate.getTime();
-        const prevStart = new Date(startDate.getTime() - duration);
-        const pad = (n: number) => n.toString().padStart(2, '0');
-        const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const duration = endDate.getTime() - startDate.getTime();
+      const prevStart = new Date(startDate.getTime() - duration);
+      const requestedStart = new Date(prevStart.getFullYear(), prevStart.getMonth(), prevStart.getDate(), 0, 0, 0, 0);
+      const requestedEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999);
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const cached = backOfficeOrderCache.get(restaurant.id);
+      const cacheCoversRange = cached
+        && cached.startTimestamp <= requestedStart.getTime()
+        && cached.endTimestamp >= requestedEnd.getTime();
 
+      if (cacheCoversRange) {
+        setDashboardOrders(cached.orders);
+        setHasDashboardSnapshot(true);
+        setIsInitialLoading(false);
+        if (!onFetchOrderChanges) return;
+        setIsDashboardLoading(true);
+        try {
+          const changes = await onFetchOrderChanges({
+            restaurantId: restaurant.id,
+            startDate: toLocal(new Date(cached.startTimestamp)),
+            endDate: toLocal(new Date(cached.endTimestamp)),
+          }, cached.syncCursor);
+          if (cancelled) return;
+          const latestCached = backOfficeOrderCache.get(restaurant.id) || cached;
+          if (changes.orders.length === 0) {
+            backOfficeOrderCache.set(restaurant.id, { ...latestCached, syncCursor: changes.syncCursor });
+            return;
+          }
+          const merged = mergeBackOfficeOrders(latestCached.orders, changes.orders);
+          const nextCache = { ...latestCached, orders: merged, syncCursor: changes.syncCursor };
+          backOfficeOrderCache.set(restaurant.id, nextCache);
+          React.startTransition(() => setDashboardOrders(merged));
+        } catch (err) {
+          console.warn('Incremental Back Office refresh failed; using cached data.', err);
+        } finally {
+          if (!cancelled) setIsDashboardLoading(false);
+        }
+        return;
+      }
+
+      setIsDashboardLoading(true);
+      if (!hasDashboardSnapshot) setIsInitialLoading(true);
+      try {
+        const requestCursor = new Date().toISOString();
         const allOrders = await onFetchAllFilteredOrders({
           restaurantId: restaurant.id,
-          startDate: toLocal(prevStart),
-          endDate: toLocal(endDate),
+          startDate: toLocal(requestedStart),
+          endDate: toLocal(requestedEnd),
         });
-        if (!cancelled) setDashboardOrders(allOrders);
+        if (!cancelled) {
+          backOfficeOrderCache.set(restaurant.id, {
+            orders: allOrders,
+            startTimestamp: requestedStart.getTime(),
+            endTimestamp: requestedEnd.getTime(),
+            syncCursor: requestCursor,
+          });
+          setDashboardOrders(allOrders);
+          setHasDashboardSnapshot(true);
+        }
       } catch (err) {
         console.error('Failed to fetch dashboard orders:', err);
+        if (!cancelled) toast('Could not load the complete Back Office order history. Please try again.', 'error');
       } finally {
-        if (!cancelled) setIsDashboardLoading(false);
+        if (!cancelled) {
+          setIsDashboardLoading(false);
+          setIsInitialLoading(false);
+        }
       }
     };
 
     fetchDashboardData();
     return () => { cancelled = true; };
-  }, [startDate, endDate, restaurant.id, onFetchAllFilteredOrders]);
+  }, [isActive, startDate, endDate, restaurant.id, onFetchAllFilteredOrders, onFetchOrderChanges]);
 
-  // Use API-fetched orders when available, otherwise fall back to prop
-  const sourceOrders = dashboardOrders.length > 0 ? dashboardOrders : orders;
+  // While Back Office stays open, merge the POS realtime cache into the full
+  // snapshot so new orders and status changes appear immediately. A cursor
+  // refresh on the next entry catches anything missed while this page was closed.
+  useEffect(() => {
+    if (!isActive || !hasDashboardSnapshot || orders.length === 0) return;
+    const cached = backOfficeOrderCache.get(restaurant.id);
+    if (!cached) return;
+    const liveChanges = orders.filter((order) => (
+      order.restaurantId === restaurant.id
+      && order.timestamp >= cached.startTimestamp
+      && order.timestamp <= cached.endTimestamp
+    ));
+    if (liveChanges.length === 0) return;
+    const cachedById = new Map(cached.orders.map((order) => [order.id, order]));
+    const actualChanges = liveChanges.filter((order) => {
+      const current = cachedById.get(order.id);
+      if (!current) return true;
+      if (current === order) return false;
+      if (current.updatedAt && order.updatedAt) return current.updatedAt !== order.updatedAt;
+      return current.status !== order.status
+        || current.total !== order.total
+        || current.timestamp !== order.timestamp
+        || current.paymentMethod !== order.paymentMethod
+        || current.items.length !== order.items.length;
+    });
+    if (actualChanges.length === 0) return;
+    const merged = mergeBackOfficeOrders(cached.orders, actualChanges);
+    backOfficeOrderCache.set(restaurant.id, { ...cached, orders: merged });
+    React.startTransition(() => setDashboardOrders(merged));
+  }, [isActive, orders, restaurant.id, hasDashboardSnapshot]);
+
+  // Never fall back to the 200-order POS cache after a complete snapshot loads.
+  const sourceOrders = hasDashboardSnapshot ? dashboardOrders : orders;
 
   const filteredOrders = useMemo(
     () => sourceOrders.filter(o => {
@@ -1581,71 +1678,34 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
   // â”€â”€â”€ Date Range Picker â”€â”€â”€
   const DateRangePicker = () => (
-    <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col md:flex-row md:items-end gap-4 mb-6">
-      <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full">
-        <div>
-          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
-          <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
-            {([
-              { value: 'today', label: 'Today' },
-              { value: 'week', label: 'This Week' },
-              { value: 'month', label: 'This Month' },
-            ] as { value: Exclude<DateRange, 'custom' | 'lastMonth'>; label: string }[]).map(option => (
-              <button
-                key={option.value}
-                onClick={() => setDateRange(option.value)}
-                className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                  dateRange === option.value
-                    ? 'bg-amber-600 text-white shadow-sm'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex-1">
-          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Custom Range</label>
-          <div className="flex items-center gap-2">
-            <Calendar size={14} className="text-amber-500 shrink-0" />
-            <input
-              type="date"
-              value={customStart}
-              onChange={e => {
-                setCustomStart(e.target.value);
-                setDateRange('custom');
-              }}
-              className="min-w-0 flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black text-gray-900 dark:text-white p-1.5"
-            />
-            <span className="text-gray-400 font-black">to</span>
-            <input
-              type="date"
-              value={customEnd}
-              onChange={e => {
-                setCustomEnd(e.target.value);
-                setDateRange('custom');
-              }}
-              className="min-w-0 flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black text-gray-900 dark:text-white p-1.5"
-            />
-          </div>
-        </div>
-      </div>
-      <div className="flex gap-2 w-full md:w-auto">
-        <button
-          onClick={handleDashboardExportCSV}
-          className="flex-1 md:flex-none px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-amber-600 transition-all"
-        >
-          <Download size={16} /> Export CSV
-        </button>
-        <button
-          onClick={handleDashboardExportPDF}
-          className="flex-1 md:flex-none px-6 py-2 bg-red-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-700 transition-all"
-        >
-          <FileText size={16} /> Download PDF
-        </button>
-      </div>
-    </div>
+    <StandardReport
+        toolbarOnly
+        showHeader={false}
+        reportStart={customStart}
+        reportEnd={customEnd}
+        reportStatus="ALL"
+        reportSearchQuery=""
+        entriesPerPage={30}
+        currentPage={1}
+        totalPages={1}
+        paginatedReports={[]}
+        reportData={null}
+        onChangeReportStart={value => {
+          setCustomStart(value);
+          setDateRange('custom');
+        }}
+        onChangeReportEnd={value => {
+          setCustomEnd(value);
+          setDateRange('custom');
+        }}
+        onChangeReportStatus={() => undefined}
+        onChangeReportSearchQuery={() => undefined}
+        onChangeEntriesPerPage={() => undefined}
+        onChangeCurrentPage={() => undefined}
+        onDownloadReport={handleSharedSalesReportDownload}
+        isDownloadingReport={isDownloadingSalesReport}
+        planId={subscription?.plan_id || 'basic'}
+      />
   );
 
   return (
@@ -1656,6 +1716,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           <Loader2 size={40} className="animate-spin text-amber-500 mb-4" />
           <p className="text-sm font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Loading Back Office...</p>
           <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Fetching latest data</p>
+        </div>
+      )}
+      {isDashboardLoading && !isInitialLoading && (
+        <div className="pointer-events-none absolute left-1/2 top-2 z-[70] -translate-x-1/2 rounded-full border border-amber-200 bg-white/95 px-3 py-1.5 shadow-md dark:border-amber-500/30 dark:bg-gray-800/95">
+          <div className="flex items-center gap-2 text-[10px] font-bold text-gray-600 dark:text-gray-300">
+            <Loader2 size={13} className="animate-spin text-amber-500" />
+            Checking for updates...
+          </div>
         </div>
       )}
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-11 sm:h-12 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
@@ -2231,7 +2299,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </button>
                 <button
                   onClick={openAddItem}
-                  className="inline-flex h-[38px] shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700"
+                  className="inline-flex h-10 w-24 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600"
                 >
                   <Plus size={14} /> Add
                 </button>
@@ -2487,7 +2555,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 <button onClick={() => setIngredientShowArchived(!ingredientShowArchived)} className={`shrink-0 rounded-xl border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${ingredientShowArchived ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300' : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'}`}>
                   {ingredientShowArchived ? 'Show Active' : 'Archived'}
                 </button>
-                <button onClick={openAddIngredient} className="inline-flex h-[38px] shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                <button onClick={openAddIngredient} className="inline-flex h-10 w-24 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600">
                   <Plus size={14} /> Add
                 </button>
               </div>
@@ -2562,7 +2630,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   <p className="text-sm font-bold">{ingredientShowArchived ? 'No archived ingredients' : 'No ingredients yet'}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{ingredientShowArchived ? 'Archived ingredients will appear here' : 'Add ingredients like sugar, ice blocks, packaging, etc.'}</p>
                   {!ingredientShowArchived && (
-                    <button onClick={openAddIngredient} className="mt-4 inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                    <button onClick={openAddIngredient} className="mt-4 inline-flex h-10 w-24 items-center justify-center gap-2 rounded-xl bg-orange-500 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600">
                       <Plus size={14} /> Add
                     </button>
                   )}
@@ -2621,7 +2689,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </div>
                 <button
                   onClick={handleGoToRestock}
-                  className="inline-flex h-[38px] shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700"
+                  className="inline-flex h-10 w-24 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600"
                 >
                   <Plus size={14} /> Add
                 </button>

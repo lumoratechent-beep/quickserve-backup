@@ -98,6 +98,61 @@
   scrollbar-width: none;
 }
 
+/* Compact dotted indicator for the report download selection pane. */
+.report-selection-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #9ca3af transparent;
+}
+
+.report-selection-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.report-selection-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.report-selection-scrollbar::-webkit-scrollbar-thumb {
+  min-height: 28px;
+  border-radius: 999px;
+  background-color: transparent;
+  background-image: radial-gradient(circle, #9ca3af 1.25px, transparent 1.5px);
+  background-position: center;
+  background-size: 5px 6px;
+}
+
+.report-selection-scrollbar::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.dark .report-selection-scrollbar {
+  scrollbar-color: #6b7280 transparent;
+}
+
+.dark .report-selection-scrollbar::-webkit-scrollbar-thumb {
+  background-image: radial-gradient(circle, #6b7280 1.25px, transparent 1.5px);
+}
+
+@keyframes reportFormatSlideFromLeft {
+  from { opacity: 0; transform: translate3d(-36px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes reportFormatSlideFromRight {
+  from { opacity: 0; transform: translate3d(36px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.report-format-slide-left {
+  animation: reportFormatSlideFromLeft 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.report-format-slide-right {
+  animation: reportFormatSlideFromRight 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .admin-date-input::-webkit-calendar-picker-indicator {
   opacity: 0;
   display: none;
@@ -319,6 +374,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .report-format-slide-left,
+  .report-format-slide-right,
   .qs-setup-page-next,
   .qs-setup-page-back { animation: none; }
   .qs-setup-error-shake { animation: none; }

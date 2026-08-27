@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, AdminDashboardAnalytics, QS_DEFAULT_HUB, Subscription, KitchenDepartment, OrderSource, CashierShift, IngredientItem } from './src/types';
 import CustomerView from './pages/CustomerView';
 import AdminView from './pages/AdminView';
@@ -22,6 +22,7 @@ import { getConnectivityMonitor, destroyConnectivityMonitor, type ConnectivitySt
 import { toast } from './components/Toast';
 import CashierShiftModal from './components/CashierShiftModal';
 import RenewalBanner from './components/RenewalBanner';
+import type { ReportDownloadOptions } from './components/StandardReport';
 import { isSubscriptionAccessLocked } from './lib/subscriptionService';
 import { getDefaultPromotionDiscount, normalizeMenuPromotionDiscount } from './lib/menuPricing';
 import { fetchIngredientItemsFromDb } from './lib/ingredientItems';
@@ -1506,6 +1507,23 @@ const App: React.FC = () => {
   // Compute active vendor and current area early for hooks
   const activeVendorRes = (currentUser?.role === 'VENDOR' || currentUser?.role === 'KITCHEN' || currentUser?.role === 'ORDER_TAKER' || currentUser?.role === 'HR') ? restaurants.find(r => r.id === currentUser.restaurantId) : null;
   const currentArea = locations.find(l => l.name === sessionLocation);
+  const backOfficeLiveOrders = useMemo(() => {
+    const restaurantId = currentUser?.restaurantId;
+    return restaurantId ? orders.filter(order => order.restaurantId === restaurantId) : [];
+  }, [orders, currentUser?.restaurantId]);
+  const [hasOpenedBackOffice, setHasOpenedBackOffice] = useState(() => view === 'BACK_OFFICE');
+  const [salesReportDownloader, setSalesReportDownloader] = useState<((options: ReportDownloadOptions) => Promise<void>) | null>(null);
+  const registerSalesReportDownloader = useCallback((handler: ((options: ReportDownloadOptions) => Promise<void>) | null) => {
+    setSalesReportDownloader(() => handler);
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) {
+      setHasOpenedBackOffice(false);
+    } else if (view === 'BACK_OFFICE') {
+      setHasOpenedBackOffice(true);
+    }
+  }, [currentUser, view]);
 
   // Global Data Initialization
   useEffect(() => {
@@ -2757,7 +2775,7 @@ const App: React.FC = () => {
     return await response.json();
   };
 
-  const onFetchAllFilteredOrders = async (filters: ReportFilters, includeItems = true): Promise<Order[]> => {
+  const onFetchAllFilteredOrders = useCallback(async (filters: ReportFilters, includeItems = true): Promise<Order[]> => {
     // Include timezone offset for proper date filtering
     const tzOffset = new Date().getTimezoneOffset();
     const params = new URLSearchParams({
@@ -2777,7 +2795,32 @@ const App: React.FC = () => {
     }
     const data = await response.json();
     return data.orders;
-  };
+  }, []);
+
+  const onFetchBackOfficeOrderChanges = useCallback(async (
+    filters: ReportFilters,
+    updatedSince: string,
+  ): Promise<{ orders: Order[]; syncCursor: string }> => {
+    const tzOffset = new Date().getTimezoneOffset();
+    const params = new URLSearchParams({
+      ...filters as any,
+      timezoneOffsetMinutes: tzOffset.toString(),
+      page: '1',
+      limit: '10000',
+      includeSummary: 'false',
+      includeBreakdowns: 'false',
+      includeItems: 'true',
+      mode: 'changes',
+      updatedSince,
+    });
+    const response = await fetch(`/api/orders/report?${params.toString()}`);
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || 'Failed to refresh Back Office orders');
+    }
+    const data: ReportResponse = await response.json();
+    return { orders: data.orders, syncCursor: data.syncCursor || new Date().toISOString() };
+  }, []);
 
   const onFetchStats = async (filters: ReportFilters): Promise<any> => {
     // Include timezone offset for proper date filtering
@@ -3474,34 +3517,6 @@ const App: React.FC = () => {
     );
   }
 
-  if (view === 'BACK_OFFICE' && (currentRole === 'VENDOR' || currentRole === 'HR') && activeVendorRes) {
-    const CURRENCY_MAP: Record<string, string> = { MYR: 'RM', USD: '$', EUR: '€', GBP: '£', SGD: 'S$', JPY: '¥', KRW: '₩', INR: '₹', AUD: 'A$', CNY: '¥', TWD: 'NT$', BND: 'B$' };
-    const currCode = activeVendorRes.settings?.currency || localStorage.getItem(`ux_currency_${activeVendorRes.id}`) || 'MYR';
-    const currSymbol = CURRENCY_MAP[currCode] || 'RM';
-    return (
-      <BackOfficePage
-        restaurant={activeVendorRes}
-        orders={orders.filter(o => o.restaurantId === currentUser?.restaurantId)}
-        currencySymbol={currSymbol}
-        onFetchAllFilteredOrders={onFetchAllFilteredOrders}
-        userRole={currentRole}
-        onBack={currentRole === 'HR' ? undefined : () => setView('APP')}
-        onAddMenuItem={handleAddMenuItem}
-        onUpdateMenu={handleUpdateMenuItem}
-        onPermanentDeleteMenuItem={handleDeleteMenuItem}
-        subscription={currentUser?.restaurantId ? (vendorSubscriptions[currentUser.restaurantId] ?? null) : null}
-        isDarkMode={isDarkMode}
-        onToggleTheme={() => setIsDarkMode(!isDarkMode)}
-        onLogout={handleLogout}
-        networkMeta={networkMeta}
-        batteryMeta={batteryMeta}
-        batteryCharging={batteryStatus?.charging ?? false}
-        unreadMailCount={unreadMailCount}
-        onOpenMail={currentRole === 'HR' ? undefined : () => { setView('APP'); fetchAnnouncements(); setOpenMailInPOS(true); }}
-      />
-    );
-  }
-
   if (view === 'REGISTER') {
     return <RegisterPage onBack={() => setView('MARKETING')} onLoginClick={() => setView('LOGIN')} onComparePlans={showPublicComparePlans} onRegisterSuccess={() => {
       toast('Registration successful! You can now log in.', 'success');
@@ -3529,8 +3544,45 @@ const App: React.FC = () => {
     setView('BACK_OFFICE');
   };
 
+  const CURRENCY_MAP: Record<string, string> = { MYR: 'RM', USD: '$', EUR: '€', GBP: '£', SGD: 'S$', JPY: '¥', KRW: '₩', INR: '₹', AUD: 'A$', CNY: '¥', TWD: 'NT$', BND: 'B$' };
+  const backOfficeCurrencyCode = activeVendorRes?.settings?.currency
+    || (activeVendorRes ? localStorage.getItem(`ux_currency_${activeVendorRes.id}`) : null)
+    || 'MYR';
+  const backOfficeCurrencySymbol = CURRENCY_MAP[backOfficeCurrencyCode] || 'RM';
+  const shouldKeepBackOfficeMounted = (hasOpenedBackOffice || view === 'BACK_OFFICE')
+    && (currentRole === 'VENDOR' || currentRole === 'HR')
+    && Boolean(activeVendorRes);
+
   return (
-    <div className="flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors" style={{ height: 'var(--app-height, 100dvh)' }}>
+    <>
+      {shouldKeepBackOfficeMounted && activeVendorRes && (
+        <div className={view === 'BACK_OFFICE' ? 'block' : 'hidden'} aria-hidden={view !== 'BACK_OFFICE'}>
+          <BackOfficePage
+            restaurant={activeVendorRes}
+            orders={backOfficeLiveOrders}
+            currencySymbol={backOfficeCurrencySymbol}
+            isActive={view === 'BACK_OFFICE'}
+            onFetchAllFilteredOrders={onFetchAllFilteredOrders}
+            onFetchOrderChanges={onFetchBackOfficeOrderChanges}
+            userRole={currentRole}
+            onBack={currentRole === 'HR' ? undefined : () => setView('APP')}
+            onAddMenuItem={handleAddMenuItem}
+            onUpdateMenu={handleUpdateMenuItem}
+            onPermanentDeleteMenuItem={handleDeleteMenuItem}
+            subscription={currentUser?.restaurantId ? (vendorSubscriptions[currentUser.restaurantId] ?? null) : null}
+            isDarkMode={isDarkMode}
+            onToggleTheme={() => setIsDarkMode(!isDarkMode)}
+            onLogout={handleLogout}
+            networkMeta={networkMeta}
+            batteryMeta={batteryMeta}
+            batteryCharging={batteryStatus?.charging ?? false}
+            unreadMailCount={unreadMailCount}
+            onOpenMail={currentRole === 'HR' ? undefined : () => { setView('APP'); fetchAnnouncements(); setOpenMailInPOS(true); }}
+            onDownloadSalesReport={salesReportDownloader || undefined}
+          />
+        </div>
+      )}
+      <div className={`${view === 'BACK_OFFICE' ? 'hidden ' : ''}flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors`} style={{ height: 'var(--app-height, 100dvh)' }}>
       {currentRole !== 'ORDER_TAKER' && (
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-11 sm:h-12 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
         <div className="flex min-w-0 items-center gap-2 sm:gap-4">
@@ -3796,7 +3848,7 @@ const App: React.FC = () => {
           )
         )}
 
-        {currentRole === 'VENDOR' && view === 'APP' && (
+        {currentRole === 'VENDOR' && (view === 'APP' || view === 'BACK_OFFICE') && (
           activeVendorRes ? (
               <PosOnlyView
                 key={`${activeVendorRes.id}-${activeVendorRes.settings?.onboardingRequired === true ? 'setup' : 'ready'}`}
@@ -3839,6 +3891,7 @@ const App: React.FC = () => {
                 onComparePlans={showPosComparePlans}
                 activeShift={activeShift}
                 onOpenShiftModal={() => setShowShiftModal(true)}
+                onRegisterSalesReportDownloader={registerSalesReportDownloader}
               />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
@@ -4121,7 +4174,8 @@ const App: React.FC = () => {
           onClose={() => setShowShiftModal(false)}
         />
       )}
-    </div>
+      </div>
+    </>
   );
 };
 

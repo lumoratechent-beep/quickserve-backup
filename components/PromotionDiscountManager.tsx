@@ -288,9 +288,9 @@ const PromotionDiscountManager: React.FC<Props> = ({ restaurant, currencySymbol,
           <button
             type="button"
             onClick={() => openPromoModal()}
-            className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-black px-4 text-[10px] font-black uppercase tracking-widest text-white shadow-lg transition hover:bg-orange-500 dark:bg-white dark:text-gray-900 dark:hover:bg-orange-500 dark:hover:text-white"
+            className="inline-flex h-10 w-24 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600"
           >
-            <Plus size={14} /> Add Promo
+            <Plus size={14} /> Add
           </button>
         </div>
       </div>

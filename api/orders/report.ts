@@ -4,6 +4,7 @@ import {
   buildAdminDashboardAnalyticsFallback,
   isDashboardRpcUnavailable,
 } from '../../lib/adminDashboardAnalytics.js';
+import { REPORT_HISTORY_LIMITS } from '../../lib/pricingPlans.js';
 
 const supabaseUrl = 'https://anknjpuiklglykguneax.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFua25qcHVpa2xnbHlrZ3VuZWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5ODkwNTAsImV4cCI6MjA4NzU2NTA1MH0.DUMHeKg0v-1oI9nLT-nZP9cg1eYPI0R4fRNBzE9K2MI';
@@ -70,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const {
     restaurantId, startDate, endDate, status, search, paymentMethod, page = '1', limit = '30',
-    locationName, timezoneOffsetMinutes, includeSummary = 'true',
+    locationName, timezoneOffsetMinutes, includeSummary = 'true', updatedSince,
     includeBreakdowns = 'true', includeItems = 'true', mode, export: exportMode = 'false',
   } = req.query;
   if (!enforceRateLimit(req, res, exportMode === 'true')) return;
@@ -88,6 +89,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const normalizedStatus = status && status !== 'ALL' ? String(status) : null;
     const normalizedPaymentMethod = paymentMethod && paymentMethod !== 'ALL' ? String(paymentMethod) : null;
     const normalizedSearch = search ? String(search).trim() || null : null;
+    const normalizedUpdatedSince = updatedSince ? String(updatedSince) : null;
+    if (mode === 'changes' && (!normalizedRestaurantId || !normalizedUpdatedSince || Number.isNaN(Date.parse(normalizedUpdatedSince)))) {
+      return res.status(400).json({ error: 'Incremental report sync requires a restaurant and valid cursor' });
+    }
     const startTimestamp = startDate ? getDateBoundary(startDate, false) : null;
     const endTimestamp = endDate ? getDateBoundary(endDate, true) : null;
     if ((startTimestamp !== null && !Number.isFinite(startTimestamp)) || (endTimestamp !== null && !Number.isFinite(endTimestamp))) {
@@ -102,6 +107,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Report date ranges are limited to 366 days' });
     }
 
+    if (exportMode === 'true' && normalizedRestaurantId && startTimestamp !== null) {
+      const { data: subscription, error: subscriptionError } = await supabase
+        .from('subscriptions')
+        .select('plan_id')
+        .eq('restaurant_id', normalizedRestaurantId)
+        .maybeSingle();
+      if (subscriptionError) throw subscriptionError;
+      const planId: keyof typeof REPORT_HISTORY_LIMITS = subscription?.plan_id === 'pro' || subscription?.plan_id === 'pro_plus'
+        ? subscription.plan_id
+        : 'basic';
+      const maximumHistoryMonths = REPORT_HISTORY_LIMITS[planId].downloadMonths;
+      const localNow = new Date(Date.now() - (tzOffset * 60000));
+      const earliestLocalDate = new Date(Date.UTC(
+        localNow.getUTCFullYear(),
+        localNow.getUTCMonth() - maximumHistoryMonths,
+        1,
+      ));
+      const earliestAllowedTimestamp = earliestLocalDate.getTime() + (tzOffset * 60000);
+      if (startTimestamp < earliestAllowedTimestamp) {
+        const planName = planId === 'pro_plus' ? 'Pro Plus' : planId === 'pro' ? 'Pro' : 'Basic';
+        return res.status(403).json({
+          error: `${planName} downloads are limited to the past ${maximumHistoryMonths === 12 ? '1 year' : `${maximumHistoryMonths} months`}.`,
+        });
+      }
+    }
+
     const buildOrderQuery = (columns: string, withCount = false) => {
       let query = supabase.from('orders').select(columns, withCount ? { count: 'exact' } : undefined);
       if (normalizedRestaurantId) query = query.eq('restaurant_id', normalizedRestaurantId);
@@ -111,6 +142,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (startTimestamp !== null) query = query.gte('timestamp', startTimestamp);
       if (endTimestamp !== null) query = query.lte('timestamp', endTimestamp);
       if (normalizedSearch) query = query.ilike('id', `%${normalizedSearch}%`);
+      if (normalizedUpdatedSince) query = query.gt('updated_at', normalizedUpdatedSince).lte('updated_at', syncCursor);
       return query;
     };
 
@@ -186,14 +218,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const requestedPage = Number(page);
     const requestedLimit = Number(limit);
     const isExport = exportMode === 'true';
+    const isChanges = mode === 'changes';
+    const isBulkRead = isExport || isChanges;
     if (!Number.isInteger(requestedPage) || requestedPage < 1 || !Number.isInteger(requestedLimit) || requestedLimit < 1) {
       return res.status(400).json({ error: 'Invalid report pagination' });
     }
-    const maximumLimit = isExport ? MAX_EXPORT_ROWS : MAX_PAGE_SIZE;
+    const maximumLimit = isBulkRead ? MAX_EXPORT_ROWS : MAX_PAGE_SIZE;
     if (requestedLimit > maximumLimit) {
       return res.status(400).json({
-        error: isExport
-          ? `Exports are limited to ${MAX_EXPORT_ROWS} rows; narrow the selected date range.`
+        error: isBulkRead
+          ? `Bulk report requests are limited to ${MAX_EXPORT_ROWS} rows; narrow the selected date range.`
           : `Report pages are limited to ${MAX_PAGE_SIZE} rows.`,
       });
     }
@@ -219,8 +253,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const start = (requestedPage - 1) * requestedLimit;
     const end = start + requestedLimit - 1;
-    const selectedColumns = isExport
-      ? (includeItems === 'false' ? PAGE_COLUMNS : '*')
+    const selectedColumns = isBulkRead
+      ? (includeItems === 'false' ? PAGE_COLUMNS : DETAIL_COLUMNS)
       : (includeItems === 'false' ? PAGE_COLUMNS : DETAIL_COLUMNS);
     let data: any[] = [];
     let count: number | null = includeSummary === 'false' ? null : Number(summary.orderVolume || 0);
@@ -229,7 +263,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       for (let offset = start; offset <= end; offset += BATCH_SIZE) {
         const batchEnd = Math.min(offset + BATCH_SIZE - 1, end);
         const { data: batch, error } = await buildOrderQuery(selectedColumns)
-          .order('timestamp', { ascending: false }).range(offset, batchEnd);
+          .order(isChanges ? 'updated_at' : 'timestamp', { ascending: isChanges })
+          .order('id', { ascending: true })
+          .range(offset, batchEnd);
         if (error) throw error;
         if (!batch?.length) break;
         data.push(...batch);
@@ -238,7 +274,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (count === null) count = data.length;
     } else {
       const result = await buildOrderQuery(selectedColumns)
-        .order('timestamp', { ascending: false }).range(start, end);
+        .order(isChanges ? 'updated_at' : 'timestamp', { ascending: isChanges })
+        .order('id', { ascending: true })
+        .range(start, end);
       if (result.error) throw result.error;
       data = result.data || [];
       count = includeSummary === 'false' ? null : Number(summary.orderVolume || 0);

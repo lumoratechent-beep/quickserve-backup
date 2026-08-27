@@ -1,19 +1,59 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, OrderStatus, ReportResponse, CashierShift } from '../src/types';
+import type { PlanId } from '../src/types';
+import { REPORT_HISTORY_LIMITS } from '../lib/pricingPlans';
 import {
   Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users,
   Check, X, FileDown, FileText, Sheet, Info, ShieldCheck, CalendarDays, SlidersHorizontal,
-  BarChart3, Clock3, ShoppingBag, Tags, UserRound, WalletCards, Utensils,
+  MoreVertical,
 } from 'lucide-react';
 
 export type ReportSectionKey = 'salesSummary' | 'dailyBreakdown' | 'hourlyDistribution' | 'byItem' | 'byCategory' | 'byEmployee' | 'byPayment' | 'byDiningOption' | 'transactions';
 export type ReportDownloadInfoType = 'all' | 'summary' | 'transactions' | 'dailyBreakdown';
-export type ReportDownloadFileType = 'csv' | 'pdf';
+export type ReportDownloadFileType = 'excel' | 'pdf';
+export type ExcelColumnKey = 'orderId' | 'date' | 'time' | 'status' | 'paymentMethod' | 'cashier' | 'table' | 'diningOption' | 'orderSource' | 'itemId' | 'sku' | 'item' | 'category' | 'options' | 'quantity' | 'unitPrice' | 'lineTotal' | 'orderTotal' | 'amountReceived' | 'change' | 'orderRemark' | 'itemRemark';
+
+const excelColumnOptions: Array<{ key: ExcelColumnKey; label: string; description: string }> = [
+  { key: 'orderId', label: 'Order ID', description: 'Unique order reference.' },
+  { key: 'date', label: 'Date', description: 'Order date.' },
+  { key: 'time', label: 'Time', description: 'Order time.' },
+  { key: 'status', label: 'Status', description: 'Current order status.' },
+  { key: 'paymentMethod', label: 'Payment Method', description: 'Payment type used.' },
+  { key: 'cashier', label: 'Cashier', description: 'Cashier who handled it.' },
+  { key: 'table', label: 'Table', description: 'Table reference.' },
+  { key: 'diningOption', label: 'Dining Option', description: 'Dine-in or takeaway.' },
+  { key: 'orderSource', label: 'Order Source', description: 'Origin of the order.' },
+  { key: 'itemId', label: 'Item ID', description: 'Unique item reference.' },
+  { key: 'sku', label: 'SKU', description: 'Item stock code.' },
+  { key: 'item', label: 'Item', description: 'Sold item name.' },
+  { key: 'category', label: 'Category', description: 'Item category.' },
+  { key: 'options', label: 'Options', description: 'Variants and add-ons.' },
+  { key: 'quantity', label: 'Quantity', description: 'Quantity sold.' },
+  { key: 'unitPrice', label: 'Unit Price', description: 'Price per unit.' },
+  { key: 'lineTotal', label: 'Line Total', description: 'Item line value.' },
+  { key: 'orderTotal', label: 'Order Total', description: 'Full order value.' },
+  { key: 'amountReceived', label: 'Amount Received', description: 'Customer payment.' },
+  { key: 'change', label: 'Change', description: 'Change returned.' },
+  { key: 'orderRemark', label: 'Order Remark', description: 'Order-level notes.' },
+  { key: 'itemRemark', label: 'Item Remark', description: 'Item-level notes.' },
+];
+const allExcelColumnKeys = excelColumnOptions.map((option) => option.key);
+const recommendedExcelColumnKeys: ExcelColumnKey[] = [
+  'orderId', 'date', 'time', 'status', 'paymentMethod', 'cashier', 'table', 'diningOption',
+  'item', 'category', 'options', 'quantity', 'unitPrice', 'lineTotal', 'orderTotal',
+];
 
 export interface ReportDownloadOptions {
   infoType?: ReportDownloadInfoType;
   sections?: ReportSectionKey[];
+  excelColumns?: ExcelColumnKey[];
+  downloadStartDate?: string;
+  downloadEndDate?: string;
   fileType: ReportDownloadFileType;
+  status?: string;
+  search?: string;
+  paymentMethod?: string;
+  cashier?: string;
 }
 
 interface Props {
@@ -41,6 +81,9 @@ interface Props {
   activeShift?: CashierShift | null;
   applyCurrentShiftFilter?: boolean;
   isSidebarCollapsed?: boolean;
+  planId?: PlanId;
+  downloadOnly?: boolean;
+  toolbarOnly?: boolean;
 }
 
 const StandardReport: React.FC<Props> = ({
@@ -67,6 +110,9 @@ const StandardReport: React.FC<Props> = ({
   showHeader = true,
   activeShift,
   applyCurrentShiftFilter = false,
+  planId = 'basic',
+  downloadOnly = false,
+  toolbarOnly = false,
 }) => {
   const [detailRange, setDetailRange] = useState<'today' | 'week' | 'month' | 'lastMonth' | 'custom'>('month');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
@@ -74,18 +120,22 @@ const StandardReport: React.FC<Props> = ({
   const [filterCashier, setFilterCashier] = useState<string>('ALL');
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const reportSectionOptions = [
-    { key: 'salesSummary' as const, label: 'Sales Summary', description: 'Overview of your sales performance.', icon: BarChart3 },
-    { key: 'dailyBreakdown' as const, label: 'Daily Sales Breakdown', description: 'Graph and table view of daily sales.', icon: BarChart3 },
-    { key: 'hourlyDistribution' as const, label: 'Hourly Sales Distribution', description: 'Graph and table view of hourly sales.', icon: Clock3 },
-    { key: 'byItem' as const, label: 'By Item', description: 'Sales performance by individual items.', icon: ShoppingBag },
-    { key: 'byCategory' as const, label: 'By Category', description: 'Sales performance by categories.', icon: Tags },
-    { key: 'byEmployee' as const, label: 'By Employee', description: 'Sales performance by employees.', icon: UserRound },
-    { key: 'byPayment' as const, label: 'By Payment', description: 'Sales performance by payment methods.', icon: WalletCards },
-    { key: 'byDiningOption' as const, label: 'By Dining Option', description: 'Dine-in, takeaway, and delivery sales.', icon: Utensils },
+    { key: 'salesSummary' as const, label: 'Sales Summary', description: 'Overview of your sales performance.' },
+    { key: 'dailyBreakdown' as const, label: 'Daily Sales Breakdown', description: 'Graph and table view of daily sales.' },
+    { key: 'hourlyDistribution' as const, label: 'Hourly Sales Distribution', description: 'Graph and table view of hourly sales.' },
+    { key: 'byItem' as const, label: 'By Item', description: 'Sales performance by individual items.' },
+    { key: 'byCategory' as const, label: 'By Category', description: 'Sales performance by categories.' },
+    { key: 'byEmployee' as const, label: 'By Employee', description: 'Sales performance by employees.' },
+    { key: 'byPayment' as const, label: 'By Payment', description: 'Sales performance by payment methods.' },
+    { key: 'byDiningOption' as const, label: 'By Dining Option', description: 'Dine-in, takeaway, and delivery sales.' },
   ];
   const allReportSectionKeys = reportSectionOptions.map((option) => option.key);
   const [downloadSections, setDownloadSections] = useState<ReportSectionKey[]>(allReportSectionKeys);
+  const [excelColumns, setExcelColumns] = useState<ExcelColumnKey[]>(recommendedExcelColumnKeys);
   const [downloadFileType, setDownloadFileType] = useState<ReportDownloadFileType>('pdf');
+  const maxDownloadHistoryMonths = REPORT_HISTORY_LIMITS[planId].downloadMonths;
+  const [downloadMonthOffset, setDownloadMonthOffset] = useState(1);
+  const [showSelectionMenu, setShowSelectionMenu] = useState(false);
   const [showDateRangeModal, setShowDateRangeModal] = useState(false);
   const [draftReportStart, setDraftReportStart] = useState(reportStart);
   const [draftReportEnd, setDraftReportEnd] = useState(reportEnd);
@@ -118,6 +168,28 @@ const StandardReport: React.FC<Props> = ({
     if (!year || !month || !day) return value;
     return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
   };
+
+  const downloadableMonths = useMemo(() => {
+    const now = new Date();
+    const toLocalDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return Array.from({ length: maxDownloadHistoryMonths }, (_, index) => {
+      const offset = index + 1;
+      const start = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+      const end = new Date(now.getFullYear(), now.getMonth() - offset + 1, 0);
+      return {
+        offset,
+        year: start.getFullYear(),
+        label: start.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase(),
+        start: toLocalDate(start),
+        end: toLocalDate(end),
+      };
+    });
+  }, [maxDownloadHistoryMonths]);
+  const downloadDateRange = downloadableMonths.find((month) => month.offset === downloadMonthOffset) || downloadableMonths[0];
+
+  useEffect(() => {
+    setDownloadMonthOffset(1);
+  }, [maxDownloadHistoryMonths]);
 
   const formatDisplayDateTime = (value: string) => {
     if (!value) return '--';
@@ -340,19 +412,36 @@ const StandardReport: React.FC<Props> = ({
     });
   };
 
-  const setAllDownloadSections = () => {
-    setDownloadSections((prev) => prev.length === allReportSectionKeys.length ? [] : allReportSectionKeys);
+  const toggleExcelColumn = (column: ExcelColumnKey) => {
+    setExcelColumns((prev) => prev.includes(column) ? prev.filter((key) => key !== column) : [...prev, column]);
+  };
+
+  const openDownloadModal = () => {
+    setDownloadFileType('pdf');
+    setDownloadSections(allReportSectionKeys);
+    setExcelColumns(recommendedExcelColumnKeys);
+    setDownloadMonthOffset(1);
+    setShowSelectionMenu(false);
+    setShowDownloadOptions(true);
+  };
+
+  const selectDownloadFileType = (type: ReportDownloadFileType) => {
+    setShowSelectionMenu(false);
+    if (type === downloadFileType) return;
+    setDownloadFileType(type);
+    if (type === 'pdf') setDownloadSections(allReportSectionKeys);
+    else setExcelColumns(recommendedExcelColumnKeys);
   };
 
   return (
     <div className="animate-in fade-in duration-500">
-      {showHeader && (
+      {showHeader && !downloadOnly && (
         <div className="mb-5">
           <h2 className="text-lg font-black mb-1 dark:text-white uppercase tracking-tighter">{title}</h2>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">{description}</p>
         </div>
       )}
-      {isShiftReportWithoutActiveShift && (
+      {isShiftReportWithoutActiveShift && !downloadOnly && (
         <div className="mb-4 px-4 py-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700">
           <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">
             No active shift. Open your shift to view shift transactions.
@@ -361,8 +450,8 @@ const StandardReport: React.FC<Props> = ({
       )}
 
       {showTopRangeAndExportControls && (
-        <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col lg:flex-row lg:items-end gap-3 lg:gap-4 mb-6">
-          <div className="flex-1 w-full">
+        <div className={downloadOnly ? 'w-auto shrink-0' : 'bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col lg:flex-row lg:items-end gap-3 lg:gap-4 mb-6'}>
+          {!downloadOnly && <div className="flex-1 w-full">
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
               <div className="inline-flex max-w-full bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 overflow-x-auto hide-scrollbar">
                 {periodOptions.map((option) => (
@@ -389,13 +478,13 @@ const StandardReport: React.FC<Props> = ({
                   </button>
                 ))}
               </div>
-          </div>
-          <div className="w-full md:w-auto md:min-w-[170px]">
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Download Report</label>
+          </div>}
+          <div className={downloadOnly ? 'w-full' : 'w-full md:w-auto md:min-w-[170px]'}>
+            <label className="mb-1 ml-1 block whitespace-nowrap text-[10px] font-black uppercase tracking-widest text-gray-400">Download Report</label>
             <button
-              onClick={() => setShowDownloadOptions(true)}
+              onClick={openDownloadModal}
               disabled={isDownloadingReport}
-              className={`w-full px-6 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
+              className={`w-full ${downloadOnly ? 'px-2' : 'px-6'} py-2 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
                 isDownloadingReport
                   ? 'bg-orange-300 text-white cursor-not-allowed'
                   : 'bg-black text-white dark:bg-white dark:text-gray-900 hover:bg-orange-500'
@@ -422,10 +511,10 @@ const StandardReport: React.FC<Props> = ({
 
       {showDownloadOptions && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/65 p-3 backdrop-blur-sm md:p-6">
-          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex h-[680px] max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800">
             <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700 md:px-6 md:py-4">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500 dark:bg-orange-900/25">
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${downloadFileType === 'pdf' ? 'bg-red-50 text-red-500 dark:bg-red-900/25' : 'bg-emerald-50 text-emerald-500 dark:bg-emerald-900/25'}`}>
                   <FileDown size={20} />
                 </span>
                 <div className="min-w-0">
@@ -433,109 +522,132 @@ const StandardReport: React.FC<Props> = ({
                   <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Select the sections to include and choose your file type.</p>
                 </div>
               </div>
-              <button
-                onClick={() => setShowDownloadOptions(false)}
-                aria-label="Close download report"
-                className="ml-3 rounded-xl border border-gray-200 p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:border-gray-700 dark:hover:bg-gray-700 dark:hover:text-white"
-              >
-                <X size={19} />
-              </button>
+              <div className="ml-3 flex shrink-0 items-center gap-2">
+                <select
+                  value={downloadMonthOffset}
+                  onChange={(event) => setDownloadMonthOffset(Number(event.target.value))}
+                  className="h-9 w-[150px] rounded-xl border border-gray-200 bg-gray-50 px-3 text-xs font-black uppercase tracking-wide text-gray-700 outline-none transition-colors focus:border-orange-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                  aria-label="Download report month"
+                >
+                  {Array.from(new Set(downloadableMonths.map((month) => month.year))).map((year) => (
+                    <optgroup key={year} label={String(year)}>
+                      {downloadableMonths.filter((month) => month.year === year).map((month) => (
+                        <option key={month.offset} value={month.offset}>{month.label}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setShowDownloadOptions(false)}
+                  aria-label="Close download report"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:border-gray-700 dark:hover:bg-gray-700 dark:hover:text-white"
+                >
+                  <X size={19} />
+                </button>
+              </div>
             </div>
 
             <div className="min-h-0 flex-1 overflow-hidden">
-              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]">
-                <section className="p-3 md:p-5 lg:border-r lg:border-gray-200 lg:dark:border-gray-700">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <p className="text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Report Sections</p>
-                    <button
-                      onClick={setAllDownloadSections}
-                      className="text-[10px] font-black uppercase tracking-widest text-gray-500 transition-colors hover:text-orange-500 dark:text-gray-400"
-                    >
-                      {downloadSections.length === allReportSectionKeys.length ? 'Deselect All' : 'Select All'}
-                    </button>
-                  </div>
+              <div className="grid h-full min-h-0 grid-cols-1 grid-rows-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_280px] lg:grid-rows-1">
+                <section className="report-selection-scrollbar min-h-0 overflow-x-hidden overflow-y-auto border-b border-gray-200 p-3 dark:border-gray-700 md:p-5 lg:border-b-0 lg:border-r">
+                  {downloadFileType === 'pdf' ? (
+                    <div key="pdf-options" className="report-format-slide-left">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Report Sections</p>
+                        <div className="relative">
+                          <button onClick={() => setShowSelectionMenu((prev) => !prev)} aria-label="PDF selection options" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20">
+                            <MoreVertical size={18} />
+                          </button>
+                          {showSelectionMenu && (
+                            <div className="absolute right-0 top-9 z-20 w-36 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl dark:border-gray-700 dark:bg-gray-900">
+                              <button onClick={() => { setDownloadSections(allReportSectionKeys); setShowSelectionMenu(false); }} className="w-full rounded-lg px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-700 hover:bg-red-50 hover:text-red-600 dark:text-gray-200 dark:hover:bg-red-900/20">Select All</button>
+                              <button onClick={() => { setDownloadSections([]); setShowSelectionMenu(false); }} className="w-full rounded-lg px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-700 hover:bg-red-50 hover:text-red-600 dark:text-gray-200 dark:hover:bg-red-900/20">Deselect All</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
 
-                  <button
-                    onClick={setAllDownloadSections}
-                    className={`mb-2 flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-all ${
-                      downloadSections.length === allReportSectionKeys.length
-                        ? 'border-orange-400 bg-orange-50/70 shadow-sm dark:border-orange-600 dark:bg-orange-900/20'
-                        : 'border-gray-200 bg-white hover:border-orange-300 dark:border-gray-700 dark:bg-gray-800'
-                    }`}
-                  >
-                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
-                      downloadSections.length === allReportSectionKeys.length
-                        ? 'border-orange-500 bg-orange-500 text-white'
-                        : 'border-gray-300 dark:border-gray-600'
-                    }`}>
-                      {downloadSections.length === allReportSectionKeys.length && <Check size={13} strokeWidth={3} />}
-                    </span>
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-orange-500 dark:bg-orange-900/25">
-                      <SlidersHorizontal size={17} />
-                    </span>
-                    <span>
-                      <span className="block text-xs font-black text-gray-900 dark:text-white">All Sections</span>
-                      <span className="mt-0.5 hidden text-[10px] text-gray-500 dark:text-gray-400 sm:block">Include every available report section.</span>
-                    </span>
-                  </button>
+                      <div className="grid grid-cols-2 gap-2">
+                        {reportSectionOptions.map((option) => {
+                          const checked = downloadSections.includes(option.key);
+                          return (
+                            <button key={option.key} onClick={() => toggleDownloadSection(option.key)} className="flex min-h-[64px] items-center gap-2 rounded-xl border border-gray-200 bg-white p-2.5 text-left transition-colors hover:border-red-300 dark:border-gray-700 dark:bg-gray-800">
+                              <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'border-red-500 bg-red-500 text-white' : 'border-gray-300 dark:border-gray-600'}`}>
+                                {checked && <Check size={11} strokeWidth={3} />}
+                              </span>
+                              <span className="min-w-0">
+                                <span className="block text-[11px] font-black leading-4 text-gray-900 dark:text-white">{option.label}</span>
+                                <span className="mt-0.5 hidden text-[9px] leading-3 text-gray-500 dark:text-gray-400 sm:block">{option.description}</span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div key="excel-options" className="report-format-slide-right">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Raw Data Columns</p>
+                        <div className="relative">
+                          <button onClick={() => setShowSelectionMenu((prev) => !prev)} aria-label="Excel column selection options" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-500 dark:hover:bg-emerald-900/20">
+                            <MoreVertical size={18} />
+                          </button>
+                          {showSelectionMenu && (
+                            <div className="absolute right-0 top-9 z-20 w-36 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl dark:border-gray-700 dark:bg-gray-900">
+                              <button onClick={() => { setExcelColumns(allExcelColumnKeys); setShowSelectionMenu(false); }} className="w-full rounded-lg px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 dark:text-gray-200 dark:hover:bg-emerald-900/20">Select All</button>
+                              <button onClick={() => { setExcelColumns([]); setShowSelectionMenu(false); }} className="w-full rounded-lg px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 dark:text-gray-200 dark:hover:bg-emerald-900/20">Deselect All</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    {reportSectionOptions.map((option) => {
-                      const checked = downloadSections.includes(option.key);
-                      const SectionIcon = option.icon;
-                      return (
-                        <button
-                          key={option.key}
-                          onClick={() => toggleDownloadSection(option.key)}
-                          className={`flex min-h-[64px] items-center gap-2 rounded-xl border p-2.5 text-left transition-all ${
-                            checked
-                              ? 'border-orange-300 bg-orange-50/40 dark:border-orange-700 dark:bg-orange-900/10'
-                              : 'border-gray-200 bg-white hover:border-orange-300 dark:border-gray-700 dark:bg-gray-800'
-                          }`}
-                        >
-                          <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                            checked ? 'border-orange-500 bg-orange-500 text-white' : 'border-gray-300 dark:border-gray-600'
-                          }`}>
-                            {checked && <Check size={11} strokeWidth={3} />}
-                          </span>
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-orange-500 dark:bg-orange-900/25">
-                            <SectionIcon size={16} />
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block text-[11px] font-black leading-4 text-gray-900 dark:text-white">{option.label}</span>
-                            <span className="mt-0.5 hidden text-[9px] leading-3 text-gray-500 dark:text-gray-400 sm:block">{option.description}</span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                      <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">
+                        {excelColumnOptions.map((option) => {
+                          const checked = excelColumns.includes(option.key);
+                          return (
+                            <button key={option.key} onClick={() => toggleExcelColumn(option.key)} className="flex min-h-[58px] items-center gap-2 rounded-xl border border-gray-200 bg-white p-2.5 text-left transition-colors hover:border-emerald-300 dark:border-gray-700 dark:bg-gray-800">
+                              <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-gray-300 dark:border-gray-600'}`}>
+                                {checked && <Check size={11} strokeWidth={3} />}
+                              </span>
+                              <span className="min-w-0">
+                                <span className="block text-[11px] font-black leading-4 text-gray-900 dark:text-white">{option.label}</span>
+                                <span className="mt-0.5 hidden text-[9px] leading-3 text-gray-500 dark:text-gray-400 sm:block">{option.description}</span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </section>
 
-                <aside className="border-t border-gray-200 p-3 dark:border-gray-700 md:p-5 lg:border-t-0">
+                <aside className="shrink-0 p-3 dark:border-gray-700 md:p-5">
                   <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">File Type</p>
                   <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
-                    {(['pdf', 'csv'] as ReportDownloadFileType[]).map((type) => {
+                    {(['pdf', 'excel'] as ReportDownloadFileType[]).map((type) => {
                       const selected = downloadFileType === type;
                       const TypeIcon = type === 'pdf' ? FileText : Sheet;
                       return (
                         <button
                           key={type}
-                          onClick={() => setDownloadFileType(type)}
+                          onClick={() => selectDownloadFileType(type)}
                           className={`flex w-full items-center gap-2 rounded-xl border p-2.5 text-left transition-all ${
                             selected
-                              ? 'border-orange-400 bg-orange-50/70 shadow-sm dark:border-orange-600 dark:bg-orange-900/20'
-                              : 'border-gray-200 hover:border-orange-300 dark:border-gray-700 dark:bg-gray-800'
+                              ? type === 'pdf'
+                                ? 'border-red-400 bg-red-50/70 shadow-sm dark:border-red-600 dark:bg-red-900/20'
+                                : 'border-emerald-400 bg-emerald-50/70 shadow-sm dark:border-emerald-600 dark:bg-emerald-900/20'
+                              : 'border-gray-200 hover:border-gray-400 dark:border-gray-700 dark:bg-gray-800'
                           }`}
                         >
-                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${selected ? 'border-orange-500' : 'border-gray-400'}`}>
-                            {selected && <span className="h-2.5 w-2.5 rounded-full bg-orange-500" />}
+                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${selected ? (type === 'pdf' ? 'border-red-500' : 'border-emerald-500') : 'border-gray-400'}`}>
+                            {selected && <span className={`h-2.5 w-2.5 rounded-full ${type === 'pdf' ? 'bg-red-500' : 'bg-emerald-500'}`} />}
                           </span>
                           <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${type === 'pdf' ? 'bg-red-50 text-red-500 dark:bg-red-900/20' : 'bg-emerald-50 text-emerald-500 dark:bg-emerald-900/20'}`}>
                             <TypeIcon size={16} />
                           </span>
                           <span>
                             <span className="block text-xs font-black uppercase text-gray-900 dark:text-white">{type}</span>
-                            <span className="mt-0.5 hidden text-[9px] text-gray-500 dark:text-gray-400 sm:block">{type === 'pdf' ? 'Best for printing and sharing.' : 'Best for data analysis.'}</span>
+                            <span className="mt-0.5 hidden text-[9px] text-gray-500 dark:text-gray-400 sm:block">{type === 'pdf' ? 'Best for printing and sharing.' : 'Raw data for analysis.'}</span>
                           </span>
                         </button>
                       );
@@ -558,7 +670,7 @@ const StandardReport: React.FC<Props> = ({
                 <div className="hidden min-w-0 gap-6 text-[10px] text-gray-500 dark:text-gray-400 md:flex md:items-center">
                   <div className="flex items-center gap-2">
                     <CalendarDays size={17} className="shrink-0" />
-                    <span><span className="block font-bold">Date Range</span><span className="font-black text-gray-700 dark:text-gray-200">{formatDisplayDate(reportStart)} – {formatDisplayDate(reportEnd)}</span></span>
+                    <span><span className="block font-bold">Download Range</span><span className="font-black text-orange-500 dark:text-orange-400">{formatDisplayDate(downloadDateRange.start)} – {formatDisplayDate(downloadDateRange.end)}</span></span>
                   </div>
                   <div className="flex min-w-0 items-center gap-2">
                     <SlidersHorizontal size={17} className="shrink-0" />
@@ -573,15 +685,29 @@ const StandardReport: React.FC<Props> = ({
                     Cancel
                   </button>
                   <button
-                    disabled={downloadSections.length === 0 || isDownloadingReport}
+                    disabled={(downloadFileType === 'pdf' ? downloadSections.length === 0 : excelColumns.length === 0) || isDownloadingReport}
                     onClick={async () => {
-                      await onDownloadReport({ sections: downloadSections, fileType: downloadFileType });
+                      await onDownloadReport({
+                        sections: downloadFileType === 'excel' ? ['transactions'] : downloadSections,
+                        excelColumns: downloadFileType === 'excel' ? excelColumns : undefined,
+                        downloadStartDate: downloadDateRange.start,
+                        downloadEndDate: downloadDateRange.end,
+                        fileType: downloadFileType,
+                        status: filterStatus,
+                        search: reportSearchQuery,
+                        paymentMethod: filterPayment,
+                        cashier: filterCashier,
+                      });
                       setShowDownloadOptions(false);
                     }}
-                    className="flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-2.5 text-xs font-black text-white shadow-sm transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
+                    className={`flex w-[210px] items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black text-white shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${downloadFileType === 'pdf' ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
                   >
                     <Download size={15} />
-                    {isDownloadingReport ? 'Downloading...' : `Download ${downloadSections.length} Selected`}
+                    {isDownloadingReport
+                      ? 'Downloading...'
+                      : downloadFileType === 'excel'
+                        ? `Download ${excelColumns.length} Columns`
+                        : `Download ${downloadSections.length} Selected`}
                   </button>
                 </div>
               </div>
@@ -593,6 +719,7 @@ const StandardReport: React.FC<Props> = ({
         </div>
       )}
 
+      <div className={downloadOnly ? 'hidden' : undefined}>
       {showDateRangeModal && (
         <div className="fixed inset-0 z-[140] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
           <div className="w-full max-w-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5 md:p-7 shadow-xl flex flex-col">
@@ -688,6 +815,7 @@ const StandardReport: React.FC<Props> = ({
         </div>
       )}
 
+      <div className={toolbarOnly ? 'hidden' : undefined}>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6">
         {/* Total Revenue */}
         <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm">
@@ -898,6 +1026,8 @@ const StandardReport: React.FC<Props> = ({
           </button>
         </div>
       )}
+      </div>
+      </div>
     </div>
   );
 };

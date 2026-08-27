@@ -16,7 +16,7 @@ import PromotionDiscountManager from '../components/PromotionDiscountManager';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import PriceEntryModal from '../components/PriceEntryModal';
 import { toast } from '../components/Toast';
-import StandardReport, { type ReportDownloadOptions, type ReportSectionKey } from '../components/StandardReport';
+import StandardReport, { type ExcelColumnKey, type ReportDownloadOptions, type ReportSectionKey } from '../components/StandardReport';
 import UpgradePlanModal from '../components/UpgradePlanModal';
 import ImageCropModal from '../components/ImageCropModal';
 import WalletBillingPage from './WalletBillingPage';
@@ -133,6 +133,7 @@ interface Props {
   onComparePlans?: () => void;
   activeShift?: CashierShift | null;
   onOpenShiftModal?: () => void;
+  onRegisterSalesReportDownloader?: (handler: ((options: ReportDownloadOptions) => Promise<void>) | null) => void;
 }
 
 const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
@@ -449,6 +450,7 @@ const PosOnlyView: React.FC<Props> = ({
   onComparePlans,
   activeShift,
   onOpenShiftModal,
+  onRegisterSalesReportDownloader,
 }) => {
   const toLocalDateInputValue = (date: Date) => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -3175,9 +3177,15 @@ const PosOnlyView: React.FC<Props> = ({
     return Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp);
   };
 
-  const buildCachedReportData = (isExport = false): ReportResponse | Order[] => {
-    const startTs = new Date(reportStart + 'T00:00:00').getTime();
-    const endTs = new Date(reportEnd + 'T23:59:59').getTime();
+  const buildCachedReportData = (
+    isExport = false,
+    exportRange?: { startDate: string; endDate: string },
+    exportFilters?: { status?: string; search?: string },
+  ): ReportResponse | Order[] => {
+    const startTs = new Date((exportRange?.startDate || reportStart) + 'T00:00:00').getTime();
+    const endTs = new Date((exportRange?.endDate || reportEnd) + 'T23:59:59').getTime();
+    const selectedStatus = exportFilters?.status ?? reportStatus;
+    const selectedSearch = exportFilters?.search ?? reportSearchQuery;
 
     const allCachedOrders = getLocalReportSeedOrders();
     if (allCachedOrders.length > 0) {
@@ -3187,9 +3195,9 @@ const PosOnlyView: React.FC<Props> = ({
     const filtered = allCachedOrders
       .filter(order => {
         const inRange = order.timestamp >= startTs && order.timestamp <= endTs;
-        const statusMatch = reportStatus === 'ALL' || order.status === reportStatus;
-        const searchMatch = !reportSearchQuery ||
-          order.id.toLowerCase().includes(reportSearchQuery.toLowerCase());
+        const statusMatch = selectedStatus === 'ALL' || order.status === selectedStatus;
+        const searchMatch = !selectedSearch ||
+          order.id.toLowerCase().includes(selectedSearch.toLowerCase());
         return inRange && statusMatch && searchMatch;
       })
       .sort((a, b) => b.timestamp - a.timestamp);
@@ -3207,10 +3215,15 @@ const PosOnlyView: React.FC<Props> = ({
     };
   };
 
-  const fetchReport = async (isExport = false, includeItems = true) => {
+  const fetchReport = async (
+    isExport = false,
+    includeItems = true,
+    exportRange?: { startDate: string; endDate: string },
+    exportFilters?: { status?: string; search?: string },
+  ) => {
     // ─── OFFLINE: serve directly from local cache ───────────────────────────
     if (!isOnline) {
-      if (isExport) return buildCachedReportData(true) as Order[];
+      if (isExport) return buildCachedReportData(true, exportRange, exportFilters) as Order[];
       setReportData(buildCachedReportData(false) as ReportResponse);
       return;
     }
@@ -3223,10 +3236,10 @@ const PosOnlyView: React.FC<Props> = ({
     try {
       const filters: ReportFilters = {
         restaurantId: restaurant.id,
-        startDate: reportStart,
-        endDate: reportEnd,
-        status: reportStatus,
-        search: reportSearchQuery
+        startDate: exportRange?.startDate || reportStart,
+        endDate: exportRange?.endDate || reportEnd,
+        status: exportFilters?.status ?? reportStatus,
+        search: exportFilters?.search ?? reportSearchQuery
       };
 
       if (isExport && onFetchAllFilteredOrders) {
@@ -3263,6 +3276,7 @@ const PosOnlyView: React.FC<Props> = ({
       }
     } catch (error) {
       console.error('Error fetching report:', error);
+      if (isExport) throw error;
     } finally {
       if (!isExport) setIsReportLoading(false);
     }
@@ -5025,6 +5039,103 @@ const PosOnlyView: React.FC<Props> = ({
     document.body.removeChild(link);
   };
 
+  const buildRawDataExcel = (orders: Order[], selectedColumnKeys?: ExcelColumnKey[], exportStart = reportStart, exportEnd = reportEnd) => {
+    const escapeXml = (value: unknown) => String(value ?? '')
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+    const cell = (value: unknown, styleId?: string) => {
+      const isNumber = typeof value === 'number' && Number.isFinite(value);
+      const style = styleId ? ` ss:StyleID="${styleId}"` : '';
+      return `<Cell${style}><Data ss:Type="${isNumber ? 'Number' : 'String'}">${escapeXml(isNumber ? value : value ?? '')}</Data></Cell>`;
+    };
+    const columnDefinitions: Array<{
+      key: ExcelColumnKey;
+      header: string;
+      money?: boolean;
+      value: (order: Order, item: CartItem | null, timestamp: Date, itemOptions: string) => unknown;
+    }> = [
+      { key: 'orderId', header: 'Order ID', value: (order) => order.id },
+      { key: 'date', header: 'Date', value: (_order, _item, timestamp) => timestamp.toLocaleDateString('en-MY') },
+      { key: 'time', header: 'Time', value: (_order, _item, timestamp) => timestamp.toLocaleTimeString('en-MY') },
+      { key: 'status', header: 'Status', value: (order) => order.status },
+      { key: 'paymentMethod', header: 'Payment Method', value: (order) => order.paymentMethod || '' },
+      { key: 'cashier', header: 'Cashier', value: (order) => order.cashierName || '' },
+      { key: 'table', header: 'Table', value: (order) => order.tableNumber || '' },
+      { key: 'diningOption', header: 'Dining Option', value: (order) => order.diningType || '' },
+      { key: 'orderSource', header: 'Order Source', value: (order) => order.orderSource || '' },
+      { key: 'itemId', header: 'Item ID', value: (_order, item) => item?.id || '' },
+      { key: 'sku', header: 'SKU', value: (_order, item) => item?.sku || '' },
+      { key: 'item', header: 'Item', value: (_order, item) => item?.name || '' },
+      { key: 'category', header: 'Category', value: (_order, item) => item?.category || '' },
+      { key: 'options', header: 'Options', value: (_order, _item, _timestamp, itemOptions) => itemOptions },
+      { key: 'quantity', header: 'Quantity', value: (_order, item) => item?.quantity ?? 0 },
+      { key: 'unitPrice', header: 'Unit Price', money: true, value: (_order, item) => item?.price ?? 0 },
+      { key: 'lineTotal', header: 'Line Total', money: true, value: (_order, item) => (item?.price ?? 0) * (item?.quantity ?? 0) },
+      { key: 'orderTotal', header: 'Order Total', money: true, value: (order) => order.total },
+      { key: 'amountReceived', header: 'Amount Received', money: true, value: (order) => order.amountReceived ?? '' },
+      { key: 'change', header: 'Change', money: true, value: (order) => order.changeAmount ?? '' },
+      { key: 'orderRemark', header: 'Order Remark', value: (order) => order.remark || '' },
+      { key: 'itemRemark', header: 'Item Remark', value: (_order, item) => item?.remark || '' },
+    ];
+    const selectedColumns = selectedColumnKeys === undefined
+      ? columnDefinitions
+      : columnDefinitions.filter((column) => selectedColumnKeys.includes(column.key));
+    const headers = selectedColumns.map((column) => column.header);
+    const rawRows = orders.flatMap((order) => {
+      const timestamp = new Date(order.timestamp);
+      const items = order.items?.length ? order.items : [null];
+      return items.map((item) => {
+        const itemOptions = item ? [
+          item.selectedSize && `Size: ${item.selectedSize}`,
+          item.selectedTemp && `Temperature: ${item.selectedTemp}`,
+          item.selectedOtherVariant && `Variant: ${item.selectedOtherVariant}`,
+          item.selectedVariantOption && `Option: ${item.selectedVariantOption}`,
+          ...Object.entries(item.selectedModifiers || {}).map(([name, value]) => `${name}: ${value}`),
+          ...(item.selectedAddOns || []).map((addOn) => `${addOn.name} x${addOn.quantity}`),
+          ...(item.selectedMixMatch || []).map((selection) => `${selection.label}: ${selection.choice}`),
+        ].filter(Boolean).join('; ') : '';
+        return selectedColumns.map((column) => ({ value: column.value(order, item, timestamp, itemOptions), money: column.money }));
+      });
+    });
+    const rows = [
+      `<Row>${headers.map((header) => cell(header, 'Header')).join('')}</Row>`,
+      ...rawRows.map((values) => `<Row>${values.map(({ value, money }) => cell(value, money ? 'Money' : undefined)).join('')}</Row>`),
+    ].join('');
+    const workbook = `<?xml version="1.0"?>
+      <?mso-application progid="Excel.Sheet"?>
+      <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+        xmlns:o="urn:schemas-microsoft-com:office:office"
+        xmlns:x="urn:schemas-microsoft-com:office:excel"
+        xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+        <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+          <Title>${escapeXml(restaurant.name)} Raw Sales Data</Title>
+          <Author>${escapeXml(reportGeneratedBy)}</Author>
+        </DocumentProperties>
+        <Styles>
+          <Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Bottom"/><Font ss:FontName="Calibri" ss:Size="11"/></Style>
+          <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#10B981" ss:Pattern="Solid"/></Style>
+          <Style ss:ID="Money"><NumberFormat ss:Format="0.00"/></Style>
+        </Styles>
+        <Worksheet ss:Name="Raw Sales Data">
+          <Table ss:ExpandedColumnCount="${headers.length}" ss:ExpandedRowCount="${rawRows.length + 1}" x:FullColumns="1" x:FullRows="1">${rows}</Table>
+          <AutoFilter x:Range="R1C1:R${rawRows.length + 1}C${headers.length}" xmlns="urn:schemas-microsoft-com:office:excel"/>
+        </Worksheet>
+      </Workbook>`;
+    const blob = new Blob(['\ufeff', workbook], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = `POS_Raw_Data_${exportStart}_to_${exportEnd}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const buildExportCsv = (orders: Order[], options: ReportDownloadOptions) => {
     const sections = getSelectedReportSections(options);
     const includeSection = (section: ReportSectionKey) => sections.includes(section);
@@ -5193,6 +5304,8 @@ const PosOnlyView: React.FC<Props> = ({
   const buildExportPdf = async (orders: Order[], options: ReportDownloadOptions) => {
     const sections = getSelectedReportSections(options);
     const includeSection = (section: ReportSectionKey) => sections.includes(section);
+    const exportStart = options.downloadStartDate || reportStart;
+    const exportEnd = options.downloadEndDate || reportEnd;
     const { default: jsPDF } = await import('jspdf');
     const { default: autoTable } = await import('jspdf-autotable');
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
@@ -5257,7 +5370,7 @@ const PosOnlyView: React.FC<Props> = ({
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(120, 120, 120);
     doc.setFontSize(9);
-    doc.text(`Report Period: ${reportStart} to ${reportEnd}`, margin, y);
+    doc.text(`Report Period: ${exportStart} to ${exportEnd}`, margin, y);
     doc.text(`Generated: ${new Date().toLocaleString()}`, pageW - margin, y, { align: 'right' });
     y += 5;
     doc.text(`Generated by: ${reportGeneratedBy}`, pageW - margin, y, { align: 'right' });
@@ -5675,31 +5788,51 @@ const PosOnlyView: React.FC<Props> = ({
       doc.text(`${restaurant.name} - QuickServe POS`, margin, pageH - 8);
     }
 
-    doc.save(`POS_Report_${reportStart}_to_${reportEnd}.pdf`);
+    doc.save(`POS_Report_${exportStart}_to_${exportEnd}.pdf`);
   };
 
   const handleDownloadReportWithOptions = async (options: ReportDownloadOptions) => {
     setIsDownloadingReport(true);
     try {
       const selectedSections = getSelectedReportSections(options);
-      const needsItemDetails = selectedSections.some((section) => ['byItem', 'byCategory', 'transactions'].includes(section));
-      const allOrders = await fetchReport(true, needsItemDetails) as Order[];
+      const needsItemDetails = options.fileType === 'excel'
+        || selectedSections.some((section) => ['byItem', 'byCategory', 'transactions'].includes(section));
+      const exportRange = options.downloadStartDate && options.downloadEndDate
+        ? { startDate: options.downloadStartDate, endDate: options.downloadEndDate }
+        : undefined;
+      const fetchedOrders = await fetchReport(true, needsItemDetails, exportRange, {
+        status: options.status || 'ALL',
+        search: options.search || '',
+      }) as Order[];
+      const allOrders = fetchedOrders.filter((order) => (
+        (!options.paymentMethod || options.paymentMethod === 'ALL' || (order.paymentMethod || '-') === options.paymentMethod)
+        && (!options.cashier || options.cashier === 'ALL' || (order.cashierName || '-') === options.cashier)
+      ));
       if (!allOrders || allOrders.length === 0) {
         toast('No report data found for the selected filters.', 'warning');
         return;
       }
-      if (options.fileType === 'csv') {
-        buildExportCsv(allOrders, options);
+      if (options.fileType === 'excel') {
+        buildRawDataExcel(allOrders, options.excelColumns, exportRange?.startDate, exportRange?.endDate);
       } else {
         await buildExportPdf(allOrders, options);
       }
     } catch (error) {
       console.error('Report download error:', error);
-      toast('Failed to download report. Please try again.', 'error');
+      toast(error instanceof Error ? error.message : 'Failed to download report. Please try again.', 'error');
     } finally {
       setIsDownloadingReport(false);
     }
   };
+
+  const sharedSalesReportDownloaderRef = useRef(handleDownloadReportWithOptions);
+  sharedSalesReportDownloaderRef.current = handleDownloadReportWithOptions;
+  useEffect(() => {
+    if (!onRegisterSalesReportDownloader) return;
+    const sharedHandler = (options: ReportDownloadOptions) => sharedSalesReportDownloaderRef.current(options);
+    onRegisterSalesReportDownloader(sharedHandler);
+    return () => onRegisterSalesReportDownloader(null);
+  }, [onRegisterSalesReportDownloader]);
 
   const showOfflineBlocked = (featureName: string) => {
     setOfflineBlockedMessage(`You're offline - ${featureName} needs an internet connection.`);
@@ -8379,6 +8512,7 @@ const PosOnlyView: React.FC<Props> = ({
                     onDownloadReport={handleDownloadReportWithOptions}
                     isDownloadingReport={isDownloadingReport}
                     onSelectOrder={(order) => setSelectedReportOrder(order)}
+                    planId={vendorPlan}
                     isSidebarCollapsed={isSidebarCollapsed}
                   />
                 )}
@@ -8420,6 +8554,7 @@ const PosOnlyView: React.FC<Props> = ({
                       onSelectOrder={(order) => setSelectedReportOrder(order)}
                       activeShift={activeShift}
                       applyCurrentShiftFilter={true}
+                      planId={vendorPlan}
                       isSidebarCollapsed={isSidebarCollapsed}
                     />
                   )
