@@ -134,22 +134,13 @@ const EReceiptPage: React.FC<Props> = ({ token }) => {
         y += 6;
       };
 
-      try {
-        const quickServeLogo = await loadImageDataUrl('/LOGO/6.png');
-        doc.addImage(quickServeLogo, 'PNG', 96, y - 6, 18, 18, 'quickserve-mark', 'FAST');
-        y += 16;
-      } catch (logoError) {
-        console.warn('QuickServe logo was omitted from the PDF:', logoError);
-      }
-      addLine('E-RECEIPT', { bold: true, size: 12, align: 'center', gap: 5 });
-      addLine('Powered by QuickServe POS', { size: 8, align: 'center', gap: 9 });
       addLine(receipt.businessName || 'QuickServe', { bold: true, size: 17, align: 'center', gap: 8 });
       [receipt.businessAddressLine1, receipt.businessAddressLine2,
         [receipt.businessCity, receipt.businessState, receipt.businessCountry].filter(Boolean).join(', '),
         receipt.businessPhone].filter(Boolean).forEach(line => addLine(String(line), { align: 'center', gap: 5 }));
       if (receipt.headerText) addLine(receipt.headerText, { align: 'center', gap: 7 });
       y += 2; doc.line(left, y, right, y); y += 7;
-      addLine('PAYMENT RECEIPT', { bold: true, size: 13, align: 'center', gap: 8 });
+      addLine('E-PAYMENT RECEIPT', { bold: true, size: 13, align: 'center', gap: 8 });
       addPair('Order', `#${receipt.orderId || ''}`);
       addPair('Paid', new Date(receipt.paidAt || Date.now()).toLocaleString('en-MY'));
       if (receipt.tableNumber) addPair('Table', receipt.tableNumber);
@@ -172,6 +163,16 @@ const EReceiptPage: React.FC<Props> = ({ token }) => {
       if (receipt.changeAmount != null) addPair('Change', money(receipt.changeAmount));
       if (receipt.status === 'REFUNDED') addLine('REFUNDED', { bold: true, size: 13, align: 'center', gap: 9 });
       if (receipt.footerText) { y += 4; addLine(receipt.footerText, { align: 'center' }); }
+      if (y > 252) { doc.addPage(); y = 20; }
+      y += 8;
+      try {
+        const quickServeLogo = await loadImageDataUrl('/LOGO/6.png');
+        doc.addImage(quickServeLogo, 'PNG', 98, y, 14, 14, 'quickserve-mark', 'FAST');
+        y += 18;
+      } catch (logoError) {
+        console.warn('QuickServe logo was omitted from the PDF:', logoError);
+      }
+      addLine('Powered by QuickServe POS', { size: 8, align: 'center', gap: 5 });
       doc.save(`QuickServe-Receipt-${receipt.orderId || token}.pdf`);
     } catch (err) {
       console.error('PDF generation failed:', err);
