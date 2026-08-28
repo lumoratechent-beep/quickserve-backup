@@ -6,11 +6,15 @@
       "schedule": "0 3 * * *"
     },
     {
-      "path": "/api/e-receipts-cleanup",
+      "path": "/api/orders/report?action=e-receipts-cleanup",
       "schedule": "15 3 * * *"
     }
   ],
   "rewrites": [
+    {
+      "source": "/api/e-receipt",
+      "destination": "/api/orders/report?action=e-receipt"
+    },
     {
       "source": "/api/(.*)",
       "destination": "/api/$1"

@@ -9,6 +9,14 @@ import { REPORT_HISTORY_LIMITS } from '../../lib/pricingPlans.js';
 const supabaseUrl = 'https://anknjpuiklglykguneax.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFua25qcHVpa2xnbHlrZ3VuZWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5ODkwNTAsImV4cCI6MjA4NzU2NTA1MH0.DUMHeKg0v-1oI9nLT-nZP9cg1eYPI0R4fRNBzE9K2MI';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const getServiceClient = () => {
+  const serviceUrl = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+  if (!serviceUrl || !serviceKey) return null;
+  return createClient(serviceUrl, serviceKey, { auth: { persistSession: false } });
+};
 
 const BATCH_SIZE = 1000;
 const MAX_PAGE_SIZE = 200;
@@ -69,6 +77,46 @@ const mapOrder = (o: any) => ({
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  const action = String(Array.isArray(req.query.action) ? req.query.action[0] : req.query.action || '');
+  if (action === 'e-receipt') {
+    if (!enforceRateLimit(req, res, false)) return;
+    const token = String(Array.isArray(req.query.token) ? req.query.token[0] : req.query.token || '').trim();
+    if (!UUID_PATTERN.test(token)) return res.status(404).json({ error: 'Receipt not found.' });
+    const serviceClient = getServiceClient();
+    if (!serviceClient) return res.status(503).json({ error: 'Receipt service is temporarily unavailable.' });
+
+    const { data, error } = await serviceClient
+      .from('e_receipts')
+      .select('snapshot,created_at,expires_at,revoked_at')
+      .eq('id', token)
+      .maybeSingle();
+    res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+    if (error) {
+      console.error('E-receipt lookup failed:', error.message);
+      return res.status(500).json({ error: 'Unable to load this receipt.' });
+    }
+    if (!data || data.revoked_at) return res.status(404).json({ error: 'Receipt not found.' });
+    if (new Date(data.expires_at).getTime() <= Date.now()) {
+      return res.status(410).json({ error: 'This e-receipt has expired. E-receipts are available for 60 days after payment.' });
+    }
+    return res.status(200).json({ receipt: data.snapshot, createdAt: data.created_at, expiresAt: data.expires_at });
+  }
+
+  if (action === 'e-receipts-cleanup') {
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret || req.headers.authorization !== `Bearer ${cronSecret}`) {
+      return res.status(401).json({ error: 'Unauthorized.' });
+    }
+    const serviceClient = getServiceClient();
+    if (!serviceClient) return res.status(503).json({ error: 'Receipt cleanup is not configured.' });
+    const { error, count } = await serviceClient
+      .from('e_receipts')
+      .delete({ count: 'exact' })
+      .lt('expires_at', new Date().toISOString());
+    if (error) return res.status(500).json({ error: 'Cleanup failed.' });
+    return res.status(200).json({ success: true, deleted: count || 0 });
+  }
 
   const {
     restaurantId, startDate, endDate, status, search, paymentMethod, page = '1', limit = '30',
