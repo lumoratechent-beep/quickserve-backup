@@ -1902,6 +1902,11 @@ const AdminView: React.FC<Props> = ({
   const [vendorFilter, setVendorFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [vendorSort, setVendorSort] = useState<{ field: 'KITCHEN' | 'HUB' | 'EXPIRY'; direction: 'asc' | 'desc' }>({ field: 'EXPIRY', direction: 'desc' });
   const [hubSortDirection, setHubSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [vendorActionMenu, setVendorActionMenu] = useState<{
+    vendorId: string;
+    top: number;
+    left: number;
+  } | null>(null);
   const vendorSortValue = `${vendorSort.field}_${vendorSort.direction}` as const;
   
   // Registration / Edit Modal State
@@ -2328,7 +2333,7 @@ const AdminView: React.FC<Props> = ({
 
   const incomePaymentOptions = useMemo(() => {
     const labels: Record<string, string> = {
-      ALL: 'All',
+      ALL: 'All Payment',
       duitnow: 'DuitNow',
       subscription_income: 'Subscription',
       stripe: 'Stripe',
@@ -3368,6 +3373,17 @@ const AdminView: React.FC<Props> = ({
     setSelectedCopyMenuItemIds([]);
   };
 
+  const openVendorActionMenu = (event: React.MouseEvent<HTMLButtonElement>, vendorId: string) => {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const width = 192;
+    const height = 92;
+    const left = Math.min(Math.max(8, rect.right - width), Math.max(8, window.innerWidth - width - 8));
+    const opensUp = rect.bottom + height > window.innerHeight - 8;
+    const top = opensUp ? Math.max(8, rect.top - height - 6) : rect.bottom + 6;
+    setVendorActionMenu({ vendorId, top, left });
+  };
+
   const toggleCopyMenuItem = (itemId: string) => {
     setSelectedCopyMenuItemIds(prev =>
       prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
@@ -3803,7 +3819,7 @@ const AdminView: React.FC<Props> = ({
                     <table className="w-full">
                       <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                         <tr>
-                          <th className="px-4 py-3 text-left group">
+                          <th className="px-4 py-3 text-left group whitespace-nowrap">
                             <div className="inline-flex items-center gap-1.5">
                               <span>Kitchen</span>
                               <button
@@ -3816,7 +3832,7 @@ const AdminView: React.FC<Props> = ({
                               </button>
                             </div>
                           </th>
-                          <th className="px-4 py-3 text-left group">
+                          <th className="px-4 py-3 text-left group whitespace-nowrap">
                             <div className="inline-flex items-center gap-1.5">
                               <span>Hub</span>
                               <button
@@ -3829,12 +3845,12 @@ const AdminView: React.FC<Props> = ({
                               </button>
                             </div>
                           </th>
-                          <th className="px-4 py-3 text-center">Plan</th>
-                          <th className="px-4 py-3 text-center">Plan Expiry</th>
-                          <th className="px-4 py-3 text-center">DuitNow</th>
-                          <th className="px-4 py-3 text-center">Master / Plan Lock</th>
-                          <th className="px-4 py-3 text-center">Live Status</th>
-                          <th className="px-4 py-3 text-right">Actions</th>
+                          <th className="px-4 py-3 text-center whitespace-nowrap">Plan</th>
+                          <th className="px-4 py-3 text-center whitespace-nowrap">Plan Expiry</th>
+                          <th className="px-4 py-3 text-center whitespace-nowrap">DuitNow</th>
+                          <th className="px-4 py-3 text-center whitespace-nowrap">Master / Plan Lock</th>
+                          <th className="px-4 py-3 text-center whitespace-nowrap">Live Status</th>
+                          <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y dark:divide-gray-700/50">
@@ -3857,9 +3873,8 @@ const AdminView: React.FC<Props> = ({
                                 {(() => {
                                   const sub = res ? subscriptions[res.id] : null;
                                   const planId = sub?.plan_id || 'basic';
-                                  const planColors: Record<string, string> = { basic: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300', pro: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', pro_plus: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' };
                                   const planLabels: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
-                                  return <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${planColors[planId] || planColors.basic}`}>{planLabels[planId] || 'Basic'}</span>;
+                                  return <span className="whitespace-nowrap text-[9px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300">{planLabels[planId] || 'Basic'}</span>;
                                 })()}
                               </td>
                               <td className="px-4 py-2.5 text-center">
@@ -3955,16 +3970,16 @@ const AdminView: React.FC<Props> = ({
                                 </button>
                               </td>
                               <td className="px-4 py-2.5 text-right">
-                                <div className="flex justify-end gap-1">
-                                  {res && (
-                                    <button onClick={() => handleOpenCopyMenu(res)} className="p-1.5 text-gray-400 hover:text-green-500" title="Copy menu into this vendor"><Menu size={15} /></button>
-                                  )}
-                                  <button onClick={() => handleOpenEdit(vendor)} className="p-1.5 text-gray-400 hover:text-blue-500"><Edit3 size={15} /></button>
-                                  {!res && (
-                                    <button onClick={() => { if (confirm(`Remove orphaned vendor "${vendor.username}"?`)) onDeleteVendor(vendor.id, vendor.restaurantId || '').catch(() => {}); }} className="p-1.5 text-gray-400 hover:text-red-500" title="Delete orphaned vendor"><Trash2 size={15} /></button>
-                                  )}
-                                  <button onClick={() => onImpersonateVendor(vendor)} className="p-1.5 text-gray-400 hover:text-orange-500"><LogIn size={15} /></button>
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={event => openVendorActionMenu(event, vendor.id)}
+                                  className="inline-flex p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-white dark:hover:bg-gray-700 transition-colors"
+                                  title="Vendor actions"
+                                  aria-label={`Actions for ${res?.name || vendor.username}`}
+                                  aria-expanded={vendorActionMenu?.vendorId === vendor.id}
+                                >
+                                  <MoreVertical size={16} />
+                                </button>
                               </td>
                             </tr>
                           );
@@ -4011,10 +4026,10 @@ const AdminView: React.FC<Props> = ({
                     <table className="w-full">
                       <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                         <tr>
-                          <th className="px-4 py-3 text-left">Hub</th>
-                          <th className="px-4 py-3 text-center">Vendors</th>
-                          <th className="px-4 py-3 text-center">Status</th>
-                          <th className="px-4 py-3 text-right">Actions</th>
+                          <th className="px-4 py-3 text-left whitespace-nowrap">Hub</th>
+                          <th className="px-4 py-3 text-center whitespace-nowrap">Vendors</th>
+                          <th className="px-4 py-3 text-center whitespace-nowrap">Status</th>
+                          <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y dark:divide-gray-700/50">
@@ -4268,11 +4283,7 @@ const AdminView: React.FC<Props> = ({
                           <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 truncate">{txn.restaurantName}</td>
                           <td className="px-3 py-2">
                             {txn.planName !== '—' ? (
-                              <span className={`inline-flex max-w-full whitespace-nowrap px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
-                                txn.planId === 'pro_plus' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' :
-                                txn.planId === 'pro' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' :
-                                'bg-gray-100 dark:bg-gray-700 text-gray-500'
-                              }`}>{txn.planName}</span>
+                              <span className="inline-flex max-w-full whitespace-nowrap text-[9px] font-black uppercase tracking-wider text-gray-600 dark:text-gray-300">{txn.planName}</span>
                             ) : <span className="text-xs text-gray-400">—</span>}
                           </td>
                           <td className="px-3 py-2 text-center">
@@ -4644,14 +4655,14 @@ const AdminView: React.FC<Props> = ({
                     {/* Payment Filter */}
                     <div>
                       <div className="relative">
-                        <Filter size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500" />
+                        <CreditCard size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500" />
                         <select 
                           value={reportPaymentMethod}
                           onChange={(e) => {setReportPaymentMethod(e.target.value); setCurrentPage(1);}}
                           className={`${adminSelectBase} w-full pl-8 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600`}
                         >
                           {reportPaymentOptions.map(option => (
-                            <option key={option} value={option}>{option === 'ALL' ? 'All' : option}</option>
+                            <option key={option} value={option}>{option === 'ALL' ? 'All Payment' : option}</option>
                           ))}
                         </select>
                         <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -7094,6 +7105,50 @@ const AdminView: React.FC<Props> = ({
            </div>
         </div>
       )}
+
+      {vendorActionMenu && (() => {
+        const vendor = vendors.find(item => item.id === vendorActionMenu.vendorId);
+        const restaurant = vendor ? restaurants.find(item => item.id === vendor.restaurantId) : undefined;
+        if (!vendor) return null;
+
+        return (
+          <>
+            <button
+              type="button"
+              aria-label="Close vendor actions"
+              className="fixed inset-0 z-[9997] cursor-default"
+              onClick={() => setVendorActionMenu(null)}
+            />
+            <div
+              className="fixed z-[9998] w-48 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-left shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+              style={{ top: vendorActionMenu.top, left: vendorActionMenu.left }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  if (!restaurant) return;
+                  setVendorActionMenu(null);
+                  handleOpenCopyMenu(restaurant);
+                }}
+                disabled={!restaurant}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-700 transition hover:bg-green-50 hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-200 dark:hover:bg-green-900/20 dark:hover:text-green-300"
+              >
+                <Menu size={14} /> Fast Menu Setup
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setVendorActionMenu(null);
+                  handleOpenEdit(vendor);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-700 transition hover:bg-blue-50 hover:text-blue-600 dark:text-gray-200 dark:hover:bg-blue-900/20 dark:hover:text-blue-300"
+              >
+                <Edit3 size={14} /> Edit
+              </button>
+            </div>
+          </>
+        );
+      })()}
 
       {scheduleActionMenu && (() => {
         const restaurant = restaurants.find(item => item.id === scheduleActionMenu.restaurantId);
