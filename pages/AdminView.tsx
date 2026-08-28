@@ -30,7 +30,7 @@ interface Props {
   onFetchDashboardAnalytics?: (filters: ReportFilters) => Promise<AdminDashboardAnalytics>;
 }
 
-type AdminTab = 'DASHBOARD' | 'VENDORS' | 'INCOME_REPORT' | 'VENDOR_SUBSCRIPTION' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SHOP' | 'DOCUMENTS' | 'SYSTEM';
+type AdminTab = 'DASHBOARD' | 'VENDORS' | 'INCOME_REPORT' | 'VENDOR_SUBSCRIPTION' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SHOP' | 'DOCUMENTS' | 'PORTAL_MANAGEMENT' | 'SYSTEM';
 type SubscriptionScheduleSort = 'EXPIRY_DESC' | 'EXPIRY_ASC' | 'ALPHA_ASC' | 'ALPHA_DESC';
 type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'paid' | 'expired';
 type QuotationDocumentType = 'quotation' | 'invoice';
@@ -778,6 +778,93 @@ const SystemStatusDashboard: React.FC = () => {
             <p className="text-xs font-black">{new Date().toLocaleDateString()}</p>
           </div>
         </div>
+      </div>
+    </div>
+  );
+};
+
+interface SystemSchedulerWorker {
+  name: string;
+  frequency: string;
+  utcHour: number;
+  utcMinute: number;
+}
+
+const SYSTEM_SCHEDULER_WORKERS: SystemSchedulerWorker[] = [
+  { name: 'subscription_registration_cleanup', frequency: '24 hours', utcHour: 3, utcMinute: 0 },
+  { name: 'expired_e_receipt_cleanup', frequency: '24 hours', utcHour: 3, utcMinute: 15 },
+];
+
+const getDailySchedulerRuns = (worker: SystemSchedulerWorker, now: Date) => {
+  const scheduledToday = new Date(Date.UTC(
+    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), worker.utcHour, worker.utcMinute,
+  ));
+  const lastRun = new Date(scheduledToday);
+  const nextRun = new Date(scheduledToday);
+  if (scheduledToday.getTime() > now.getTime()) lastRun.setUTCDate(lastRun.getUTCDate() - 1);
+  else nextRun.setUTCDate(nextRun.getUTCDate() + 1);
+  return { lastRun, nextRun };
+};
+
+const formatSchedulerDate = (date: Date, now: Date) => {
+  const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const dayDifference = Math.round((dateDay - today) / 86_400_000);
+  const dayLabel = dayDifference === 0
+    ? 'Today'
+    : dayDifference === -1
+      ? 'Yesterday'
+      : dayDifference === 1
+        ? 'Tomorrow'
+        : date.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+  const time = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  return `${dayLabel} at ${time}`;
+};
+
+const SystemSchedulerDashboard: React.FC = () => {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  return (
+    <div className="space-y-3 min-h-[240px]">
+      <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+        <span>Show</span>
+        <select value="100" disabled className="h-8 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 text-xs">
+          <option value="100">100</option>
+        </select>
+        <span>entries</span>
+      </div>
+
+      <div className="overflow-x-auto border border-gray-200 dark:border-gray-700">
+        <table className="w-full min-w-[760px] text-left text-xs">
+          <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+            <tr className="font-semibold text-gray-700 dark:text-gray-200">
+              <th className="px-3 py-3">Worker name</th>
+              <th className="px-3 py-3">Frequency</th>
+              <th className="px-3 py-3">Last run</th>
+              <th className="px-3 py-3">Next run</th>
+              <th className="px-3 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            {SYSTEM_SCHEDULER_WORKERS.map(worker => {
+              const { lastRun, nextRun } = getDailySchedulerRuns(worker, now);
+              return (
+                <tr key={worker.name} className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                  <td className="px-3 py-1.5 font-medium">{worker.name}</td>
+                  <td className="px-3 py-1.5 whitespace-nowrap">{worker.frequency}</td>
+                  <td className="px-3 py-1.5 whitespace-nowrap">{formatSchedulerDate(lastRun, now)}</td>
+                  <td className="px-3 py-1.5 whitespace-nowrap">{formatSchedulerDate(nextRun, now)}</td>
+                  <td className="px-3 py-1.5"><span title="Run now is not available yet" className="text-blue-500">Run now</span></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -2587,7 +2674,8 @@ const AdminView: React.FC<Props> = ({
   const [isHubSelectionModalOpen, setIsHubSelectionModalOpen] = useState(false);
 
   // Feature Images State
-  const [systemSubTab, setSystemSubTab] = useState<'STATUS' | 'FEATURE_IMAGES' | 'PAYMENT_QR' | 'ANNOUNCEMENTS' | 'JOIN_TEAM' | 'TEAM_MEMBERS'>('STATUS');
+  const [portalManagementSubTab, setPortalManagementSubTab] = useState<'FEATURE_IMAGES' | 'PAYMENT_QR' | 'ANNOUNCEMENTS' | 'JOIN_TEAM' | 'TEAM_MEMBERS'>('FEATURE_IMAGES');
+  const [systemSubTab, setSystemSubTab] = useState<'STATUS' | 'SCHEDULER'>('STATUS');
   const [featureImages, setFeatureImages] = useState<{ id: string; url: string; alt: string; crop_shape: string; display_width: number; display_height: number; sort_order: number; category: string }[]>([]);
   const [isLoadingFeatureImages, setIsLoadingFeatureImages] = useState(false);
   const [featureCropFile, setFeatureCropFile] = useState<File | null>(null);
@@ -2610,8 +2698,8 @@ const AdminView: React.FC<Props> = ({
   };
 
   useEffect(() => {
-    if (systemSubTab === 'FEATURE_IMAGES' || systemSubTab === 'PAYMENT_QR') fetchFeatureImages();
-  }, [systemSubTab]);
+    if (portalManagementSubTab === 'FEATURE_IMAGES' || portalManagementSubTab === 'PAYMENT_QR') fetchFeatureImages();
+  }, [portalManagementSubTab]);
 
   const handleFeatureImageCropped = async (blob: Blob, cropShape: string, width: number, height: number) => {
     try {
@@ -2956,9 +3044,9 @@ const AdminView: React.FC<Props> = ({
     fetchAnnouncements();
   };
 
-  useEffect(() => { if (systemSubTab === 'ANNOUNCEMENTS') fetchAnnouncements(); }, [systemSubTab]);
-  useEffect(() => { if (systemSubTab === 'JOIN_TEAM') fetchJoinTeamApplications(); }, [systemSubTab]);
-  useEffect(() => { if (systemSubTab === 'TEAM_MEMBERS') fetchTeamMembers(); }, [systemSubTab]);
+  useEffect(() => { if (portalManagementSubTab === 'ANNOUNCEMENTS') fetchAnnouncements(); }, [portalManagementSubTab]);
+  useEffect(() => { if (portalManagementSubTab === 'JOIN_TEAM') fetchJoinTeamApplications(); }, [portalManagementSubTab]);
+  useEffect(() => { if (portalManagementSubTab === 'TEAM_MEMBERS') fetchTeamMembers(); }, [portalManagementSubTab]);
 
   // Reports State
   const [reportSearchQuery, setReportSearchQuery] = useState('');
@@ -3503,6 +3591,7 @@ const AdminView: React.FC<Props> = ({
             { id: 'QUOTATION', label: 'Quotations & Invoices', icon: FileText },
             { id: 'SHOP', label: 'Shop', icon: ShoppingBag },
             { id: 'DOCUMENTS', label: 'Documents', icon: BookOpen },
+            { id: 'PORTAL_MANAGEMENT', label: 'Portal Management', icon: Globe },
             { id: 'SYSTEM', label: 'System', icon: Database },
           ] as { id: AdminTab; label: string; icon: React.ElementType }[]).map(item => (
             <button
@@ -3568,6 +3657,7 @@ const AdminView: React.FC<Props> = ({
                activeTab === 'QUOTATION' ? 'Quotations & Invoices' :
                activeTab === 'SHOP' ? 'Shop' :
                activeTab === 'DOCUMENTS' ? 'Documents' :
+               activeTab === 'PORTAL_MANAGEMENT' ? 'Portal Management' :
                'System'}
             </h1>
           </div>
@@ -5782,20 +5872,19 @@ const AdminView: React.FC<Props> = ({
           <AdminDocuments />
         )}
 
-        {activeTab === 'SYSTEM' && (
+        {activeTab === 'PORTAL_MANAGEMENT' && (
           <div className="flex-1 overflow-y-auto">
             <div className="p-4 md:p-8 pb-0 md:pb-0">
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">System</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">System status, feature images, announcements and tools.</p>
+                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">Portal Management</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Feature images, payment QR, announcements and team tools.</p>
                 </div>
               </div>
 
               {/* Document-style tab bar */}
               <div className="flex gap-0 relative">
                 {([
-                  { id: 'STATUS' as const, label: 'System Status', icon: <Activity size={13} /> },
                   { id: 'FEATURE_IMAGES' as const, label: 'Feature Images', icon: <ImageIcon size={13} /> },
                   { id: 'PAYMENT_QR' as const, label: 'Payment QR', icon: <QrCode size={13} /> },
                   { id: 'ANNOUNCEMENTS' as const, label: 'Announcements', icon: <Megaphone size={13} /> },
@@ -5804,10 +5893,10 @@ const AdminView: React.FC<Props> = ({
                 ]).map(tab => (
                   <button
                     key={tab.id}
-                    onClick={() => setSystemSubTab(tab.id)}
+                    onClick={() => setPortalManagementSubTab(tab.id)}
                     style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
                     className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
-                      systemSubTab === tab.id
+                      portalManagementSubTab === tab.id
                         ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
                         : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
                     }`}
@@ -5820,9 +5909,7 @@ const AdminView: React.FC<Props> = ({
               {/* Sub-tab content */}
               <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
 
-            {systemSubTab === 'STATUS' && <SystemStatusDashboard />}
-
-            {systemSubTab === 'FEATURE_IMAGES' && (
+            {portalManagementSubTab === 'FEATURE_IMAGES' && (
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
@@ -5924,7 +6011,7 @@ const AdminView: React.FC<Props> = ({
               </div>
             )}
 
-            {systemSubTab === 'PAYMENT_QR' && (
+            {portalManagementSubTab === 'PAYMENT_QR' && (
               <div className="space-y-6">
                 <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                   <div>
@@ -6008,7 +6095,7 @@ const AdminView: React.FC<Props> = ({
               </div>
             )}
 
-            {systemSubTab === 'ANNOUNCEMENTS' && (
+            {portalManagementSubTab === 'ANNOUNCEMENTS' && (
               <div className="space-y-6">
                 {/* Compose New Announcement */}
                 <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl border dark:border-gray-700 p-5 space-y-4">
@@ -6156,7 +6243,7 @@ const AdminView: React.FC<Props> = ({
               </div>
             )}
 
-            {systemSubTab === 'JOIN_TEAM' && (
+            {portalManagementSubTab === 'JOIN_TEAM' && (
               <div className="space-y-5">
                 <div className="flex items-center justify-between">
                   <div>
@@ -6214,7 +6301,7 @@ const AdminView: React.FC<Props> = ({
               </div>
             )}
 
-            {systemSubTab === 'TEAM_MEMBERS' && (
+            {portalManagementSubTab === 'TEAM_MEMBERS' && (
               <div className="space-y-5">
                 <div className="flex items-center justify-between">
                   <div>
@@ -6463,6 +6550,44 @@ const AdminView: React.FC<Props> = ({
                 )}
               </div>
             )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'SYSTEM' && (
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-4 md:p-8 pb-0 md:pb-0">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">System</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">System status and scheduled operations.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-0 relative">
+                {([
+                  { id: 'STATUS' as const, label: 'System Status', icon: <Activity size={13} /> },
+                  { id: 'SCHEDULER' as const, label: 'System Scheduler', icon: <Calendar size={13} /> },
+                ]).map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSystemSubTab(tab.id)}
+                    style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                    className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
+                      systemSubTab === tab.id
+                        ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
+                        : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    {tab.icon} {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
+                {systemSubTab === 'STATUS' && <SystemStatusDashboard />}
+                {systemSubTab === 'SCHEDULER' && <SystemSchedulerDashboard />}
               </div>
             </div>
           </div>
