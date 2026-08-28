@@ -45,6 +45,18 @@ type ReceiptSnapshot = {
 
 interface Props { token: string }
 
+const loadImageDataUrl = async (url: string): Promise<string> => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Logo could not be loaded.');
+  const blob = await response.blob();
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('Logo could not be read.'));
+    reader.readAsDataURL(blob);
+  });
+};
+
 const getItemDetails = (item: ReceiptItem, formatMoney: (value: unknown) => string): string[] => {
   const details: string[] = [];
   if (item.selectedSize) details.push(`Size: ${item.selectedSize}`);
@@ -122,6 +134,15 @@ const EReceiptPage: React.FC<Props> = ({ token }) => {
         y += 6;
       };
 
+      try {
+        const quickServeLogo = await loadImageDataUrl('/LOGO/6.png');
+        doc.addImage(quickServeLogo, 'PNG', 96, y - 6, 18, 18, 'quickserve-mark', 'FAST');
+        y += 16;
+      } catch (logoError) {
+        console.warn('QuickServe logo was omitted from the PDF:', logoError);
+      }
+      addLine('E-RECEIPT', { bold: true, size: 12, align: 'center', gap: 5 });
+      addLine('Powered by QuickServe POS', { size: 8, align: 'center', gap: 9 });
       addLine(receipt.businessName || 'QuickServe', { bold: true, size: 17, align: 'center', gap: 8 });
       [receipt.businessAddressLine1, receipt.businessAddressLine2,
         [receipt.businessCity, receipt.businessState, receipt.businessCountry].filter(Boolean).join(', '),
@@ -178,8 +199,8 @@ const EReceiptPage: React.FC<Props> = ({ token }) => {
         <section className="overflow-hidden rounded-3xl bg-white shadow-xl">
           <div className="bg-gray-900 px-6 py-4">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-xs font-black uppercase tracking-[0.2em] text-white">E-receipt</span>
               <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-9 w-auto max-w-[190px] object-contain" />
+              <span className="text-xs font-black uppercase tracking-[0.2em] text-white">E-receipt</span>
             </div>
           </div>
           <div className="p-6">
