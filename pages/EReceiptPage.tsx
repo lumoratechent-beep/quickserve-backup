@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Download, Loader2, ReceiptText, ShieldCheck } from 'lucide-react';
+import { Download, Loader2, ReceiptText } from 'lucide-react';
 
 type ReceiptItem = {
   name?: string;
@@ -9,8 +9,11 @@ type ReceiptItem = {
   selectedSize?: string;
   selectedTemp?: string;
   selectedOtherVariant?: string;
+  otherVariantName?: string;
   selectedVariantOption?: string;
-  selectedAddOns?: Array<{ name?: string; quantity?: number }>;
+  selectedModifiers?: Record<string, string>;
+  selectedMixMatch?: Array<{ label?: string; choice?: string; priceModifier?: number }>;
+  selectedAddOns?: Array<{ name?: string; quantity?: number; price?: number }>;
 };
 
 type ReceiptSnapshot = {
@@ -34,7 +37,6 @@ type ReceiptSnapshot = {
   total?: number;
   tableNumber?: string;
   diningType?: string;
-  remark?: string;
   paymentMethod?: string;
   cashierName?: string;
   amountReceived?: number | null;
@@ -42,6 +44,28 @@ type ReceiptSnapshot = {
 };
 
 interface Props { token: string }
+
+const getItemDetails = (item: ReceiptItem, formatMoney: (value: unknown) => string): string[] => {
+  const details: string[] = [];
+  if (item.selectedSize) details.push(`Size: ${item.selectedSize}`);
+  if (item.selectedTemp) details.push(`Temperature: ${item.selectedTemp}`);
+  if (item.selectedOtherVariant) details.push(`${item.otherVariantName || 'Option'}: ${item.selectedOtherVariant}`);
+  if (item.selectedVariantOption) details.push(`Variant: ${item.selectedVariantOption}`);
+  Object.entries(item.selectedModifiers || {}).forEach(([label, value]) => {
+    if (value) details.push(`${label}: ${value}`);
+  });
+  (item.selectedMixMatch || []).forEach(selection => {
+    if (!selection.choice) return;
+    const price = Number(selection.priceModifier || 0);
+    details.push(`${selection.label || 'Selection'}: ${selection.choice}${price ? ` (+${formatMoney(price)})` : ''}`);
+  });
+  (item.selectedAddOns || []).forEach(addOn => {
+    const quantity = Number(addOn.quantity || 1);
+    const price = Number(addOn.price || 0) * quantity;
+    details.push(`Add-on: ${addOn.name || 'Add-on'}${quantity > 1 ? ` ×${quantity}` : ''}${price ? ` (+${formatMoney(price)})` : ''}`);
+  });
+  return details;
+};
 
 const EReceiptPage: React.FC<Props> = ({ token }) => {
   const [receipt, setReceipt] = useState<ReceiptSnapshot | null>(null);
@@ -112,9 +136,7 @@ const EReceiptPage: React.FC<Props> = ({ token }) => {
       y += 2; doc.line(left, y, right, y); y += 7;
       (receipt.items || []).forEach(item => {
         addPair(`${Number(item.quantity || 1)}x ${item.name || 'Item'}`, money(Number(item.price || 0) * Number(item.quantity || 1)), true);
-        [item.selectedSize && `Size: ${item.selectedSize}`, item.selectedTemp && `Temperature: ${item.selectedTemp}`,
-          item.selectedOtherVariant, item.selectedVariantOption].filter(Boolean).forEach(option => addLine(`  ${option}`, { size: 9, gap: 5 }));
-        (item.selectedAddOns || []).forEach(addOn => addLine(`  + ${addOn.name || 'Add-on'}${Number(addOn.quantity || 1) > 1 ? ` x${addOn.quantity}` : ''}`, { size: 9, gap: 5 }));
+        getItemDetails(item, money).forEach(detail => addLine(`  ${detail}`, { size: 9, gap: 5 }));
       });
       y += 2; doc.line(left, y, right, y); y += 7;
       if (Number(receipt.discountAmount || 0) > 0) {
@@ -124,9 +146,9 @@ const EReceiptPage: React.FC<Props> = ({ token }) => {
       (receipt.taxes || []).forEach(tax => addPair(`${tax.name || 'Tax'}${tax.percentage ? ` (${tax.percentage}%)` : ''}`, money(tax.amount)));
       addPair('TOTAL', money(receipt.total), true);
       if (receipt.paymentMethod) addPair('Paid by', receipt.paymentMethod);
+      if (receipt.cashierName) addPair('Cashier', receipt.cashierName);
       if (receipt.amountReceived != null) addPair('Amount received', money(receipt.amountReceived));
       if (receipt.changeAmount != null) addPair('Change', money(receipt.changeAmount));
-      if (receipt.remark) { y += 3; addLine(`Note: ${receipt.remark}`); }
       if (receipt.status === 'REFUNDED') addLine('REFUNDED', { bold: true, size: 13, align: 'center', gap: 9 });
       if (receipt.footerText) { y += 4; addLine(receipt.footerText, { align: 'center' }); }
       doc.save(`QuickServe-Receipt-${receipt.orderId || token}.pdf`);
@@ -154,8 +176,11 @@ const EReceiptPage: React.FC<Props> = ({ token }) => {
     <main className="min-h-screen bg-gray-100 px-4 py-8 text-gray-900">
       <div className="mx-auto w-full max-w-md">
         <section className="overflow-hidden rounded-3xl bg-white shadow-xl">
-          <div className="bg-orange-500 px-6 py-5 text-white">
-            <div className="flex items-center justify-between gap-3"><span className="text-xs font-black uppercase tracking-[0.2em]">QuickServe E-receipt</span><ShieldCheck size={20} /></div>
+          <div className="bg-gray-900 px-6 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-xs font-black uppercase tracking-[0.2em] text-white">E-receipt</span>
+              <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-9 w-auto max-w-[190px] object-contain" />
+            </div>
           </div>
           <div className="p-6">
             <div className="text-center">
@@ -166,15 +191,31 @@ const EReceiptPage: React.FC<Props> = ({ token }) => {
             <div className="my-5 border-t border-dashed border-gray-300" />
             <div className="flex justify-between text-xs"><span className="text-gray-500">Order</span><span className="font-black">#{receipt.orderId}</span></div>
             <div className="mt-2 flex justify-between text-xs"><span className="text-gray-500">Paid</span><span className="font-semibold">{new Date(receipt.paidAt || Date.now()).toLocaleString('en-MY')}</span></div>
+            {receipt.tableNumber && <div className="mt-2 flex justify-between text-xs"><span className="text-gray-500">Table</span><span className="font-semibold">{receipt.tableNumber}</span></div>}
+            {receipt.diningType && <div className="mt-2 flex justify-between text-xs"><span className="text-gray-500">Dining</span><span className="font-semibold">{receipt.diningType}</span></div>}
             {receipt.status === 'REFUNDED' && <div className="mt-4 rounded-xl bg-red-50 py-2 text-center text-xs font-black text-red-600">REFUNDED</div>}
             <div className="my-5 border-t border-dashed border-gray-300" />
-            <div className="space-y-4">{(receipt.items || []).map((item, index) => <div key={index} className="flex gap-3 text-sm"><span className="font-black">{Number(item.quantity || 1)}×</span><div className="min-w-0 flex-1"><p className="font-bold">{item.name || 'Item'}</p>{[item.selectedSize, item.selectedTemp, item.selectedOtherVariant, item.selectedVariantOption].filter(Boolean).map((option, i) => <p key={i} className="mt-0.5 text-xs text-gray-500">{option}</p>)}</div><span className="font-bold">{money(Number(item.price || 0) * Number(item.quantity || 1))}</span></div>)}</div>
+            <div className="space-y-4">
+              {(receipt.items || []).map((item, index) => (
+                <div key={index} className="flex gap-3 text-sm">
+                  <span className="font-black">{Number(item.quantity || 1)}x</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold">{item.name || 'Item'}</p>
+                    {getItemDetails(item, money).map((detail, detailIndex) => <p key={detailIndex} className="mt-1 text-xs leading-4 text-gray-500">{detail}</p>)}
+                  </div>
+                  <span className="font-bold">{money(Number(item.price || 0) * Number(item.quantity || 1))}</span>
+                </div>
+              ))}
+            </div>
             <div className="my-5 border-t border-dashed border-gray-300" />
             <div className="space-y-2 text-sm">
               {Number(receipt.discountAmount || 0) > 0 && <><div className="flex justify-between"><span>Subtotal</span><span>{money(receipt.subtotal)}</span></div><div className="flex justify-between text-green-600"><span>Discount</span><span>-{money(receipt.discountAmount)}</span></div></>}
               {(receipt.taxes || []).map((tax, index) => <div key={index} className="flex justify-between"><span>{tax.name || 'Tax'}{tax.percentage ? ` (${tax.percentage}%)` : ''}</span><span>{money(tax.amount)}</span></div>)}
               <div className="flex justify-between pt-2 text-lg font-black"><span>Total</span><span>{money(receipt.total)}</span></div>
               {receipt.paymentMethod && <div className="flex justify-between pt-2 text-xs text-gray-500"><span>Paid by</span><span>{receipt.paymentMethod}</span></div>}
+              {receipt.cashierName && <div className="flex justify-between text-xs text-gray-500"><span>Cashier</span><span>{receipt.cashierName}</span></div>}
+              {receipt.amountReceived != null && <div className="flex justify-between text-xs text-gray-500"><span>Amount received</span><span>{money(receipt.amountReceived)}</span></div>}
+              {receipt.changeAmount != null && <div className="flex justify-between text-xs text-gray-500"><span>Change</span><span>{money(receipt.changeAmount)}</span></div>}
             </div>
             {receipt.footerText && <p className="mt-7 text-center text-xs text-gray-500">{receipt.footerText}</p>}
           </div>
@@ -187,4 +228,3 @@ const EReceiptPage: React.FC<Props> = ({ token }) => {
 };
 
 export default EReceiptPage;
-

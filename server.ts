@@ -54,7 +54,9 @@ async function startServer() {
     if (new Date(data.expires_at).getTime() <= Date.now()) {
       return res.status(410).json({ error: 'This e-receipt has expired. E-receipts are available for 60 days after payment.' });
     }
-    return res.json({ receipt: data.snapshot, createdAt: data.created_at, expiresAt: data.expires_at });
+    const receipt = data.snapshot && typeof data.snapshot === 'object' ? { ...data.snapshot } : {};
+    delete (receipt as Record<string, unknown>).remark;
+    return res.json({ receipt, createdAt: data.created_at, expiresAt: data.expires_at });
   });
 
   app.post('/api/login', async (req, res) => {

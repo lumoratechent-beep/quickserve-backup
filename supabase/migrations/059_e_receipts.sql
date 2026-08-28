@@ -69,7 +69,6 @@ BEGIN
         'total', NEW.total,
         'tableNumber', COALESCE(NEW.table_number, ''),
         'diningType', COALESCE(NEW.dining_type, ''),
-        'remark', COALESCE(NEW.remark, ''),
         'paymentMethod', COALESCE(NEW.payment_method, ''),
         'cashierName', COALESCE(NEW.cashier_name, ''),
         'amountReceived', NEW.amount_received,

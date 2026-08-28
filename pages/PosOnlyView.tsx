@@ -2603,7 +2603,6 @@ const PosOnlyView: React.FC<Props> = ({
         total: data.total,
         tableNumber: data.tableNumber || '',
         diningType: data.diningType || '',
-        remark: data.remark || '',
         paymentMethod: data.paymentMethod,
         cashierName: cashierName || '',
         amountReceived: data.amountReceived ?? null,
