@@ -35,6 +35,28 @@ async function startServer() {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
+  app.get('/api/e-receipt', async (req, res) => {
+    const token = String(req.query.token || '').trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(token)) {
+      return res.status(404).json({ error: 'Receipt not found.' });
+    }
+    if (!process.env.SUPABASE_SERVICE_KEY) {
+      return res.status(503).json({ error: 'Receipt service is not configured locally.' });
+    }
+    const { data, error } = await supabaseAdmin
+      .from('e_receipts')
+      .select('snapshot,created_at,expires_at,revoked_at')
+      .eq('id', token)
+      .maybeSingle();
+    res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+    if (error) return res.status(500).json({ error: 'Unable to load this receipt.' });
+    if (!data || data.revoked_at) return res.status(404).json({ error: 'Receipt not found.' });
+    if (new Date(data.expires_at).getTime() <= Date.now()) {
+      return res.status(410).json({ error: 'This e-receipt has expired. E-receipts are available for 60 days after payment.' });
+    }
+    return res.json({ receipt: data.snapshot, createdAt: data.created_at, expiresAt: data.expires_at });
+  });
+
   app.post('/api/login', async (req, res) => {
     console.log('Login attempt for:', req.body?.username);
     const { username, password } = req.body;

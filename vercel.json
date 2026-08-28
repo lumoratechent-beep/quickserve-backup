@@ -4,6 +4,10 @@
     {
       "path": "/api/stripe/billing?action=cleanup-stale",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/e-receipts-cleanup",
+      "schedule": "15 3 * * *"
     }
   ],
   "rewrites": [

@@ -1059,6 +1059,33 @@ const PrinterSettings: React.FC<Props> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-5">
         <div>
+          <p className="text-xs font-black text-orange-500 uppercase tracking-widest">E-receipt</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Give customers a digital copy of their paid receipt.</p>
+        </div>
+        <div className="min-w-0">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">Enable e-receipt</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Print a QR code that lets customers view and download their receipt for 60 days.</p>
+            </div>
+            <div className="flex items-center self-end sm:self-auto shrink-0">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={receiptConfig.eReceiptEnabled}
+                aria-label="Enable e-receipt"
+                onClick={() => updateReceiptConfig('eReceiptEnabled', !receiptConfig.eReceiptEnabled)}
+                className={`w-11 h-6 rounded-full transition-all relative ${receiptConfig.eReceiptEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${receiptConfig.eReceiptEnabled ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-5">
+        <div>
           <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Visible Fields</p>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Choose which details are printed on each receipt.</p>
         </div>

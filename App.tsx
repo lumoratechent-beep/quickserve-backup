@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, AdminDashboardAnalytics, QS_DEFAULT_HUB, Subscription, KitchenDepartment, OrderSource, CashierShift, IngredientItem } from './src/types';
+import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, AdminDashboardAnalytics, QS_DEFAULT_HUB, Subscription, KitchenDepartment, OrderSource, CashierShift, IngredientItem, EReceiptIssue } from './src/types';
 import CustomerView from './pages/CustomerView';
 import AdminView from './pages/AdminView';
 import PosOnlyView from './pages/PosOnlyView';
@@ -1251,7 +1251,8 @@ const App: React.FC = () => {
               cashierName: o.cashier_name,
               amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
               changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
-              orderSource: o.order_source || undefined
+              orderSource: o.order_source || undefined,
+              eReceiptId: o.e_receipt_id || undefined
             };
             const localOrder = prev.find(p => p.id === o.id);
             if (localOrder) {
@@ -1336,7 +1337,8 @@ const App: React.FC = () => {
           cashierName: o.cashier_name,
           amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
           changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
-          orderSource: o.order_source || undefined
+          orderSource: o.order_source || undefined,
+          eReceiptId: o.e_receipt_id || undefined
         }));
 
         setOrders(prev => {
@@ -1387,7 +1389,8 @@ const App: React.FC = () => {
               cashierName: o.cashier_name,
               amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
               changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
-              orderSource: o.order_source || undefined
+              orderSource: o.order_source || undefined,
+              eReceiptId: o.e_receipt_id || undefined
             }));
 
             setOrders(prev => {
@@ -1586,7 +1589,8 @@ const App: React.FC = () => {
           cashierName: o.cashier_name,
           amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
           changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
-          orderSource: o.order_source || undefined
+          orderSource: o.order_source || undefined,
+          eReceiptId: o.e_receipt_id || undefined
         };
         
         setOrders(prev => {
@@ -1643,6 +1647,7 @@ const App: React.FC = () => {
                 amountReceived: o.amount_received != null ? Number(o.amount_received) : existing.amountReceived,
                 changeAmount: o.change_amount != null ? Number(o.change_amount) : existing.changeAmount,
                 orderSource: o.order_source ?? existing.orderSource,
+                eReceiptId: o.e_receipt_id ?? existing.eReceiptId,
               };
             }
             return existing;
@@ -1668,7 +1673,8 @@ const App: React.FC = () => {
               cashierName: o.cashier_name,
               amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
               changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
-              orderSource: o.order_source || undefined
+              orderSource: o.order_source || undefined,
+              eReceiptId: o.e_receipt_id || undefined
             };
             const prepended = [mappedOrder, ...updated].slice(0, 200);
             rememberKnownOrderId(mappedOrder.restaurantId, mappedOrder.id);
@@ -1836,7 +1842,7 @@ const App: React.FC = () => {
     }
 
     let { error } = await supabase.from('orders').insert(ordersToInsert);
-    if (error && (error.code === 'PGRST204' || (error.message || '').includes('order_source') || (error.message || '').includes('dining_type'))) {
+    if (error && (error.code === 'PGRST204' || /order_source|dining_type|e_receipt/i.test(error.message || ''))) {
       console.warn('Optional order columns missing – retrying QR batch without order_source/dining_type');
       const stripped = ordersToInsert.map(({ order_source, dining_type, ...rest }: any) => rest);
       ({ error } = await supabase.from('orders').insert(stripped));
@@ -2248,12 +2254,12 @@ const App: React.FC = () => {
     syncBackofficeToDb(restaurantId);
   }, []);
 
-  const updateOrderForPos = (orderId: string, status: OrderStatus, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number }) => {
-    updateOrderStatus(orderId, status, undefined, undefined, paymentDetails);
+  const updateOrderForPos = (orderId: string, status: OrderStatus, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number; eReceipt?: EReceiptIssue }) => {
+    return updateOrderStatus(orderId, status, undefined, undefined, paymentDetails);
   };
 
   // FIXED: Updated updateOrderStatus to handle printing correctly
-  const updateOrderStatus = async (orderId: string, status: OrderStatus, reason?: string, note?: string, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number }) => {
+  const updateOrderStatus = async (orderId: string, status: OrderStatus, reason?: string, note?: string, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number; eReceipt?: EReceiptIssue }) => {
     const existingOrderForStock = orders.find(o => o.id === orderId);
     if (status === OrderStatus.COMPLETED && existingOrderForStock && existingOrderForStock.status !== OrderStatus.COMPLETED) {
       await applyPosStockDeduction(existingOrderForStock.restaurantId, existingOrderForStock);
@@ -2281,7 +2287,7 @@ const App: React.FC = () => {
     } : o));
     
     // Update database
-    await supabase.from('orders').update({ 
+    const updatePayload = {
       status, 
       rejection_reason: reason, 
       rejection_note: note,
@@ -2291,7 +2297,16 @@ const App: React.FC = () => {
         amount_received: paymentDetails.amountReceived,
         change_amount: paymentDetails.changeAmount,
       } : {}),
-    }).eq('id', orderId);
+      ...(paymentDetails?.eReceipt ? {
+        e_receipt_id: paymentDetails.eReceipt.id,
+        e_receipt_snapshot: paymentDetails.eReceipt.snapshot,
+      } : {}),
+    };
+    const { error: updateError } = await supabase.from('orders').update(updatePayload).eq('id', orderId);
+    if (updateError && paymentDetails?.eReceipt && (updateError.code === 'PGRST204' || /e_receipt/i.test(updateError.message || ''))) {
+      const { e_receipt_id, e_receipt_snapshot, ...withoutEReceipt } = updatePayload as typeof updatePayload & { e_receipt_id?: string; e_receipt_snapshot?: Record<string, unknown> };
+      await supabase.from('orders').update(withoutEReceipt).eq('id', orderId);
+    }
     
     // Safety fallback: clear lock after 15s in case the realtime confirmation never arrives
     if (shouldLock) {
@@ -2903,9 +2918,9 @@ const App: React.FC = () => {
    */
   const insertOrderSafe = async (row: Record<string, unknown>): Promise<{ error: any }> => {
     const { error } = await supabase.from('orders').insert([row]);
-    if (error && (error.code === 'PGRST204' || (error.message || '').includes('order_source') || (error.message || '').includes('dining_type'))) {
+    if (error && (error.code === 'PGRST204' || /order_source|dining_type|e_receipt/i.test(error.message || ''))) {
       console.warn('Optional order columns missing – retrying without order_source/dining_type');
-      const { order_source, dining_type, ...rowWithout } = row;
+      const { order_source, dining_type, e_receipt_id, e_receipt_snapshot, ...rowWithout } = row;
       return supabase.from('orders').insert([rowWithout]);
     }
     return { error };
@@ -2992,7 +3007,9 @@ const App: React.FC = () => {
               cashier_name: offlineOrder.cashier_name,
               amount_received: offlineOrder.amount_received ?? null,
               change_amount: offlineOrder.change_amount ?? null,
-              order_source: offlineOrder.order_source ?? null
+              order_source: offlineOrder.order_source ?? null,
+              e_receipt_id: offlineOrder.e_receipt_id ?? null,
+              e_receipt_snapshot: offlineOrder.e_receipt_snapshot ?? null
             });
 
             if (!error) {
@@ -3030,7 +3047,7 @@ const App: React.FC = () => {
     }
   };
 
-  const placePosOrder = async (items: CartItem[], remark: string, tableNumber: string, diningType?: string, paymentMethod?: string, cashierName?: string, amountReceived?: number): Promise<string> => {
+  const placePosOrder = async (items: CartItem[], remark: string, tableNumber: string, diningType?: string, paymentMethod?: string, cashierName?: string, amountReceived?: number, eReceipt?: EReceiptIssue): Promise<string> => {
     if (items.length === 0 || !currentUser?.restaurantId) return '';
     
     const res = restaurants.find(r => r.id === currentUser.restaurantId);
@@ -3039,7 +3056,7 @@ const App: React.FC = () => {
      console.log(`[ORDER] Placing order - Restaurant: ${res?.name}, Location: ${res?.location}, Code: ${code}, Online: ${offlineQueue.isOnline()}`);
     
     // Calculate total
-    const total = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const total = Number(eReceipt?.snapshot?.total ?? items.reduce((acc, item) => acc + (item.price * item.quantity), 0));
 
     const queuePosOrderForSync = (orderId: string, reason: string): string => {
       const offlineOrder: offlineQueue.OfflineOrder = {
@@ -3059,6 +3076,8 @@ const App: React.FC = () => {
         amount_received: amountReceived,
         change_amount: amountReceived != null ? Math.max(0, amountReceived - total) : undefined,
         order_source: 'counter',
+        e_receipt_id: eReceipt?.id,
+        e_receipt_snapshot: eReceipt?.snapshot,
         createdAt: Date.now(),
         synced: false
       };
@@ -3149,7 +3168,9 @@ const App: React.FC = () => {
       cashier_name: cashierName || null,
       amount_received: amountReceived ?? null,
       change_amount: amountReceived != null ? Math.max(0, amountReceived - total) : null,
-      order_source: 'counter'
+      order_source: 'counter',
+      e_receipt_id: eReceipt?.id || null,
+      e_receipt_snapshot: eReceipt?.snapshot || null
     };
 
     const insertResult = await withTimeout(insertOrderSafe(orderToInsert), 10000);

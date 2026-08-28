@@ -209,6 +209,12 @@ export interface Order {
   changeAmount?: number;
   orderSource?: OrderSource;
   updatedAt?: string;
+  eReceiptId?: string;
+}
+
+export interface EReceiptIssue {
+  id: string;
+  snapshot: Record<string, unknown>;
 }
 
 export interface User {

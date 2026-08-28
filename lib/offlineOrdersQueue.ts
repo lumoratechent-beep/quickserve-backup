@@ -17,6 +17,8 @@ export interface OfflineOrder {
   amount_received?: number;
   change_amount?: number;
   order_source?: OrderSource;
+  e_receipt_id?: string;
+  e_receipt_snapshot?: Record<string, unknown>;
   createdAt: number; // When it was queued
   synced?: boolean; // Whether it's been successfully synced
 }

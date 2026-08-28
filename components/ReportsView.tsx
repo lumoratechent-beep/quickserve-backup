@@ -8,6 +8,7 @@ import {
   DollarSign, ShoppingBag, Tag, Users, CreditCard, Layers, Percent, Receipt,
   TrendingUp, TrendingDown, Search, Download, Calendar, X, Clock, ArrowLeft, FileText,
 } from 'lucide-react';
+import { REPORT_CHART_COLORS, REPORT_PDF_THEME } from '../lib/reportPdfTheme';
 
 interface Props {
   orders: Order[];
@@ -48,6 +49,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
   });
   const [customEnd, setCustomEnd] = useState(() => today.toISOString().split('T')[0]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   useEffect(() => {
     const now = new Date();
@@ -134,192 +136,268 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
     );
   };
 
-  const handleExportCSV = () => {
-    const headers = ['Date', 'Order ID', 'Items', 'Status', 'Payment Method', 'Cashier', 'Total'];
-    const rows = completedOrders.map(o => [
-      new Date(o.timestamp).toLocaleDateString(),
-      o.id,
-      o.items.map(i => `${i.name} x${i.quantity}`).join('; '),
-      o.status,
-      o.paymentMethod || '-',
-      o.cashierName || '-',
-      o.total.toFixed(2),
-    ]);
-    const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `report_${customStart}_${customEnd}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  type ExportCell = string | number;
+  type SectionExport = {
+    title: string;
+    fileName: string;
+    metrics: ExportCell[][];
+    headers: string[];
+    rows: ExportCell[][];
+    chart: Array<{ label: string; value: number }>;
+    chartTitle: string;
   };
 
-  const handleExportExcel = () => {
-    const escapeCell = (value: string | number) => String(value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-    const row = (cells: Array<string | number>, header = false) => `<tr>${cells.map(cell => `<${header ? 'th' : 'td'}>${escapeCell(cell)}</${header ? 'th' : 'td'}>`).join('')}</tr>`;
-    const workbook = `<!DOCTYPE html>
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
-        <head><meta charset="UTF-8"><style>
-          body{font-family:Arial,sans-serif;color:#1f2937} h1{color:#d97706} h2{margin-top:24px;color:#374151}
-          table{border-collapse:collapse;margin-bottom:18px} th{background:#d97706;color:#fff} th,td{border:1px solid #d1d5db;padding:7px 10px;text-align:left} td.number{text-align:right}
-        </style></head><body>
-          <h1>QuickServe Advanced Analytics Report</h1>
-          <p>Report period: ${escapeCell(customStart)} to ${escapeCell(customEnd)}</p>
-          <p>Generated: ${escapeCell(new Date().toLocaleString())}</p>
-          <h2>Sales Summary</h2><table>
-            ${row(['Metric', 'Value'], true)}
-            ${row(['Gross Sales', salesSummary.totalRevenue.toFixed(2)])}
-            ${row(['Net Sales', salesSummary.netSales.toFixed(2)])}
-            ${row(['Orders', salesSummary.totalOrders])}
-            ${row(['Average Order Value', salesSummary.avgOrder.toFixed(2)])}
-            ${row(['Refunds / Cancelled', salesSummary.refunds.toFixed(2)])}
-          </table>
-          <h2>Advanced Item Report</h2><table>
-            ${row(['Item', 'Quantity Sold', 'Revenue', 'Average Price'], true)}
-            ${salesByItem.map(item => row([item.name, item.quantity, item.revenue.toFixed(2), item.avgPrice.toFixed(2)])).join('')}
-          </table>
-          <h2>Sales by Category</h2><table>
-            ${row(['Category', 'Items Sold', 'Orders', 'Revenue'], true)}
-            ${salesByCategory.map(item => row([item.name, item.itemsSold, item.orderCount, item.revenue.toFixed(2)])).join('')}
-          </table>
-          <h2>Sales by Payment Method</h2><table>
-            ${row(['Payment Method', 'Transactions', 'Revenue', 'Percentage'], true)}
-            ${salesByPayment.map(item => row([item.name, item.transactions, item.revenue.toFixed(2), `${item.percentage.toFixed(1)}%`])).join('')}
-          </table>
-        </body></html>`;
-    const blob = new Blob(['\ufeff', workbook], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  const money = (value: number) => `${currencySymbol}${value.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const periodLabel = ({ hourly: 'By Hour', daily: 'By Day', weekly: 'By Week', monthly: 'By Month' } as const)[salesPeriod];
+
+  const getSectionExport = (): SectionExport => {
+    if (subTab === 'sales_by_item') {
+      const total = salesByItem.reduce((sum, item) => sum + item.revenue, 0);
+      return {
+        title: 'Sales by Item Report', fileName: 'sales_by_item', chartTitle: 'Top Items by Revenue',
+        metrics: [['Unique Items', salesByItem.length], ['Units Sold', salesByItem.reduce((sum, item) => sum + item.quantity, 0)], ['Item Revenue', money(total)]],
+        headers: ['No.', 'Item', 'Qty Sold', 'Avg Price', 'Revenue', '% of Total'],
+        rows: salesByItem.map((item, index) => [index + 1, item.name, item.quantity, money(item.avgPrice), money(item.revenue), `${total ? ((item.revenue / total) * 100).toFixed(1) : '0.0'}%`]),
+        chart: salesByItem.slice(0, 10).map(item => ({ label: item.name, value: item.revenue })),
+      };
+    }
+    if (subTab === 'sales_by_category') {
+      const total = salesByCategory.reduce((sum, item) => sum + item.revenue, 0);
+      return {
+        title: 'Sales by Category Report', fileName: 'sales_by_category', chartTitle: 'Category Revenue Distribution',
+        metrics: [['Categories', salesByCategory.length], ['Top Category', salesByCategory[0]?.name || 'N/A'], ['Top Revenue', money(salesByCategory[0]?.revenue || 0)]],
+        headers: ['Category', 'Items Sold', 'Orders', 'Revenue', '% of Total'],
+        rows: salesByCategory.map(item => [item.name, item.itemsSold, item.orderCount, money(item.revenue), `${total ? ((item.revenue / total) * 100).toFixed(1) : '0.0'}%`]),
+        chart: salesByCategory.map(item => ({ label: item.name, value: item.revenue })),
+      };
+    }
+    if (subTab === 'sales_by_employee') return {
+      title: 'Sales by Employee Report', fileName: 'sales_by_employee', chartTitle: 'Revenue by Employee',
+      metrics: [['Employees', salesByEmployee.length], ['Orders', salesByEmployee.reduce((sum, item) => sum + item.orders, 0)], ['Revenue', money(salesByEmployee.reduce((sum, item) => sum + item.revenue, 0))]],
+      headers: ['Employee', 'Orders', 'Items Sold', 'Revenue', 'Avg Order', 'Cancelled'],
+      rows: salesByEmployee.map(item => [item.name, item.orders, item.itemsSold, money(item.revenue), money(item.avgOrder), item.cancelled]),
+      chart: salesByEmployee.map(item => ({ label: item.name, value: item.revenue })),
+    };
+    if (subTab === 'sales_by_payment') return {
+      title: 'Sales by Payment Type Report', fileName: 'sales_by_payment', chartTitle: 'Payment Revenue Distribution',
+      metrics: [['Payment Types', salesByPayment.length], ['Transactions', salesByPayment.reduce((sum, item) => sum + item.transactions, 0)], ['Revenue', money(salesByPayment.reduce((sum, item) => sum + item.revenue, 0))]],
+      headers: ['Payment Type', 'Transactions', 'Revenue', '% of Total'],
+      rows: salesByPayment.map(item => [item.name, item.transactions, money(item.revenue), `${item.percentage.toFixed(1)}%`]),
+      chart: salesByPayment.map(item => ({ label: item.name, value: item.revenue })),
+    };
+    if (subTab === 'sales_by_modifier') return {
+      title: 'Sales by Modifier Report', fileName: 'sales_by_modifier', chartTitle: 'Most Used Modifiers',
+      metrics: [['Modifiers Used', salesByModifier.length], ['Total Uses', salesByModifier.reduce((sum, item) => sum + item.timesUsed, 0)], ['Add-on Revenue', money(salesByModifier.reduce((sum, item) => sum + item.revenue, 0))]],
+      headers: ['Modifier', 'Times Used', 'Revenue', 'Applied To'],
+      rows: salesByModifier.map(item => [item.name, item.timesUsed, item.revenue ? money(item.revenue) : '-', item.items.join(', ')]),
+      chart: salesByModifier.slice(0, 10).map(item => ({ label: item.name, value: item.timesUsed })),
+    };
+    if (subTab === 'discounts') return {
+      title: 'Discounts Report', fileName: 'discounts', chartTitle: 'Discount and Cancellation Overview',
+      metrics: [['Total Discounts', money(discountsReport.totalDiscountValue)], ['Cancelled Value', money(discountsReport.totalCancelledValue)], ['Cancellation Rate', `${discountsReport.totalOrders ? ((discountsReport.cancelledCount / discountsReport.totalOrders) * 100).toFixed(1) : '0.0'}%`]],
+      headers: ['Metric', 'Value'],
+      rows: [['Total Discounts', money(discountsReport.totalDiscountValue)], ['Cancelled Orders', discountsReport.cancelledCount], ['Cancelled Value', money(discountsReport.totalCancelledValue)], ['Total Orders', discountsReport.totalOrders]],
+      chart: [{ label: 'Discounts', value: discountsReport.totalDiscountValue }, { label: 'Cancelled', value: discountsReport.totalCancelledValue }],
+    };
+    if (subTab === 'taxes') return {
+      title: 'Taxes Report', fileName: 'taxes', chartTitle: 'Tax Collected by Tax Type',
+      metrics: [['Taxes Configured', taxesReport.length], ['Taxable Revenue', money(completedOrders.reduce((sum, order) => sum + order.total, 0))], ['Tax Collected', money(totalTaxCollected)]],
+      headers: ['Tax Name', 'Rate', 'Taxable Amount', 'Tax Collected', 'Orders'],
+      rows: taxesReport.map(item => [item.name, `${item.percentage}%`, money(item.taxableAmount), money(item.taxCollected), item.orderCount]),
+      chart: taxesReport.map(item => ({ label: item.name, value: item.taxCollected })),
+    };
+    return {
+      title: `Sales Summary - ${periodLabel}`, fileName: `sales_summary_${salesPeriod}`, chartTitle: `Sales Trend ${periodLabel}`,
+      metrics: [['Gross Sales', money(salesSummary.totalRevenue)], ['Net Sales', money(salesSummary.netSales)], ['Orders', salesSummary.totalOrders], ['Avg Order', money(salesSummary.avgOrder)], ['Sales vs Previous', `${salesSummary.revenueChange >= 0 ? '+' : ''}${salesSummary.revenueChange.toFixed(1)}%`]],
+      headers: ['Period', 'Orders', 'Gross Sales', 'Avg / Order'],
+      rows: salesByPeriod.map(item => [item.label, item.orders, money(item.grossSales), money(item.orders ? item.grossSales / item.orders : 0)]),
+      chart: salesByPeriod.map(item => ({ label: item.label, value: item.grossSales })),
+    };
+  };
+
+  const handleExportCSV = () => {
+    const report = getSectionExport();
+    const escape = (value: ExportCell) => `"${String(value).replace(/"/g, '""')}"`;
+    const csv = [
+      [report.title],
+      [`Report Period: ${customStart} to ${customEnd}`],
+      [],
+      ['Summary'],
+      ...report.metrics,
+      [],
+      report.headers,
+      ...report.rows,
+    ].map(row => row.map(escape).join(',')).join('\n');
+    const blob = new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `advanced_analytics_${customStart}_${customEnd}.xls`;
-    a.click();
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${report.fileName}_${customStart}_${customEnd}.csv`;
+    anchor.click();
     URL.revokeObjectURL(url);
   };
 
   const handleExportPDF = async () => {
-    const { default: jsPDF } = await import('jspdf');
-    const { default: autoTable } = await import('jspdf-autotable');
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
-    const pw = doc.internal.pageSize.getWidth();
-    const margin = 14;
-    let y = 14;
-    const darkGray = [55, 65, 81] as [number, number, number];
-    const amber = [217, 119, 6] as [number, number, number];
+    if (isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      const report = getSectionExport();
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+      const theme = REPORT_PDF_THEME;
+      const doc = new jsPDF({ orientation: theme.orientation, unit: theme.unit, format: theme.format, compress: true });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = theme.margin;
+      const contentWidth = pageWidth - margin * 2;
+      const { accent, heading, body, muted, border, surface, white } = theme.colors;
+      let y = 16;
 
-    // Header
-    doc.setFontSize(18); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-    doc.text('Analytics Report', margin, y); y += 7;
-    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(120, 120, 120);
-    doc.text(`Report Period: ${customStart} to ${customEnd}`, margin, y);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, pw - margin, y, { align: 'right' }); y += 3;
-    doc.setDrawColor(...amber); doc.setLineWidth(0.6); doc.line(margin, y, pw - margin, y); y += 8;
+      const drawPageAccent = () => {
+        doc.setFillColor(...accent);
+        doc.rect(0, 0, pageWidth, theme.topAccentHeight, 'F');
+      };
+      const beginPage = () => {
+        doc.addPage();
+        drawPageAccent();
+        y = 16;
+      };
+      const ensureSpace = (height: number) => {
+        if (y + height > pageHeight - 16) beginPage();
+      };
+      const section = (title: string, description: string, height = 18) => {
+        ensureSpace(height);
+        doc.setFont(theme.font, 'bold'); doc.setFontSize(theme.sizes.sectionTitle); doc.setTextColor(...heading);
+        doc.text(title.toUpperCase(), margin, y);
+        doc.setFont(theme.font, 'normal'); doc.setFontSize(6.8); doc.setTextColor(125, 125, 125);
+        doc.text(description, margin, y + 3.5);
+        y += 8;
+      };
 
-    // KPI Summary
-    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-    doc.text('Sales Summary', margin, y); y += 6;
-    const kpis = [
-      ['Gross Sales', `${currencySymbol}${salesSummary.totalRevenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
-      ['Net Sales', `${currencySymbol}${salesSummary.netSales.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
-      ['Orders', `${salesSummary.totalOrders}`],
-      ['Average Order Value', `${currencySymbol}${salesSummary.avgOrder.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
-      ['Refunds / Cancelled', `${currencySymbol}${salesSummary.refunds.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
-    ];
-    autoTable(doc, {
-      startY: y, head: [['Metric', 'Value']], body: kpis, margin: { left: margin, right: margin },
-      styles: { fontSize: 8, cellPadding: 2.5 }, headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
-    });
-    y = (doc as any).lastAutoTable.finalY + 8;
+      drawPageAccent();
+      doc.setFont(theme.font, 'bold'); doc.setFontSize(theme.sizes.reportTitle); doc.setTextColor(...heading);
+      doc.text(report.title, margin, y); y += 7;
+      doc.setFont(theme.font, 'normal'); doc.setFontSize(theme.sizes.metadata); doc.setTextColor(...muted);
+      doc.text(`Report Period: ${customStart} to ${customEnd}`, margin, y);
+      doc.text(`Generated: ${new Date().toLocaleString('en-MY')}`, pageWidth - margin, y, { align: 'right' }); y += 10;
 
-    // Payment Type
-    if (salesByPayment.length > 0) {
-      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-      doc.text('Sales by Payment Type', margin, y); y += 6;
-      autoTable(doc, {
-        startY: y, head: [['Payment Method', 'Transactions', 'Revenue', '% of Total']],
-        body: salesByPayment.map(p => [p.name, `${p.transactions}`, `${currencySymbol}${p.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, `${p.percentage.toFixed(1)}%`]),
-        margin: { left: margin, right: margin }, styles: { fontSize: 8, cellPadding: 2.5 },
-        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
+      section('Report Overview', 'Key performance figures for the selected report and period.', 44);
+      const cardGap = 3;
+      const cardCount = Math.min(report.metrics.length, 4);
+      const cardWidth = (contentWidth - cardGap * (cardCount - 1)) / cardCount;
+      report.metrics.slice(0, 4).forEach(([label, value], index) => {
+        const x = margin + index * (cardWidth + cardGap);
+        doc.setDrawColor(...accent); doc.setLineWidth(0.7); doc.setFillColor(...surface);
+        doc.roundedRect(x, y, cardWidth, 28, 3, 3, 'FD');
+        doc.setFillColor(...accent); doc.rect(x + 1.2, y + 4, 2.2, 20, 'F');
+        doc.setFont(theme.font, 'bold'); doc.setFontSize(6.3); doc.setTextColor(105, 105, 105);
+        doc.text(String(label).toUpperCase().slice(0, 24), x + 6, y + 8);
+        doc.setFontSize(10); doc.setTextColor(...heading);
+        const displayedValue = String(value);
+        doc.text(displayedValue.length > 18 ? `${displayedValue.slice(0, 16)}...` : displayedValue, x + 6, y + 18);
       });
-      y = (doc as any).lastAutoTable.finalY + 8;
-    }
+      y += 40;
 
-    // Items (top 30)
-    if (salesByItem.length > 0) {
-      if (y > 240) { doc.addPage(); y = 14; }
-      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-      doc.text('Sales by Item (Top 30)', margin, y); y += 6;
+      const drawHorizontalBarChart = (title: string, data: Array<{ label: string; value: number }>) => {
+        const visible = data.slice(0, 10);
+        if (!visible.length) return;
+        const rowHeight = 7;
+        const chartHeight = visible.length * rowHeight + 10;
+        section(title, 'Values are ranked from highest to lowest for easy comparison.', chartHeight + 18);
+        doc.setDrawColor(...border); doc.setFillColor(253, 253, 253);
+        doc.roundedRect(margin, y, contentWidth, chartHeight, 2, 2, 'FD');
+        const labelWidth = 47;
+        const chartX = margin + labelWidth;
+        const chartWidth = contentWidth - labelWidth - 17;
+        const maxValue = Math.max(...visible.map(item => item.value), 1);
+        visible.forEach((item, index) => {
+          const rowY = y + 6 + index * rowHeight;
+          doc.setFont(theme.font, 'normal'); doc.setFontSize(6.5); doc.setTextColor(...body);
+          const fittedLabel = doc.splitTextToSize(item.label, labelWidth - 5)[0];
+          doc.text(fittedLabel, chartX - 3, rowY + 2.5, { align: 'right' });
+          doc.setFillColor(229, 231, 235); doc.roundedRect(chartX, rowY, chartWidth, 3.5, 1, 1, 'F');
+          doc.setFillColor(...accent); doc.roundedRect(chartX, rowY, Math.max(0.8, (item.value / maxValue) * chartWidth), 3.5, 1, 1, 'F');
+          doc.setFontSize(6); doc.setTextColor(...muted);
+          const formattedValue = subTab === 'sales_by_modifier' ? item.value.toLocaleString() : money(item.value);
+          doc.text(formattedValue, chartX + chartWidth + 2, rowY + 2.5);
+        });
+        y += chartHeight + 12;
+      };
+
+      const drawCategoryPieChart = (data: Array<{ label: string; value: number }>) => {
+        const positive = data.filter(item => item.value > 0);
+        if (!positive.length) return;
+        const visible = positive.length > 10
+          ? [
+            ...positive.slice(0, 9),
+            { label: 'Other categories', value: positive.slice(9).reduce((sum, item) => sum + item.value, 0) },
+          ]
+          : positive;
+        const boxHeight = Math.max(66, visible.length * 6 + 10);
+        section('Revenue Distribution of Categories', 'Full 360-degree category share with matching breakdown colours.', boxHeight + 18);
+        doc.setDrawColor(...border); doc.setFillColor(253, 253, 253);
+        doc.roundedRect(margin, y, contentWidth, boxHeight, 2, 2, 'FD');
+        const centerX = margin + 39;
+        const centerY = y + boxHeight / 2;
+        const radius = Math.min(25, boxHeight / 2 - 7);
+        const total = visible.reduce((sum, item) => sum + item.value, 0);
+        let startAngle = -Math.PI / 2;
+        visible.forEach((item, index) => {
+          const endAngle = startAngle + (item.value / total) * Math.PI * 2;
+          const fillStartAngle = startAngle - 0.001;
+          const fillEndAngle = endAngle + 0.001;
+          const color = REPORT_CHART_COLORS[index % REPORT_CHART_COLORS.length];
+          doc.setFillColor(...color);
+          const steps = Math.max(4, Math.ceil((fillEndAngle - fillStartAngle) / (Math.PI / 90)));
+          const points = Array.from({ length: steps + 1 }, (_, step) => {
+            const angle = fillStartAngle + ((fillEndAngle - fillStartAngle) * step) / steps;
+            return { x: centerX + Math.cos(angle) * radius, y: centerY + Math.sin(angle) * radius };
+          });
+          const segments: Array<[number, number]> = [
+            [points[0].x - centerX, points[0].y - centerY],
+            ...points.slice(1).map((point, pointIndex) => [point.x - points[pointIndex].x, point.y - points[pointIndex].y] as [number, number]),
+            [centerX - points[points.length - 1].x, centerY - points[points.length - 1].y],
+          ];
+          doc.lines(segments, centerX, centerY, [1, 1], 'F', true);
+          startAngle = endAngle;
+        });
+        const legendX = margin + 76;
+        visible.forEach((item, index) => {
+          const legendY = y + 8 + index * 6;
+          const color = REPORT_CHART_COLORS[index % REPORT_CHART_COLORS.length];
+          doc.setFillColor(...color); doc.circle(legendX, legendY - 1, 1.5, 'F');
+          doc.setFont(theme.font, 'bold'); doc.setFontSize(6.5); doc.setTextColor(...heading);
+          doc.text(item.label.slice(0, 28), legendX + 4, legendY);
+          doc.setFont(theme.font, 'normal'); doc.setTextColor(...muted);
+          doc.text(`${money(item.value)}  (${((item.value / total) * 100).toFixed(1)}%)`, pageWidth - margin - 4, legendY, { align: 'right' });
+        });
+        y += boxHeight + 12;
+      };
+
+      if (subTab === 'sales_by_category') drawCategoryPieChart(report.chart);
+      else drawHorizontalBarChart(report.chartTitle, report.chart);
+
+      section('Data Table', 'Complete figures used in this report.', 28);
       autoTable(doc, {
-        startY: y, head: [['Item', 'Qty Sold', 'Revenue', 'Avg Price']],
-        body: salesByItem.slice(0, 30).map(i => [i.name, `${i.quantity}`, `${currencySymbol}${i.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, `${currencySymbol}${i.avgPrice.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]),
-        margin: { left: margin, right: margin }, styles: { fontSize: 7, cellPadding: 2 },
-        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
+        startY: y, head: [report.headers.map(header => header.toUpperCase())], body: report.rows,
+        margin: { left: margin, right: margin, bottom: 16 }, theme: 'grid',
+        styles: { font: theme.font, fontSize: theme.sizes.table, cellPadding: 1.5, overflow: 'linebreak', halign: 'center', valign: 'middle', textColor: body },
+        headStyles: { fillColor: accent, textColor: white, fontStyle: 'bold', fontSize: theme.sizes.tableHeader, halign: 'center', valign: 'middle', overflow: 'ellipsize' },
+        columnStyles: subTab === 'sales_by_item'
+          ? { 0: { halign: 'center' }, 1: { halign: 'left' } }
+          : { 0: { halign: 'left' } },
       });
-      y = (doc as any).lastAutoTable.finalY + 8;
-    }
 
-    // Category
-    if (salesByCategory.length > 0) {
-      if (y > 240) { doc.addPage(); y = 14; }
-      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-      doc.text('Sales by Category', margin, y); y += 6;
-      autoTable(doc, {
-        startY: y, head: [['Category', 'Items Sold', 'Orders', 'Revenue']],
-        body: salesByCategory.map(c => [c.name, `${c.itemsSold}`, `${c.orderCount}`, `${currencySymbol}${c.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]),
-        margin: { left: margin, right: margin }, styles: { fontSize: 8, cellPadding: 2.5 },
-        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
-      });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      const pageCount = doc.getNumberOfPages();
+      for (let page = 1; page <= pageCount; page += 1) {
+        doc.setPage(page); doc.setFont(theme.font, 'normal'); doc.setFontSize(theme.sizes.footer); doc.setTextColor(160, 160, 160);
+        doc.text('QuickServe POS - Sales Report', margin, pageHeight - 8);
+        doc.text(`Page ${page} of ${pageCount}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
+      }
+      doc.save(`${report.fileName}_${customStart}_${customEnd}.pdf`);
+    } finally {
+      setIsExportingPdf(false);
     }
-
-    // Employee
-    if (salesByEmployee.length > 0) {
-      if (y > 240) { doc.addPage(); y = 14; }
-      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-      doc.text('Cashier Performance', margin, y); y += 6;
-      autoTable(doc, {
-        startY: y, head: [['Cashier', 'Orders', 'Revenue', 'Avg Order', 'Items Sold', 'Cancelled']],
-        body: salesByEmployee.map(e => [e.name, `${e.orders}`, `${currencySymbol}${e.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, `${currencySymbol}${e.avgOrder.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, `${e.itemsSold}`, `${e.cancelled}`]),
-        margin: { left: margin, right: margin }, styles: { fontSize: 8, cellPadding: 2.5 },
-        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
-      });
-      y = (doc as any).lastAutoTable.finalY + 8;
-    }
-
-    // Modifier usage (top 20)
-    if (salesByModifier.length > 0) {
-      if (y > 240) { doc.addPage(); y = 14; }
-      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-      doc.text('Modifier Usage (Top 20)', margin, y); y += 6;
-      autoTable(doc, {
-        startY: y, head: [['Modifier', 'Times Used', 'Revenue', 'Used In']],
-        body: salesByModifier.slice(0, 20).map(m => [m.name, `${m.timesUsed}`, `${currencySymbol}${m.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, m.items.slice(0, 3).join(', ') + (m.items.length > 3 ? '...' : '')]),
-        margin: { left: margin, right: margin }, styles: { fontSize: 7, cellPadding: 2 },
-        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
-      });
-      y = (doc as any).lastAutoTable.finalY + 8;
-    }
-
-    // Footer
-    const pageCount = (doc as any).getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(7); doc.setTextColor(160, 160, 160);
-      doc.text(`Page ${i} of ${pageCount}`, pw - margin, doc.internal.pageSize.getHeight() - 8, { align: 'right' });
-      doc.text('QuickServe Analytics Report', margin, doc.internal.pageSize.getHeight() - 8);
-    }
-
-    doc.save(`analytics_report_${customStart}_${customEnd}.pdf`);
   };
 
   // ════════════════════════════════════════
@@ -605,10 +683,9 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 w-full md:w-auto">
-          <button onClick={handleExportCSV} className="flex-1 md:flex-none px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-amber-600 transition-all"><Download size={16} /> Export CSV</button>
-          <button onClick={handleExportExcel} className="flex-1 md:flex-none px-6 py-2 bg-emerald-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all"><FileText size={16} /> Export Excel</button>
-          <button onClick={handleExportPDF} className="flex-1 md:flex-none px-6 py-2 bg-red-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-700 transition-all"><FileText size={16} /> Download PDF</button>
+        <div className="grid grid-cols-2 gap-2 w-full md:flex md:w-auto">
+          <button onClick={handleExportCSV} className="min-h-10 px-5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:border-amber-500 hover:text-amber-600 dark:hover:text-amber-400 transition-all shadow-sm"><Download size={15} /> Download CSV</button>
+          <button onClick={() => void handleExportPDF()} disabled={isExportingPdf} className="min-h-10 px-5 py-2.5 bg-amber-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-amber-700 transition-all shadow-sm shadow-amber-600/20 disabled:cursor-wait disabled:opacity-60"><FileText size={15} /> {isExportingPdf ? 'Creating PDF...' : 'Download PDF'}</button>
         </div>
       </div>
 

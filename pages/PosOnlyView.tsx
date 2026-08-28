@@ -1,7 +1,7 @@
 // pages/PosOnlyView.tsx
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters, CategoryData, ModifierData, ModifierOption, AddOnItemData, QS_DEFAULT_HUB, Subscription, PlanId, KitchenDepartment, CashierShift } from '../src/types';
+import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters, CategoryData, ModifierData, ModifierOption, AddOnItemData, QS_DEFAULT_HUB, Subscription, PlanId, KitchenDepartment, CashierShift, EReceiptIssue } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
 import { saveAllSettingsToDb, saveSettingsToDb, compressPosSettings, expandPosSettings, fetchSettingsFromServer, updateFeatureOnServer } from '../lib/sharedSettings';
@@ -98,9 +98,9 @@ const CASHIER_ACCESS_SETTINGS: Array<{
 interface Props {
   restaurant: Restaurant;
   orders: Order[];
-  onUpdateOrder: (orderId: string, status: OrderStatus, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number }) => void;
+  onUpdateOrder: (orderId: string, status: OrderStatus, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number; eReceipt?: EReceiptIssue }) => void | Promise<void>;
   onKitchenUpdateOrder?: (orderId: string, status: OrderStatus, rejectionReason?: string, rejectionNote?: string) => void;
-  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string, diningType?: string, paymentMethod?: string, cashierName?: string, amountReceived?: number) => Promise<string>;
+  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string, diningType?: string, paymentMethod?: string, cashierName?: string, amountReceived?: number, eReceipt?: EReceiptIssue) => Promise<string>;
   onUpdateMenu?: (restaurantId: string, updatedItem: MenuItem) => void | Promise<void>;
   onAddMenuItem?: (restaurantId: string, newItem: MenuItem) => void | Promise<void>;
   onPermanentDeleteMenuItem?: (restaurantId: string, itemId: string) => void | Promise<void>;
@@ -2563,6 +2563,56 @@ const PosOnlyView: React.FC<Props> = ({
     setShowPaymentModal(true);
   };
 
+  const buildEReceiptIssue = (data: {
+    items: CartItem[];
+    total: number;
+    tableNumber?: string;
+    diningType?: string;
+    remark?: string;
+    paymentMethod: string;
+    amountReceived?: number;
+    orderSource?: string;
+  }): EReceiptIssue | undefined => {
+    if (!receiptConfig.eReceiptEnabled) return undefined;
+    const discountedSubtotal = data.items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
+    const discountAmount = data.items.reduce((sum, item) => {
+      const original = Number(item.originalPrice || 0);
+      const current = Number(item.price || 0);
+      return sum + (original > current ? (original - current) * Number(item.quantity || 0) : 0);
+    }, 0);
+    return {
+      id: crypto.randomUUID(),
+      snapshot: {
+        version: 1,
+        status: 'PAID',
+        paidAt: new Date().toISOString(),
+        businessName: receiptConfig.businessName.trim() || restaurant.name,
+        businessAddressLine1: receiptConfig.businessAddressLine1,
+        businessAddressLine2: receiptConfig.businessAddressLine2,
+        businessCity: receiptConfig.businessCity,
+        businessState: receiptConfig.businessState,
+        businessCountry: receiptConfig.businessCountry,
+        businessPhone: receiptConfig.businessPhone,
+        headerText: receiptConfig.headerText,
+        footerText: receiptConfig.footerText,
+        currency: userCurrency || 'MYR',
+        items: data.items,
+        subtotal: discountedSubtotal + discountAmount,
+        discountAmount,
+        taxes: activeTaxEntries.map(tax => ({ name: tax.name, percentage: tax.percentage, amount: (discountedSubtotal * tax.percentage) / 100 })),
+        total: data.total,
+        tableNumber: data.tableNumber || '',
+        diningType: data.diningType || '',
+        remark: data.remark || '',
+        paymentMethod: data.paymentMethod,
+        cashierName: cashierName || '',
+        amountReceived: data.amountReceived ?? null,
+        changeAmount: data.amountReceived != null ? Math.max(0, data.amountReceived - data.total) : null,
+        orderSource: data.orderSource || 'counter',
+      },
+    };
+  };
+
   const handleConfirmPayment = async () => {
     if (!pendingOrderData || !selectedPaymentType) return;
 
@@ -2585,17 +2635,28 @@ const PosOnlyView: React.FC<Props> = ({
       const paymentName = paymentTypes.find(p => p.id === selectedPaymentType)?.name || selectedPaymentType;
       const nowTs = Date.now();
       let actualOrderId: string = '';
+      const eReceipt = buildEReceiptIssue({
+        items: pendingOrderData.items,
+        total: pendingOrderData.total,
+        tableNumber: pendingOrderData.tableNumber,
+        diningType: pendingOrderData.diningType,
+        remark: pendingOrderData.remark,
+        paymentMethod: paymentName,
+        amountReceived: selectedCashAmount ?? undefined,
+        orderSource: isQrPaymentMode ? (selectedQrOrderForPayment?.orderSource || 'qr_order') : 'counter',
+      });
 
     if (isQrPaymentMode && selectedQrOrderForPayment) {
       // QR order already exists in DB — update its status and record payment
       actualOrderId = selectedQrOrderForPayment.id;
       try {
-        onUpdateOrder(actualOrderId, OrderStatus.COMPLETED, {
+        await Promise.resolve(onUpdateOrder(actualOrderId, OrderStatus.COMPLETED, {
           paymentMethod: paymentName,
           cashierName: cashierName || '',
           amountReceived: selectedCashAmount ?? undefined,
           changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - selectedQrOrderForPayment.total) : undefined,
-        });
+          eReceipt,
+        }));
       } catch (error: any) {
         console.error('QR order completion error:', error);
         toast(`Failed to complete order: ${error?.message || 'Unknown error'}`, 'error');
@@ -2631,7 +2692,8 @@ const PosOnlyView: React.FC<Props> = ({
           pendingOrderData.diningType,
           paymentName,
           cashierName,
-          selectedCashAmount ?? undefined
+          selectedCashAmount ?? undefined,
+          eReceipt,
         );
       } catch (error: any) {
         console.error('Order placement error:', error);
@@ -2674,6 +2736,7 @@ const PosOnlyView: React.FC<Props> = ({
       amountReceived: selectedCashAmount ?? undefined,
       changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
       orderSource: isQrPaymentMode ? (selectedQrOrderForPayment?.orderSource || 'qr_order') : 'counter',
+      eReceiptId: eReceipt?.id,
     };
 
     // Update pendingOrderData with actual order ID and payment so reprint buttons use correct data
@@ -2686,6 +2749,7 @@ const PosOnlyView: React.FC<Props> = ({
       changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
       timestamp: isQrPaymentMode && selectedQrOrderForPayment ? selectedQrOrderForPayment.timestamp : nowTs,
       orderSource: isQrPaymentMode ? (selectedQrOrderForPayment?.orderSource || 'qr_order') : 'counter',
+      eReceiptId: eReceipt?.id,
     }));
 
     // Show payment result with slide animation
@@ -2700,7 +2764,7 @@ const PosOnlyView: React.FC<Props> = ({
         };
 
         printerService
-          .printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions())
+          .printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions(eReceipt?.id))
           .then((printSuccess) => {
             if (!printSuccess) {
               setCheckoutNotice('Order saved. Receipt printing did not complete.');
@@ -4350,7 +4414,7 @@ const PosOnlyView: React.FC<Props> = ({
     );
   };
 
-  const getReceiptPrintOptions = (): ReceiptPrintOptions => {
+  const getReceiptPrintOptions = (eReceiptId?: string): ReceiptPrintOptions => {
     const printer = savedPrinters.length > 0 ? savedPrinters[0] : null;
     return {
       documentType: 'receipt',
@@ -4380,6 +4444,7 @@ const PosOnlyView: React.FC<Props> = ({
       showChange: receiptConfig.showChange,
       showTaxes: activeTaxEntries.length > 0,
       taxes: activeTaxEntries.map(t => ({ name: t.name, percentage: t.percentage })),
+      eReceiptUrl: receiptConfig.eReceiptEnabled && eReceiptId ? `${window.location.origin}/receipt/${eReceiptId}` : undefined,
       documentSize: receiptConfig.documentSize,
       documentFont: receiptConfig.documentFont,
       documentAlignment: receiptConfig.documentAlignment,
@@ -13591,7 +13656,7 @@ const PosOnlyView: React.FC<Props> = ({
                           changeAmount: pendingOrderData.changeAmount ?? (selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined),
                           orderSource: pendingOrderData.orderSource || (isQrPaymentMode ? (selectedQrOrderForPayment?.orderSource || 'qr_order') : 'counter'),
                         };
-                        const success = await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions());
+                        const success = await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions(pendingOrderData.eReceiptId));
                         if (success) {
                           toast(featureSettings.autoPrintReceipt ? 'Receipt reprinted!' : 'Receipt printed!', 'success');
                         } else {
@@ -13987,7 +14052,7 @@ const PosOnlyView: React.FC<Props> = ({
                         orderSource: (selectedReportOrder as any).orderSource,
                       };
                       try {
-                        await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions());
+                        await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions(selectedReportOrder.eReceiptId));
                       } catch (err) {
                         console.error('Reprint error:', err);
                       }
@@ -14290,13 +14355,24 @@ const PosOnlyView: React.FC<Props> = ({
                       setCollectPaymentProcessing(true);
                       const paymentName = paymentTypes.find(p => p.id === collectPaymentType)?.name || collectPaymentType;
                       const changeAmt = Math.max(0, collectCashAmount - selectedReportOrder.total);
+                      const collectedEReceipt = buildEReceiptIssue({
+                        items: selectedReportOrder.items,
+                        total: selectedReportOrder.total,
+                        tableNumber: selectedReportOrder.tableNumber,
+                        diningType: selectedReportOrder.diningType,
+                        remark: selectedReportOrder.remark,
+                        paymentMethod: paymentName,
+                        amountReceived: collectCashAmount,
+                        orderSource: selectedReportOrder.orderSource,
+                      });
                       try {
-                        onUpdateOrder(selectedReportOrder.id, OrderStatus.COMPLETED, {
+                        await Promise.resolve(onUpdateOrder(selectedReportOrder.id, OrderStatus.COMPLETED, {
                           paymentMethod: paymentName,
                           cashierName: cashierName || '',
                           amountReceived: collectCashAmount,
                           changeAmount: changeAmt,
-                        });
+                          eReceipt: collectedEReceipt,
+                        }));
                         counterOrdersCache.mergeReportOrdersCache(restaurant.id, [{
                           id: selectedReportOrder.id,
                           items: selectedReportOrder.items,
@@ -14313,6 +14389,7 @@ const PosOnlyView: React.FC<Props> = ({
                           amountReceived: collectCashAmount,
                           changeAmount: changeAmt,
                           orderSource: selectedReportOrder.orderSource,
+                          eReceiptId: collectedEReceipt?.id,
                         }]);
                         setCollectPaymentSuccess(true);
                       } catch (err: any) {

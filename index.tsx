@@ -1,9 +1,12 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
 import { ToastProvider } from './components/Toast';
 import './index.css';
+
+const receiptMatch = window.location.pathname.replace(/\/+$/, '').match(/^\/receipt\/([0-9a-f-]{36})$/i);
+const App = React.lazy(() => import('./App'));
+const EReceiptPage = React.lazy(() => import('./pages/EReceiptPage'));
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -13,9 +16,13 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <ToastProvider>
-      <App />
-    </ToastProvider>
+    <React.Suspense fallback={<div className="min-h-screen bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-500">Loading...</div>}>
+      {receiptMatch ? (
+        <EReceiptPage token={receiptMatch[1]} />
+      ) : (
+        <ToastProvider><App /></ToastProvider>
+      )}
+    </React.Suspense>
   </React.StrictMode>
 );
 

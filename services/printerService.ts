@@ -171,6 +171,7 @@ export interface ReceiptConfig {
   autoPrintAfterSale: boolean;
   printReceiptForRefund: boolean;
   openCashDrawerOnPayment: boolean;
+  eReceiptEnabled: boolean;
   // Text customization
   documentSize: TextSize;
   documentFont: TextFont;
@@ -233,6 +234,7 @@ export interface ReceiptPrintOptions {
   showChange?: boolean;
   showTaxes?: boolean;
   taxes?: Array<{ name: string; percentage?: number; amount?: number }>;
+  eReceiptUrl?: string;
   // Text customization
   documentSize?: TextSize;
   documentFont?: TextFont;
@@ -315,6 +317,7 @@ export const DEFAULT_RECEIPT_CONFIG: ReceiptConfig = {
   autoPrintAfterSale: false,
   printReceiptForRefund: false,
   openCashDrawerOnPayment: false,
+  eReceiptEnabled: true,
   documentSize: 1,
   documentFont: 'A',
   documentAlignment: 'center',
@@ -528,6 +531,22 @@ class EscPosBuilder {
   /** Sound the buzzer/beep */
   beep(): this {
     return this.raw(CMD.BEEP);
+  }
+
+  /** Print a QR code with the standard ESC/POS GS ( k command set. */
+  qrCode(value: string, moduleSize: number = 5): this {
+    const data = this.encodeText(value);
+    const storeLength = data.length + 3;
+    const pL = storeLength & 0xff;
+    const pH = (storeLength >> 8) & 0xff;
+    const size = Math.max(1, Math.min(16, moduleSize));
+
+    return this
+      .raw([GS, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00])
+      .raw([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, size])
+      .raw([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31])
+      .raw([GS, 0x28, 0x6b, pL, pH, 0x31, 0x50, 0x30, ...data])
+      .raw([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30]);
   }
 
   /** Cut paper */
@@ -1595,6 +1614,14 @@ class PrinterService {
         r.align(ftrAlign).font(ftrFnt).size(ftrSz, ftrSz);
         r.line(footer);
         r.normalSize().font('A');
+      }
+
+      if (options?.documentType !== 'order-list' && options?.eReceiptUrl) {
+        r.thickSeparator();
+        r.align('center').bold(true).line('E-RECEIPT').bold(false);
+        r.line('Scan to view or download');
+        r.feed(1).qrCode(options.eReceiptUrl, paperSize === '80mm' ? 6 : 5).feed(1);
+        r.line('Available for 60 days');
       }
 
       // ── Feed & cut ──
