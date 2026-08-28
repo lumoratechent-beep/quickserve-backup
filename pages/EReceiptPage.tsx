@@ -162,7 +162,6 @@ const EReceiptPage: React.FC<Props> = ({ token }) => {
       if (receipt.amountReceived != null) addPair('Amount received', money(receipt.amountReceived));
       if (receipt.changeAmount != null) addPair('Change', money(receipt.changeAmount));
       if (receipt.status === 'REFUNDED') addLine('REFUNDED', { bold: true, size: 13, align: 'center', gap: 9 });
-      if (receipt.footerText) { y += 4; addLine(receipt.footerText, { align: 'center' }); }
       if (y > 252) { doc.addPage(); y = 20; }
       y += 8;
       try {
@@ -173,6 +172,7 @@ const EReceiptPage: React.FC<Props> = ({ token }) => {
         console.warn('QuickServe logo was omitted from the PDF:', logoError);
       }
       addLine('Powered by QuickServe POS', { size: 8, align: 'center', gap: 5 });
+      if (receipt.footerText) { y += 3; addLine(receipt.footerText, { align: 'center' }); }
       doc.save(`QuickServe-Receipt-${receipt.orderId || token}.pdf`);
     } catch (err) {
       console.error('PDF generation failed:', err);
