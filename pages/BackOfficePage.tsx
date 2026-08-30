@@ -183,6 +183,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
   const [activeTab, setActiveTab] = useState<BackOfficeTab>('DASHBOARD');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [reportSubTab, setReportSubTab] = useState<string | undefined>(undefined);
+  const [staffSubTab, setStaffSubTab] = useState<string | undefined>('directory');
   const [inventorySubTab, setInventorySubTab] = useState<string | undefined>(undefined);
   const [contactSubTab, setContactSubTab] = useState<string | undefined>(undefined);
   const [financeSubTab, setFinanceSubTab] = useState<string | undefined>(undefined);
@@ -1871,18 +1872,43 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
         <nav className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? 'p-2 space-y-1' : 'px-3 py-4 space-y-1'}`}>
           {/* Simple tabs */}
           {simpleTabs.map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => { setActiveTab(tab.key); setExpandedMenus(new Set()); }}
-              title={tab.label}
-              className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
-                activeTab === tab.key
-                  ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400'
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-              }`}
-            >
-              {tab.icon} {!isSidebarCollapsed && tab.label}
-            </button>
+            <div key={tab.key}>
+              <button
+                onClick={() => {
+                  setActiveTab(tab.key);
+                  if (tab.key === 'STAFF' && !isSidebarCollapsed) {
+                    setStaffSubTab('directory');
+                    setExpandedMenus(previous => previous.has('STAFF') ? new Set() : new Set(['STAFF']));
+                  } else {
+                    setExpandedMenus(new Set());
+                  }
+                }}
+                title={tab.label}
+                className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === tab.key
+                    ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                {tab.icon}
+                {!isSidebarCollapsed && (
+                  <>
+                    <span className="flex-1 whitespace-nowrap text-left">{tab.label}</span>
+                    {tab.key === 'STAFF' && <ChevronDown size={14} className={`transition-transform duration-200 ${expandedMenus.has('STAFF') ? 'rotate-180' : ''}`} />}
+                  </>
+                )}
+              </button>
+              {!isSidebarCollapsed && tab.key === 'STAFF' && (
+                <div className={`ml-6 space-y-0.5 overflow-hidden border-l-2 border-gray-200 pl-3 transition-all duration-300 ease-in-out dark:border-gray-700 ${expandedMenus.has('STAFF') ? 'mt-1 max-h-24 opacity-100' : 'mt-0 max-h-0 opacity-0'}`}>
+                  <button
+                    onClick={() => { setActiveTab('STAFF'); setStaffSubTab('access'); }}
+                    className={`w-full whitespace-nowrap rounded-lg px-2 py-1.5 text-left text-sm font-medium transition-all ${activeTab === 'STAFF' && staffSubTab === 'access' ? 'bg-amber-50/50 font-bold text-amber-600 dark:bg-amber-900/10 dark:text-amber-400' : 'text-gray-400 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300'}`}
+                  >
+                    User Access
+                  </button>
+                </div>
+              )}
+            </div>
           ))}
 
           {/* Expandable tabs */}
@@ -2218,17 +2244,12 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
           />
         ) : activeTab === 'ITEMS' && (
           <div className="space-y-6">
-            <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-600 dark:text-amber-400">Back Office</p>
-                  <h2 className="mt-1 text-2xl font-black text-gray-950 dark:text-white">Items &amp; Stock</h2>
-                  <p className="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">Manage menu items, ingredients, and stock tracking in a clean operational view.</p>
-                </div>
-              </div>
+            <div>
+              <h2 className="text-2xl font-black text-gray-950 dark:text-white">Items &amp; Stock</h2>
+              <p className="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">Manage menu items, ingredients, and stock tracking in a clean operational view.</p>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-4 gap-4">
               {[
                 { label: 'Total Items', value: restaurant.menu.filter(m => !m.isArchived).length, icon: <Package size={20} className="text-blue-500" />, tone: 'bg-blue-500/10' },
                 { label: 'Categories', value: itemCategories.length - 1, icon: <Layers size={20} className="text-amber-500" />, tone: 'bg-amber-500/10' },
@@ -2914,7 +2935,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
         {/* STAFF MANAGEMENT TAB                */}
         {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'STAFF' && (
-          <StaffManagementView restaurant={restaurant} currencySymbol={currencySymbol} />
+          <StaffManagementView restaurant={restaurant} currencySymbol={currencySymbol} initialSubTab={staffSubTab as any} onSubTabChange={setStaffSubTab} />
         )}
         {activeTab === 'INVENTORY' && (
           <InventoryManagement

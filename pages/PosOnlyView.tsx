@@ -859,8 +859,9 @@ const PosOnlyView: React.FC<Props> = ({
         .eq('restaurant_id', restaurant.id)
         .in('role', ['CASHIER', 'KITCHEN', 'ORDER_TAKER', 'MANAGER']);
       if (!error && data) {
-        setStaffList(data);
-        localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(data));
+        const accessUsers = data.filter((user: any) => user.access_permissions?.staffProfileOnly !== true);
+        setStaffList(accessUsers);
+        localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(accessUsers));
       }
     };
     fetchStaff();
@@ -3053,7 +3054,7 @@ const PosOnlyView: React.FC<Props> = ({
     const resolvedByUsername = cashierName || currentStaff?.username || (approverRole === 'VENDOR' ? 'Vendor' : 'Manager');
 
     if (approverRole === 'MANAGER' && !hasManagerStaff) {
-      setManagerApprovalError('No manager account is configured for this outlet. Choose Vendor approval in Staff & Access or add a manager account.');
+      setManagerApprovalError('No manager account is configured for this outlet. Choose Owner approval in Back Office → User Access, or add a manager account.');
       return;
     }
 
@@ -6468,7 +6469,7 @@ const PosOnlyView: React.FC<Props> = ({
               <div>
                 <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Restricted Access</p>
                 <p className="mt-1 text-sm text-amber-800/90 dark:text-amber-100/85">
-                  Only the owner or a manager can access Staff &amp; Access settings. If you need to update staff accounts or permissions, please contact them for assistance.
+                  Only the owner or a manager can update staff accounts and permissions in Back Office → User Access.
                 </p>
               </div>
             </div>
@@ -9336,13 +9337,6 @@ const PosOnlyView: React.FC<Props> = ({
                       icon: CreditCard,
                       badge: 'Finance'
                     },
-                    {
-                      key: 'staff',
-                      label: 'Staff & Access',
-                      info: 'Manage staff accounts and permissions.',
-                      icon: Users,
-                      badge: 'Access'
-                    },
                   ];
 
             const addonPanelMeta: Record<string, { label: string; info: string; icon: React.ElementType; badge: string; addonId: string; isInstalled: boolean }> = {
@@ -9392,8 +9386,6 @@ const PosOnlyView: React.FC<Props> = ({
                   return `${orderListConfig.showItemPrice ? 'Item prices shown' : 'Item prices hidden'} · ${orderListConfig.showPaymentMethod ? 'Payment method shown' : 'Payment method hidden'}`;
                 case 'payment':
                   return `${paymentTypes.length} payment type${paymentTypes.length !== 1 ? 's' : ''} · ${taxEntries.length} tax rule${taxEntries.length !== 1 ? 's' : ''}`;
-                case 'staff':
-                  return `${staffList.length} staff account${staffList.length !== 1 ? 's' : ''} managed in this outlet`;
                 case 'addon-table':
                   return (featureSettings.tableManagementEnabled || featureSettings.savedBillEnabled) ? 'Installed · Table management enabled' : 'Not installed';
                 case 'addon-qr':
@@ -9653,10 +9645,6 @@ const PosOnlyView: React.FC<Props> = ({
 
                           {activeSettingsPanel === 'payment' && (
                             <div className="min-w-0">{renderPaymentAndTaxesContent()}</div>
-                          )}
-
-                          {activeSettingsPanel === 'staff' && (
-                            <div className="min-w-0">{renderStaffContent()}</div>
                           )}
 
                           {activeSettingsPanel === 'addon-table' && (

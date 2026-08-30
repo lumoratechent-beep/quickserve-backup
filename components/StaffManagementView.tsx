@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Building2, CalendarDays, CalendarPlus, Copy, CreditCard, Download, Edit3, Eye, FileText, MoreVertical, Plus, Receipt, RotateCcw, Search, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { Building2, CalendarDays, CalendarPlus, Copy, CreditCard, Download, Edit3, Eye, FileText, KeyRound, MoreVertical, Plus, Receipt, Search, Settings2, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { Restaurant } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from './Toast';
@@ -75,7 +75,18 @@ interface StaffMember {
   phone?: string | null;
   is_active?: boolean | null;
   kitchen_categories?: string[] | null;
+  access_permissions?: Record<string, any> | null;
   profile?: StaffProfile;
+}
+
+interface UserAccessForm {
+  username: string;
+  password: string;
+  email: string;
+  phone: string;
+  role: StaffRole;
+  isActive: boolean;
+  accessPermissions: Record<string, any>;
 }
 
 interface PayrollPayslip {
@@ -249,7 +260,11 @@ interface OvertimeEntry {
 interface Props {
   restaurant: Restaurant;
   currencySymbol: string;
+  initialSubTab?: StaffSubTab;
+  onSubTabChange?: (subTab: StaffSubTab) => void;
 }
+
+type StaffSubTab = 'directory' | 'access' | 'leave' | 'payroll' | 'claims' | 'departments';
 
 type FloatingActionMenuType = 'staff' | 'payslip' | 'claim' | 'leave';
 
@@ -275,6 +290,16 @@ const leaveTypes: LeaveType[] = ['MC', 'Hospitalization', 'Paternity', 'Annual',
 const leaveStatusOptions: LeaveStatus[] = ['scheduled', 'approved', 'completed', 'cancelled'];
 const balanceDeductingLeaveStatuses: LeaveStatus[] = ['approved', 'completed'];
 const ADD_DEPARTMENT_VALUE = '__add_department__';
+const ADD_NEW_STAFF_VALUE = '__add_new_staff__';
+const blankUserAccessForm = (): UserAccessForm => ({
+  username: '',
+  password: '',
+  email: '',
+  phone: '',
+  role: 'CASHIER',
+  isActive: true,
+  accessPermissions: {},
+});
 const periodMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const currentYear = new Date().getFullYear();
 const periodYears = Array.from({ length: 9 }, (_, index) => currentYear - 4 + index);
@@ -455,14 +480,23 @@ const blankClaimForm = (): ClaimForm => ({
   items: [blankClaimLine()],
 });
 
-const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) => {
+const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, initialSubTab = 'directory', onSubTabChange }) => {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [departments, setDepartments] = useState<StaffDepartment[]>([]);
   const [payslips, setPayslips] = useState<PayrollPayslip[]>([]);
   const [staffClaims, setStaffClaims] = useState<StaffClaim[]>([]);
   const [staffLeaves, setStaffLeaves] = useState<StaffLeave[]>([]);
-  const [subTab, setSubTab] = useState<'directory' | 'leave' | 'payroll' | 'claims' | 'departments'>('directory');
+  const [subTab, setSubTab] = useState<StaffSubTab>(initialSubTab);
   const [search, setSearch] = useState('');
+  const [accessSearch, setAccessSearch] = useState('');
+  const [accessTypeFilter, setAccessTypeFilter] = useState<'all' | StaffRole>('all');
+  const [accessPageTab, setAccessPageTab] = useState<'users' | 'settings'>('users');
+  const [updatingAccessPermission, setUpdatingAccessPermission] = useState<string | null>(null);
+  const [isAccessFormOpen, setIsAccessFormOpen] = useState(false);
+  const [isAccessSettingsMode, setIsAccessSettingsMode] = useState(false);
+  const [selectedAccessUserId, setSelectedAccessUserId] = useState('');
+  const [accessForm, setAccessForm] = useState<UserAccessForm>(() => blankUserAccessForm());
+  const [isSavingAccess, setIsSavingAccess] = useState(false);
   const [staffModalOpen, setStaffModalOpen] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [staffForm, setStaffForm] = useState<StaffForm>(() => blankStaffForm());
@@ -503,6 +537,14 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const [floatingActionMenu, setFloatingActionMenu] = useState<FloatingActionMenu | null>(null);
   const [staffDetailId, setStaffDetailId] = useState<string | null>(null);
   const [staffDetailPage, setStaffDetailPage] = useState(0);
+
+  useEffect(() => {
+    setSubTab(initialSubTab);
+  }, [initialSubTab]);
+
+  useEffect(() => {
+    onSubTabChange?.(subTab);
+  }, [onSubTabChange, subTab]);
   const [staffDetailDrag, setStaffDetailDrag] = useState<{ startX: number; deltaX: number } | null>(null);
 
   const fmt = (value: number) => `${currencySymbol}${n(value).toFixed(2)}`;
@@ -519,7 +561,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     return 'bg-rose-100 text-rose-700 focus:ring-rose-300 dark:bg-rose-500/20 dark:text-rose-300';
   };
   const isFloatingMenuOpen = (type: FloatingActionMenuType, id: string) => floatingActionMenu?.type === type && floatingActionMenu.id === id;
-  const openStaffDetail = (item: StaffMember) => {
+  const openStaffDetail = async (item: StaffMember) => {
+    await refresh(false);
     setStaffDetailId(item.id);
     setStaffDetailPage(0);
   };
@@ -544,6 +587,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       phone: item.phone,
       isActive: item.is_active ?? true,
       kitchenCategories: item.kitchen_categories,
+      access_permissions: item.access_permissions || {},
       profile: item.profile,
     }))));
     syncBackofficeToDb(restaurant.id);
@@ -552,7 +596,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const refresh = useCallback(async (showToast = false) => {
     const { data: usersData, error: usersError } = await supabase
       .from('users')
-      .select('id, username, role, email, phone, is_active, kitchen_categories')
+      .select('id, username, role, email, phone, is_active, kitchen_categories, access_permissions')
       .eq('restaurant_id', restaurant.id)
       .in('role', ['CASHIER', 'KITCHEN', 'ORDER_TAKER', 'MANAGER', 'HR']);
 
@@ -650,6 +694,56 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         .some(value => (value || '').toLowerCase().includes(q));
     });
   }, [departments, search, staff]);
+
+  const visibleAccessUsers = useMemo(() => {
+    const q = accessSearch.trim().toLowerCase();
+    return staff.filter(item => {
+      if (item.access_permissions?.staffProfileOnly === true) return false;
+      if (accessTypeFilter !== 'all' && item.role !== accessTypeFilter) return false;
+      if (!q) return true;
+      return [item.profile?.full_name, item.username, item.role, item.email, item.phone]
+        .some(value => (value || '').toLowerCase().includes(q));
+    });
+  }, [accessSearch, accessTypeFilter, staff]);
+
+  const cashierAccessUsers = useMemo(() => staff.filter(item => item.role === 'CASHIER' && item.access_permissions?.staffProfileOnly !== true), [staff]);
+  const isAccessPermissionEnabled = (item: StaffMember, key: 'viewOwnSalesOnly' | 'requireManagerApprovalForRefund') => (
+    key === 'viewOwnSalesOnly' ? item.access_permissions?.[key] !== false : item.access_permissions?.[key] === true
+  );
+
+  const updateUserPermission = async (item: StaffMember, patch: Record<string, any>) => {
+    const nextPermissions = { ...(item.access_permissions || {}), ...patch };
+    setUpdatingAccessPermission(item.id);
+    try {
+      const { error } = await supabase.from('users').update({ access_permissions: nextPermissions }).eq('id', item.id);
+      if (error) throw error;
+      setStaff(current => current.map(user => user.id === item.id ? { ...user, access_permissions: nextPermissions } : user));
+    } catch (err: any) {
+      toast(err.message || 'Failed to update access permission', 'error');
+    } finally {
+      setUpdatingAccessPermission(null);
+    }
+  };
+
+  const updateAllCashierPermissions = async (key: 'viewOwnSalesOnly' | 'requireManagerApprovalForRefund', enabled: boolean) => {
+    setUpdatingAccessPermission(`all_${key}`);
+    try {
+      const updates = cashierAccessUsers.map(item => ({
+        item,
+        permissions: { ...(item.access_permissions || {}), [key]: enabled },
+      }));
+      const results = await Promise.all(updates.map(update => supabase.from('users').update({ access_permissions: update.permissions }).eq('id', update.item.id)));
+      const failed = results.find(result => result.error);
+      if (failed?.error) throw failed.error;
+      const byId = new Map(updates.map(update => [update.item.id, update.permissions]));
+      setStaff(current => current.map(user => byId.has(user.id) ? { ...user, access_permissions: byId.get(user.id) } : user));
+      toast(`Permission ${enabled ? 'enabled' : 'disabled'} for all cashiers`, 'success');
+    } catch (err: any) {
+      toast(err.message || 'Failed to update cashier permissions', 'error');
+    } finally {
+      setUpdatingAccessPermission(null);
+    }
+  };
 
   const visibleDepartments = useMemo(() => {
     const q = departmentSearch.trim().toLowerCase();
@@ -826,36 +920,123 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     setStaffModalOpen(true);
   };
 
-  const saveStaff = async () => {
-    const username = staffForm.username.trim();
-    if (!username || (!editingStaffId && !staffForm.password.trim())) {
-      toast(editingStaffId ? 'Username is required' : 'Username and password are required', 'warning');
+  const openAccessForm = () => {
+    setIsAccessSettingsMode(false);
+    setSelectedAccessUserId('');
+    setAccessForm(blankUserAccessForm());
+    setIsAccessFormOpen(true);
+  };
+
+  const openAccessSettings = (item: StaffMember) => {
+    setIsAccessSettingsMode(true);
+    setSelectedAccessUserId(item.id);
+    setAccessForm({
+      username: item.username || '',
+      password: '',
+      email: item.email || '',
+      phone: item.phone || '',
+      role: item.role,
+      isActive: item.is_active !== false,
+      accessPermissions: item.access_permissions || {},
+    });
+    setIsAccessFormOpen(true);
+  };
+
+  const selectAccessUser = (value: string) => {
+    if (value === ADD_NEW_STAFF_VALUE) {
+      setIsAccessFormOpen(false);
+      setSubTab('directory');
+      openStaffModal();
       return;
     }
 
-    setIsSavingStaff(true);
+    setSelectedAccessUserId(value);
+    const item = staff.find(staffItem => staffItem.id === value);
+    const isProfileOnly = item?.access_permissions?.staffProfileOnly === true;
+    setAccessForm(item ? {
+      username: isProfileOnly ? '' : (item.username || ''),
+      password: '',
+      email: item.email || '',
+      phone: item.phone || '',
+      role: item.role,
+      isActive: isProfileOnly ? true : item.is_active !== false,
+      accessPermissions: { ...(item.access_permissions || {}), staffProfileOnly: false },
+    } : blankUserAccessForm());
+  };
+
+  const saveUserAccess = async () => {
+    const username = accessForm.username.trim();
+    const password = accessForm.password.trim();
+    if (!selectedAccessUserId) {
+      toast('Select a staff member', 'warning');
+      return;
+    }
+    if (!username || (!isAccessSettingsMode && !password)) {
+      toast(isAccessSettingsMode ? 'Username is required' : 'Username and password are required', 'warning');
+      return;
+    }
+
+    setIsSavingAccess(true);
     try {
-      const { data: existing } = await supabase.from('users').select('id').eq('username', username).maybeSingle();
-      if (existing && existing.id !== editingStaffId) {
+      const { data: existing, error: lookupError } = await supabase.from('users').select('id').eq('username', username).maybeSingle();
+      if (lookupError) throw lookupError;
+      if (existing && existing.id !== selectedAccessUserId) {
         toast('Username already taken', 'error');
         return;
       }
 
       const userPayload: Record<string, any> = {
         username,
-        role: staffForm.role,
+        role: accessForm.role,
+        email: accessForm.email.trim() || null,
+        phone: accessForm.phone.trim() || null,
+        is_active: accessForm.isActive,
+        access_permissions: accessForm.accessPermissions,
+      };
+      if (password) userPayload.password = password;
+
+      const { error } = await supabase.from('users').update(userPayload).eq('id', selectedAccessUserId);
+      if (error) throw error;
+
+      await refresh(false);
+      setIsAccessFormOpen(false);
+      setSelectedAccessUserId('');
+      toast('User access saved', 'success');
+    } catch (err: any) {
+      toast(err.message || 'Failed to save user access', 'error');
+    } finally {
+      setIsSavingAccess(false);
+    }
+  };
+
+  const saveStaff = async () => {
+    const fullName = staffForm.fullName.trim();
+    if (!fullName) {
+      toast('Full name is required', 'warning');
+      return;
+    }
+
+    setIsSavingStaff(true);
+    try {
+      const userPayload: Record<string, any> = {
         restaurant_id: restaurant.id,
         email: staffForm.email.trim() || null,
         phone: staffForm.phone.trim() || null,
         is_active: staffForm.employmentStatus !== 'Inactive',
       };
-      if (staffForm.password.trim()) userPayload.password = staffForm.password.trim();
 
       let userId = editingStaffId;
       if (editingStaffId) {
+        const existingStaff = staff.find(item => item.id === editingStaffId);
+        if (existingStaff?.access_permissions?.staffProfileOnly === true) userPayload.is_active = false;
         const { error } = await supabase.from('users').update(userPayload).eq('id', editingStaffId);
         if (error) throw error;
       } else {
+        userPayload.username = `staff_${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`;
+        userPayload.password = crypto.randomUUID();
+        userPayload.role = 'CASHIER';
+        userPayload.is_active = false;
+        userPayload.access_permissions = { staffProfileOnly: true };
         const { data, error } = await supabase.from('users').insert(userPayload).select('id').single();
         if (error) throw error;
         userId = data.id;
@@ -866,7 +1047,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         user_id: userId,
         department_id: staffForm.departmentId || null,
         employee_code: staffForm.employeeCode.trim() || null,
-        full_name: staffForm.fullName.trim() || username,
+        full_name: fullName,
         ic_number: staffForm.icNumber.trim() || null,
         nationality: staffForm.nationality.trim() || null,
         address: staffForm.address.trim() || null,
@@ -1818,19 +1999,11 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
 
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-600 dark:text-amber-400">Back Office HR</p>
-            <h2 className="mt-1 text-2xl font-black text-gray-950 dark:text-white">Staff Management & Payroll</h2>
-            <p className="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">Manage staff login accounts, departments, employee details, salary profiles, statutory deductions and payslips.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button onClick={() => refresh(true)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-600 transition hover:border-amber-300 hover:text-amber-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-              <RotateCcw size={14} /> Refresh
-            </button>
-          </div>
-        </div>
+      {subTab !== 'access' && (
+      <>
+      <div>
+        <h2 className="text-2xl font-black text-gray-950 dark:text-white">Staff Management & Payroll</h2>
+        <p className="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">Manage departments, employee details, salary profiles, statutory deductions and payslips.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(320px,1.15fr)_minmax(420px,1fr)]">
@@ -1885,8 +2058,11 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
           ))}
         </div>
       </div>
+      </>
+      )}
 
       <div className="min-w-0">
+        {subTab !== 'access' && (
         <div className="relative flex gap-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {([
             ['directory', 'Staff Directory', <Users size={14} />],
@@ -1909,13 +2085,14 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
             </button>
           ))}
         </div>
+        )}
 
         {subTab === 'directory' && (
         <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
             <div>
               <h3 className="text-sm font-black text-gray-900 dark:text-white">Employee Records</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Login credentials are linked to employee profiles, departments and salary setup.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Manage employee profiles, departments, employment status and salary setup.</p>
             </div>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
               <div className="relative sm:w-72">
@@ -1929,13 +2106,11 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
           </div>
           {visibleStaff.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px] text-left">
+              <table className="w-full min-w-[680px] text-left">
                 <thead className="bg-gray-50 dark:bg-gray-900/50">
                   <tr>
                     <th className="w-[34%] min-w-[260px] px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Staff</th>
                     <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Department</th>
-                    <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Login Role</th>
-                    <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Contact</th>
                     <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Status</th>
                     <th className="w-12 px-2 py-2 text-center text-[10px] font-black uppercase tracking-widest text-gray-400">Actions</th>
                   </tr>
@@ -1951,13 +2126,11 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                             <button type="button" onClick={() => openStaffDetail(item)} className="text-left text-sm font-black text-gray-900 transition hover:text-amber-600 hover:underline dark:text-white dark:hover:text-amber-300">
                               {item.profile?.full_name || item.username}
                             </button>
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{item.profile?.employee_code || item.username}</p>
+                            {item.profile?.employee_code && <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{item.profile.employee_code}</p>}
                             {item.profile?.nationality && <p className="mt-1 text-[10px] font-semibold text-gray-400">Citizen: {item.profile.nationality}</p>}
                           </div>
                         </td>
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p className="font-bold text-gray-700 dark:text-gray-200">{department?.name || 'Unassigned'}</p><p>{item.profile?.job_title || 'No job title'}</p></td>
-                        <td className="px-5 py-4"><span className="rounded-lg bg-gray-100 px-2 py-1 text-[10px] font-black text-gray-600 dark:bg-gray-700 dark:text-gray-300">{item.role}</span></td>
-                        <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p>{item.email || '-'}</p><p>{item.phone || '-'}</p></td>
                         <td className="px-5 py-4">
                           <select
                             value={currentStatus}
@@ -1995,6 +2168,59 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
             <div className="flex h-56 flex-col items-center justify-center text-gray-400 dark:text-gray-600"><Users size={40} className="mb-3 opacity-30" /><p className="text-sm font-bold">No staff records found</p><button onClick={() => openStaffModal()} className="mt-4 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">Add First Staff</button></div>
           )}
         </div>
+        )}
+
+        {subTab === 'access' && (
+          <div>
+            <div className="mb-5">
+              <h2 className="text-2xl font-black text-gray-950 dark:text-white">User Access</h2>
+              <p className="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">Manage staff login accounts and control cashier permissions for sales reports and refund approvals.</p>
+            </div>
+            <div className="relative flex gap-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {([
+                ['users', 'Users', <Users size={14} />],
+                ['settings', 'Access Settings', <Settings2 size={14} />],
+              ] as const).map(([key, label, icon]) => (
+                <button key={key} type="button" onClick={() => setAccessPageTab(key)} className={`relative -mb-px inline-flex items-center gap-2 whitespace-nowrap rounded-t-lg border px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors ${accessPageTab === key ? 'z-10 border-x border-t border-gray-200 bg-white text-orange-500 dark:border-gray-600 dark:border-t-orange-500 dark:bg-gray-800' : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'}`}>{icon} {label}</button>
+              ))}
+            </div>
+
+            {accessPageTab === 'users' && (
+              <div className="overflow-hidden rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
+                  <div className="relative w-full md:w-72"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={accessSearch} onChange={event => setAccessSearch(event.target.value)} placeholder="Search users..." className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" /></div>
+                  <div className="flex w-full gap-2 sm:w-auto">
+                    <select value={accessTypeFilter} onChange={event => setAccessTypeFilter(event.target.value as 'all' | StaffRole)} className="h-10 rounded-xl border border-gray-200 bg-gray-50 px-3 text-xs font-black uppercase tracking-wider text-gray-600 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                      <option value="all">ALL ACCESS</option>
+                      <option value="CASHIER">Cashier</option>
+                      <option value="KITCHEN">Kitchen</option>
+                      <option value="ORDER_TAKER">Order Taker</option>
+                      <option value="MANAGER">Manager</option>
+                      <option value="HR">Human Resources</option>
+                    </select>
+                    <button onClick={openAccessForm} className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-xl bg-amber-600 px-4 text-xs font-black uppercase tracking-wider text-white hover:bg-amber-700"><UserPlus size={14} /> New Access</button>
+                  </div>
+                </div>
+                {visibleAccessUsers.length > 0 ? (
+                  <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left"><thead className="bg-gray-50 dark:bg-gray-900/50"><tr><th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Full Name</th><th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Username</th><th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Access Type</th><th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Contact</th></tr></thead><tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">{visibleAccessUsers.map(item => <tr key={item.id} onClick={() => openAccessSettings(item)} className="cursor-pointer transition hover:bg-amber-50/40 dark:hover:bg-amber-900/10" title="Open user settings"><td className="px-5 py-4 text-sm font-black text-gray-900 dark:text-white">{item.profile?.full_name || item.username}</td><td className="px-5 py-4 text-xs font-bold text-gray-600 dark:text-gray-300">{item.username}</td><td className="px-5 py-4"><span className="rounded-lg bg-violet-50 px-2.5 py-1 text-[10px] font-black text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">{item.role.replace('_', ' ')}</span></td><td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p>{item.email || '-'}</p><p>{item.phone || '-'}</p></td></tr>)}</tbody></table></div>
+                ) : <div className="flex h-52 flex-col items-center justify-center text-gray-400"><KeyRound size={36} className="mb-3 opacity-30" /><p className="text-sm font-bold">No users found</p></div>}
+              </div>
+            )}
+
+            {accessPageTab === 'settings' && (
+              <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="mb-5"><h3 className="text-sm font-black text-gray-900 dark:text-white">Cashier Access</h3><p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Apply rules to every cashier or configure each user individually.</p></div>
+                {cashierAccessUsers.length > 0 ? <div className="space-y-4">{([
+                  { key: 'viewOwnSalesOnly', label: 'View own sales report', description: 'Allow cashiers to see reporting for their own sales.' },
+                  { key: 'requireManagerApprovalForRefund', label: 'Require approval for refunds', description: 'Refunds must be approved by a manager or the owner.' },
+                ] as const).map(setting => {
+                  const enabledCount = cashierAccessUsers.filter(item => isAccessPermissionEnabled(item, setting.key)).length;
+                  const allEnabled = enabledCount === cashierAccessUsers.length;
+                  return <div key={setting.key} className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700"><div className="flex items-center justify-between gap-4 bg-gray-50 px-4 py-4 dark:bg-gray-900/50"><div><div className="flex items-center gap-2"><p className="text-sm font-black text-gray-900 dark:text-white">{setting.label}</p><span className="rounded-full bg-gray-200 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-gray-500 dark:bg-gray-700 dark:text-gray-300">{enabledCount}/{cashierAccessUsers.length} enabled</span></div><p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{setting.description}</p></div><button type="button" disabled={updatingAccessPermission === `all_${setting.key}`} onClick={() => void updateAllCashierPermissions(setting.key, !allEnabled)} className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-50 ${allEnabled ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${allEnabled ? 'left-6' : 'left-1'}`} /></button></div><div className="divide-y divide-gray-100 dark:divide-gray-700/60">{cashierAccessUsers.map(item => { const enabled = isAccessPermissionEnabled(item, setting.key); return <div key={item.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-bold text-gray-800 dark:text-gray-100">{item.profile?.full_name || item.username}</p><p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{item.username}</p></div><div className="flex items-center gap-3">{setting.key === 'requireManagerApprovalForRefund' && enabled && <select value={item.access_permissions?.refundApprovalRole === 'VENDOR' ? 'VENDOR' : 'MANAGER'} onChange={event => void updateUserPermission(item, { refundApprovalRole: event.target.value })} className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-xs font-bold text-gray-600 outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"><option value="MANAGER">Manager</option><option value="VENDOR">Owner</option></select>}<button type="button" disabled={updatingAccessPermission === item.id} onClick={() => void updateUserPermission(item, { [setting.key]: !enabled })} className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-50 ${enabled ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${enabled ? 'left-6' : 'left-1'}`} /></button></div></div>; })}</div></div>;
+                })}</div> : <div className="rounded-2xl border border-dashed border-gray-200 py-12 text-center dark:border-gray-700"><Users size={28} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" /><p className="text-sm font-bold text-gray-500">No cashier accounts available</p></div>}
+              </div>
+            )}
+          </div>
         )}
 
         {subTab === 'leave' && (
@@ -2625,9 +2851,10 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
 
       {selectedDetailStaff && renderModalPortal((() => {
         const item = selectedDetailStaff;
+        const hasAssignedAccess = item.access_permissions?.staffProfileOnly !== true;
         const department = departments.find(dept => dept.id === item.profile?.department_id);
         const currentStatus = (item.profile?.employment_status || (item.is_active === false ? 'Inactive' : 'Active')) as StaffEmploymentStatus;
-        const displayName = item.profile?.full_name || item.username;
+        const displayName = item.profile?.full_name || (hasAssignedAccess ? item.username : 'Staff');
         const leaveBalanceCards = (['Annual', 'MC', 'Paternity', 'Hospitalization'] as LeaveType[]).map(type => ({ type, ...getLeaveBalanceForStaff(item, type) }));
         const otherTaken = getLeaveTakenForStaff(item.id, 'Other');
         const recentLeaves = staffLeaves.filter(leave => leave.staff_user_id === item.id && leave.status !== 'cancelled').slice(0, 4);
@@ -2669,7 +2896,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 lg:grid-rows-4">
                   <SummaryTile label="Date Joined" value={formatDate(item.profile?.hire_date)} />
                   <SummaryTile label="Service" value={`${serviceYearsCompleted(item.profile?.hire_date)} year(s)`} />
-                  <SummaryTile label="Department" value={department?.name || 'Unassigned'} />
+                  <SummaryTile label="Department" value={department?.name || '-'} />
                   <SummaryTile label="Employment" value={currentStatus} positive={currentStatus === 'Active'} />
                 </div>
               </div>
@@ -2678,8 +2905,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
           (
             <div key="profile" className="grid h-full min-h-0 flex-1 auto-rows-min grid-cols-1 content-start items-start gap-3 overflow-y-auto overflow-x-hidden pr-1 md:grid-cols-3">
               {[
-                ['Username', item.username],
-                ['Role', item.role],
+                ['Username', hasAssignedAccess ? item.username : '-'],
+                ['Role', hasAssignedAccess ? item.role : '-'],
                 ['Employee Code', item.profile?.employee_code || '-'],
                 ['Email', item.email || '-'],
                 ['Phone', item.phone || '-'],
@@ -2750,7 +2977,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                 <div className="min-w-0">
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-600">Employee Profile</p>
                   <h3 className="mt-1 truncate text-2xl font-black text-gray-900 dark:text-white">{displayName}</h3>
-                  <p className="text-xs font-semibold text-gray-400">{item.profile?.employee_code || item.username} - {department?.name || 'Unassigned'} - {item.role}</p>
+                  <p className="text-xs font-semibold text-gray-400">{item.profile?.employee_code || '-'} - {department?.name || '-'} - {hasAssignedAccess ? item.role : '-'}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <button type="button" onClick={() => { setStaffDetailId(null); openStaffModal(item); }} className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
@@ -2817,17 +3044,60 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         );
       })())}
 
+      {isAccessFormOpen && renderModalPortal(
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setIsAccessFormOpen(false)}>
+          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-800" onClick={event => event.stopPropagation()}>
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-600">Account Details</p>
+                <h3 className="mt-1 text-xl font-black text-gray-900 dark:text-white">{isAccessSettingsMode ? 'Edit User' : 'New Access'}</h3>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{isAccessSettingsMode ? 'Update the username, password, contact details or access type.' : 'Select a staff member, then enter their login and contact details.'}</p>
+              </div>
+              <button type="button" onClick={() => setIsAccessFormOpen(false)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={18} /></button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {!isAccessSettingsMode && <div className="md:col-span-2">
+                <label className={labelClass}>Staff *</label>
+                <select value={selectedAccessUserId} onChange={event => selectAccessUser(event.target.value)} className={fieldClass}>
+                  <option value="">Select staff</option>
+                  {staff.map(item => <option key={item.id} value={item.id}>{item.profile?.full_name || item.username}</option>)}
+                  <option value={ADD_NEW_STAFF_VALUE}>+ Add New Staff</option>
+                </select>
+                <p className="mt-1.5 text-[11px] text-gray-400">“Add New Staff” redirects to the Staff Directory profile form.</p>
+              </div>}
+              <Field label="Username *" value={accessForm.username} onChange={value => setAccessForm(form => ({ ...form, username: value }))} />
+              <Field label={isAccessSettingsMode ? 'New Password (leave blank to keep)' : 'Password *'} type="password" value={accessForm.password} onChange={value => setAccessForm(form => ({ ...form, password: value }))} />
+              <Field label="Phone" value={accessForm.phone} onChange={value => setAccessForm(form => ({ ...form, phone: value }))} />
+              <Field label="Email" value={accessForm.email} onChange={value => setAccessForm(form => ({ ...form, email: value }))} />
+              <div className="md:col-span-2">
+                <label className={labelClass}>Access Type</label>
+                <select value={accessForm.role} onChange={event => setAccessForm(form => ({ ...form, role: event.target.value as StaffRole }))} className={fieldClass}>
+                  <option value="CASHIER">Cashier</option>
+                  <option value="KITCHEN">Kitchen</option>
+                  <option value="ORDER_TAKER">Order Taker</option>
+                  <option value="MANAGER">Manager</option>
+                  <option value="HR">Human Resources</option>
+                </select>
+              </div>
+
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => setIsAccessFormOpen(false)} className="rounded-xl border border-gray-200 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-gray-500 transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700">Cancel</button>
+              <button type="button" onClick={() => void saveUserAccess()} disabled={isSavingAccess || !selectedAccessUserId} className="rounded-xl bg-amber-600 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50">{isSavingAccess ? 'Saving...' : isAccessSettingsMode ? 'Save Changes' : 'Save User'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {staffModalOpen && renderModalPortal(
         <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setStaffModalOpen(false)}>
           <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-800" onClick={event => event.stopPropagation()}>
-            <div className="mb-5 flex items-start justify-between gap-4"><div><h3 className="text-xl font-black text-gray-900 dark:text-white">{editingStaffId ? 'Edit Staff Profile' : 'Add Staff Profile'}</h3><p className="text-xs text-gray-500 dark:text-gray-400">Account login, department, employment, salary and statutory details.</p></div><button onClick={() => setStaffModalOpen(false)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={18} /></button></div>
+            <div className="mb-5 flex items-start justify-between gap-4"><div><h3 className="text-xl font-black text-gray-900 dark:text-white">{editingStaffId ? 'Edit Staff Profile' : 'Add Staff Profile'}</h3><p className="text-xs text-gray-500 dark:text-gray-400">Department, employment, salary and statutory details.</p></div><button onClick={() => setStaffModalOpen(false)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={18} /></button></div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <SectionDivider title="User Access" />
-              <Field label="Username *" value={staffForm.username} onChange={value => setStaffForm(form => ({ ...form, username: value }))} />
-              <Field label={editingStaffId ? 'Password (leave blank)' : 'Password *'} type="password" value={staffForm.password} onChange={value => setStaffForm(form => ({ ...form, password: value }))} />
-              <div><label className={labelClass}>Role</label><select value={staffForm.role} onChange={event => setStaffForm(form => ({ ...form, role: event.target.value as StaffRole }))} className={fieldClass}><option value="CASHIER">Cashier</option><option value="KITCHEN">Kitchen</option><option value="ORDER_TAKER">Order Taker</option><option value="MANAGER">Manager</option><option value="HR">Human Resources</option></select></div>
               <SectionDivider title="User Details" />
-              <Field label="Full Name" value={staffForm.fullName} onChange={value => setStaffForm(form => ({ ...form, fullName: value }))} />
+              <Field label="Full Name *" value={staffForm.fullName} onChange={value => setStaffForm(form => ({ ...form, fullName: value }))} />
               <Field label="Employee Code" value={staffForm.employeeCode} onChange={value => setStaffForm(form => ({ ...form, employeeCode: value }))} />
               <div>
                 <label className={labelClass}>Department</label>
