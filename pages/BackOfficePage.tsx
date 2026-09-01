@@ -24,6 +24,8 @@ import CashierShiftRecords from '../components/CashierShiftRecords';
 import StaffManagementView from '../components/StaffManagementView';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 import PromotionDiscountManager from '../components/PromotionDiscountManager';
+import SectionInfoButton from '../components/SectionInfoButton';
+import TableActionMenu from '../components/TableActionMenu';
 import StandardReport, { type ReportDownloadOptions } from '../components/StandardReport';
 import { getMenuItemEffectivePrice, isMenuPromotionActive } from '../lib/menuPricing';
 import { deleteIngredientItemFromDb, fetchIngredientItemsFromDb, saveIngredientItemsToDb } from '../lib/ingredientItems';
@@ -195,6 +197,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
   const [itemSearch, setItemSearch] = useState('');
   const [itemCategoryFilter, setItemCategoryFilter] = useState('ALL');
   const [itemShowArchived, setItemShowArchived] = useState(false);
+  const [itemActionMenu, setItemActionMenu] = useState<{ itemId: string; top: number; right: number } | null>(null);
   const [isItemFormOpen, setIsItemFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [formItem, setFormItem] = useState<MenuFormItem>({});
@@ -219,6 +222,20 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
   const [ingredientEntriesPerPage, setIngredientEntriesPerPage] = useState(30);
   const [ingredientCurrentPage, setIngredientCurrentPage] = useState(1);
   const [ingredientSyncWarning, setIngredientSyncWarning] = useState('');
+
+  useEffect(() => {
+    if (!itemActionMenu) return;
+
+    const closeMenu = () => setItemActionMenu(null);
+    document.addEventListener('click', closeMenu);
+    window.addEventListener('resize', closeMenu);
+    window.addEventListener('scroll', closeMenu, true);
+    return () => {
+      document.removeEventListener('click', closeMenu);
+      window.removeEventListener('resize', closeMenu);
+      window.removeEventListener('scroll', closeMenu, true);
+    };
+  }, [itemActionMenu]);
 
   const ingredientPendingSyncKey = () => `ingredients_${restaurant.id}_pending_sync`;
   const ingredientPendingDeleteKey = () => `ingredients_${restaurant.id}_pending_delete`;
@@ -2287,14 +2304,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
             {itemSubTab === 'menu' && (
             <>
             <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex flex-col gap-4 border-b border-gray-200 p-4 dark:border-gray-700 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <div>
-                  <h3 className="text-sm font-black text-gray-900 dark:text-white">Item List</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Search, filter, and manage active items or archived records.</p>
-                </div>
-              </div>
-              <div className="flex w-full flex-nowrap items-center gap-3 overflow-x-auto lg:w-auto lg:justify-end">
+            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex shrink-0 items-center gap-3">
                 <div className="relative shrink-0">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                   <input
@@ -2305,19 +2316,35 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
                     className="w-56 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   />
                 </div>
+                <SectionInfoButton
+                  title="Item List"
+                  description="Search, filter, and manage active items or archived records."
+                />
+              </div>
+              <div className="flex w-full flex-nowrap items-center gap-3 overflow-x-auto lg:w-auto lg:justify-end">
                 <select
                   value={itemCategoryFilter}
                   onChange={e => setItemCategoryFilter(e.target.value)}
-                  className="shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  className="shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-bold uppercase text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                 >
-                  {itemCategories.map(c => <option key={c} value={c}>{c === 'ALL' ? 'All Categories' : c}</option>)}
+                  {itemCategories.map(c => <option key={c} value={c}>{c === 'ALL' ? 'ALL CATEGORIES' : c.toUpperCase()}</option>)}
                 </select>
-                <button
-                  onClick={() => setItemShowArchived(!itemShowArchived)}
-                  className={`inline-flex h-10 w-[110px] shrink-0 items-center justify-center rounded-xl border px-4 text-xs font-bold uppercase tracking-wider transition-colors ${itemShowArchived ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300' : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'}`}
-                >
-                  {itemShowArchived ? 'Archived' : 'Active'}
-                </button>
+                <div className="flex h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 p-1 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                  <button
+                    type="button"
+                    onClick={() => setItemShowArchived(false)}
+                    className={`inline-flex items-center rounded-md px-3 text-[10px] font-black uppercase tracking-widest transition ${!itemShowArchived ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
+                  >
+                    Active
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setItemShowArchived(true)}
+                    className={`inline-flex items-center rounded-md px-3 text-[10px] font-black uppercase tracking-widest transition ${itemShowArchived ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
+                  >
+                    Archived
+                  </button>
+                </div>
                 <button
                   onClick={openAddItem}
                   className="inline-flex h-10 w-24 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600"
@@ -2409,27 +2436,76 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end">
                             <button
-                              onClick={() => openEditItem(item)}
-                              className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all"
-                              title="Edit"
+                              type="button"
+                              onClick={event => {
+                                event.stopPropagation();
+                                if (itemActionMenu?.itemId === item.id) {
+                                  setItemActionMenu(null);
+                                  return;
+                                }
+                                const rect = event.currentTarget.getBoundingClientRect();
+                                const menuHeight = item.isArchived ? 132 : 96;
+                                setItemActionMenu({
+                                  itemId: item.id,
+                                  top: Math.min(rect.bottom + 4, window.innerHeight - menuHeight),
+                                  right: window.innerWidth - rect.right,
+                                });
+                              }}
+                              aria-label={`Actions for ${item.name}`}
+                              aria-expanded={itemActionMenu?.itemId === item.id}
+                              className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white"
+                              title="Actions"
                             >
-                              <Edit3 size={14} />
+                              <MoreVertical size={16} />
                             </button>
-                            {item.isArchived ? (
-                              <>
-                                <button onClick={() => handleRestoreItem(item)} className="p-1.5 text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-all" title="Restore">
-                                  <RotateCcw size={14} />
+
+                            {itemActionMenu?.itemId === item.id && (
+                              <div
+                                role="menu"
+                                onClick={event => event.stopPropagation()}
+                                className="fixed z-[60] w-48 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5 text-left shadow-xl dark:border-gray-700 dark:bg-gray-800"
+                                style={{ top: itemActionMenu.top, right: itemActionMenu.right }}
+                              >
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={() => { setItemActionMenu(null); openEditItem(item); }}
+                                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold text-gray-600 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                >
+                                  <Edit3 size={14} className="text-amber-500" /> Edit
                                 </button>
-                                <button onClick={() => handleDeleteItem(item)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all" title="Delete permanently">
-                                  <Trash2 size={14} />
-                                </button>
-                              </>
-                            ) : (
-                              <button onClick={() => handleArchiveItem(item)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all" title="Archive">
-                                <Archive size={14} />
-                              </button>
+                                {item.isArchived ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      onClick={() => { setItemActionMenu(null); handleRestoreItem(item); }}
+                                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold text-gray-600 transition hover:bg-green-50 hover:text-green-600 dark:text-gray-300 dark:hover:bg-green-900/20 dark:hover:text-green-400"
+                                    >
+                                      <RotateCcw size={14} /> Restore
+                                    </button>
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      onClick={() => { setItemActionMenu(null); handleDeleteItem(item); }}
+                                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-50 dark:hover:bg-red-900/20"
+                                    >
+                                      <Trash2 size={14} /> Delete permanently
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => { setItemActionMenu(null); handleArchiveItem(item); }}
+                                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-50 dark:hover:bg-red-900/20"
+                                  >
+                                    <Archive size={14} /> Archive
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
                         </td>
@@ -2489,67 +2565,67 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
             <>
             {/* Ingredient Form Modal */}
             {isIngredientFormOpen && (
-              <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setIsIngredientFormOpen(false); setEditingIngredient(null); }}>
-                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 w-full max-w-lg max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                  <h3 className="text-sm font-black mb-4">{editingIngredient ? 'Edit Ingredient' : 'Add Ingredient / Supply'}</h3>
-                  <form onSubmit={handleIngredientFormSubmit} className="space-y-4">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-2 backdrop-blur-sm" onClick={() => { setIsIngredientFormOpen(false); setEditingIngredient(null); }}>
+                <div className="max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800" onClick={e => e.stopPropagation()}>
+                  <h3 className="mb-2 text-sm font-black">{editingIngredient ? 'Edit Ingredient' : 'Add Ingredient / Supply'}</h3>
+                  <form onSubmit={handleIngredientFormSubmit} className="space-y-2">
                     <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Name *</label>
-                      <input type="text" value={ingredientForm.name || ''} onChange={e => setIngredientForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Sugar, Ice Block, Ketchup" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" required />
+                      <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wider text-gray-400">Name *</label>
+                      <input type="text" value={ingredientForm.name || ''} onChange={e => setIngredientForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Sugar, Ice Block, Ketchup" className="h-8 w-full rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-amber-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white" required />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Category</label>
-                        <input type="text" value={ingredientForm.category || ''} onChange={e => setIngredientForm(f => ({ ...f, category: e.target.value }))} placeholder="e.g. Ingredients, Packaging" list="ingredient-categories" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                        <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wider text-gray-400">Category</label>
+                        <input type="text" value={ingredientForm.category || ''} onChange={e => setIngredientForm(f => ({ ...f, category: e.target.value }))} placeholder="e.g. Ingredients, Packaging" list="ingredient-categories" className="h-8 w-full rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-amber-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
                         <datalist id="ingredient-categories">
                           {ingredientCategories.filter(c => c !== 'ALL').map(c => <option key={c} value={c} />)}
                         </datalist>
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Purchase Unit</label>
-                        <select value={getIngredientPurchaseUnit(ingredientForm)} onChange={e => setIngredientForm(f => ({ ...f, purchase_unit: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                        <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wider text-gray-400">Purchase Unit</label>
+                        <select value={getIngredientPurchaseUnit(ingredientForm)} onChange={e => setIngredientForm(f => ({ ...f, purchase_unit: e.target.value }))} className="h-8 w-full rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-amber-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                           {PURCHASE_UNIT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                         </select>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Stock Unit</label>
-                        <select value={getIngredientStockUnit(ingredientForm)} onChange={e => setIngredientForm(f => ({ ...f, unit: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                        <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wider text-gray-400">Stock Unit</label>
+                        <select value={getIngredientStockUnit(ingredientForm)} onChange={e => setIngredientForm(f => ({ ...f, unit: e.target.value }))} className="h-8 w-full rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-amber-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                           {STOCK_UNIT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">1 {getIngredientPurchaseUnit(ingredientForm)} Equals</label>
-                        <div className="flex overflow-hidden rounded-xl border border-gray-200 bg-white focus-within:ring-2 focus-within:ring-amber-500 dark:border-gray-700 dark:bg-gray-900">
-                          <input type="number" step="0.001" min="0" value={ingredientForm.purchase_to_stock_quantity || ''} onChange={e => setIngredientForm(f => ({ ...f, purchase_to_stock_quantity: parseFloat(e.target.value) || 0 }))} placeholder="1" className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-gray-900 outline-none dark:text-white" />
+                        <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wider text-gray-400">1 {getIngredientPurchaseUnit(ingredientForm)} Equals</label>
+                        <div className="flex h-8 overflow-hidden rounded-lg border border-gray-200 bg-white focus-within:ring-2 focus-within:ring-amber-500 dark:border-gray-700 dark:bg-gray-900">
+                          <input type="number" step="0.001" min="0" value={ingredientForm.purchase_to_stock_quantity || ''} onChange={e => setIngredientForm(f => ({ ...f, purchase_to_stock_quantity: parseFloat(e.target.value) || 0 }))} placeholder="1" className="min-w-0 flex-1 bg-transparent px-3 text-xs text-gray-900 outline-none dark:text-white" />
                           <span className="flex items-center border-l border-gray-200 px-3 text-xs font-bold text-gray-400 dark:border-gray-700">{getIngredientStockUnit(ingredientForm)}</span>
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Cost per {getIngredientPurchaseUnit(ingredientForm)} ({currencySymbol})</label>
-                        <input type="number" step="0.01" value={ingredientForm.cost || ''} onChange={e => setIngredientForm(f => ({ ...f, cost: parseFloat(e.target.value) || 0 }))} placeholder="0.00" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                        <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wider text-gray-400">Cost per {getIngredientPurchaseUnit(ingredientForm)} ({currencySymbol})</label>
+                        <input type="number" step="0.01" value={ingredientForm.cost || ''} onChange={e => setIngredientForm(f => ({ ...f, cost: parseFloat(e.target.value) || 0 }))} placeholder="0.00" className="h-8 w-full rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-amber-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">SKU</label>
-                        <input type="text" value={ingredientForm.sku || ''} onChange={e => setIngredientForm(f => ({ ...f, sku: e.target.value }))} placeholder="Optional" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Barcode</label>
-                        <input type="text" value={ingredientForm.barcode || ''} onChange={e => setIngredientForm(f => ({ ...f, barcode: e.target.value }))} placeholder="Optional" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Notes</label>
-                        <input type="text" value={ingredientForm.notes || ''} onChange={e => setIngredientForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional notes" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                        <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wider text-gray-400">SKU</label>
+                        <input type="text" value={ingredientForm.sku || ''} onChange={e => setIngredientForm(f => ({ ...f, sku: e.target.value }))} placeholder="Optional" className="h-8 w-full rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-amber-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
                       </div>
                     </div>
-                    <div className="flex gap-3 mt-2">
-                      <button type="button" onClick={() => { setIsIngredientFormOpen(false); setEditingIngredient(null); }} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
-                      <button type="submit" disabled={isSavingIngredient} className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 py-3 text-xs font-bold uppercase tracking-wider text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wider text-gray-400">Barcode</label>
+                        <input type="text" value={ingredientForm.barcode || ''} onChange={e => setIngredientForm(f => ({ ...f, barcode: e.target.value }))} placeholder="Optional" className="h-8 w-full rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-amber-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+                      </div>
+                      <div>
+                        <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wider text-gray-400">Notes</label>
+                        <input type="text" value={ingredientForm.notes || ''} onChange={e => setIngredientForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional notes" className="h-8 w-full rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-amber-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button type="button" onClick={() => { setIsIngredientFormOpen(false); setEditingIngredient(null); }} className="h-8 flex-1 rounded-lg bg-gray-200 text-xs font-bold uppercase tracking-wider text-gray-500 transition-all hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600">Cancel</button>
+                      <button type="submit" disabled={isSavingIngredient} className="inline-flex h-8 flex-1 items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 text-xs font-bold uppercase tracking-wider text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30">
                         {isSavingIngredient && <Loader2 size={14} className="animate-spin" />}
                         {editingIngredient ? 'Update' : 'Add'}
                       </button>
@@ -2561,21 +2637,28 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
 
             <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
-              <div className="min-w-0">
-                <h3 className="text-sm font-black text-gray-900 dark:text-white">Ingredients & Supplies</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Manage non-menu items used for purchasing, stock, and cost tracking.</p>
-              </div>
-              <div className="flex w-full flex-nowrap items-center gap-3 overflow-x-auto md:w-auto md:justify-end">
+              <div className="flex shrink-0 items-center gap-3">
                 <div className="relative shrink-0">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                   <input type="text" placeholder="Search name, SKU, barcode..." value={ingredientSearch} onChange={e => setIngredientSearch(e.target.value)} className="w-56 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
                 </div>
-                <select value={ingredientCategoryFilter} onChange={e => setIngredientCategoryFilter(e.target.value)} className="shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                  {ingredientCategories.map(c => <option key={c} value={c}>{c === 'ALL' ? 'All Categories' : c}</option>)}
+                <SectionInfoButton
+                  title="Ingredients & Supplies"
+                  description="Manage non-menu items used for purchasing, stock, and cost tracking."
+                />
+              </div>
+              <div className="flex w-full flex-nowrap items-center gap-3 overflow-x-auto md:w-auto md:justify-end">
+                <select value={ingredientCategoryFilter} onChange={e => setIngredientCategoryFilter(e.target.value)} className="shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-bold uppercase text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                  {ingredientCategories.map(c => <option key={c} value={c}>{c === 'ALL' ? 'ALL CATEGORIES' : c.toUpperCase()}</option>)}
                 </select>
-                <button onClick={() => setIngredientShowArchived(!ingredientShowArchived)} className={`shrink-0 rounded-xl border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${ingredientShowArchived ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300' : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'}`}>
-                  {ingredientShowArchived ? 'Show Active' : 'Archived'}
-                </button>
+                <div className="flex h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 p-1 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                  <button type="button" onClick={() => setIngredientShowArchived(false)} className={`inline-flex items-center rounded-md px-3 text-[10px] font-black uppercase tracking-widest transition ${!ingredientShowArchived ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+                    Active
+                  </button>
+                  <button type="button" onClick={() => setIngredientShowArchived(true)} className={`inline-flex items-center rounded-md px-3 text-[10px] font-black uppercase tracking-widest transition ${ingredientShowArchived ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+                    Archived
+                  </button>
+                </div>
                 <button onClick={openAddIngredient} className="inline-flex h-10 w-24 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600">
                   <Plus size={14} /> Add
                 </button>
@@ -2635,10 +2718,24 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
                           <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{item.sku || '-'}</td>
                           <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate max-w-[150px]">{item.notes || '-'}</td>
                           <td className="px-5 py-4 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <button onClick={() => openEditIngredient(item)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-400 hover:text-amber-500"><Edit3 size={14} /></button>
-                              <button onClick={() => handleArchiveIngredient(item)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-400 hover:text-amber-500"><Archive size={14} /></button>
-                              {item.is_archived && <button onClick={() => handleDeleteIngredient(item)} className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>}
+                            <div className="flex items-center justify-end">
+                              <TableActionMenu label={`Actions for ${item.name}`} menuHeight={item.is_archived ? 132 : 96}>
+                                {close => (
+                                  <>
+                                    <button type="button" role="menuitem" onClick={() => { close(); openEditIngredient(item); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold text-gray-600 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+                                      <Edit3 size={14} className="text-amber-500" /> Edit
+                                    </button>
+                                    <button type="button" role="menuitem" onClick={() => { close(); handleArchiveIngredient(item); }} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${item.is_archived ? 'text-gray-600 hover:bg-green-50 hover:text-green-600 dark:text-gray-300 dark:hover:bg-green-900/20 dark:hover:text-green-400' : 'text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'}`}>
+                                      {item.is_archived ? <RotateCcw size={14} /> : <Archive size={14} />} {item.is_archived ? 'Restore' : 'Archive'}
+                                    </button>
+                                    {item.is_archived && (
+                                      <button type="button" role="menuitem" onClick={() => { close(); handleDeleteIngredient(item); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-50 dark:hover:bg-red-900/20">
+                                        <Trash2 size={14} /> Delete permanently
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                              </TableActionMenu>
                             </div>
                           </td>
                         </tr>
@@ -2682,11 +2779,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
             <>
             <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
               <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
-              <div className="min-w-0">
-                <h3 className="text-sm font-black text-gray-900 dark:text-white">Stock Management</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Track stock levels, thresholds, and stock tracking status in one place.</p>
-              </div>
-              <div className="flex w-full flex-nowrap items-center gap-3 overflow-x-auto md:w-auto md:justify-end">
+              <div className="flex shrink-0 items-center gap-3">
                 <div className="relative shrink-0">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                   <input
@@ -2697,6 +2790,12 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
                     className="w-48 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   />
                 </div>
+                <SectionInfoButton
+                  title="Stock Management"
+                  description="Track stock levels, thresholds, and stock tracking status in one place."
+                />
+              </div>
+              <div className="flex w-full flex-nowrap items-center gap-3 overflow-x-auto md:w-auto md:justify-end">
                 <div className="flex shrink-0 rounded-xl border border-gray-200 bg-gray-100 p-0.5 dark:border-gray-700 dark:bg-gray-900">
                   {([['all', 'All'], ['low', 'Low Stock'], ['out', 'Out of Stock']] as const).map(([key, label]) => (
                     <button

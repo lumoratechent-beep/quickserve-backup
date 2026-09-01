@@ -10,6 +10,8 @@ import {
   toLocalDateKey,
 } from '../lib/menuPricing';
 import { toast } from './Toast';
+import SectionInfoButton from './SectionInfoButton';
+import TableActionMenu from './TableActionMenu';
 
 interface Props {
   restaurant: Pick<Restaurant, 'id' | 'menu'>;
@@ -258,13 +260,19 @@ const PromotionDiscountManager: React.FC<Props> = ({ restaurant, currencySymbol,
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full shrink-0 sm:w-auto">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={search}
-            onChange={event => setSearch(event.target.value)}
-            placeholder="Search promo..."
-            className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-xs font-bold text-gray-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white sm:w-56"
+        <div className="flex w-full shrink-0 items-center gap-3 sm:w-auto">
+          <div className="relative min-w-0 flex-1 sm:flex-none">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+              placeholder="Search promo..."
+              className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-xs font-bold text-gray-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white sm:w-56"
+            />
+          </div>
+          <SectionInfoButton
+            title="Promotion"
+            description="Create and manage item promotions and discounts."
           />
         </div>
 
@@ -350,26 +358,21 @@ const PromotionDiscountManager: React.FC<Props> = ({ restaurant, currencySymbol,
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        {statusFilter === 'ACTIVE' && (
-                          <button
-                            type="button"
-                            onClick={() => archivePromotion(item)}
-                            disabled={savingItemId === item.id}
-                            className="p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50 dark:hover:bg-red-900/20 rounded-lg"
-                            title="Archive promotion"
-                          >
-                            <Archive size={17} />
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => openPromoModal(item)}
-                          className="p-2 text-gray-400 transition hover:bg-orange-50 hover:text-orange-500 dark:hover:bg-orange-900/20 rounded-lg"
-                          title="Edit promotion"
-                        >
-                          <Edit3 size={17} />
-                        </button>
+                      <div className="flex items-center justify-end">
+                        <TableActionMenu label={`Actions for ${item.name}`} menuHeight={statusFilter === 'ACTIVE' ? 96 : 56}>
+                          {close => (
+                            <>
+                              <button type="button" role="menuitem" onClick={() => { close(); openPromoModal(item); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold text-gray-600 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+                                <Edit3 size={14} className="text-orange-500" /> Edit promotion
+                              </button>
+                              {statusFilter === 'ACTIVE' && (
+                                <button type="button" role="menuitem" onClick={() => { close(); archivePromotion(item); }} disabled={savingItemId === item.id} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-900/20">
+                                  <Archive size={14} /> Archive promotion
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </TableActionMenu>
                       </div>
                     </td>
                   </tr>
