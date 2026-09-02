@@ -20,6 +20,7 @@ const getServiceClient = () => {
 
 const BATCH_SIZE = 1000;
 const MAX_PAGE_SIZE = 200;
+const MAX_DASHBOARD_PAGE_SIZE = 1000;
 const MAX_EXPORT_ROWS = 10000;
 const MAX_REPORT_RANGE_MS = 366 * 24 * 60 * 60 * 1000;
 const PAGE_COLUMNS = 'id,total,status,timestamp,restaurant_id,table_number,location_name,payment_method,cashier_name,order_source,dining_type,updated_at,e_receipt_id';
@@ -149,7 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if ((startTimestamp !== null && !Number.isFinite(startTimestamp)) || (endTimestamp !== null && !Number.isFinite(endTimestamp))) {
       return res.status(400).json({ error: 'Invalid report date range' });
     }
-    if ((mode === 'summary' || mode === 'dashboard' || includeSummary !== 'false' || exportMode === 'true')
+    if ((mode === 'summary' || mode === 'dashboard' || mode === 'dashboard-comparison' || includeSummary !== 'false' || exportMode === 'true')
       && (startTimestamp === null || endTimestamp === null)) {
       return res.status(400).json({ error: 'A start date and end date are required' });
     }
@@ -266,20 +267,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(data);
     }
 
+    if (mode === 'dashboard-comparison') {
+      const baseArgs = {
+        p_start_timestamp: startTimestamp,
+        p_end_timestamp: endTimestamp,
+        p_restaurant_id: normalizedRestaurantId,
+        p_location_name: normalizedLocationName,
+        p_search: normalizedSearch,
+        p_include_breakdowns: false,
+      };
+      const [all, cancelled] = await Promise.all([
+        supabase.rpc('get_order_report_summary', { ...baseArgs, p_status: null }),
+        supabase.rpc('get_order_report_summary', { ...baseArgs, p_status: 'CANCELLED' }),
+      ]);
+      if (all.error) throw all.error;
+      if (cancelled.error) throw cancelled.error;
+      const cancelledCount = Number(cancelled.data?.orderVolume || 0);
+      res.setHeader('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
+      return res.status(200).json({
+        totalSales: Number(all.data?.totalRevenue || 0),
+        totalOrders: Math.max(0, Number(all.data?.orderVolume || 0) - cancelledCount),
+        cancelled: cancelledCount,
+      });
+    }
+
     const requestedPage = Number(page);
     const requestedLimit = Number(limit);
     const isExport = exportMode === 'true';
     const isChanges = mode === 'changes';
+    const isDashboardRead = mode === 'dashboard-orders';
     const isBulkRead = isExport || isChanges;
     if (!Number.isInteger(requestedPage) || requestedPage < 1 || !Number.isInteger(requestedLimit) || requestedLimit < 1) {
       return res.status(400).json({ error: 'Invalid report pagination' });
     }
-    const maximumLimit = isBulkRead ? MAX_EXPORT_ROWS : MAX_PAGE_SIZE;
+    const maximumLimit = isBulkRead
+      ? MAX_EXPORT_ROWS
+      : isDashboardRead ? MAX_DASHBOARD_PAGE_SIZE : MAX_PAGE_SIZE;
     if (requestedLimit > maximumLimit) {
       return res.status(400).json({
         error: isBulkRead
           ? `Bulk report requests are limited to ${MAX_EXPORT_ROWS} rows; narrow the selected date range.`
-          : `Report pages are limited to ${MAX_PAGE_SIZE} rows.`,
+          : `Report pages are limited to ${maximumLimit} rows.`,
       });
     }
 

@@ -2907,8 +2907,8 @@ const App: React.FC = () => {
   }, []);
 
   const onFetchBackOfficeOrders = useCallback(async (filters: ReportFilters, signal?: AbortSignal): Promise<Order[]> => {
-    const pageSize = 200;
-    const maximumPages = 50;
+    const pageSize = 1000;
+    const maximumPages = 10;
     const allOrders: Order[] = [];
 
     // Dashboard browsing is not a report download, so do not use export mode
@@ -2923,6 +2923,7 @@ const App: React.FC = () => {
         includeSummary: 'false',
         includeBreakdowns: 'false',
         includeItems: 'true',
+        mode: 'dashboard-orders',
       });
       const response = await fetch(`/api/orders/report?${params.toString()}`, { signal });
       if (!response.ok) {
@@ -2948,6 +2949,21 @@ const App: React.FC = () => {
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       throw new Error(body.error || 'Failed to load Back Office summary');
+    }
+    return await response.json();
+  }, []);
+
+  const onFetchBackOfficeComparison = useCallback(async (filters: ReportFilters, signal?: AbortSignal) => {
+    const params = new URLSearchParams({
+      ...filters as any,
+      timezoneOffsetMinutes: new Date().getTimezoneOffset().toString(),
+      mode: 'dashboard-comparison',
+      includeBreakdowns: 'false',
+    });
+    const response = await fetch(`/api/orders/report?${params.toString()}`, { signal });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || 'Failed to load Back Office comparison');
     }
     return await response.json();
   }, []);
@@ -3741,6 +3757,7 @@ const App: React.FC = () => {
             onFetchAllFilteredOrders={onFetchAllFilteredOrders}
             onFetchBackOfficeOrders={onFetchBackOfficeOrders}
             onFetchBackOfficeSummary={onFetchBackOfficeSummary}
+            onFetchBackOfficeComparison={onFetchBackOfficeComparison}
             onFetchOrderChanges={onFetchBackOfficeOrderChanges}
             userRole={currentRole}
             onBack={currentRole === 'HR' ? undefined : () => setView('APP')}

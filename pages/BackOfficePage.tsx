@@ -43,6 +43,7 @@ interface Props {
   onFetchAllFilteredOrders?: (filters: any) => Promise<Order[]>;
   onFetchBackOfficeOrders?: (filters: any, signal?: AbortSignal) => Promise<Order[]>;
   onFetchBackOfficeSummary?: (filters: any, signal?: AbortSignal) => Promise<{ totalRevenue: number; orderVolume: number }>;
+  onFetchBackOfficeComparison?: (filters: any, signal?: AbortSignal) => Promise<{ totalSales: number; totalOrders: number; cancelled: number }>;
   onFetchOrderChanges?: (filters: any, updatedSince: string, signal?: AbortSignal) => Promise<{ orders: Order[]; syncCursor: string }>;
   onBack?: () => void;
   onAddMenuItem?: (restaurantId: string, item: MenuItem) => Promise<void>;
@@ -89,9 +90,38 @@ interface BackOfficeOrderCacheEntry {
   startTimestamp: number;
   endTimestamp: number;
   syncCursor: string;
+  refreshedAt: number;
 }
 
-const backOfficeOrderCache = new Map<string, BackOfficeOrderCacheEntry>();
+interface BackOfficeSummaryCacheEntry {
+  value: { totalSales: number; totalOrders: number; cancelled: number };
+  cachedAt: number;
+}
+
+// Keep several independent windows per restaurant. A single-entry cache made
+// Last Month evict This Month, so navigating back downloaded the same data again.
+const backOfficeOrderCache = new Map<string, BackOfficeOrderCacheEntry[]>();
+const backOfficeSummaryCache = new Map<string, BackOfficeSummaryCacheEntry>();
+const DASHBOARD_CACHE_FRESH_MS = 60_000;
+const SUMMARY_CACHE_FRESH_MS = 5 * 60_000;
+const MAX_CACHED_RANGES_PER_RESTAURANT = 6;
+
+const getBackOfficeCacheEntries = (restaurantId: string) => backOfficeOrderCache.get(restaurantId) || [];
+
+const findBackOfficeCacheEntry = (restaurantId: string, startTimestamp: number, endTimestamp: number) => (
+  getBackOfficeCacheEntries(restaurantId)
+    .filter(entry => entry.startTimestamp <= startTimestamp && entry.endTimestamp >= endTimestamp)
+    .sort((left, right) => (left.endTimestamp - left.startTimestamp) - (right.endTimestamp - right.startTimestamp))[0]
+);
+
+const saveBackOfficeCacheEntry = (restaurantId: string, next: BackOfficeOrderCacheEntry) => {
+  const entries = getBackOfficeCacheEntries(restaurantId)
+    .filter(entry => entry.startTimestamp !== next.startTimestamp || entry.endTimestamp !== next.endTimestamp);
+  backOfficeOrderCache.set(
+    restaurantId,
+    [next, ...entries].sort((left, right) => right.refreshedAt - left.refreshedAt).slice(0, MAX_CACHED_RANGES_PER_RESTAURANT),
+  );
+};
 
 const mergeBackOfficeOrders = (current: Order[], changes: Order[]) => {
   const merged = new Map(current.map((order) => [order.id, order]));
@@ -186,8 +216,8 @@ const UNIT_LABELS: Record<string, string> = {
 const getUnitLabel = (unit?: string) => UNIT_LABELS[(unit || 'pcs').toLowerCase()] || unit || 'pcs';
 const formatStockNumber = (value: number) => Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 3 });
 
-const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, isActive = true, onFetchAllFilteredOrders, onFetchBackOfficeOrders, onFetchBackOfficeSummary, onFetchOrderChanges, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, networkMeta, batteryMeta, batteryCharging = false, unreadMailCount = 0, onOpenMail, onDownloadSalesReport, userRole = 'VENDOR' }) => {
-  const [isInitialLoading, setIsInitialLoading] = useState(() => !backOfficeOrderCache.has(restaurant.id));
+const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, isActive = true, onFetchAllFilteredOrders, onFetchBackOfficeOrders, onFetchBackOfficeSummary, onFetchBackOfficeComparison, onFetchOrderChanges, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, networkMeta, batteryMeta, batteryCharging = false, unreadMailCount = 0, onOpenMail, onDownloadSalesReport, userRole = 'VENDOR' }) => {
+  const [isInitialLoading, setIsInitialLoading] = useState(() => getBackOfficeCacheEntries(restaurant.id).length === 0);
   const [activeTab, setActiveTab] = useState<BackOfficeTab>('DASHBOARD');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -379,8 +409,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
   }, [dateRange, customStart, customEnd]);
 
   // â”€â”€â”€ Fetch ALL orders from API for dashboard (avoids 200-order in-memory cap) â”€â”€â”€
-  const [dashboardOrders, setDashboardOrders] = useState<Order[]>(() => backOfficeOrderCache.get(restaurant.id)?.orders || []);
-  const [hasDashboardSnapshot, setHasDashboardSnapshot] = useState(() => backOfficeOrderCache.has(restaurant.id));
+  const [dashboardOrders, setDashboardOrders] = useState<Order[]>(() => getBackOfficeCacheEntries(restaurant.id)[0]?.orders || []);
+  const [hasDashboardSnapshot, setHasDashboardSnapshot] = useState(() => getBackOfficeCacheEntries(restaurant.id).length > 0);
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
   const [previousPeriodSummary, setPreviousPeriodSummary] = useState({ totalSales: 0, totalOrders: 0, cancelled: 0 });
   const [isDownloadingSalesReport, setIsDownloadingSalesReport] = useState(false);
@@ -416,30 +446,61 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
       const pad = (n: number) => n.toString().padStart(2, '0');
       const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-      const cached = backOfficeOrderCache.get(restaurant.id);
-      const cacheCoversRange = cached
-        && cached.startTimestamp <= startDate.getTime()
-        && cached.endTimestamp >= requestedEnd.getTime();
+      const cached = findBackOfficeCacheEntry(restaurant.id, startDate.getTime(), requestedEnd.getTime());
+      const cacheCoversRange = Boolean(cached);
 
       const loadPreviousPeriodSummary = async () => {
-        if (!onFetchBackOfficeSummary) return;
+        if (!onFetchBackOfficeSummary && !onFetchBackOfficeComparison) return;
+        const previousEnd = new Date(startDate.getTime() - 1);
+        const locallyCached = findBackOfficeCacheEntry(restaurant.id, requestedStart.getTime(), previousEnd.getTime());
+        if (locallyCached) {
+          const previousOrders = locallyCached.orders.filter(order => (
+            order.timestamp >= requestedStart.getTime() && order.timestamp <= previousEnd.getTime()
+          ));
+          const cancelledCount = previousOrders.filter(order => order.status === OrderStatus.CANCELLED).length;
+          setPreviousPeriodSummary({
+            totalSales: previousOrders
+              .filter(order => order.status !== OrderStatus.CANCELLED)
+              .reduce((sum, order) => sum + order.total, 0),
+            totalOrders: previousOrders.length - cancelledCount,
+            cancelled: cancelledCount,
+          });
+          return;
+        }
         const previousFilters = {
           restaurantId: restaurant.id,
           startDate: toLocal(requestedStart),
-          endDate: toLocal(new Date(startDate.getTime() - 1)),
+          endDate: toLocal(previousEnd),
         };
+        const summaryCacheKey = `${restaurant.id}:${previousFilters.startDate}:${previousFilters.endDate}`;
+        const cachedSummary = backOfficeSummaryCache.get(summaryCacheKey);
+        if (cachedSummary && Date.now() - cachedSummary.cachedAt < SUMMARY_CACHE_FRESH_MS) {
+          setPreviousPeriodSummary(cachedSummary.value);
+          return;
+        }
         try {
+          if (onFetchBackOfficeComparison) {
+            const value = await onFetchBackOfficeComparison(previousFilters, controller.signal);
+            if (!cancelled) {
+              backOfficeSummaryCache.set(summaryCacheKey, { value, cachedAt: Date.now() });
+              setPreviousPeriodSummary(value);
+            }
+            return;
+          }
+          if (!onFetchBackOfficeSummary) return;
           const [all, cancelledOrders] = await Promise.all([
             onFetchBackOfficeSummary(previousFilters, controller.signal),
             onFetchBackOfficeSummary({ ...previousFilters, status: OrderStatus.CANCELLED }, controller.signal),
           ]);
           if (!cancelled) {
             const cancelledCount = Number(cancelledOrders.orderVolume || 0);
-            setPreviousPeriodSummary({
+            const value = {
               totalSales: Number(all.totalRevenue || 0),
               totalOrders: Math.max(0, Number(all.orderVolume || 0) - cancelledCount),
               cancelled: cancelledCount,
-            });
+            };
+            backOfficeSummaryCache.set(summaryCacheKey, { value, cachedAt: Date.now() });
+            setPreviousPeriodSummary(value);
           }
         } catch (err) {
           // Comparison data is supplementary; never block the selected period
@@ -448,11 +509,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
         }
       };
 
-      if (cacheCoversRange) {
+      if (cacheCoversRange && cached) {
         setDashboardOrders(cached.orders);
         setHasDashboardSnapshot(true);
         setIsInitialLoading(false);
-        if (!onFetchOrderChanges) {
+        // Date-filter clicks inside a fresh month snapshot are entirely local.
+        // Refresh at most once per minute instead of once for every filter click.
+        if (!onFetchOrderChanges || Date.now() - cached.refreshedAt < DASHBOARD_CACHE_FRESH_MS) {
           await loadPreviousPeriodSummary();
           return;
         }
@@ -467,14 +530,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
             loadPreviousPeriodSummary(),
           ]);
           if (cancelled) return;
-          const latestCached = backOfficeOrderCache.get(restaurant.id) || cached;
+          const latestCached = findBackOfficeCacheEntry(restaurant.id, cached.startTimestamp, cached.endTimestamp) || cached;
           if (changes.orders.length === 0) {
-            backOfficeOrderCache.set(restaurant.id, { ...latestCached, syncCursor: changes.syncCursor });
+            saveBackOfficeCacheEntry(restaurant.id, { ...latestCached, syncCursor: changes.syncCursor, refreshedAt: Date.now() });
             return;
           }
           const merged = mergeBackOfficeOrders(latestCached.orders, changes.orders);
-          const nextCache = { ...latestCached, orders: merged, syncCursor: changes.syncCursor };
-          backOfficeOrderCache.set(restaurant.id, nextCache);
+          const nextCache = { ...latestCached, orders: merged, syncCursor: changes.syncCursor, refreshedAt: Date.now() };
+          saveBackOfficeCacheEntry(restaurant.id, nextCache);
           React.startTransition(() => setDashboardOrders(merged));
         } catch (err) {
           if (!cancelled) console.warn('Incremental Back Office refresh failed; using cached data.', err);
@@ -497,11 +560,12 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
           loadPreviousPeriodSummary(),
         ]);
         if (!cancelled) {
-          backOfficeOrderCache.set(restaurant.id, {
+          saveBackOfficeCacheEntry(restaurant.id, {
             orders: allOrders,
             startTimestamp: startDate.getTime(),
             endTimestamp: requestedEnd.getTime(),
             syncCursor: requestCursor,
+            refreshedAt: Date.now(),
           });
           setDashboardOrders(allOrders);
           setHasDashboardSnapshot(true);
@@ -522,38 +586,41 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
       cancelled = true;
       controller.abort();
     };
-  }, [isActive, activeTab, startDate, endDate, restaurant.id, onFetchAllFilteredOrders, onFetchBackOfficeOrders, onFetchBackOfficeSummary, onFetchOrderChanges]);
+  }, [isActive, activeTab, startDate, endDate, restaurant.id, onFetchAllFilteredOrders, onFetchBackOfficeOrders, onFetchBackOfficeSummary, onFetchBackOfficeComparison, onFetchOrderChanges]);
 
   // While Back Office stays open, merge the POS realtime cache into the full
   // snapshot so new orders and status changes appear immediately. A cursor
   // refresh on the next entry catches anything missed while this page was closed.
   useEffect(() => {
     if (!isActive || !hasDashboardSnapshot || orders.length === 0) return;
-    const cached = backOfficeOrderCache.get(restaurant.id);
-    if (!cached) return;
-    const liveChanges = orders.filter((order) => (
-      order.restaurantId === restaurant.id
-      && order.timestamp >= cached.startTimestamp
-      && order.timestamp <= cached.endTimestamp
-    ));
-    if (liveChanges.length === 0) return;
-    const cachedById = new Map(cached.orders.map((order) => [order.id, order]));
-    const actualChanges = liveChanges.filter((order) => {
-      const current = cachedById.get(order.id);
-      if (!current) return true;
-      if (current === order) return false;
-      if (current.updatedAt && order.updatedAt) return current.updatedAt !== order.updatedAt;
-      return current.status !== order.status
-        || current.total !== order.total
-        || current.timestamp !== order.timestamp
-        || current.paymentMethod !== order.paymentMethod
-        || current.items.length !== order.items.length;
+    const entries = getBackOfficeCacheEntries(restaurant.id);
+    let visibleOrders: Order[] | null = null;
+    entries.forEach(cached => {
+      const liveChanges = orders.filter((order) => (
+        order.restaurantId === restaurant.id
+        && order.timestamp >= cached.startTimestamp
+        && order.timestamp <= cached.endTimestamp
+      ));
+      if (liveChanges.length === 0) return;
+      const cachedById = new Map(cached.orders.map((order) => [order.id, order]));
+      const actualChanges = liveChanges.filter((order) => {
+        const current = cachedById.get(order.id);
+        if (!current) return true;
+        if (current === order) return false;
+        if (current.updatedAt && order.updatedAt) return current.updatedAt !== order.updatedAt;
+        return current.status !== order.status
+          || current.total !== order.total
+          || current.timestamp !== order.timestamp
+          || current.paymentMethod !== order.paymentMethod
+          || current.items.length !== order.items.length;
+      });
+      if (actualChanges.length === 0) return;
+      const merged = mergeBackOfficeOrders(cached.orders, actualChanges);
+      saveBackOfficeCacheEntry(restaurant.id, { ...cached, orders: merged });
+      if (cached.startTimestamp <= startDate.getTime() && cached.endTimestamp >= endDate.getTime()) visibleOrders = merged;
     });
-    if (actualChanges.length === 0) return;
-    const merged = mergeBackOfficeOrders(cached.orders, actualChanges);
-    backOfficeOrderCache.set(restaurant.id, { ...cached, orders: merged });
-    React.startTransition(() => setDashboardOrders(merged));
-  }, [isActive, orders, restaurant.id, hasDashboardSnapshot]);
+    if (visibleOrders) React.startTransition(() => setDashboardOrders(visibleOrders!));
+  }, [isActive, orders, restaurant.id, hasDashboardSnapshot, startDate, endDate]);
 
   // Never fall back to the 200-order POS cache after a complete snapshot loads.
   const sourceOrders = hasDashboardSnapshot ? dashboardOrders : orders;

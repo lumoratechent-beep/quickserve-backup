@@ -156,7 +156,7 @@ async function startServer() {
         || (reportEndTimestamp !== null && !Number.isFinite(reportEndTimestamp))) {
         return res.status(400).json({ error: 'Invalid report date range' });
       }
-      if ((mode === 'summary' || mode === 'dashboard' || includeSummary !== 'false' || exportMode === 'true')
+      if ((mode === 'summary' || mode === 'dashboard' || mode === 'dashboard-comparison' || includeSummary !== 'false' || exportMode === 'true')
         && (reportStartTimestamp === null || reportEndTimestamp === null)) {
         return res.status(400).json({ error: 'A start date and end date are required' });
       }
@@ -199,6 +199,30 @@ async function startServer() {
         return res.json(data);
       }
 
+      if (mode === 'dashboard-comparison') {
+        const baseArgs = {
+          p_start_timestamp: reportStartTimestamp,
+          p_end_timestamp: reportEndTimestamp,
+          p_restaurant_id: restaurantId || null,
+          p_location_name: locationName || null,
+          p_search: search || null,
+          p_include_breakdowns: false,
+        };
+        const [all, cancelled] = await Promise.all([
+          supabase.rpc('get_order_report_summary', { ...baseArgs, p_status: null }),
+          supabase.rpc('get_order_report_summary', { ...baseArgs, p_status: 'CANCELLED' }),
+        ]);
+        if (all.error) throw all.error;
+        if (cancelled.error) throw cancelled.error;
+        const cancelledCount = Number(cancelled.data?.orderVolume || 0);
+        res.setHeader('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
+        return res.json({
+          totalSales: Number(all.data?.totalRevenue || 0),
+          totalOrders: Math.max(0, Number(all.data?.orderVolume || 0) - cancelledCount),
+          cancelled: cancelledCount,
+        });
+      }
+
       const applyFilters = (query: any) => {
         if (restaurantId && restaurantId !== 'ALL') query = query.eq('restaurant_id', restaurantId);
         if (locationName && locationName !== 'ALL') query = query.eq('location_name', locationName);
@@ -215,7 +239,7 @@ async function startServer() {
       };
 
       const requestedLimit = Number(limit);
-      const maximumLimit = exportMode === 'true' || isChanges ? 10000 : 200;
+      const maximumLimit = exportMode === 'true' || isChanges ? 10000 : mode === 'dashboard-orders' ? 1000 : 200;
       if (!Number.isInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > maximumLimit) {
         return res.status(400).json({ error: `Report limit must be between 1 and ${maximumLimit}` });
       }
