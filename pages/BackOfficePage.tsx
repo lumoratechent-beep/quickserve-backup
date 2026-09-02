@@ -401,12 +401,19 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
   }, [dateRange]);
 
   // â”€â”€â”€ Date filtering â”€â”€â”€
+  // Preset selection also updates the custom inputs for display. Those state
+  // updates must not recreate the active preset dates and abort/restart the
+  // same dashboard request.
   const { startDate, endDate } = useMemo(() => {
     if (dateRange === 'custom') {
       return { startDate: localDateStart(customStart), endDate: localDateEnd(customEnd) };
     }
     return getQuickDateRange(dateRange);
-  }, [dateRange, customStart, customEnd]);
+  }, [
+    dateRange,
+    dateRange === 'custom' ? customStart : '',
+    dateRange === 'custom' ? customEnd : '',
+  ]);
 
   // â”€â”€â”€ Fetch ALL orders from API for dashboard (avoids 200-order in-memory cap) â”€â”€â”€
   const [dashboardOrders, setDashboardOrders] = useState<Order[]>(() => getBackOfficeCacheEntries(restaurant.id)[0]?.orders || []);
