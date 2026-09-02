@@ -11504,9 +11504,9 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* ── Incoming Orders Sub-tab ── */}
                 {qrOrderSubTab === 'INCOMING' && (
                   <>
-                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Manage orders placed via QR table scan.</p>
-                      <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-between mb-6 gap-4 overflow-x-auto hide-scrollbar">
+                      <p className="shrink-0 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Manage orders placed via QR table scan.</p>
+                      <div className="flex shrink-0 items-center gap-3">
                         <button
                           type="button"
                           className="group relative flex min-h-[42px] w-[42px] shrink-0 items-center justify-center rounded-lg border border-orange-200 bg-orange-50 text-orange-600 transition-all hover:border-orange-300 hover:bg-orange-100 dark:border-orange-900/50 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/30"
@@ -11601,8 +11601,8 @@ const PosOnlyView: React.FC<Props> = ({
                             /* ── List / Table view ── */
                             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
                               <div className="overflow-x-auto">
-                                <table className="w-full">
-                                  <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[9px] font-black uppercase tracking-widest border-b border-gray-200 dark:border-gray-700">
+                                <table className="w-full min-w-max table-auto whitespace-nowrap">
+                                  <thead className="whitespace-nowrap bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[9px] font-black uppercase tracking-widest border-b border-gray-200 dark:border-gray-700">
                                     <tr>
                                       <th className="px-5 py-3 text-center">Status</th>
                                       <th className="px-5 py-3 text-center">Order No.</th>
@@ -11615,7 +11615,7 @@ const PosOnlyView: React.FC<Props> = ({
                                       <th className="px-5 py-3 text-center">Action</th>
                                     </tr>
                                   </thead>
-                                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                  <tbody className="whitespace-nowrap divide-y divide-gray-100 dark:divide-gray-700">
                                     {filteredQrOrders.map(order => {
                                       const totalQty = order.items.reduce((s, i) => s + i.quantity, 0);
                                       const orderId = typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : String(order.id).slice(-6).toUpperCase();
