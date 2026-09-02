@@ -13,6 +13,8 @@ import { getCalendarReportDateRange, localDateEnd, localDateStart, toLocalDateIn
 
 interface Props {
   orders: Order[];
+  restaurantId?: string;
+  onFetchOrders?: (filters: { restaurantId: string; startDate: string; endDate: string }) => Promise<Order[]>;
   currencySymbol: string;
   taxes?: Array<{ id: string; name: string; percentage: number; applyToItems: boolean }>;
   initialSubTab?: ReportSubTab;
@@ -24,7 +26,7 @@ type SalesPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly';
 
 const COLORS = ['#D97706', '#F59E0B', '#92400E', '#B45309', '#78350F', '#FBBF24', '#FCD34D', '#3B82F6', '#8B5CF6', '#22C55E', '#EF4444', '#EC4899'];
 
-const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSubTab }) => {
+const ReportsView: React.FC<Props> = ({ orders, restaurantId, onFetchOrders, currencySymbol, taxes, initialSubTab }) => {
   const [subTab, setSubTab] = useState<ReportSubTab>(initialSubTab || 'sales_summary');
   const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>('daily');
 
@@ -59,12 +61,45 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
     return { startDate: localDateStart(customStart), endDate: localDateEnd(customEnd) };
   }, [customStart, customEnd]);
 
+  const [reportOrders, setReportOrders] = useState<Order[] | null>(null);
+
+  // Reports are the raw-data screen. Load their detail rows only while this
+  // component is mounted, and include the previous period for KPI comparisons.
+  useEffect(() => {
+    if (!restaurantId || !onFetchOrders) {
+      setReportOrders(null);
+      return;
+    }
+
+    let cancelled = false;
+    const duration = endDate.getTime() - startDate.getTime();
+    const previousStart = new Date(startDate.getTime() - duration);
+    const toLocalDate = (date: Date) => toLocalDateInputValue(date);
+
+    onFetchOrders({
+      restaurantId,
+      startDate: toLocalDate(previousStart),
+      endDate: toLocalDate(endDate),
+    })
+      .then((rows) => {
+        if (!cancelled) setReportOrders(rows);
+      })
+      .catch((error) => {
+        console.error('Failed to load raw report orders:', error);
+        if (!cancelled) setReportOrders(null);
+      });
+
+    return () => { cancelled = true; };
+  }, [restaurantId, onFetchOrders, startDate, endDate]);
+
+  const sourceOrders = reportOrders ?? orders;
+
   const filteredOrders = useMemo(
-    () => orders.filter(o => {
+    () => sourceOrders.filter(o => {
       const t = new Date(o.timestamp);
       return t >= startDate && t <= endDate;
     }),
-    [orders, startDate, endDate],
+    [sourceOrders, startDate, endDate],
   );
 
   const completedOrders = useMemo(
@@ -76,11 +111,11 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
     const duration = endDate.getTime() - startDate.getTime();
     const prevStart = new Date(startDate.getTime() - duration);
     const prevEnd = new Date(startDate.getTime() - 1);
-    return orders.filter(o => {
+    return sourceOrders.filter(o => {
       const t = new Date(o.timestamp);
       return t >= prevStart && t <= prevEnd;
     }).filter(o => o.status === OrderStatus.COMPLETED);
-  }, [orders, startDate, endDate]);
+  }, [sourceOrders, startDate, endDate]);
 
   // ─── Sub tabs ───
   const subTabs: { key: ReportSubTab; label: string; icon: React.ReactNode }[] = [

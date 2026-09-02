@@ -13,15 +13,8 @@ import {
   ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, Eye, Archive, RotateCcw,
   Briefcase, Tag, Layers, Activity, Warehouse, FileBarChart, Contact,
   CreditCard, Percent, FileText, Truck, ArrowUpDown, ClipboardList, Factory, History, Building2, Loader2, LogOut, Sun, Moon, Mail, MoreVertical,
-  Download,
+  Download, Menu, X,
 } from 'lucide-react';
-import InventoryManagement from '../components/InventoryManagement';
-import ReportsView from '../components/ReportsView';
-import ContactsManagement from '../components/ContactsManagement';
-import FinanceView from '../components/FinanceView';
-import ExpensesView from '../components/ExpensesView';
-import CashierShiftRecords from '../components/CashierShiftRecords';
-import StaffManagementView from '../components/StaffManagementView';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 import PromotionDiscountManager from '../components/PromotionDiscountManager';
 import SectionInfoButton from '../components/SectionInfoButton';
@@ -32,12 +25,23 @@ import { getCalendarReportDateRange, localDateEnd, localDateStart } from '../lib
 import { deleteIngredientItemFromDb, fetchIngredientItemsFromDb, saveIngredientItemsToDb } from '../lib/ingredientItems';
 import { fetchStockItemsFromDb, saveStockItemsToDb, saveStockMovementsToDb } from '../lib/stockItems';
 
+// Back Office sections load their code (and run their data effects) only after
+// the user opens the corresponding tab.
+const InventoryManagement = React.lazy(() => import('../components/InventoryManagement'));
+const ReportsView = React.lazy(() => import('../components/ReportsView'));
+const ContactsManagement = React.lazy(() => import('../components/ContactsManagement'));
+const FinanceView = React.lazy(() => import('../components/FinanceView'));
+const ExpensesView = React.lazy(() => import('../components/ExpensesView'));
+const CashierShiftRecords = React.lazy(() => import('../components/CashierShiftRecords'));
+const StaffManagementView = React.lazy(() => import('../components/StaffManagementView'));
+
 interface Props {
   restaurant: Restaurant;
   orders: Order[];
   currencySymbol: string;
   isActive?: boolean;
   onFetchAllFilteredOrders?: (filters: any) => Promise<Order[]>;
+  onFetchBackOfficeOrders?: (filters: any) => Promise<Order[]>;
   onFetchOrderChanges?: (filters: any, updatedSince: string) => Promise<{ orders: Order[]; syncCursor: string }>;
   onBack?: () => void;
   onAddMenuItem?: (restaurantId: string, item: MenuItem) => Promise<void>;
@@ -181,10 +185,11 @@ const UNIT_LABELS: Record<string, string> = {
 const getUnitLabel = (unit?: string) => UNIT_LABELS[(unit || 'pcs').toLowerCase()] || unit || 'pcs';
 const formatStockNumber = (value: number) => Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 3 });
 
-const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, isActive = true, onFetchAllFilteredOrders, onFetchOrderChanges, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, networkMeta, batteryMeta, batteryCharging = false, unreadMailCount = 0, onOpenMail, onDownloadSalesReport, userRole = 'VENDOR' }) => {
+const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, isActive = true, onFetchAllFilteredOrders, onFetchBackOfficeOrders, onFetchOrderChanges, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, networkMeta, batteryMeta, batteryCharging = false, unreadMailCount = 0, onOpenMail, onDownloadSalesReport, userRole = 'VENDOR' }) => {
   const [isInitialLoading, setIsInitialLoading] = useState(() => !backOfficeOrderCache.has(restaurant.id));
   const [activeTab, setActiveTab] = useState<BackOfficeTab>('DASHBOARD');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [reportSubTab, setReportSubTab] = useState<string | undefined>(undefined);
   const [staffSubTab, setStaffSubTab] = useState<string | undefined>('directory');
   const [inventorySubTab, setInventorySubTab] = useState<string | undefined>(undefined);
@@ -393,7 +398,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
 
   useEffect(() => {
     if (!isActive) return;
-    if (!onFetchAllFilteredOrders) {
+    const fetchBackOfficeOrders = onFetchBackOfficeOrders || onFetchAllFilteredOrders;
+    if (!fetchBackOfficeOrders) {
       setIsInitialLoading(false);
       return;
     }
@@ -406,6 +412,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
       const requestedEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999);
       const pad = (n: number) => n.toString().padStart(2, '0');
       const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
       const cached = backOfficeOrderCache.get(restaurant.id);
       const cacheCoversRange = cached
         && cached.startTimestamp <= requestedStart.getTime()
@@ -445,7 +452,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
       if (!hasDashboardSnapshot) setIsInitialLoading(true);
       try {
         const requestCursor = new Date().toISOString();
-        const allOrders = await onFetchAllFilteredOrders({
+        const allOrders = await fetchBackOfficeOrders({
           restaurantId: restaurant.id,
           startDate: toLocal(requestedStart),
           endDate: toLocal(requestedEnd),
@@ -473,7 +480,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
 
     fetchDashboardData();
     return () => { cancelled = true; };
-  }, [isActive, startDate, endDate, restaurant.id, onFetchAllFilteredOrders, onFetchOrderChanges]);
+  }, [isActive, startDate, endDate, restaurant.id, onFetchAllFilteredOrders, onFetchBackOfficeOrders, onFetchOrderChanges]);
 
   // While Back Office stays open, merge the POS realtime cache into the full
   // snapshot so new orders and status changes appear immediately. A cursor
@@ -793,7 +800,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
   };
 
   useEffect(() => {
-    if (activeTab !== 'ITEMS' && activeTab !== 'INVENTORY') return;
+    if (!isActive || activeTab !== 'ITEMS') return;
     let cancelled = false;
 
     const refreshBackofficeInventoryData = async () => {
@@ -834,9 +841,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
 
     refreshBackofficeInventoryData().catch(() => {});
     return () => { cancelled = true; };
-  }, [activeTab, restaurant.id]);
+  }, [isActive, activeTab, restaurant.id]);
 
   useEffect(() => {
+    if (!isActive || activeTab !== 'ITEMS') return;
     let cancelled = false;
 
     const loadIngredients = async () => {
@@ -926,7 +934,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
     });
 
     return () => { cancelled = true; };
-  }, [restaurant.id]);
+  }, [isActive, activeTab, restaurant.id]);
 
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // SALES ANALYTICS
@@ -1721,6 +1729,18 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
       )}
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-11 sm:h-12 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
         <div className="flex items-center gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={() => {
+              setIsSidebarCollapsed(false);
+              setIsMobileMenuOpen(true);
+            }}
+            className="lg:hidden p-1.5 -ml-1 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            title="Open sidebar"
+            aria-label="Open sidebar"
+          >
+            <Menu size={22} />
+          </button>
           <img
             src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"}
             alt="QuickServe"
@@ -1830,10 +1850,18 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
       </header>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-[110] bg-black/50 lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className={`${isSidebarCollapsed ? 'lg:w-16' : 'w-64'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 hidden md:flex transition-all duration-300 ease-in-out`}>
+      <aside className={`fixed lg:relative inset-y-0 left-0 z-[120] w-64 ${isSidebarCollapsed ? 'lg:w-16' : 'lg:w-64'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         {/* Logo / Header */}
-        <div className={`flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
+        <div className={`relative flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
           <button
             onClick={onBack}
             title={onBack ? 'Open company in POS' : restaurant.name}
@@ -1858,6 +1886,15 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
               </div>
             </>
           )}
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="absolute right-3 top-3 lg:hidden p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-all"
+            title="Close sidebar"
+            aria-label="Close sidebar"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {/* Navigation */}
@@ -1868,6 +1905,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
               <button
                 onClick={() => {
                   setActiveTab(tab.key);
+                  setIsMobileMenuOpen(false);
                   if (tab.key === 'STAFF' && !isSidebarCollapsed) {
                     setStaffSubTab('directory');
                     setExpandedMenus(previous => previous.has('STAFF') ? new Set() : new Set(['STAFF']));
@@ -1918,6 +1956,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
                       if (tab.subItems.length === 0) {
                         setActiveTab(tab.key);
                         setExpandedMenus(new Set());
+                        setIsMobileMenuOpen(false);
                       } else {
                         toggleExpanded(tab.key);
                         if (!isActive) {
@@ -1952,6 +1991,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
                         onClick={() => {
                           setActiveTab(tab.key);
                           setActiveSubTab(tab.key, sub.key);
+                          setIsMobileMenuOpen(false);
                         }}
                         className={`w-full flex items-center px-2 py-1.5 rounded-lg text-sm font-medium transition-all ${
                           isActive && currentSub === sub.key
@@ -3008,6 +3048,12 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
         {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* STAFF MANAGEMENT TAB                */}
         {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        <React.Suspense fallback={(
+          <div className="flex min-h-[240px] items-center justify-center gap-3 text-sm font-semibold text-gray-500 dark:text-gray-400">
+            <Loader2 className="animate-spin text-amber-500" size={20} />
+            Loading section...
+          </div>
+        )}>
         {activeTab === 'STAFF' && (
           <StaffManagementView restaurant={restaurant} currencySymbol={currencySymbol} initialSubTab={staffSubTab as any} onSubTabChange={setStaffSubTab} />
         )}
@@ -3027,7 +3073,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
         {/* REPORTS TAB                         */}
         {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'REPORTS' && (
-          <ReportsView orders={orders} currencySymbol={currencySymbol} taxes={restaurant.settings?.taxes} initialSubTab={reportSubTab as any} />
+          <ReportsView
+            orders={orders}
+            restaurantId={restaurant.id}
+            onFetchOrders={onFetchAllFilteredOrders}
+            currencySymbol={currencySymbol}
+            taxes={restaurant.settings?.taxes}
+            initialSubTab={reportSubTab as any}
+          />
         )}
 
         {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
@@ -3073,6 +3126,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
             orders={orders}
           />
         )}
+        </React.Suspense>
       </div>
 
       </div>

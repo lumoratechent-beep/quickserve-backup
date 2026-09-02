@@ -1,4 +1,6 @@
-const CACHE_NAME = 'quickserve-v7';
+const CACHE_NAME = 'quickserve-v8';
+const MENU_IMAGE_CACHE = 'quickserve-menu-images-v1';
+const MAX_MENU_IMAGE_ENTRIES = 300;
 const OFFLINE_URL = '/offline.html';
 const STATIC_SHELL = [
   '/manifest.json',
@@ -31,6 +33,37 @@ const assetUnavailableResponse = () => new Response('', {
   status: 504,
   statusText: 'Asset unavailable',
 });
+
+const isMenuImageRequest = (request, url) => (
+  request.destination === 'image'
+  && (
+    url.hostname === 'blob.vercel-storage.com'
+    || url.hostname.endsWith('.blob.vercel-storage.com')
+  )
+);
+
+const trimMenuImageCache = async (cache) => {
+  const keys = await cache.keys();
+  const overflow = keys.length - MAX_MENU_IMAGE_ENTRIES;
+  if (overflow > 0) {
+    await Promise.all(keys.slice(0, overflow).map((request) => cache.delete(request)));
+  }
+};
+
+const getCachedMenuImage = async (request) => {
+  const cache = await caches.open(MENU_IMAGE_CACHE);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+
+  const response = await fetch(request);
+  // Cross-origin image requests commonly produce opaque responses. They are
+  // safe to cache because uploaded menu image URLs are immutable and unique.
+  if (response.ok || response.type === 'opaque') {
+    await cache.put(request, response.clone());
+    await trimMenuImageCache(cache);
+  }
+  return response;
+};
 
 const getAssetUrlsFromHtml = (html) => {
   const urls = new Set();
@@ -85,11 +118,15 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate: remove old caches.
+// Activate: remove old app-shell caches while retaining the bounded image cache.
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(
+        keys
+          .filter((key) => ![CACHE_NAME, MENU_IMAGE_CACHE].includes(key))
+          .map((key) => caches.delete(key))
+      )
     )
   );
   self.clients.claim();
@@ -117,6 +154,16 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
+
+  // Vercel Blob menu images use immutable URLs, so serve them cache-first.
+  // This avoids downloading the same menu pictures on every POS reload.
+  if (isMenuImageRequest(event.request, url)) {
+    event.respondWith(
+      getCachedMenuImage(event.request)
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
 
   // Skip cross-origin requests (Supabase API, Stripe, fonts, esm.sh CDN)
   // because caching API responses can cause stale business data.

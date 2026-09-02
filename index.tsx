@@ -15,15 +15,13 @@ if (!rootElement) {
 
 const root = ReactDOM.createRoot(rootElement);
 root.render(
-  <React.StrictMode>
-    <React.Suspense fallback={<div className="min-h-screen bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-500">Loading...</div>}>
-      {receiptMatch ? (
-        <EReceiptPage token={receiptMatch[1]} />
-      ) : (
-        <ToastProvider><App /></ToastProvider>
-      )}
-    </React.Suspense>
-  </React.StrictMode>
+  <React.Suspense fallback={<div className="min-h-screen bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-500">Loading...</div>}>
+    {receiptMatch ? (
+      <EReceiptPage token={receiptMatch[1]} />
+    ) : (
+      <ToastProvider><App /></ToastProvider>
+    )}
+  </React.Suspense>
 );
 
 const APP_SHELL_RECOVERY_KEY = 'qs_app_shell_recovery_reload';

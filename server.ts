@@ -109,7 +109,7 @@ async function startServer() {
     const {
       restaurantId, startDate, endDate, status, search, page = 1, limit = 30,
       locationName, timezoneOffsetMinutes, includeSummary = 'true', includeBreakdowns = 'true', includeItems = 'true', mode,
-      export: exportMode = 'false',
+      updatedSince, export: exportMode = 'false',
     } = req.query;
     const batchSize = 1000;
     const start = (Number(page) - 1) * Number(limit);
@@ -164,6 +164,10 @@ async function startServer() {
         && (reportEndTimestamp < reportStartTimestamp || reportEndTimestamp - reportStartTimestamp > 366 * 24 * 60 * 60 * 1000)) {
         return res.status(400).json({ error: 'Report date ranges are limited to 366 days' });
       }
+      const isChanges = mode === 'changes';
+      if (isChanges && (!restaurantId || restaurantId === 'ALL' || !updatedSince || Number.isNaN(Date.parse(String(updatedSince))))) {
+        return res.status(400).json({ error: 'Incremental report sync requires a restaurant and valid cursor' });
+      }
 
       if (mode === 'dashboard') {
         if (!startDate || !endDate) return res.status(400).json({ error: 'Dashboard analytics require a date range' });
@@ -206,11 +210,12 @@ async function startServer() {
           query = query.lte('timestamp', getDateBoundary(endDate, true));
         }
         if (search) query = query.ilike('id', `%${search}%`);
+        if (isChanges) query = query.gt('updated_at', String(updatedSince)).lte('updated_at', syncCursor);
         return query;
       };
 
       const requestedLimit = Number(limit);
-      const maximumLimit = exportMode === 'true' ? 10000 : 200;
+      const maximumLimit = exportMode === 'true' || isChanges ? 10000 : 200;
       if (!Number.isInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > maximumLimit) {
         return res.status(400).json({ error: `Report limit must be between 1 and ${maximumLimit}` });
       }
@@ -225,7 +230,8 @@ async function startServer() {
             : includeItems === 'false'
               ? 'id,total,status,timestamp,restaurant_id,table_number,location_name,payment_method,cashier_name,order_source,updated_at'
               : 'id,total,status,timestamp,restaurant_id,table_number,location_name,payment_method,cashier_name,order_source,updated_at,items,customer_id,dining_type,remark,rejection_reason,rejection_note,amount_received,change_amount'))
-            .order('timestamp', { ascending: false })
+            .order(isChanges ? 'updated_at' : 'timestamp', { ascending: isChanges })
+            .order('id', { ascending: true })
             .range(offset, batchEnd);
           if (result.error) throw result.error;
           if (!result.data?.length) break;
@@ -239,7 +245,8 @@ async function startServer() {
           : includeItems === 'false'
             ? 'id,total,status,timestamp,restaurant_id,table_number,location_name,payment_method,cashier_name,order_source,updated_at'
             : 'id,total,status,timestamp,restaurant_id,table_number,location_name,payment_method,cashier_name,order_source,updated_at,items,customer_id,dining_type,remark,rejection_reason,rejection_note,amount_received,change_amount'))
-          .order('timestamp', { ascending: false })
+          .order(isChanges ? 'updated_at' : 'timestamp', { ascending: isChanges })
+          .order('id', { ascending: true })
           .range(start, end);
         if (result.error) throw result.error;
         data = result.data || [];

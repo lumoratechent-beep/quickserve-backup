@@ -4,7 +4,6 @@ import { Building2, CalendarDays, CalendarPlus, Copy, CreditCard, Download, Edit
 import { Restaurant } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from './Toast';
-import { syncBackofficeToDb } from '../lib/sharedSettings';
 
 type StaffRole = 'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' | 'MANAGER' | 'HR';
 type ContributionMode = 'fixed' | 'percentage';
@@ -590,7 +589,6 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
       access_permissions: item.access_permissions || {},
       profile: item.profile,
     }))));
-    syncBackofficeToDb(restaurant.id);
   }, [restaurant.id]);
 
   const refresh = useCallback(async (showToast = false) => {
@@ -605,12 +603,19 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
       return;
     }
 
+    const skippedResult = Promise.resolve({ data: null, error: null } as any);
     const [deptRes, profileRes, payslipRes, claimRes, leaveRes] = await Promise.all([
       supabase.from('staff_departments').select('*').eq('restaurant_id', restaurant.id).order('name', { ascending: true }),
       supabase.from('staff_profiles').select('*').eq('restaurant_id', restaurant.id),
-      supabase.from('payroll_payslips').select('*').eq('restaurant_id', restaurant.id).order('pay_date', { ascending: false }),
-      supabase.from('staff_claims').select('*, staff_claim_items(*)').eq('restaurant_id', restaurant.id).order('claim_date', { ascending: false }),
-      supabase.from('staff_leaves').select('*').eq('restaurant_id', restaurant.id).order('start_date', { ascending: false }),
+      subTab === 'payroll'
+        ? supabase.from('payroll_payslips').select('*').eq('restaurant_id', restaurant.id).order('pay_date', { ascending: false })
+        : skippedResult,
+      subTab === 'claims'
+        ? supabase.from('staff_claims').select('*, staff_claim_items(*)').eq('restaurant_id', restaurant.id).order('claim_date', { ascending: false })
+        : skippedResult,
+      subTab === 'leave'
+        ? supabase.from('staff_leaves').select('*').eq('restaurant_id', restaurant.id).order('start_date', { ascending: false })
+        : skippedResult,
     ]);
 
     if (deptRes.error || profileRes.error || payslipRes.error || claimRes.error || leaveRes.error) {
@@ -628,8 +633,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
     })) as StaffMember[];
 
     setDepartments((deptRes.data || []) as StaffDepartment[]);
-    setPayslips((payslipRes.data || []) as PayrollPayslip[]);
-    setStaffClaims(((claimRes.data || []) as any[]).map(row => {
+    if (payslipRes.data) setPayslips(payslipRes.data as PayrollPayslip[]);
+    if (claimRes.data) setStaffClaims((claimRes.data as any[]).map(row => {
       const item = mapped.find(staffItem => staffItem.id === row.staff_user_id);
       return {
         id: row.id,
@@ -655,7 +660,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
         created_at: row.created_at,
       } as StaffClaim;
     }));
-    setStaffLeaves(((leaveRes.data || []) as any[]).map(row => {
+    if (leaveRes.data) setStaffLeaves((leaveRes.data as any[]).map(row => {
       const item = mapped.find(staffItem => staffItem.id === row.staff_user_id);
       return {
         id: row.id,
@@ -679,7 +684,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
     }));
     cacheStaff(mapped);
     if (showToast) toast('Staff data refreshed', 'success');
-  }, [cacheStaff, restaurant.id]);
+  }, [cacheStaff, restaurant.id, subTab]);
 
   useEffect(() => {
     refresh(false);

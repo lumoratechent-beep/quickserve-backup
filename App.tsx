@@ -1,19 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, AdminDashboardAnalytics, QS_DEFAULT_HUB, Subscription, KitchenDepartment, OrderSource, CashierShift, IngredientItem, EReceiptIssue } from './src/types';
-import CustomerView from './pages/CustomerView';
-import AdminView from './pages/AdminView';
-import PosOnlyView from './pages/PosOnlyView';
-import BackOfficePage from './pages/BackOfficePage';
-import LoginPage from './pages/LoginPage';
-import MarketingPage from './pages/MarketingPage';
-import CompanyPage from './pages/CompanyPage';
-import ComparePlansPage from './pages/ComparePlansPage';
-import RegisterPage from './pages/RegisterPage';
-import FirstTimeSetupPage, { FirstTimeSetupValues } from './pages/FirstTimeSetupPage';
-import OnlineShopPage from './pages/OnlineShopPage';
-import QuickServeShopPage from './pages/QuickServeShopPage';
-import HelpTutorialPage from './pages/HelpTutorialPage';
-import TableSideOrderPage from './pages/TableSideOrderPage';
+import type { FirstTimeSetupValues } from './pages/FirstTimeSetupPage';
 import { supabase } from './lib/supabase';
 import { expandPosSettings, fetchSettingsFromServer, syncBackofficeToDb } from './lib/sharedSettings';
 import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock, AlertCircle, ShoppingBag, ChevronLeft } from 'lucide-react';
@@ -27,6 +14,22 @@ import { isSubscriptionAccessLocked } from './lib/subscriptionService';
 import { getDefaultPromotionDiscount, normalizeMenuPromotionDiscount } from './lib/menuPricing';
 import { fetchIngredientItemsFromDb } from './lib/ingredientItems';
 import { fetchStockItemsFromDb, saveStockItemsToDb, saveStockMovementsToDb } from './lib/stockItems';
+
+// Keep unrelated screens out of the Back Office startup module graph.
+const CustomerView = React.lazy(() => import('./pages/CustomerView'));
+const AdminView = React.lazy(() => import('./pages/AdminView'));
+const PosOnlyView = React.lazy(() => import('./pages/PosOnlyView'));
+const BackOfficePage = React.lazy(() => import('./pages/BackOfficePage'));
+const LoginPage = React.lazy(() => import('./pages/LoginPage'));
+const MarketingPage = React.lazy(() => import('./pages/MarketingPage'));
+const CompanyPage = React.lazy(() => import('./pages/CompanyPage'));
+const ComparePlansPage = React.lazy(() => import('./pages/ComparePlansPage'));
+const RegisterPage = React.lazy(() => import('./pages/RegisterPage'));
+const FirstTimeSetupPage = React.lazy(() => import('./pages/FirstTimeSetupPage'));
+const OnlineShopPage = React.lazy(() => import('./pages/OnlineShopPage'));
+const QuickServeShopPage = React.lazy(() => import('./pages/QuickServeShopPage'));
+const HelpTutorialPage = React.lazy(() => import('./pages/HelpTutorialPage'));
+const TableSideOrderPage = React.lazy(() => import('./pages/TableSideOrderPage'));
 
 type BatteryStatus = {
   level: number;
@@ -59,6 +62,10 @@ const BACK_OFFICE_ROLES: Role[] = ['VENDOR', 'ADMIN', 'HR'];
 const BACK_OFFICE_ONLY_ROLES: Role[] = ['HR'];
 const SUBSCRIPTION_CACHE_KEY = 'qs_cache_subscriptions';
 const SUBSCRIPTION_CHANGE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
+const RESTAURANT_COLUMNS = 'id,name,logo,vendor_id,location_name,created_at,is_online,slug,kitchen_divisions,kitchen_enabled,settings,categories,modifiers,add_on_items';
+const MENU_ITEM_COLUMNS = 'id,restaurant_id,name,description,price,image,category,is_archived,sizes,temp_options,other_variants,add_ons';
+const ORDER_COLUMNS = 'id,items,total,status,timestamp,customer_id,restaurant_id,table_number,dining_type,location_name,remark,rejection_reason,rejection_note,payment_method,cashier_name,amount_received,change_amount,order_source,e_receipt_id';
+const SUBSCRIPTION_COLUMNS = 'id,restaurant_id,plan_id,pending_plan_id,status,stripe_customer_id,stripe_subscription_id,billing_interval,pending_billing_interval,pending_change_effective_at,trial_start,trial_end,current_period_start,current_period_end,cancel_at_period_end,duitnow_enabled,access_locked,access_lock_at,access_locked_at,created_at,updated_at';
 
 const getStoredRole = (): Role | null => {
   try {
@@ -306,6 +313,7 @@ const App: React.FC = () => {
   });
 
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
+  const lastSyncTimeRef = useRef(lastSyncTime);
   
   // --- STATUS PRIORITY (prevents stale realtime events from regressing order status) ---
   const STATUS_PRIORITY: Record<string, number> = {
@@ -321,6 +329,9 @@ const App: React.FC = () => {
   const isStatusLocked = useRef<boolean>(false);
   const isFetchingRef = useRef(false);
   const isSyncingOfflineOrdersRef = useRef(false);
+  const appInitializationKeyRef = useRef('');
+  const orderTrackerInitializationKeyRef = useRef('');
+  const accessReconciliationKeyRef = useRef('');
   const lastOrderTimestampRef = useRef<number>(0);
   const syncOfflineOrdersRef = useRef<() => Promise<void>>(async () => {});
   
@@ -754,20 +765,37 @@ const App: React.FC = () => {
   const [openBillingInPOS, setOpenBillingInPOS] = useState(false);
   const [showTemporaryFirstTimeSetup, setShowTemporaryFirstTimeSetup] = useState(false);
   const [comparePlansOrigin, setComparePlansOrigin] = useState<'PUBLIC' | 'POS_BILLING'>('PUBLIC');
+  const announcementFetchRef = useRef<{
+    restaurantId: string;
+    lastFetchedAt: number;
+    promise: Promise<void> | null;
+  }>({ restaurantId: '', lastFetchedAt: 0, promise: null });
 
-  const fetchAnnouncements = useCallback(async (restaurantId?: string) => {
+  const fetchAnnouncements = useCallback((restaurantId?: string, force = false): Promise<void> => {
     const rid = restaurantId || currentUser?.restaurantId;
-    if (!rid) return;
+    if (!rid) return Promise.resolve();
+
+    const previous = announcementFetchRef.current;
+    if (previous.restaurantId === rid && previous.promise) return previous.promise;
+    if (!force && previous.restaurantId === rid && Date.now() - previous.lastFetchedAt < 60_000) {
+      return Promise.resolve();
+    }
+
     setAnnouncementsLoading(true);
-    try {
+    const request = (async () => {
+      try {
       // Find the restaurant's hub/location for filtering
-      const currentRes = restaurants.find(r => r.id === rid);
+      const currentRes = restaurantsRef.current.find(r => r.id === rid);
       const hubName = currentRes?.location || '';
 
-      const { data: items } = await supabase
+      let itemsQuery = supabase
         .from('announcements')
         .select('id, title, body, category, created_at, hub, restaurant_id')
         .eq('is_active', true)
+        .in('restaurant_id', ['all', rid]);
+      if (hubName) itemsQuery = itemsQuery.in('hub', ['all', hubName]);
+
+      const { data: items } = await itemsQuery
         .order('created_at', { ascending: false });
       if (!items) { setAnnouncements([]); return; }
 
@@ -785,14 +813,33 @@ const App: React.FC = () => {
         ? filtered.filter((a: any) => new Date(a.created_at) > new Date(clearedAt) && !deletedIds.has(a.id))
         : filtered.filter((a: any) => !deletedIds.has(a.id));
 
+      if (visibleItems.length === 0) {
+        setAnnouncements([]);
+        return;
+      }
+
       const { data: reads } = await supabase
         .from('announcement_reads')
         .select('announcement_id')
-        .eq('restaurant_id', rid);
+        .eq('restaurant_id', rid)
+        .in('announcement_id', visibleItems.map((item: any) => item.id));
       const readIds = new Set((reads || []).map((r: any) => r.announcement_id));
       setAnnouncements(visibleItems.map((a: any) => ({ ...a, is_read: readIds.has(a.id) })));
-    } catch { setAnnouncements([]); } finally { setAnnouncementsLoading(false); }
-  }, [currentUser?.restaurantId, restaurants]);
+      } catch {
+        setAnnouncements([]);
+      } finally {
+        setAnnouncementsLoading(false);
+      }
+    })();
+
+    const trackedRequest = request.finally(() => {
+      if (announcementFetchRef.current.promise === trackedRequest) {
+        announcementFetchRef.current = { restaurantId: rid, lastFetchedAt: Date.now(), promise: null };
+      }
+    });
+    announcementFetchRef.current = { restaurantId: rid, lastFetchedAt: previous.lastFetchedAt, promise: trackedRequest };
+    return trackedRequest;
+  }, [currentUser?.restaurantId]);
 
   const markAnnouncementRead = async (announcementId: string) => {
     const rid = currentUser?.restaurantId;
@@ -898,6 +945,8 @@ const App: React.FC = () => {
       setActiveShift(null);
       return;
     }
+    // Keep the cached/open POS shift intact while Back Office is displayed.
+    if (view !== 'APP') return;
 
     // Hydrate immediately from cache so refresh while offline keeps shift status.
     const cachedShift = readCachedActiveShift(currentUser.restaurantId, currentUser.username);
@@ -929,7 +978,7 @@ const App: React.FC = () => {
         }
       } catch { /* ignore */ }
     })();
-  }, [currentUser?.restaurantId, currentUser?.username, currentRole, readCachedActiveShift, writeCachedActiveShift]);
+  }, [currentUser?.restaurantId, currentUser?.username, currentRole, view, readCachedActiveShift, writeCachedActiveShift]);
 
   useEffect(() => {
     if (!currentUser?.restaurantId || !currentUser?.username) return;
@@ -1007,7 +1056,7 @@ const App: React.FC = () => {
   const fetchRestaurants = useCallback(async () => {
     if (isStatusLocked.current || !currentRole) return;
     
-    let query = supabase.from('restaurants').select('*');
+    let query = supabase.from('restaurants').select(RESTAURANT_COLUMNS);
     
     if (currentRole === 'CUSTOMER' && sessionRestaurantSlug) {
       query = query.eq('slug', sessionRestaurantSlug).eq('is_online', true);
@@ -1015,6 +1064,9 @@ const App: React.FC = () => {
       query = query.eq('id', sessionRestaurantId).eq('is_online', true);
     } else if (currentRole === 'CUSTOMER' && sessionLocation) {
       query = query.eq('location_name', sessionLocation).eq('is_online', true);
+    } else if (currentRole !== 'ADMIN' && currentUser?.restaurantId) {
+      // Staff-facing sessions only need their own company and menu.
+      query = query.eq('id', currentUser.restaurantId);
     }
 
     const resResult = await withTimeout(query, 8000);
@@ -1023,7 +1075,7 @@ const App: React.FC = () => {
     if (resError || !resData) return;
 
     const restaurantIds = resData.map(r => r.id);
-    let menuQuery = supabase.from('menu_items').select('*').in('restaurant_id', restaurantIds);
+    let menuQuery = supabase.from('menu_items').select(MENU_ITEM_COLUMNS).in('restaurant_id', restaurantIds);
 
     if (currentRole === 'CUSTOMER') {
       menuQuery = menuQuery.eq('is_archived', false);
@@ -1103,10 +1155,11 @@ const App: React.FC = () => {
       setRestaurants(formatted);
       persistCache('qs_cache_restaurants', formatted);
     }
-  }, [currentRole, sessionLocation, sessionRestaurantId, sessionRestaurantSlug]);
+  }, [currentRole, currentUser?.restaurantId, sessionLocation, sessionRestaurantId, sessionRestaurantSlug]);
 
   const fetchSubscriptions = useCallback(async () => {
-    let query = supabase.from('subscriptions').select('*');
+    if (currentRole !== 'ADMIN' && !currentUser?.restaurantId) return;
+    let query = supabase.from('subscriptions').select(SUBSCRIPTION_COLUMNS);
     if (currentRole !== 'ADMIN' && currentUser?.restaurantId) {
       query = query.eq('restaurant_id', currentUser.restaurantId);
     }
@@ -1184,6 +1237,9 @@ const App: React.FC = () => {
     const restaurantId = currentUser?.restaurantId;
 
     if (!roleCanOwnRestaurant || !restaurantId) return;
+    const reconciliationKey = `${currentRole}|${restaurantId}`;
+    if (accessReconciliationKeyRef.current === reconciliationKey) return;
+    accessReconciliationKeyRef.current = reconciliationKey;
 
     const reconcileAccess = async () => {
       try {
@@ -1212,7 +1268,7 @@ const App: React.FC = () => {
     if (isFetchingRef.current || !currentRole || currentRole === 'ADMIN') return;
     isFetchingRef.current = true;
     try {
-      let query = supabase.from('orders').select('*').order('timestamp', { ascending: false }).limit(200);
+      let query = supabase.from('orders').select(ORDER_COLUMNS).order('timestamp', { ascending: false }).limit(200);
       
       if (currentRole === 'CUSTOMER') {
         if (sessionLocation && sessionTable) {
@@ -1223,7 +1279,8 @@ const App: React.FC = () => {
           isFetchingRef.current = false;
           return;
         }
-      } else if ((currentRole === 'VENDOR' || currentRole === 'HR') && currentUser?.restaurantId) {
+      } else if (currentUser?.restaurantId) {
+        // Every staff role is scoped to its own restaurant.
         query = query.eq('restaurant_id', currentUser.restaurantId);
       }
 
@@ -1309,7 +1366,7 @@ const App: React.FC = () => {
     try {
       const pollResult = await withTimeout(
         supabase.from('orders')
-          .select('*')
+          .select(ORDER_COLUMNS)
           .eq('restaurant_id', user.restaurantId)
           .gt('timestamp', lastOrderTimestampRef.current)
           .order('timestamp', { ascending: false }),
@@ -1360,12 +1417,13 @@ const App: React.FC = () => {
       
       // Additionally poll for orders that were UPDATED since last sync time
       try {
-        if (lastSyncTime) {
+        const lastSync = lastSyncTimeRef.current;
+        if (lastSync) {
           const updatesResult = await withTimeout(
             supabase.from('orders')
-              .select('*')
+              .select(ORDER_COLUMNS)
               .eq('restaurant_id', user.restaurantId)
-              .gte('timestamp', lastSyncTime.getTime())
+              .gte('timestamp', lastSync.getTime())
               .order('timestamp', { ascending: false }),
             5000
           );
@@ -1424,7 +1482,7 @@ const App: React.FC = () => {
     } finally {
       isFetchingRef.current = false;
     }
-  }, [rememberKnownOrderId, lastSyncTime]);
+  }, [rememberKnownOrderId]);
 
   // Combined refresh function to ensure heartbeat works reliably
   const refreshAppData = useCallback(async () => {
@@ -1528,12 +1586,37 @@ const App: React.FC = () => {
     }
   }, [currentUser, view]);
 
+  useEffect(() => {
+    lastSyncTimeRef.current = lastSyncTime;
+  }, [lastSyncTime]);
+
   // Global Data Initialization
   useEffect(() => {
+    const initializationKey = [
+      currentRole || 'anonymous',
+      currentUser?.restaurantId || '',
+      sessionRestaurantId || '',
+      sessionRestaurantSlug || '',
+      sessionLocation || '',
+      sessionTable || '',
+    ].join('|');
+
+    // React Strict Mode intentionally re-runs mount effects in development.
+    // Do not turn that safety check into a second set of network requests.
+    if (appInitializationKeyRef.current === initializationKey) return;
+    appInitializationKeyRef.current = initializationKey;
+
     const initApp = async () => {
-      await Promise.allSettled([fetchUsers(), fetchLocations(), fetchRestaurants(), fetchOrders(), fetchSubscriptions()]);
-       // Initialize order tracker from DB to ensure offline orders use correct sequence
-       await initializeOrderNumberTracker();
+      const isVendorBackOffice = viewRef.current === 'BACK_OFFICE'
+        && (currentRole === 'VENDOR' || currentRole === 'HR');
+
+      if (isVendorBackOffice) {
+        // Dashboard orders come from the report API. The POS order cache,
+        // locations and sequence tracker are not needed to open Back Office.
+        await Promise.allSettled([fetchRestaurants(), fetchSubscriptions()]);
+      } else {
+        await Promise.allSettled([fetchUsers(), fetchLocations(), fetchRestaurants(), fetchOrders(), fetchSubscriptions()]);
+      }
       setLastSyncTime(new Date());
       setIsLoading(false);
     };
@@ -1542,11 +1625,16 @@ const App: React.FC = () => {
   
     // Initialize tracker when user logs in (for CASHIER/VENDOR roles)
     useEffect(() => {
-      if (currentRole === 'CASHIER' || currentRole === 'VENDOR' || currentRole === 'KITCHEN') {
+      if (view !== 'BACK_OFFICE' && (currentRole === 'CASHIER' || currentRole === 'VENDOR' || currentRole === 'KITCHEN')) {
+        const trackerKey = `${currentRole}|${currentUser?.restaurantId || ''}`;
+        if (orderTrackerInitializationKeyRef.current === trackerKey) return;
+        orderTrackerInitializationKeyRef.current = trackerKey;
         console.log(`[TRACKER] User logged in/switched role to ${currentRole}, initializing tracker`);
         initializeOrderNumberTracker();
+      } else if (!currentUser?.restaurantId) {
+        orderTrackerInitializationKeyRef.current = '';
       }
-    }, [currentUser?.restaurantId, currentRole]);
+    }, [currentUser?.restaurantId, currentRole, view]);
 
   // Real-time Subscriptions
   useEffect(() => {
@@ -1556,7 +1644,7 @@ const App: React.FC = () => {
       orderFilter = `location_name=eq.${sessionLocation}`;
     } else if (currentRole === 'CUSTOMER' && sessionRestaurantId) {
       orderFilter = `restaurant_id=eq.${sessionRestaurantId}`;
-    } else if (currentRole === 'VENDOR' && currentUser?.restaurantId) {
+    } else if (currentRole !== 'ADMIN' && currentUser?.restaurantId) {
       orderFilter = `restaurant_id=eq.${currentUser.restaurantId}`;
     }
     const subscriptionFilter = currentRole !== 'ADMIN' && currentUser?.restaurantId
@@ -1690,15 +1778,19 @@ const App: React.FC = () => {
       });
     }
 
+    const restaurantFilter = currentRole === 'CUSTOMER' && sessionLocation
+      ? `location_name=eq.${sessionLocation}`
+      : currentRole === 'CUSTOMER' && sessionRestaurantId
+        ? `id=eq.${sessionRestaurantId}`
+        : currentRole !== 'ADMIN' && currentUser?.restaurantId
+          ? `id=eq.${currentUser.restaurantId}`
+          : undefined;
+
     channel.on('postgres_changes', {
         event: 'UPDATE', 
         schema: 'public', 
         table: 'restaurants',
-        filter: currentRole === 'CUSTOMER' && sessionLocation
-          ? `location_name=eq.${sessionLocation}`
-          : currentRole === 'CUSTOMER' && sessionRestaurantId
-            ? `id=eq.${sessionRestaurantId}`
-            : undefined
+        ...(restaurantFilter ? { filter: restaurantFilter } : {}),
       }, (payload) => {
         const res = payload.new;
         const newSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : undefined;
@@ -1737,24 +1829,26 @@ const App: React.FC = () => {
     return () => { 
       supabase.removeChannel(channel); 
     };
-  }, [currentRole, sessionLocation, sessionRestaurantId, currentUser, rememberKnownOrderId]);
+  }, [currentRole, sessionLocation, sessionRestaurantId, currentUser?.restaurantId, rememberKnownOrderId]);
 
-  // Vendor Polling Fallback (poll for all vendors since kitchen/QR features are now dynamic toggles)
+  // POS-only fallback. Back Office already receives realtime events and loads
+  // its own report snapshot, so polling there is duplicate traffic.
   useEffect(() => {
     let interval: any;
-    const shouldPoll = currentRole === 'VENDOR' || currentRole === 'KITCHEN' || currentRole === 'ORDER_TAKER';
+    const shouldPoll = view === 'APP'
+      && (currentRole === 'VENDOR' || currentRole === 'KITCHEN' || currentRole === 'ORDER_TAKER');
     
     if (shouldPoll) {
-      // Initial fetch to ensure we have the latest before polling
-      fetchNewOrders();
-      interval = setInterval(() => {
-        fetchNewOrders();
-      }, 5000);
+      const pollIfVisible = () => {
+        if (document.visibilityState === 'visible') fetchNewOrders();
+      };
+      pollIfVisible();
+      interval = setInterval(pollIfVisible, 5000);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [currentRole, fetchNewOrders]);
+  }, [currentRole, view, fetchNewOrders]);
 
   useEffect(() => {
     if (isDarkMode) document.documentElement.classList.add('dark');
@@ -1767,12 +1861,12 @@ const App: React.FC = () => {
     if (currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER')) {
       fetchAnnouncements(currentUser.restaurantId);
     }
-  }, [currentUser?.restaurantId, currentRole]);
+  }, [currentUser?.restaurantId, currentRole, fetchAnnouncements]);
 
   useEffect(() => {
     if (!currentUser?.restaurantId || (currentRole !== 'VENDOR' && currentRole !== 'CASHIER')) return;
     const interval = window.setInterval(() => {
-      fetchAnnouncements(currentUser.restaurantId);
+      if (document.visibilityState === 'visible') fetchAnnouncements(currentUser.restaurantId);
     }, 60000);
     return () => window.clearInterval(interval);
   }, [currentUser?.restaurantId, currentRole, fetchAnnouncements]);
@@ -2812,29 +2906,74 @@ const App: React.FC = () => {
     return data.orders;
   }, []);
 
+  const onFetchBackOfficeOrders = useCallback(async (filters: ReportFilters): Promise<Order[]> => {
+    const pageSize = 200;
+    const maximumPages = 50;
+    const allOrders: Order[] = [];
+
+    // Dashboard browsing is not a report download, so do not use export mode
+    // or apply plan download-history restrictions. Read only the selected date
+    // range in API-sized pages.
+    for (let page = 1; page <= maximumPages; page += 1) {
+      const params = new URLSearchParams({
+        ...filters as any,
+        timezoneOffsetMinutes: new Date().getTimezoneOffset().toString(),
+        page: page.toString(),
+        limit: pageSize.toString(),
+        includeSummary: 'false',
+        includeBreakdowns: 'false',
+        includeItems: 'true',
+      });
+      const response = await fetch(`/api/orders/report?${params.toString()}`);
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to load Back Office orders');
+      }
+      const data: ReportResponse = await response.json();
+      allOrders.push(...(data.orders || []));
+      if ((data.orders || []).length < pageSize) break;
+    }
+
+    return allOrders;
+  }, []);
+
   const onFetchBackOfficeOrderChanges = useCallback(async (
     filters: ReportFilters,
     updatedSince: string,
   ): Promise<{ orders: Order[]; syncCursor: string }> => {
     const tzOffset = new Date().getTimezoneOffset();
-    const params = new URLSearchParams({
-      ...filters as any,
-      timezoneOffsetMinutes: tzOffset.toString(),
-      page: '1',
-      limit: '10000',
-      includeSummary: 'false',
-      includeBreakdowns: 'false',
-      includeItems: 'true',
-      mode: 'changes',
-      updatedSince,
-    });
-    const response = await fetch(`/api/orders/report?${params.toString()}`);
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      throw new Error(body.error || 'Failed to refresh Back Office orders');
+    const pageSize = 200;
+    const maximumPages = 50;
+    const changedOrders = new Map<string, Order>();
+    let syncCursor = updatedSince;
+
+    // Incremental reads use normal 200-row pages. Most refreshes finish in one
+    // small request, while unusually large change sets are fetched page by page
+    // instead of asking the API to allocate a 10,000-row response.
+    for (let page = 1; page <= maximumPages; page += 1) {
+      const params = new URLSearchParams({
+        ...filters as any,
+        timezoneOffsetMinutes: tzOffset.toString(),
+        page: page.toString(),
+        limit: pageSize.toString(),
+        includeSummary: 'false',
+        includeBreakdowns: 'false',
+        includeItems: 'true',
+        mode: 'changes',
+        updatedSince,
+      });
+      const response = await fetch(`/api/orders/report?${params.toString()}`);
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to refresh Back Office orders');
+      }
+      const data: ReportResponse = await response.json();
+      (data.orders || []).forEach(order => changedOrders.set(order.id, order));
+      syncCursor = data.syncCursor || syncCursor;
+      if ((data.orders || []).length < pageSize) break;
     }
-    const data: ReportResponse = await response.json();
-    return { orders: data.orders, syncCursor: data.syncCursor || new Date().toISOString() };
+
+    return { orders: Array.from(changedOrders.values()), syncCursor };
   }, []);
 
   const onFetchStats = async (filters: ReportFilters): Promise<any> => {
@@ -3584,6 +3723,7 @@ const App: React.FC = () => {
             currencySymbol={backOfficeCurrencySymbol}
             isActive={view === 'BACK_OFFICE'}
             onFetchAllFilteredOrders={onFetchAllFilteredOrders}
+            onFetchBackOfficeOrders={onFetchBackOfficeOrders}
             onFetchOrderChanges={onFetchBackOfficeOrderChanges}
             userRole={currentRole}
             onBack={currentRole === 'HR' ? undefined : () => setView('APP')}
@@ -3869,7 +4009,7 @@ const App: React.FC = () => {
           )
         )}
 
-        {currentRole === 'VENDOR' && (view === 'APP' || view === 'BACK_OFFICE') && (
+        {currentRole === 'VENDOR' && view === 'APP' && (
           activeVendorRes ? (
               <PosOnlyView
                 key={`${activeVendorRes.id}-${activeVendorRes.settings?.onboardingRequired === true ? 'setup' : 'ready'}`}

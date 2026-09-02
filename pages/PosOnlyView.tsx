@@ -6818,7 +6818,7 @@ const PosOnlyView: React.FC<Props> = ({
           <p className="text-xs text-gray-500 dark:text-gray-400">Checkout behavior and cash drawer actions.</p>
         </div>
         <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
-          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0">
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-2 md:gap-4 py-5 first:pt-0">
             <div>
               <p className="text-sm font-medium text-gray-900 dark:text-white">Auto-Print Receipt</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Print automatically after checkout</p>
@@ -6832,7 +6832,7 @@ const PosOnlyView: React.FC<Props> = ({
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-2 md:gap-4 py-5">
             <div>
               <p className="text-sm font-medium text-gray-900 dark:text-white">Auto Open Drawer</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Open cash drawer after checkout</p>
@@ -6846,7 +6846,7 @@ const PosOnlyView: React.FC<Props> = ({
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-2 md:gap-4 py-5">
             <div>
               <p className="text-sm font-medium text-gray-900 dark:text-white">Auto-Print Order List</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Auto-print order list after receipt with beep countdown</p>
@@ -6860,7 +6860,7 @@ const PosOnlyView: React.FC<Props> = ({
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-2 md:gap-4 py-5">
             <div>
               <p className="text-sm font-medium text-gray-900 dark:text-white">Print Receipt for Refunds</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Print a receipt automatically when a refund is processed</p>
@@ -6888,7 +6888,7 @@ const PosOnlyView: React.FC<Props> = ({
             { key: 'takeawayEnabled' as const, label: 'Takeaway', desc: 'Allow takeaway orders' },
             { key: 'deliveryEnabled' as const, label: 'Delivery', desc: 'Allow delivery orders' },
           ]).map(item => (
-            <div key={item.key} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0 last:pb-0">
+            <div key={item.key} className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-2 md:gap-4 py-5 first:pt-0 last:pb-0">
               <div>
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{item.label}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{item.desc}</p>
@@ -7222,7 +7222,7 @@ const PosOnlyView: React.FC<Props> = ({
       ) : (
         <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700 mb-4">
           {paymentTypes.map(pt => (
-            <div key={pt.id} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-4">
+            <div key={pt.id} className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-2 md:gap-4 py-4">
               <div>
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{pt.name}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -7277,7 +7277,7 @@ const PosOnlyView: React.FC<Props> = ({
       ) : (
         <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700 mb-4">
           {taxEntries.map(tax => (
-            <div key={tax.id} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-4">
+            <div key={tax.id} className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-2 md:gap-4 py-4">
               <div>
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{tax.name} ({tax.percentage}%)</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{tax.applyToItems ? 'Applied to items' : 'Not applied to items'}</p>
@@ -13169,7 +13169,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               ) : (
                 posCart.map((item, idx) => (
-                    <div key={`${item.id}-${idx}`} className="relative overflow-hidden rounded-xl">
+                    <div key={`${item.id}-${idx}`} className="relative overflow-hidden">
                       <div
                         className={`relative z-10 flex touch-pan-y select-none items-center gap-4 bg-white dark:bg-gray-800 ${cartSwipe?.item === item ? 'transition-none cursor-grabbing' : 'transition-transform duration-300 ease-out cursor-grab'} ${removingCartItem === item ? 'pointer-events-none' : ''}`}
                         style={{ transform: removingCartItem === item ? 'translateX(-110%)' : cartSwipe?.item === item ? `translateX(${cartSwipe.offsetX}px)` : 'translateX(0)' }}
@@ -13279,15 +13279,15 @@ const PosOnlyView: React.FC<Props> = ({
                         onClick={openCounterTablePicker}
                         className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white text-left flex items-center justify-between hover:border-orange-300 dark:hover:border-orange-500 transition-all"
                       >
-                        <span>{posTableNo || 'Counter'}</span>
+                        <span className="uppercase">{posTableNo || 'Counter'}</span>
                         <ChevronDown size={14} className="text-gray-400" />
                       </button>
                     </div>
                     <div className="flex-[2]">
                       <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Dining Option</label>
-                      <select value={posDiningType} onChange={e => setPosDiningType(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white">
+                      <select value={posDiningType} onChange={e => setPosDiningType(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase dark:text-white">
                         {availableDiningOptions.map((option) => (
-                          <option key={option} value={option}>{option}</option>
+                          <option key={option} value={option}>{option.toUpperCase()}</option>
                         ))}
                       </select>
                     </div>
@@ -13387,9 +13387,9 @@ const PosOnlyView: React.FC<Props> = ({
             {/* Cart Items */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 space-y-3">
               {posCart.map((item, idx) => (
-                <div key={`${item.id}-${idx}`} className="relative overflow-hidden rounded-xl">
+                <div key={`${item.id}-${idx}`} className="relative overflow-hidden">
                   <div
-                    className={`relative z-10 flex touch-pan-y select-none items-center gap-3 rounded-xl bg-gray-50 p-3 dark:bg-gray-700 ${cartSwipe?.item === item ? 'transition-none cursor-grabbing' : 'transition-transform duration-300 ease-out cursor-grab'} ${removingCartItem === item ? 'pointer-events-none' : ''}`}
+                    className={`relative z-10 flex touch-pan-y select-none items-center gap-3 bg-gray-50 p-3 dark:bg-gray-700 ${cartSwipe?.item === item ? 'transition-none cursor-grabbing' : 'transition-transform duration-300 ease-out cursor-grab'} ${removingCartItem === item ? 'pointer-events-none' : ''}`}
                     style={{ transform: removingCartItem === item ? 'translateX(-110%)' : cartSwipe?.item === item ? `translateX(${cartSwipe.offsetX}px)` : 'translateX(0)' }}
                     onPointerDown={(event) => startCartItemSwipe(event, item)}
                     onPointerMove={(event) => moveCartItemSwipe(event, item)}
