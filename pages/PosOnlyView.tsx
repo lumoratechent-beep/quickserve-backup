@@ -99,6 +99,7 @@ const CASHIER_ACCESS_SETTINGS: Array<{
 interface Props {
   restaurant: Restaurant;
   orders: Order[];
+  userId?: string;
   onUpdateOrder: (orderId: string, status: OrderStatus, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number; eReceipt?: EReceiptIssue }) => void | Promise<void>;
   onKitchenUpdateOrder?: (orderId: string, status: OrderStatus, rejectionReason?: string, rejectionNote?: string) => void;
   onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string, diningType?: string, paymentMethod?: string, cashierName?: string, amountReceived?: number, eReceipt?: EReceiptIssue) => Promise<string>;
@@ -163,6 +164,27 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
 const getKitchenCategoryKey = (value: any): string => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
 
 const DISABLED_KITCHEN_ORDER_SETTINGS: Record<string, never> = {};
+
+type CounterQrOrderView = 'list' | 'grid';
+type QrTableOrderView = 'list' | 'grid';
+
+interface PosViewPreferences {
+  counterQrOrderView: CounterQrOrderView;
+  counterQrGridColumns: 2 | 3;
+  qrTableOrderView: QrTableOrderView;
+}
+
+const DEFAULT_POS_VIEW_PREFERENCES: PosViewPreferences = {
+  counterQrOrderView: 'grid',
+  counterQrGridColumns: 2,
+  qrTableOrderView: 'list',
+};
+
+const normalizePosViewPreferences = (value: any): PosViewPreferences => ({
+  counterQrOrderView: value?.counterQrOrderView === 'list' ? 'list' : 'grid',
+  counterQrGridColumns: value?.counterQrGridColumns === 3 ? 3 : 2,
+  qrTableOrderView: value?.qrTableOrderView === 'grid' ? 'grid' : 'list',
+});
 
 // Receipt and printer configs are now managed by the PrinterSettings component
 // and the service types from printerService.ts
@@ -417,6 +439,7 @@ const MALAYSIA_BANKS = [
 const PosOnlyView: React.FC<Props> = ({
   restaurant,
   orders,
+  userId,
   onUpdateOrder,
   onKitchenUpdateOrder,
   onPlaceOrder,
@@ -472,12 +495,93 @@ const PosOnlyView: React.FC<Props> = ({
   const [onlineOrderFilter, setOnlineOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
   const [rejectingQrOrderId, setRejectingQrOrderId] = useState<string | null>(null);
   const [viewingQrOrderDetail, setViewingQrOrderDetail] = useState<Order | null>(null);
-  const [qrOrderView, setQrOrderView] = useState<'grid' | 'list'>('list');
+  const [posViewPreferences, setPosViewPreferences] = useState<PosViewPreferences>(() => {
+    if (!userId) return DEFAULT_POS_VIEW_PREFERENCES;
+    try {
+      const cached = localStorage.getItem(`pos_view_preferences_${userId}`);
+      return cached ? normalizePosViewPreferences(JSON.parse(cached)) : DEFAULT_POS_VIEW_PREFERENCES;
+    } catch {
+      return DEFAULT_POS_VIEW_PREFERENCES;
+    }
+  });
+  const posViewPreferencesChangedRef = useRef(false);
   const [qrSearchQuery, setQrSearchQuery] = useState('');
-  const [qrGridColumns, setQrGridColumns] = useState<2 | 3>(2);
   const [editingQrOrderId, setEditingQrOrderId] = useState<string | null>(null);
   const [qrRejectionReason, setQrRejectionReason] = useState('Item out of stock');
   const [qrRejectionNote, setQrRejectionNote] = useState('');
+
+  useEffect(() => {
+    if (!userId) {
+      setPosViewPreferences(DEFAULT_POS_VIEW_PREFERENCES);
+      return;
+    }
+
+    let cancelled = false;
+    const loadPosViewPreferences = async () => {
+      const { data, error } = await supabase
+        .from('users')
+        .select('access_permissions')
+        .eq('id', userId)
+        .single();
+      if (cancelled || posViewPreferencesChangedRef.current || error || !data) return;
+
+      const saved = data.access_permissions?.posViewPreferences;
+      const next = saved
+        ? normalizePosViewPreferences(saved)
+        : DEFAULT_POS_VIEW_PREFERENCES;
+      setPosViewPreferences(next);
+      localStorage.setItem(`pos_view_preferences_${userId}`, JSON.stringify(next));
+    };
+
+    void loadPosViewPreferences();
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  const savePosViewPreferences = async (next: PosViewPreferences) => {
+    posViewPreferencesChangedRef.current = true;
+    setPosViewPreferences(next);
+    if (userId) localStorage.setItem(`pos_view_preferences_${userId}`, JSON.stringify(next));
+
+    if (!userId) {
+      toast('View updated on this device. User settings could not be found.', 'warning');
+      return;
+    }
+
+    const { data, error: fetchError } = await supabase
+      .from('users')
+      .select('access_permissions')
+      .eq('id', userId)
+      .single();
+    if (fetchError || !data) {
+      toast('View updated on this device. Cloud save failed.', 'warning');
+      return;
+    }
+
+    const accessPermissions = {
+      ...(data.access_permissions || {}),
+      posViewPreferences: next,
+    };
+    const { error } = await supabase
+      .from('users')
+      .update({ access_permissions: accessPermissions })
+      .eq('id', userId);
+
+    toast(error ? 'View updated on this device. Cloud save failed.' : 'View preference saved.', error ? 'warning' : 'success');
+  };
+
+  const setCounterQrOrderViewPreference = (view: CounterQrOrderView, columns: 2 | 3 = posViewPreferences.counterQrGridColumns) => {
+    const next = { ...posViewPreferences, counterQrOrderView: view, counterQrGridColumns: columns };
+    if (
+      next.counterQrOrderView === posViewPreferences.counterQrOrderView
+      && next.counterQrGridColumns === posViewPreferences.counterQrGridColumns
+    ) return;
+    void savePosViewPreferences(next);
+  };
+
+  const setQrTableOrderViewPreference = (view: QrTableOrderView) => {
+    if (view === posViewPreferences.qrTableOrderView) return;
+    void savePosViewPreferences({ ...posViewPreferences, qrTableOrderView: view });
+  };
 
   useEffect(() => {
     const lockAt = subscription?.access_lock_at ? new Date(subscription.access_lock_at) : null;
@@ -8470,9 +8574,9 @@ const PosOnlyView: React.FC<Props> = ({
                       />
                     </div>
                     <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-0.5 border dark:border-gray-600 shrink-0 h-10 items-center">
-                      <button onClick={() => setQrOrderView('list')} className={`p-2 rounded-md transition-all ${qrOrderView === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={14} /></button>
-                      <button onClick={() => { setQrOrderView('grid'); setQrGridColumns(2); }} className={`px-2.5 py-2 rounded-md transition-all text-[10px] font-black ${qrOrderView === 'grid' && qrGridColumns === 2 ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}>2</button>
-                      <button onClick={() => { setQrOrderView('grid'); setQrGridColumns(3); }} className={`px-2.5 py-2 rounded-md transition-all text-[10px] font-black ${qrOrderView === 'grid' && qrGridColumns === 3 ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}>3</button>
+                      <button onClick={() => setCounterQrOrderViewPreference('list')} className={`p-2 rounded-md transition-all ${posViewPreferences.counterQrOrderView === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={14} /></button>
+                      <button onClick={() => setCounterQrOrderViewPreference('grid', 2)} className={`px-2.5 py-2 rounded-md transition-all text-[10px] font-black ${posViewPreferences.counterQrOrderView === 'grid' && posViewPreferences.counterQrGridColumns === 2 ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}>2</button>
+                      <button onClick={() => setCounterQrOrderViewPreference('grid', 3)} className={`px-2.5 py-2 rounded-md transition-all text-[10px] font-black ${posViewPreferences.counterQrOrderView === 'grid' && posViewPreferences.counterQrGridColumns === 3 ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}>3</button>
                     </div>
                   </div>
                   <div className="flex-1 overflow-y-auto p-4">
@@ -8492,7 +8596,7 @@ const PosOnlyView: React.FC<Props> = ({
                       );
                     }
                     return (
-                      <div className={qrOrderView === 'grid' ? `grid ${qrGridColumns === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-3` : 'space-y-3'}>
+                      <div className={posViewPreferences.counterQrOrderView === 'grid' ? `grid ${posViewPreferences.counterQrGridColumns === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-3` : 'space-y-3'}>
                         {servedOrders.map(order => (
                           <button
                             key={order.id}
@@ -11420,8 +11524,8 @@ const PosOnlyView: React.FC<Props> = ({
                           <button onClick={() => setQrOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>All</button>
                         </div>
                         <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm shrink-0">
-                          <button onClick={() => setQrOrderView('grid')} className={`p-2 rounded-md transition-all ${qrOrderView === 'grid' ? 'bg-white dark:bg-gray-600 text-orange-500 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><LayoutGrid size={13} /></button>
-                          <button onClick={() => setQrOrderView('list')} className={`p-2 rounded-md transition-all ${qrOrderView === 'list' ? 'bg-white dark:bg-gray-600 text-orange-500 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><List size={13} /></button>
+                          <button onClick={() => setQrTableOrderViewPreference('grid')} className={`p-2 rounded-md transition-all ${posViewPreferences.qrTableOrderView === 'grid' ? 'bg-white dark:bg-gray-600 text-orange-500 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><LayoutGrid size={13} /></button>
+                          <button onClick={() => setQrTableOrderViewPreference('list')} className={`p-2 rounded-md transition-all ${posViewPreferences.qrTableOrderView === 'list' ? 'bg-white dark:bg-gray-600 text-orange-500 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><List size={13} /></button>
                         </div>
                       </div>
                     </div>
@@ -11448,7 +11552,7 @@ const PosOnlyView: React.FC<Props> = ({
 
                       return (
                         <>
-                          {qrOrderView === 'grid' ? (
+                          {posViewPreferences.qrTableOrderView === 'grid' ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                               {filteredQrOrders.map(order => {
                                 const totalQty = order.items.reduce((s, i) => s + i.quantity, 0);

@@ -4111,6 +4111,7 @@ const App: React.FC = () => {
               onFetchAllFilteredOrders={onFetchAllFilteredOrders}
               isOnline={isOnline}
               pendingOfflineOrdersCount={pendingOfflineOrdersCount}
+              userId={currentUser.id}
               cashierName={currentUser?.username}
               subscription={currentUser?.restaurantId ? (vendorSubscriptions[currentUser.restaurantId] || null) : null}
               onSubscriptionUpdated={async () => { await Promise.all([fetchSubscriptions(), fetchRestaurants()]); }}
@@ -4158,6 +4159,7 @@ const App: React.FC = () => {
                 onFetchAllFilteredOrders={onFetchAllFilteredOrders}
                 isOnline={isOnline}
                 pendingOfflineOrdersCount={pendingOfflineOrdersCount}
+                userId={currentUser!.id}
                 cashierName={currentUser?.username}
                 onKitchenUpdateOrder={updateOrderStatus}
                 onToggleOnline={() => toggleVendorOnline(activeVendorRes.id, activeVendorRes.isOnline ?? true)}
@@ -4208,6 +4210,7 @@ const App: React.FC = () => {
                 onFetchAllFilteredOrders={onFetchAllFilteredOrders}
                 isOnline={isOnline}
                 pendingOfflineOrdersCount={0}
+                userId={currentUser!.id}
                 cashierName={currentUser?.username}
                 onKitchenUpdateOrder={updateOrderStatus}
                 lastSyncTime={lastSyncTime}
