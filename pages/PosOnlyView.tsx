@@ -118,6 +118,7 @@ interface Props {
   onSaveKitchenDivisions?: (divisions: KitchenDepartment[]) => void;
   subscription?: Subscription | null;
   onSubscriptionUpdated?: () => void | Promise<void>;
+  onFeatureSettingUpdated?: (restaurantId: string, key: string, value: boolean) => void;
   onNavigateBackOffice?: () => void;
   announcements?: AnnouncementRecord[];
   announcementsLoading?: boolean;
@@ -435,6 +436,7 @@ const PosOnlyView: React.FC<Props> = ({
   onSaveKitchenDivisions,
   subscription = null,
   onSubscriptionUpdated,
+  onFeatureSettingUpdated,
   onNavigateBackOffice,
   announcements = [],
   announcementsLoading = false,
@@ -4293,7 +4295,7 @@ const PosOnlyView: React.FC<Props> = ({
     addonId: string,
     addonName: string,
     kind: AddonActionKind,
-    action: (() => void | Promise<void>) | null | undefined,
+    action: (() => void | boolean | Promise<void | boolean>) | null | undefined,
   ) => {
     if (!action) return;
     if (isAddonActionRunning(addonId, kind)) return;
@@ -4303,7 +4305,8 @@ const PosOnlyView: React.FC<Props> = ({
     setAddonActionState({ addonId, kind, phase: 'running' });
 
     try {
-      await Promise.resolve(action());
+      const result = await Promise.resolve(action());
+      if (result === false) throw new Error(`${addonName} settings were not saved`);
     } catch (error) {
       console.error(`Failed to ${kind} ${addonName}:`, error);
       toast(`Failed to ${kind} ${addonName}.`, 'error');
@@ -4333,7 +4336,8 @@ const PosOnlyView: React.FC<Props> = ({
     setAddonPendingUninstallId(null);
   }, [addonDetailView]);
 
-  const updateFeatureSetting = <K extends keyof FeatureSettings>(key: K, value: FeatureSettings[K]) => {
+  const updateFeatureSetting = async <K extends keyof FeatureSettings>(key: K, value: FeatureSettings[K]): Promise<boolean> => {
+    const previousValue = featureSettings[key];
     setFeatureSettings(prev => ({ ...prev, [key]: value }));
 
     // Sync to server immediately for cross-device consistency
@@ -4341,9 +4345,9 @@ const PosOnlyView: React.FC<Props> = ({
     const currentSettings = (() => {
       try {
         const cached = localStorage.getItem(`qs_settings_${restaurant.id}`);
-        return cached ? JSON.parse(cached) : {};
+        return cached ? JSON.parse(cached) : (restaurant.settings || {});
       } catch {
-        return {};
+        return restaurant.settings || {};
       }
     })();
 
@@ -4359,18 +4363,16 @@ const PosOnlyView: React.FC<Props> = ({
     localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(newSettings));
     localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(newSettings.features));
 
-    updateFeatureOnServer(restaurant.id, String(key), value as boolean, newSettings)
-      .catch(error => {
-        console.warn(`Failed to sync ${key} to server:`, error);
-      });
-
-    // Also sync kitchenEnabled to the kitchen_enabled DB column for login API compatibility
-    if (key === 'kitchenEnabled') {
-      supabase.from('restaurants').update({ kitchen_enabled: value }).eq('id', restaurant.id)
-        .then(({ error }) => {
-          if (error) console.warn('Failed to sync kitchen_enabled to DB:', error.message);
-        });
+    const saved = await updateFeatureOnServer(restaurant.id, String(key), value as boolean, newSettings);
+    if (!saved) {
+      setFeatureSettings(prev => ({ ...prev, [key]: previousValue }));
+      localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(currentSettings));
+      localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(currentSettings.features || {}));
+      toast(`Failed to save ${String(key)}. Please try again.`, 'error');
+      return false;
     }
+
+    onFeatureSettingUpdated?.(restaurant.id, String(key), value as boolean);
 
     // Sync feature toggles to receiptConfig so checkout flow picks them up
     if (key === 'autoPrintReceipt') {
@@ -4380,6 +4382,7 @@ const PosOnlyView: React.FC<Props> = ({
     } else if (key === 'printReceiptForRefund') {
       setReceiptConfig(prev => ({ ...prev, printReceiptForRefund: value as boolean }));
     }
+    return true;
   };
 
   const handleToggleGroupMenuByCategory = async () => {
@@ -10340,8 +10343,14 @@ const PosOnlyView: React.FC<Props> = ({
                       author: 'QuickServe',
                       isInstalled: featureSettings.tableManagementEnabled || featureSettings.savedBillEnabled,
                       canInstall: true,
-                      onInstall: () => { updateFeatureSetting('tableManagementEnabled', true); updateFeatureSetting('savedBillEnabled', true); },
-                      onUninstall: () => { updateFeatureSetting('tableManagementEnabled', false); updateFeatureSetting('savedBillEnabled', false); },
+                      onInstall: async () => {
+                        if (!await updateFeatureSetting('tableManagementEnabled', true)) return false;
+                        return updateFeatureSetting('savedBillEnabled', true);
+                      },
+                      onUninstall: async () => {
+                        if (!await updateFeatureSetting('tableManagementEnabled', false)) return false;
+                        return updateFeatureSetting('savedBillEnabled', false);
+                      },
                       settingsPanel: 'table' as string | null,
                       renderSettings: () => <div className="space-y-4">{renderTableManagementContent()}</div>,
                     },
@@ -10359,8 +10368,8 @@ const PosOnlyView: React.FC<Props> = ({
                       author: 'QuickServe',
                       isInstalled: featureSettings.qrEnabled,
                       canInstall: canUseQr,
-                      onInstall: () => { updateFeatureSetting('qrEnabled', true); },
-                      onUninstall: () => { updateFeatureSetting('qrEnabled', false); },
+                      onInstall: () => updateFeatureSetting('qrEnabled', true),
+                      onUninstall: () => updateFeatureSetting('qrEnabled', false),
                       settingsPanel: 'qr' as string | null,
                       renderSettings: () => (
                         <div className="space-y-4">
@@ -10394,8 +10403,8 @@ const PosOnlyView: React.FC<Props> = ({
                       author: 'QuickServe',
                       isInstalled: featureSettings.tablesideOrderingEnabled,
                       canInstall: canUseQr,
-                      onInstall: () => { updateFeatureSetting('tablesideOrderingEnabled', true); },
-                      onUninstall: () => { updateFeatureSetting('tablesideOrderingEnabled', false); },
+                      onInstall: () => updateFeatureSetting('tablesideOrderingEnabled', true),
+                      onUninstall: () => updateFeatureSetting('tablesideOrderingEnabled', false),
                       settingsPanel: null as string | null,
                       renderSettings: null as (() => React.ReactNode) | null,
                     },
@@ -10413,8 +10422,8 @@ const PosOnlyView: React.FC<Props> = ({
                       author: 'QuickServe',
                       isInstalled: featureSettings.kitchenEnabled,
                       canInstall: canUseKitchen,
-                      onInstall: () => { updateFeatureSetting('kitchenEnabled', true); },
-                      onUninstall: () => { updateFeatureSetting('kitchenEnabled', false); },
+                      onInstall: () => updateFeatureSetting('kitchenEnabled', true),
+                      onUninstall: () => updateFeatureSetting('kitchenEnabled', false),
                       settingsPanel: 'kitchen' as string | null,
                       renderSettings: () => <div className="space-y-0">{canUseKitchen ? renderKitchenSettingsContent() : (
                         <div className="text-center py-8">
@@ -10440,7 +10449,7 @@ const PosOnlyView: React.FC<Props> = ({
                       isInstalled: featureSettings.customerDisplayEnabled,
                       canInstall: true,
                       onInstall: () => updateFeatureSetting('customerDisplayEnabled', true),
-                      onUninstall: () => { updateFeatureSetting('customerDisplayEnabled', false); },
+                      onUninstall: () => updateFeatureSetting('customerDisplayEnabled', false),
                       settingsPanel: null as string | null,
                       renderSettings: null as (() => React.ReactNode) | null,
                     },
@@ -10458,8 +10467,8 @@ const PosOnlyView: React.FC<Props> = ({
                       author: 'QuickServe',
                       isInstalled: featureSettings.onlineShopEnabled,
                       canInstall: canUseQr,
-                      onInstall: () => { updateFeatureSetting('onlineShopEnabled', true); },
-                      onUninstall: () => { updateFeatureSetting('onlineShopEnabled', false); },
+                      onInstall: () => updateFeatureSetting('onlineShopEnabled', true),
+                      onUninstall: () => updateFeatureSetting('onlineShopEnabled', false),
                       settingsPanel: null as string | null,
                       renderSettings: null as (() => React.ReactNode) | null,
                     },
@@ -10477,8 +10486,8 @@ const PosOnlyView: React.FC<Props> = ({
                       author: 'QuickServe',
                       isInstalled: featureSettings.shiftEnabled,
                       canInstall: true,
-                      onInstall: () => { updateFeatureSetting('shiftEnabled', true); },
-                      onUninstall: () => { updateFeatureSetting('shiftEnabled', false); },
+                      onInstall: () => updateFeatureSetting('shiftEnabled', true),
+                      onUninstall: () => updateFeatureSetting('shiftEnabled', false),
                       settingsPanel: 'addon-shift' as string | null,
                       renderSettings: null as (() => React.ReactNode) | null,
                     },

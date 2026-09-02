@@ -42,9 +42,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Settings object is required' });
       }
 
+      const updatePayload: Record<string, unknown> = { settings };
+      if (typeof settings.features?.kitchenEnabled === 'boolean') {
+        updatePayload.kitchen_enabled = settings.features.kitchenEnabled;
+      }
+
       const { error } = await supabase
         .from('restaurants')
-        .update({ settings })
+        .update(updatePayload)
         .eq('id', restaurantId);
 
       if (error) {

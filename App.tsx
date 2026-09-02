@@ -168,7 +168,9 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
 const getKitchenCategoryKey = (value: any): string => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
 
 const isKitchenEnabledForRouting = (restaurant: Restaurant | undefined): boolean => (
-  restaurant?.kitchenEnabled === true || restaurant?.settings?.features?.kitchenEnabled === true
+  typeof restaurant?.settings?.features?.kitchenEnabled === 'boolean'
+    ? restaurant.settings.features.kitchenEnabled
+    : restaurant?.kitchenEnabled === true
 );
 
 const hasInstalledLiveOrderFeature = (restaurant: Restaurant | undefined): boolean => {
@@ -261,6 +263,7 @@ const App: React.FC = () => {
       });
     } catch { return []; }
   });
+  const [hydratedRestaurantSettingsId, setHydratedRestaurantSettingsId] = useState<string | null>(null);
   
   const [orders, setOrders] = useState<Order[]>(() => {
     try {
@@ -576,6 +579,7 @@ const App: React.FC = () => {
 
   const establishUserSession = useCallback((user: User, targetView: 'APP' | 'BACK_OFFICE' = 'APP') => {
     setIsLoading(true);
+    setHydratedRestaurantSettingsId(null);
     setCurrentUser(user);
     setCurrentRole(user.role);
     setView(targetView);
@@ -1164,6 +1168,9 @@ const App: React.FC = () => {
       }));
       setRestaurants(formatted);
       persistCache('qs_cache_restaurants', formatted);
+      if (currentUser?.restaurantId && formatted.some(restaurant => restaurant.id === currentUser.restaurantId)) {
+        setHydratedRestaurantSettingsId(currentUser.restaurantId);
+      }
     }
   }, [currentRole, currentUser?.restaurantId, sessionLocation, sessionRestaurantId, sessionRestaurantSlug]);
 
@@ -1805,10 +1812,14 @@ const App: React.FC = () => {
         const res = payload.new;
         const newSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : undefined;
         setRestaurants(prev => {
+          const currentRestaurant = prev.find(r => r.id === res.id);
+          const expandedSettings = newSettings !== undefined
+            ? expandPosSettings(newSettings, res.name || currentRestaurant?.name || '')
+            : undefined;
           const updated = prev.map(r => r.id === res.id ? {
             ...r,
             isOnline: res.is_online === true || res.is_online === null,
-            ...(newSettings !== undefined ? { settings: newSettings } : {}),
+            ...(expandedSettings !== undefined ? { settings: expandedSettings } : {}),
           } : r);
           persistCache('qs_cache_restaurants', updated);
           return updated;
@@ -1849,6 +1860,7 @@ const App: React.FC = () => {
     const shouldPoll = view === 'APP'
       && !!currentRole
       && LIVE_ORDER_POLLING_ROLES.includes(currentRole)
+      && hydratedRestaurantSettingsId === currentUser?.restaurantId
       && hasInstalledLiveOrderFeature(restaurant);
     
     if (shouldPoll) {
@@ -1861,7 +1873,7 @@ const App: React.FC = () => {
     return () => {
       if (interval !== undefined) clearInterval(interval);
     };
-  }, [currentRole, currentUser?.restaurantId, restaurants, view, fetchNewOrders]);
+  }, [currentRole, currentUser?.restaurantId, hydratedRestaurantSettingsId, restaurants, view, fetchNewOrders]);
 
   useEffect(() => {
     if (isDarkMode) document.documentElement.classList.add('dark');
@@ -2102,13 +2114,13 @@ const App: React.FC = () => {
     setView('MARKETING');
   };
 
-  // Block KITCHEN users at runtime if KDS is disabled for their restaurant
+  // Block KITCHEN users at runtime if their saved KDS install status is disabled.
   useEffect(() => {
-    if (currentUser?.role === 'KITCHEN' && activeVendorRes && activeVendorRes.kitchenEnabled !== true) {
+    if (currentUser?.role === 'KITCHEN' && activeVendorRes && !isKitchenEnabledForRouting(activeVendorRes)) {
       toast('Kitchen Display System has been disabled. You have been logged out.', 'warning');
       handleLogout();
     }
-  }, [currentUser?.role, activeVendorRes?.kitchenEnabled]);
+  }, [currentUser?.role, activeVendorRes?.kitchenEnabled, activeVendorRes?.settings?.features?.kitchenEnabled]);
 
   // Block ORDER_TAKER users at runtime if tableside ordering is disabled
   useEffect(() => {
@@ -3472,6 +3484,27 @@ const App: React.FC = () => {
     setRestaurants(prev => prev.map(r => r.id === restaurantId ? { ...r, settings } : r));
   };
 
+  const handleFeatureSettingUpdated = useCallback((restaurantId: string, key: string, value: boolean) => {
+    setRestaurants(prev => {
+      const updated = prev.map(restaurant => {
+        if (restaurant.id !== restaurantId) return restaurant;
+        return {
+          ...restaurant,
+          ...(key === 'kitchenEnabled' ? { kitchenEnabled: value } : {}),
+          settings: {
+            ...(restaurant.settings || {}),
+            features: {
+              ...(restaurant.settings?.features || {}),
+              [key]: value,
+            },
+          },
+        };
+      });
+      persistCache('qs_cache_restaurants', updated);
+      return updated;
+    });
+  }, []);
+
   const completeFirstTimeSetup = async (values: FirstTimeSetupValues) => {
     if (!currentUser?.restaurantId || !activeVendorRes) {
       throw new Error('Your restaurant could not be found. Please log in again.');
@@ -4032,6 +4065,7 @@ const App: React.FC = () => {
               cashierName={currentUser?.username}
               subscription={currentUser?.restaurantId ? (vendorSubscriptions[currentUser.restaurantId] || null) : null}
               onSubscriptionUpdated={async () => { await Promise.all([fetchSubscriptions(), fetchRestaurants()]); }}
+              onFeatureSettingUpdated={handleFeatureSettingUpdated}
               announcements={announcements}
               announcementsLoading={announcementsLoading}
               onMarkAnnouncementRead={markAnnouncementRead}
@@ -4083,6 +4117,7 @@ const App: React.FC = () => {
                 onSaveKitchenDivisions={(divisions) => saveKitchenDivisions(activeVendorRes.id, divisions)}
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
                 onSubscriptionUpdated={async () => { await Promise.all([fetchSubscriptions(), fetchRestaurants()]); }}
+                onFeatureSettingUpdated={handleFeatureSettingUpdated}
                 onNavigateBackOffice={handleNavigateBackOffice}
                 announcements={announcements}
                 announcementsLoading={announcementsLoading}
@@ -4131,6 +4166,7 @@ const App: React.FC = () => {
                 userKitchenCategories={currentUser?.kitchenCategories}
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
                 onSubscriptionUpdated={async () => { await Promise.all([fetchSubscriptions(), fetchRestaurants()]); }}
+                onFeatureSettingUpdated={handleFeatureSettingUpdated}
                 announcements={announcements}
                 announcementsLoading={announcementsLoading}
                 onMarkAnnouncementRead={markAnnouncementRead}
