@@ -2906,7 +2906,7 @@ const App: React.FC = () => {
     return data.orders;
   }, []);
 
-  const onFetchBackOfficeOrders = useCallback(async (filters: ReportFilters): Promise<Order[]> => {
+  const onFetchBackOfficeOrders = useCallback(async (filters: ReportFilters, signal?: AbortSignal): Promise<Order[]> => {
     const pageSize = 200;
     const maximumPages = 50;
     const allOrders: Order[] = [];
@@ -2924,7 +2924,7 @@ const App: React.FC = () => {
         includeBreakdowns: 'false',
         includeItems: 'true',
       });
-      const response = await fetch(`/api/orders/report?${params.toString()}`);
+      const response = await fetch(`/api/orders/report?${params.toString()}`, { signal });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(body.error || 'Failed to load Back Office orders');
@@ -2937,9 +2937,25 @@ const App: React.FC = () => {
     return allOrders;
   }, []);
 
+  const onFetchBackOfficeSummary = useCallback(async (filters: ReportFilters, signal?: AbortSignal) => {
+    const params = new URLSearchParams({
+      ...filters as any,
+      timezoneOffsetMinutes: new Date().getTimezoneOffset().toString(),
+      mode: 'summary',
+      includeBreakdowns: 'false',
+    });
+    const response = await fetch(`/api/orders/report?${params.toString()}`, { signal });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || 'Failed to load Back Office summary');
+    }
+    return await response.json();
+  }, []);
+
   const onFetchBackOfficeOrderChanges = useCallback(async (
     filters: ReportFilters,
     updatedSince: string,
+    signal?: AbortSignal,
   ): Promise<{ orders: Order[]; syncCursor: string }> => {
     const tzOffset = new Date().getTimezoneOffset();
     const pageSize = 200;
@@ -2962,7 +2978,7 @@ const App: React.FC = () => {
         mode: 'changes',
         updatedSince,
       });
-      const response = await fetch(`/api/orders/report?${params.toString()}`);
+      const response = await fetch(`/api/orders/report?${params.toString()}`, { signal });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(body.error || 'Failed to refresh Back Office orders');
@@ -3724,6 +3740,7 @@ const App: React.FC = () => {
             isActive={view === 'BACK_OFFICE'}
             onFetchAllFilteredOrders={onFetchAllFilteredOrders}
             onFetchBackOfficeOrders={onFetchBackOfficeOrders}
+            onFetchBackOfficeSummary={onFetchBackOfficeSummary}
             onFetchOrderChanges={onFetchBackOfficeOrderChanges}
             userRole={currentRole}
             onBack={currentRole === 'HR' ? undefined : () => setView('APP')}

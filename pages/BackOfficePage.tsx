@@ -41,8 +41,9 @@ interface Props {
   currencySymbol: string;
   isActive?: boolean;
   onFetchAllFilteredOrders?: (filters: any) => Promise<Order[]>;
-  onFetchBackOfficeOrders?: (filters: any) => Promise<Order[]>;
-  onFetchOrderChanges?: (filters: any, updatedSince: string) => Promise<{ orders: Order[]; syncCursor: string }>;
+  onFetchBackOfficeOrders?: (filters: any, signal?: AbortSignal) => Promise<Order[]>;
+  onFetchBackOfficeSummary?: (filters: any, signal?: AbortSignal) => Promise<{ totalRevenue: number; orderVolume: number }>;
+  onFetchOrderChanges?: (filters: any, updatedSince: string, signal?: AbortSignal) => Promise<{ orders: Order[]; syncCursor: string }>;
   onBack?: () => void;
   onAddMenuItem?: (restaurantId: string, item: MenuItem) => Promise<void>;
   onUpdateMenu?: (restaurantId: string, item: MenuItem) => Promise<void>;
@@ -185,7 +186,7 @@ const UNIT_LABELS: Record<string, string> = {
 const getUnitLabel = (unit?: string) => UNIT_LABELS[(unit || 'pcs').toLowerCase()] || unit || 'pcs';
 const formatStockNumber = (value: number) => Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 3 });
 
-const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, isActive = true, onFetchAllFilteredOrders, onFetchBackOfficeOrders, onFetchOrderChanges, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, networkMeta, batteryMeta, batteryCharging = false, unreadMailCount = 0, onOpenMail, onDownloadSalesReport, userRole = 'VENDOR' }) => {
+const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, isActive = true, onFetchAllFilteredOrders, onFetchBackOfficeOrders, onFetchBackOfficeSummary, onFetchOrderChanges, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, networkMeta, batteryMeta, batteryCharging = false, unreadMailCount = 0, onOpenMail, onDownloadSalesReport, userRole = 'VENDOR' }) => {
   const [isInitialLoading, setIsInitialLoading] = useState(() => !backOfficeOrderCache.has(restaurant.id));
   const [activeTab, setActiveTab] = useState<BackOfficeTab>('DASHBOARD');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -381,6 +382,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
   const [dashboardOrders, setDashboardOrders] = useState<Order[]>(() => backOfficeOrderCache.get(restaurant.id)?.orders || []);
   const [hasDashboardSnapshot, setHasDashboardSnapshot] = useState(() => backOfficeOrderCache.has(restaurant.id));
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
+  const [previousPeriodSummary, setPreviousPeriodSummary] = useState({ totalSales: 0, totalOrders: 0, cancelled: 0 });
   const [isDownloadingSalesReport, setIsDownloadingSalesReport] = useState(false);
 
   const handleSharedSalesReportDownload = async (options: ReportDownloadOptions) => {
@@ -397,13 +399,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
   };
 
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive || activeTab !== 'DASHBOARD') return;
     const fetchBackOfficeOrders = onFetchBackOfficeOrders || onFetchAllFilteredOrders;
     if (!fetchBackOfficeOrders) {
       setIsInitialLoading(false);
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
 
     const fetchDashboardData = async () => {
       const duration = endDate.getTime() - startDate.getTime();
@@ -415,21 +418,54 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
 
       const cached = backOfficeOrderCache.get(restaurant.id);
       const cacheCoversRange = cached
-        && cached.startTimestamp <= requestedStart.getTime()
+        && cached.startTimestamp <= startDate.getTime()
         && cached.endTimestamp >= requestedEnd.getTime();
+
+      const loadPreviousPeriodSummary = async () => {
+        if (!onFetchBackOfficeSummary) return;
+        const previousFilters = {
+          restaurantId: restaurant.id,
+          startDate: toLocal(requestedStart),
+          endDate: toLocal(new Date(startDate.getTime() - 1)),
+        };
+        try {
+          const [all, cancelledOrders] = await Promise.all([
+            onFetchBackOfficeSummary(previousFilters, controller.signal),
+            onFetchBackOfficeSummary({ ...previousFilters, status: OrderStatus.CANCELLED }, controller.signal),
+          ]);
+          if (!cancelled) {
+            const cancelledCount = Number(cancelledOrders.orderVolume || 0);
+            setPreviousPeriodSummary({
+              totalSales: Number(all.totalRevenue || 0),
+              totalOrders: Math.max(0, Number(all.orderVolume || 0) - cancelledCount),
+              cancelled: cancelledCount,
+            });
+          }
+        } catch (err) {
+          // Comparison data is supplementary; never block the selected period
+          // if its small summary request fails.
+          if (!cancelled) console.warn('Previous-period summary could not be loaded.', err);
+        }
+      };
 
       if (cacheCoversRange) {
         setDashboardOrders(cached.orders);
         setHasDashboardSnapshot(true);
         setIsInitialLoading(false);
-        if (!onFetchOrderChanges) return;
+        if (!onFetchOrderChanges) {
+          await loadPreviousPeriodSummary();
+          return;
+        }
         setIsDashboardLoading(true);
         try {
-          const changes = await onFetchOrderChanges({
-            restaurantId: restaurant.id,
-            startDate: toLocal(new Date(cached.startTimestamp)),
-            endDate: toLocal(new Date(cached.endTimestamp)),
-          }, cached.syncCursor);
+          const [changes] = await Promise.all([
+            onFetchOrderChanges({
+              restaurantId: restaurant.id,
+              startDate: toLocal(new Date(cached.startTimestamp)),
+              endDate: toLocal(new Date(cached.endTimestamp)),
+            }, cached.syncCursor, controller.signal),
+            loadPreviousPeriodSummary(),
+          ]);
           if (cancelled) return;
           const latestCached = backOfficeOrderCache.get(restaurant.id) || cached;
           if (changes.orders.length === 0) {
@@ -441,7 +477,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
           backOfficeOrderCache.set(restaurant.id, nextCache);
           React.startTransition(() => setDashboardOrders(merged));
         } catch (err) {
-          console.warn('Incremental Back Office refresh failed; using cached data.', err);
+          if (!cancelled) console.warn('Incremental Back Office refresh failed; using cached data.', err);
         } finally {
           if (!cancelled) setIsDashboardLoading(false);
         }
@@ -452,15 +488,18 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
       if (!hasDashboardSnapshot) setIsInitialLoading(true);
       try {
         const requestCursor = new Date().toISOString();
-        const allOrders = await fetchBackOfficeOrders({
-          restaurantId: restaurant.id,
-          startDate: toLocal(requestedStart),
-          endDate: toLocal(requestedEnd),
-        });
+        const [allOrders] = await Promise.all([
+          fetchBackOfficeOrders({
+            restaurantId: restaurant.id,
+            startDate: toLocal(startDate),
+            endDate: toLocal(requestedEnd),
+          }, controller.signal),
+          loadPreviousPeriodSummary(),
+        ]);
         if (!cancelled) {
           backOfficeOrderCache.set(restaurant.id, {
             orders: allOrders,
-            startTimestamp: requestedStart.getTime(),
+            startTimestamp: startDate.getTime(),
             endTimestamp: requestedEnd.getTime(),
             syncCursor: requestCursor,
           });
@@ -479,8 +518,11 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
     };
 
     fetchDashboardData();
-    return () => { cancelled = true; };
-  }, [isActive, startDate, endDate, restaurant.id, onFetchAllFilteredOrders, onFetchBackOfficeOrders, onFetchOrderChanges]);
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isActive, activeTab, startDate, endDate, restaurant.id, onFetchAllFilteredOrders, onFetchBackOfficeOrders, onFetchBackOfficeSummary, onFetchOrderChanges]);
 
   // While Back Office stays open, merge the POS realtime cache into the full
   // snapshot so new orders and status changes appear immediately. A cursor
@@ -941,15 +983,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const kpis = useMemo(() => {
     const completed = filteredOrders.filter(o => o.status !== OrderStatus.CANCELLED);
-    const prevCompleted = prevPeriodOrders.filter(o => o.status !== OrderStatus.CANCELLED);
     const totalSales = completed.reduce((s, o) => s + o.total, 0);
-    const prevTotalSales = prevCompleted.reduce((s, o) => s + o.total, 0);
+    const prevTotalSales = onFetchBackOfficeSummary ? previousPeriodSummary.totalSales : prevPeriodOrders.filter(o => o.status !== OrderStatus.CANCELLED).reduce((s, o) => s + o.total, 0);
     const totalOrders = completed.length;
-    const prevTotalOrders = prevCompleted.length;
+    const prevTotalOrders = onFetchBackOfficeSummary ? previousPeriodSummary.totalOrders : prevPeriodOrders.filter(o => o.status !== OrderStatus.CANCELLED).length;
     const avgOrder = totalOrders > 0 ? totalSales / totalOrders : 0;
     const prevAvg = prevTotalOrders > 0 ? prevTotalSales / prevTotalOrders : 0;
     const cancelled = filteredOrders.filter(o => o.status === OrderStatus.CANCELLED).length;
-    const prevCancelled = prevPeriodOrders.filter(o => o.status === OrderStatus.CANCELLED).length;
+    const prevCancelled = onFetchBackOfficeSummary ? previousPeriodSummary.cancelled : prevPeriodOrders.filter(o => o.status === OrderStatus.CANCELLED).length;
     const pct = (curr: number, prev: number) => prev === 0 ? (curr > 0 ? 100 : 0) : ((curr - prev) / prev) * 100;
     return {
       totalSales, totalOrders, avgOrder, cancelled,
@@ -958,7 +999,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
       avgChange: pct(avgOrder, prevAvg),
       cancelledChange: pct(cancelled, prevCancelled),
     };
-  }, [filteredOrders, prevPeriodOrders]);
+  }, [filteredOrders, prevPeriodOrders, previousPeriodSummary, onFetchBackOfficeSummary]);
 
   const dailySales = useMemo(() => {
     const map: Record<string, { date: string; sales: number; orders: number }> = {};
@@ -1678,7 +1719,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
   };
 
   // â”€â”€â”€ Date Range Picker â”€â”€â”€
-  const DateRangePicker = () => (
+  const renderDateRangePicker = () => (
     <StandardReport
         toolbarOnly
         showHeader={false}
@@ -1713,7 +1754,12 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
     <div className="flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white relative" style={{ height: 'var(--app-height, 100dvh)' }}>
       {/* Initial Loading Overlay */}
       {isInitialLoading && (
-        <div className="absolute inset-0 z-[100] bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm flex flex-col items-center justify-center">
+        <div
+          className="fixed inset-0 z-[200] bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm flex flex-col items-center justify-center"
+          role="status"
+          aria-live="polite"
+          aria-label="Loading Back Office"
+        >
           <Loader2 size={40} className="animate-spin text-amber-500 mb-4" />
           <p className="text-sm font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Loading Back Office...</p>
           <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Fetching latest data</p>
@@ -2067,7 +2113,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
             <div className="mb-4">
               <h2 className="text-lg font-black">Sales Overview</h2>
             </div>
-            <DateRangePicker />
+            {renderDateRangePicker()}
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
