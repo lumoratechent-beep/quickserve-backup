@@ -62,6 +62,8 @@ const BACK_OFFICE_ROLES: Role[] = ['VENDOR', 'ADMIN', 'HR'];
 const BACK_OFFICE_ONLY_ROLES: Role[] = ['HR'];
 const SUBSCRIPTION_CACHE_KEY = 'qs_cache_subscriptions';
 const SUBSCRIPTION_CHANGE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
+const LIVE_ORDER_POLL_INTERVAL_MS = 15 * 1000;
+const LIVE_ORDER_POLLING_ROLES: Role[] = ['VENDOR', 'CASHIER', 'KITCHEN', 'ORDER_TAKER'];
 const RESTAURANT_COLUMNS = 'id,name,logo,vendor_id,location_name,created_at,is_online,slug,kitchen_divisions,kitchen_enabled,settings,categories,modifiers,add_on_items';
 const MENU_ITEM_COLUMNS = 'id,restaurant_id,name,description,price,image,category,is_archived,sizes,temp_options,other_variants,add_ons';
 const ORDER_COLUMNS = 'id,items,total,status,timestamp,customer_id,restaurant_id,table_number,dining_type,location_name,remark,rejection_reason,rejection_note,payment_method,cashier_name,amount_received,change_amount,order_source,e_receipt_id';
@@ -168,6 +170,14 @@ const getKitchenCategoryKey = (value: any): string => String(value || '').trim()
 const isKitchenEnabledForRouting = (restaurant: Restaurant | undefined): boolean => (
   restaurant?.kitchenEnabled === true || restaurant?.settings?.features?.kitchenEnabled === true
 );
+
+const hasInstalledLiveOrderFeature = (restaurant: Restaurant | undefined): boolean => {
+  const features = restaurant?.settings?.features;
+  return features?.qrEnabled === true
+    || features?.tablesideOrderingEnabled === true
+    || features?.onlineShopEnabled === true
+    || isKitchenEnabledForRouting(restaurant);
+};
 
 const getKitchenRoutedCategories = (restaurant: Restaurant | undefined): Set<string> | null => {
   if (!isKitchenEnabledForRouting(restaurant)) return new Set<string>();
@@ -1360,7 +1370,7 @@ const App: React.FC = () => {
     const savedUser = localStorage.getItem('qs_user');
     if (!savedUser) return;
     const user = JSON.parse(savedUser);
-    if (user.role !== 'VENDOR' && user.role !== 'KITCHEN' || !user.restaurantId) return;
+    if (!LIVE_ORDER_POLLING_ROLES.includes(user.role) || !user.restaurantId) return;
 
     isFetchingRef.current = true;
     try {
@@ -1831,24 +1841,27 @@ const App: React.FC = () => {
     };
   }, [currentRole, sessionLocation, sessionRestaurantId, currentUser?.restaurantId, rememberKnownOrderId]);
 
-  // POS-only fallback. Back Office already receives realtime events and loads
-  // its own report snapshot, so polling there is duplicate traffic.
+  // Live-order fallback for installed QR, tableside, online shop, or kitchen
+  // features. Standard POS sessions rely on local writes and do not poll.
   useEffect(() => {
-    let interval: any;
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const restaurant = restaurants.find(item => item.id === currentUser?.restaurantId);
     const shouldPoll = view === 'APP'
-      && (currentRole === 'VENDOR' || currentRole === 'KITCHEN' || currentRole === 'ORDER_TAKER');
+      && !!currentRole
+      && LIVE_ORDER_POLLING_ROLES.includes(currentRole)
+      && hasInstalledLiveOrderFeature(restaurant);
     
     if (shouldPoll) {
       const pollIfVisible = () => {
         if (document.visibilityState === 'visible') fetchNewOrders();
       };
       pollIfVisible();
-      interval = setInterval(pollIfVisible, 5000);
+      interval = setInterval(pollIfVisible, LIVE_ORDER_POLL_INTERVAL_MS);
     }
     return () => {
-      if (interval) clearInterval(interval);
+      if (interval !== undefined) clearInterval(interval);
     };
-  }, [currentRole, view, fetchNewOrders]);
+  }, [currentRole, currentUser?.restaurantId, restaurants, view, fetchNewOrders]);
 
   useEffect(() => {
     if (isDarkMode) document.documentElement.classList.add('dark');
