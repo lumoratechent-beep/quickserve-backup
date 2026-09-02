@@ -945,14 +945,16 @@ const PosOnlyView: React.FC<Props> = ({
     // Priority 1: DB settings.features (cross-device authoritative — always prefer DB over localStorage)
     const dbSaved = restaurant.settings?.features;
     if (dbSaved && typeof dbSaved === 'object') {
-      return { ...defaults, ...dbSaved };
+      const merged = { ...defaults, ...dbSaved };
+      return { ...merged, kitchenEnabled: restaurant.kitchenEnabled === true && merged.kitchenEnabled === true };
     }
     // Priority 2: localStorage (same-device offline cache)
     const saved = localStorage.getItem(`features_${restaurant.id}`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        return { ...defaults, ...parsed };
+        const merged = { ...defaults, ...parsed };
+        return { ...merged, kitchenEnabled: restaurant.kitchenEnabled === true && merged.kitchenEnabled === true };
       } catch {}
     }
     return defaults;
@@ -3538,7 +3540,11 @@ const PosOnlyView: React.FC<Props> = ({
 
       // Hydrate ALL settings state from server (DB is authoritative for cross-device)
       if (serverSettings.features) {
-        setFeatureSettings(prev => ({ ...prev, ...serverSettings.features }));
+        const serverFeatures = {
+          ...serverSettings.features,
+          kitchenEnabled: restaurant.kitchenEnabled === true && serverSettings.features.kitchenEnabled === true,
+        };
+        setFeatureSettings(prev => ({ ...prev, ...serverFeatures }));
         if (typeof serverSettings.features.groupMenuByCategory === 'boolean') {
           setGroupMenuByCategory(serverSettings.features.groupMenuByCategory);
         }
@@ -3585,8 +3591,17 @@ const PosOnlyView: React.FC<Props> = ({
 
       // Update localStorage cache with full expanded settings
       try {
-        localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(serverSettings));
-        localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(serverSettings.features));
+        const cachedSettings = serverSettings.features
+          ? {
+              ...serverSettings,
+              features: {
+                ...serverSettings.features,
+                kitchenEnabled: restaurant.kitchenEnabled === true && serverSettings.features.kitchenEnabled === true,
+              },
+            }
+          : serverSettings;
+        localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(cachedSettings));
+        localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(cachedSettings.features));
       } catch (e) {
         console.warn('Failed to update localStorage cache:', e);
       }
@@ -6069,7 +6084,7 @@ const PosOnlyView: React.FC<Props> = ({
   const showTablesideFeature = canUseQr && featureSettings.tablesideOrderingEnabled;
   const showQrFeature = showQrOrderingFeature || showTablesideFeature;
   const showOnlineShopFeature = canUseQr && featureSettings.onlineShopEnabled;
-  const isOrderAcceptanceManagedByKitchen = featureSettings.kitchenEnabled === true;
+  const isOrderAcceptanceManagedByKitchen = showKitchenFeature;
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const isKitchenUser = userRole === 'KITCHEN';
   const isVendorUser = userRole === 'VENDOR';
@@ -11388,6 +11403,16 @@ const PosOnlyView: React.FC<Props> = ({
                     <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
                       <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Manage orders placed via QR table scan.</p>
                       <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          className="group relative flex min-h-[42px] w-[42px] shrink-0 items-center justify-center rounded-lg border border-orange-200 bg-orange-50 text-orange-600 transition-all hover:border-orange-300 hover:bg-orange-100 dark:border-orange-900/50 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/30"
+                          aria-label="Kitchen routing information"
+                        >
+                          <Info size={15} />
+                          <span className="pointer-events-none absolute right-0 top-11 z-20 hidden w-64 rounded-lg border border-gray-200 bg-white p-3 text-left text-[10px] font-bold leading-relaxed text-gray-600 shadow-xl group-hover:block dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                            Send orders to your Kitchen Display by enabling the add-on in Settings. Without it, QR and tableside orders stay Ongoing until staff marks them Served.
+                          </span>
+                        </button>
                         <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm overflow-x-auto hide-scrollbar">
                           <button onClick={() => setQrOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Ongoing</button>
                           <button onClick={() => setQrOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Served</button>
@@ -11437,7 +11462,7 @@ const PosOnlyView: React.FC<Props> = ({
                                   ) : (
                                     <div className="flex justify-between gap-1.5">
                                       {order.status === OrderStatus.PENDING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} rounded-lg font-black uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all`}>Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow`}>Accept</button></>)}
-                                      {order.status === OrderStatus.ONGOING && (<button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className={`${compact ? 'w-full px-3 py-1.5 text-[9px]' : 'w-full py-2.5 text-[10px]'} bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all shadow`}>Serve</button>)}
+                                      {order.status === OrderStatus.ONGOING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} rounded-lg font-black uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all`}>Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all shadow`}>Serve</button></>)}
                                       {order.status === OrderStatus.SERVED && (<button onClick={() => { setSelectedQrOrderForPayment(order); setActiveTab('COUNTER'); setCounterMode('QR_ORDER'); }} className={`${compact ? 'w-full px-3 py-1.5 text-[9px]' : 'w-full py-2.5 text-[10px]'} bg-blue-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow`}>Collect Payment</button>)}
                                       {(order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) && (<div className={`${compact ? 'w-full px-3 py-1.5 text-[9px]' : 'w-full py-2.5 text-[10px]'} rounded-lg font-black uppercase tracking-widest text-center ${order.status === OrderStatus.COMPLETED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>{order.status}</div>)}
                                     </div>
@@ -11499,7 +11524,7 @@ const PosOnlyView: React.FC<Props> = ({
                                         ) : (
                                           <div className="flex justify-between gap-1.5">
                                             {order.status === OrderStatus.PENDING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className="w-[47.5%] px-2 py-1.5 text-[9px] rounded-lg font-black uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className="w-[47.5%] px-2 py-1.5 text-[9px] bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow">Accept</button></>)}
-                                            {order.status === OrderStatus.ONGOING && (<button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="w-full px-3 py-1.5 text-[9px] bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all shadow">Serve</button>)}
+                                            {order.status === OrderStatus.ONGOING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className="w-[47.5%] px-2 py-1.5 text-[9px] rounded-lg font-black uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="w-[47.5%] px-2 py-1.5 text-[9px] bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all shadow">Serve</button></>)}
                                             {order.status === OrderStatus.SERVED && (<button onClick={() => { setSelectedQrOrderForPayment(order); setActiveTab('COUNTER'); setCounterMode('QR_ORDER'); }} className="w-full px-3 py-1.5 text-[9px] bg-blue-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow">Collect Payment</button>)}
                                             {(order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) && (<div className={`w-full px-3 py-1.5 text-[9px] rounded-lg font-black uppercase tracking-widest text-center ${order.status === OrderStatus.COMPLETED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>{order.status}</div>)}
                                           </div>
@@ -11620,9 +11645,12 @@ const PosOnlyView: React.FC<Props> = ({
                                     </div>
                                   )}
                                   {o.status === OrderStatus.ONGOING && (
-                                    <button onClick={() => { onUpdateOrder(o.id, OrderStatus.SERVED); setViewingQrOrderDetail(null); }} className="w-full py-3 bg-green-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all shadow-lg">
-                                      Serve Order
-                                    </button>
+                                    <div className="flex justify-between">
+                                      <button onClick={() => { setRejectingQrOrderId(o.id); setViewingQrOrderDetail(null); }} className="w-[47.5%] py-3 rounded-xl font-black text-xs uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">Reject</button>
+                                      <button onClick={() => { onUpdateOrder(o.id, OrderStatus.SERVED); setViewingQrOrderDetail(null); }} className="w-[47.5%] py-3 bg-green-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all shadow-lg">
+                                        Serve Order
+                                      </button>
+                                    </div>
                                   )}
                                   {o.status === OrderStatus.SERVED && (
                                     <button onClick={() => {

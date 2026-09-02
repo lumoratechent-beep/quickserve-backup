@@ -168,9 +168,7 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
 const getKitchenCategoryKey = (value: any): string => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
 
 const isKitchenEnabledForRouting = (restaurant: Restaurant | undefined): boolean => (
-  typeof restaurant?.settings?.features?.kitchenEnabled === 'boolean'
-    ? restaurant.settings.features.kitchenEnabled
-    : restaurant?.kitchenEnabled === true
+  restaurant?.kitchenEnabled === true && restaurant?.settings?.features?.kitchenEnabled !== false
 );
 
 const hasInstalledLiveOrderFeature = (restaurant: Restaurant | undefined): boolean => {
@@ -200,6 +198,7 @@ const getKitchenRoutedCategories = (restaurant: Restaurant | undefined): Set<str
 };
 
 const getInitialKitchenItemStatus = (restaurant: Restaurant | undefined, item: CartItem): OrderStatus => {
+  if (!isKitchenEnabledForRouting(restaurant)) return OrderStatus.ONGOING;
   const routedCategories = getKitchenRoutedCategories(restaurant);
   if (routedCategories === null) return OrderStatus.PENDING;
   return routedCategories.has(getKitchenCategoryKey(item.category)) ? OrderStatus.PENDING : OrderStatus.SERVED;
