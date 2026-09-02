@@ -569,8 +569,12 @@ const PosOnlyView: React.FC<Props> = ({
   const [showDiningOptionPicker, setShowDiningOptionPicker] = useState(false);
   const [posCart, setPosCart] = useState<CartItem[]>([]);
   const [cartItemActionIndex, setCartItemActionIndex] = useState<number | null>(null);
+  const [cartItemActionPosition, setCartItemActionPosition] = useState<{ top: number; right: number } | null>(null);
   const [cartItemRemarkIndex, setCartItemRemarkIndex] = useState<number | null>(null);
   const [cartItemRemarkDraft, setCartItemRemarkDraft] = useState('');
+  const [removingCartItem, setRemovingCartItem] = useState<CartItem | null>(null);
+  const [cartSwipe, setCartSwipe] = useState<{ item: CartItem; pointerId: number; startX: number; offsetX: number } | null>(null);
+  const cartRemovalTimerRef = useRef<number | null>(null);
   const [posRemark, setPosRemark] = useState('');
   const [posTableNo, setPosTableNo] = useState('Counter');
   const [posDiningType, setPosDiningType] = useState('Dine-in');
@@ -597,16 +601,31 @@ const PosOnlyView: React.FC<Props> = ({
     const closeCartItemActions = (event: PointerEvent) => {
       if (event.target instanceof Element && event.target.closest('[data-cart-item-actions]')) return;
       setCartItemActionIndex(null);
+      setCartItemActionPosition(null);
+    };
+    const closeCartItemActionsOnViewportChange = () => {
+      setCartItemActionIndex(null);
+      setCartItemActionPosition(null);
     };
 
     document.addEventListener('pointerdown', closeCartItemActions);
-    return () => document.removeEventListener('pointerdown', closeCartItemActions);
+    window.addEventListener('resize', closeCartItemActionsOnViewportChange);
+    window.addEventListener('scroll', closeCartItemActionsOnViewportChange, true);
+    return () => {
+      document.removeEventListener('pointerdown', closeCartItemActions);
+      window.removeEventListener('resize', closeCartItemActionsOnViewportChange);
+      window.removeEventListener('scroll', closeCartItemActionsOnViewportChange, true);
+    };
   }, [cartItemActionIndex]);
 
   useEffect(() => {
     if (cartItemActionIndex !== null && !posCart[cartItemActionIndex]) setCartItemActionIndex(null);
     if (cartItemRemarkIndex !== null && !posCart[cartItemRemarkIndex]) closeCartItemRemark();
   }, [posCart.length, cartItemActionIndex, cartItemRemarkIndex]);
+
+  useEffect(() => () => {
+    if (cartRemovalTimerRef.current !== null) window.clearTimeout(cartRemovalTimerRef.current);
+  }, []);
 
   // Menu Editor State
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
@@ -2060,24 +2079,86 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const removeFromPosCart = (cartIndex: number) => {
-    setPosCart(prev => prev.filter((_, idx) => idx !== cartIndex));
+    const itemToRemove = posCart[cartIndex];
+    if (!itemToRemove || removingCartItem) return;
+
     setCartItemActionIndex(null);
+    setCartItemActionPosition(null);
+    setRemovingCartItem(itemToRemove);
+    cartRemovalTimerRef.current = window.setTimeout(() => {
+      setPosCart(prev => prev.filter(item => item !== itemToRemove));
+      setRemovingCartItem(null);
+      cartRemovalTimerRef.current = null;
+    }, 380);
   };
 
   const updateQuantity = (cartIndex: number, delta: number) => {
-    setPosCart(prev => prev.flatMap((item, idx) => {
-      if (idx !== cartIndex) return [item];
+    const currentItem = posCart[cartIndex];
+    if (!currentItem || removingCartItem === currentItem) return;
+    if (delta < 0 && currentItem.quantity <= 1) {
+      removeFromPosCart(cartIndex);
+      return;
+    }
 
-      const newQty = item.quantity + delta;
-      return newQty > 0 ? [{ ...item, quantity: newQty }] : [];
-    }));
+    setPosCart(prev => prev.map((item, idx) => (
+      idx === cartIndex ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
+    )));
     setCartItemActionIndex(null);
+    setCartItemActionPosition(null);
+  };
+
+  const startCartItemSwipe = (event: React.PointerEvent<HTMLDivElement>, item: CartItem) => {
+    if (removingCartItem || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    if (event.target instanceof Element && event.target.closest('button')) return;
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setCartSwipe({ item, pointerId: event.pointerId, startX: event.clientX, offsetX: 0 });
+  };
+
+  const moveCartItemSwipe = (event: React.PointerEvent<HTMLDivElement>, item: CartItem) => {
+    if (!cartSwipe || cartSwipe.item !== item || cartSwipe.pointerId !== event.pointerId) return;
+
+    const offsetX = Math.max(-120, Math.min(0, event.clientX - cartSwipe.startX));
+    setCartSwipe(current => current && current.item === item ? { ...current, offsetX } : current);
+  };
+
+  const finishCartItemSwipe = (event: React.PointerEvent<HTMLDivElement>, item: CartItem, cartIndex: number) => {
+    if (!cartSwipe || cartSwipe.item !== item || cartSwipe.pointerId !== event.pointerId) return;
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    const shouldRemove = cartSwipe.offsetX <= -64;
+    setCartSwipe(null);
+    if (shouldRemove) removeFromPosCart(cartIndex);
+  };
+
+  const cancelCartItemSwipe = (event: React.PointerEvent<HTMLDivElement>, item: CartItem) => {
+    if (!cartSwipe || cartSwipe.item !== item || cartSwipe.pointerId !== event.pointerId) return;
+    setCartSwipe(null);
+  };
+
+  const toggleCartItemActions = (event: React.MouseEvent<HTMLButtonElement>, cartIndex: number) => {
+    if (cartItemActionIndex === cartIndex) {
+      setCartItemActionIndex(null);
+      setCartItemActionPosition(null);
+      return;
+    }
+
+    const buttonRect = event.currentTarget.getBoundingClientRect();
+    const menuHeight = 44;
+    setCartItemActionPosition({
+      top: Math.max(8, Math.min(buttonRect.bottom + 4, window.innerHeight - menuHeight - 8)),
+      right: Math.max(8, window.innerWidth - buttonRect.right),
+    });
+    setCartItemActionIndex(cartIndex);
   };
 
   const openCartItemRemark = (cartIndex: number) => {
     setCartItemRemarkIndex(cartIndex);
     setCartItemRemarkDraft(posCart[cartIndex]?.remark || '');
     setCartItemActionIndex(null);
+    setCartItemActionPosition(null);
   };
 
   const closeCartItemRemark = () => {
@@ -13080,7 +13161,7 @@ const PosOnlyView: React.FC<Props> = ({
               </>
             ) : (
               <>
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-4">
               {posCart.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
                   <ShoppingBag size={48} className="mb-4" />
@@ -13088,7 +13169,15 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               ) : (
                 posCart.map((item, idx) => (
-                    <div key={`${item.id}-${idx}`} className="flex items-center gap-4">
+                    <div key={`${item.id}-${idx}`} className="relative overflow-hidden rounded-xl">
+                      <div
+                        className={`relative z-10 flex touch-pan-y select-none items-center gap-4 bg-white dark:bg-gray-800 ${cartSwipe?.item === item ? 'transition-none cursor-grabbing' : 'transition-transform duration-300 ease-out cursor-grab'} ${removingCartItem === item ? 'pointer-events-none' : ''}`}
+                        style={{ transform: removingCartItem === item ? 'translateX(-110%)' : cartSwipe?.item === item ? `translateX(${cartSwipe.offsetX}px)` : 'translateX(0)' }}
+                        onPointerDown={(event) => startCartItemSwipe(event, item)}
+                        onPointerMove={(event) => moveCartItemSwipe(event, item)}
+                        onPointerUp={(event) => finishCartItemSwipe(event, item, idx)}
+                        onPointerCancel={(event) => cancelCartItemSwipe(event, item)}
+                      >
                       <div className="flex-1">
                         <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
                         {renderCartItemPrice(item)}
@@ -13116,38 +13205,28 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                       </div>
                       <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
-                        <button onClick={() => updateQuantity(idx, -1)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"><Minus size={12} /></button>
+                        <button
+                          onClick={() => updateQuantity(idx, -1)}
+                          className="p-1 rounded shadow-sm transition-all hover:bg-white dark:hover:bg-gray-600"
+                          title={item.quantity <= 1 ? 'Remove item' : 'Decrease quantity'}
+                          aria-label={item.quantity <= 1 ? `Remove ${item.name}` : `Decrease ${item.name} quantity`}
+                        >
+                          <Minus size={12} />
+                        </button>
                         <span className="text-[10px] font-black w-4 text-center dark:text-white">{item.quantity}</span>
                         <button onClick={() => updateQuantity(idx, 1)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"><Plus size={12} /></button>
                       </div>
                       <div className="relative shrink-0" data-cart-item-actions>
                         <button
                           type="button"
-                          onClick={() => setCartItemActionIndex(current => current === idx ? null : idx)}
+                          onClick={(event) => toggleCartItemActions(event, idx)}
                           className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
                           aria-label={`Actions for ${item.name}`}
                           aria-expanded={cartItemActionIndex === idx}
                         >
                           <MoreVertical size={16} />
                         </button>
-                        {cartItemActionIndex === idx && (
-                          <div className="absolute right-0 top-full mt-1 z-30 w-40 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-xl">
-                            <button
-                              type="button"
-                              onClick={() => openCartItemRemark(idx)}
-                              className="w-full px-3 py-2.5 flex items-center gap-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-700 dark:text-gray-200 hover:bg-orange-50 dark:hover:bg-orange-900/20"
-                            >
-                              <MessageSquare size={14} className="text-orange-500" /> {item.remark ? 'Edit remark' : 'Add remark'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeFromPosCart(idx)}
-                              className="w-full px-3 py-2.5 flex items-center gap-2 text-left text-[10px] font-black uppercase tracking-wider text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            >
-                              <Trash2 size={14} /> Remove item
-                            </button>
-                          </div>
-                        )}
+                      </div>
                       </div>
                     </div>
                   ))
@@ -13306,9 +13385,17 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
 
             {/* Cart Items */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 space-y-3">
               {posCart.map((item, idx) => (
-                <div key={`${item.id}-${idx}`} className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
+                <div key={`${item.id}-${idx}`} className="relative overflow-hidden rounded-xl">
+                  <div
+                    className={`relative z-10 flex touch-pan-y select-none items-center gap-3 rounded-xl bg-gray-50 p-3 dark:bg-gray-700 ${cartSwipe?.item === item ? 'transition-none cursor-grabbing' : 'transition-transform duration-300 ease-out cursor-grab'} ${removingCartItem === item ? 'pointer-events-none' : ''}`}
+                    style={{ transform: removingCartItem === item ? 'translateX(-110%)' : cartSwipe?.item === item ? `translateX(${cartSwipe.offsetX}px)` : 'translateX(0)' }}
+                    onPointerDown={(event) => startCartItemSwipe(event, item)}
+                    onPointerMove={(event) => moveCartItemSwipe(event, item)}
+                    onPointerUp={(event) => finishCartItemSwipe(event, item, idx)}
+                    onPointerCancel={(event) => cancelCartItemSwipe(event, item)}
+                  >
                   <div className="flex-1 min-w-0">
                     <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter truncate">{item.name}</h4>
                     {renderCartItemPrice(item, true)}
@@ -13336,38 +13423,28 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 bg-white dark:bg-gray-800 p-1 rounded-lg shadow-sm shrink-0">
-                    <button onClick={() => updateQuantity(idx, -1)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-all"><Minus size={12} /></button>
+                    <button
+                      onClick={() => updateQuantity(idx, -1)}
+                      className="p-1.5 rounded transition-all hover:bg-gray-100 dark:hover:bg-gray-700"
+                      title={item.quantity <= 1 ? 'Remove item' : 'Decrease quantity'}
+                      aria-label={item.quantity <= 1 ? `Remove ${item.name}` : `Decrease ${item.name} quantity`}
+                    >
+                      <Minus size={12} />
+                    </button>
                     <span className="text-xs font-black w-5 text-center dark:text-white">{item.quantity}</span>
                     <button onClick={() => updateQuantity(idx, 1)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-all"><Plus size={12} /></button>
                   </div>
                   <div className="relative shrink-0" data-cart-item-actions>
                     <button
                       type="button"
-                      onClick={() => setCartItemActionIndex(current => current === idx ? null : idx)}
+                      onClick={(event) => toggleCartItemActions(event, idx)}
                       className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-white dark:hover:bg-gray-700 rounded-lg transition-all"
                       aria-label={`Actions for ${item.name}`}
                       aria-expanded={cartItemActionIndex === idx}
                     >
                       <MoreVertical size={16} />
                     </button>
-                    {cartItemActionIndex === idx && (
-                      <div className="absolute right-0 bottom-full mb-1 z-30 w-40 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-xl">
-                        <button
-                          type="button"
-                          onClick={() => openCartItemRemark(idx)}
-                          className="w-full px-3 py-2.5 flex items-center gap-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-700 dark:text-gray-200 hover:bg-orange-50 dark:hover:bg-orange-900/20"
-                        >
-                          <MessageSquare size={14} className="text-orange-500" /> {item.remark ? 'Edit remark' : 'Add remark'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeFromPosCart(idx)}
-                          className="w-full px-3 py-2.5 flex items-center gap-2 text-left text-[10px] font-black uppercase tracking-wider text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        >
-                          <Trash2 size={14} /> Remove item
-                        </button>
-                      </div>
-                    )}
+                  </div>
                   </div>
                 </div>
               ))}
@@ -13433,6 +13510,24 @@ const PosOnlyView: React.FC<Props> = ({
               )}
             </div>
           </div>
+        </div>
+      )}
+
+
+      {/* Cart Item Action Menu - rendered outside the scroll area to prevent footer clipping */}
+      {cartItemActionIndex !== null && cartItemActionPosition && posCart[cartItemActionIndex] && (
+        <div
+          data-cart-item-actions
+          className="fixed z-[170] w-40 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-600 dark:bg-gray-800"
+          style={{ top: cartItemActionPosition.top, right: cartItemActionPosition.right }}
+        >
+          <button
+            type="button"
+            onClick={() => openCartItemRemark(cartItemActionIndex)}
+            className="w-full px-3 py-2.5 flex items-center gap-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-700 dark:text-gray-200 hover:bg-orange-50 dark:hover:bg-orange-900/20"
+          >
+            <MessageSquare size={14} className="text-orange-500" /> {posCart[cartItemActionIndex].remark ? 'Edit remark' : 'Add remark'}
+          </button>
         </div>
       )}
 
