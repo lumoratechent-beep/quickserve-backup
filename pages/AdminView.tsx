@@ -9,6 +9,7 @@ import { PRICING_PLANS } from '../lib/pricingPlans';
 import { getSubscriptionAccessLockState, getSubscriptionEndDate } from '../lib/subscriptionService';
 import AdminDocuments from '../components/AdminDocuments';
 import AdminDashboard from '../components/AdminDashboard';
+import { getCalendarReportDateRange, toLocalDateInputValue } from '../lib/reportDateRanges';
 
 interface Props {
   vendors: User[];
@@ -178,7 +179,7 @@ const createBlankQuotation = (
   const now = new Date();
   const validUntil = new Date(now);
   validUntil.setDate(validUntil.getDate() + 14);
-  const toDateInput = (date: Date) => date.toISOString().split('T')[0];
+const toDateInput = toLocalDateInputValue;
   const numberPrefix = documentType === 'invoice' ? 'QS-I' : 'QS-Q';
 
   return {
@@ -1875,9 +1876,9 @@ const AdminView: React.FC<Props> = ({
   const [incomeSummary, setIncomeSummary] = useState<{ totalGross: number; totalFees: number; totalNet: number; count: number } | null>(null);
   const [incomeLoading, setIncomeLoading] = useState(false);
   const [incomeStartDate, setIncomeStartDate] = useState(() => {
-    const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0];
+    const d = new Date(); d.setDate(1); return toLocalDateInputValue(d);
   });
-  const [incomeEndDate, setIncomeEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [incomeEndDate, setIncomeEndDate] = useState(() => toLocalDateInputValue(new Date()));
   const [incomeSearchQuery, setIncomeSearchQuery] = useState('');
   const [incomePaymentFilter, setIncomePaymentFilter] = useState('ALL');
   const incomeStartDateInputRef = useRef<HTMLInputElement>(null);
@@ -3059,14 +3060,8 @@ const AdminView: React.FC<Props> = ({
   const [reportVendor, setReportVendor] = useState<string>('ALL');
   const [reportHub, setReportHub] = useState<string>('ALL');
   const [reportPaymentMethod, setReportPaymentMethod] = useState<string>('ALL');
-  const [reportStart, setReportStart] = useState<string>(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  });
-  const [reportEnd, setReportEnd] = useState<string>(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-  });
+  const [reportStart, setReportStart] = useState<string>(() => getCalendarReportDateRange('month').start);
+  const [reportEnd, setReportEnd] = useState<string>(() => getCalendarReportDateRange('month').end);
   const reportStartDateInputRef = useRef<HTMLInputElement>(null);
   const reportEndDateInputRef = useRef<HTMLInputElement>(null);
   const [entriesPerPage, setEntriesPerPage] = useState<number>(25);

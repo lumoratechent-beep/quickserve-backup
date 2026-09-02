@@ -21,6 +21,7 @@ import UpgradePlanModal from '../components/UpgradePlanModal';
 import ImageCropModal from '../components/ImageCropModal';
 import WalletBillingPage from './WalletBillingPage';
 import { getMenuItemEffectivePrice, isMenuPromotionActive } from '../lib/menuPricing';
+import { getCalendarReportDateRange } from '../lib/reportDateRanges';
 import {
   ShoppingBag, Search, Download, Calendar,
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid,
@@ -452,11 +453,6 @@ const PosOnlyView: React.FC<Props> = ({
   onOpenShiftModal,
   onRegisterSalesReportDownloader,
 }) => {
-  const toLocalDateInputValue = (date: Date) => {
-    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    return local.toISOString().split('T')[0];
-  };
-
   const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS' | 'ONLINE_ORDERS' | 'MAIL'>(() => {
     const returnTab = localStorage.getItem('qs_return_tab');
     if (returnTab === 'BILLING' && isOnline) {
@@ -572,6 +568,9 @@ const PosOnlyView: React.FC<Props> = ({
   const [showCounterModePicker, setShowCounterModePicker] = useState(false);
   const [showDiningOptionPicker, setShowDiningOptionPicker] = useState(false);
   const [posCart, setPosCart] = useState<CartItem[]>([]);
+  const [cartItemActionIndex, setCartItemActionIndex] = useState<number | null>(null);
+  const [cartItemRemarkIndex, setCartItemRemarkIndex] = useState<number | null>(null);
+  const [cartItemRemarkDraft, setCartItemRemarkDraft] = useState('');
   const [posRemark, setPosRemark] = useState('');
   const [posTableNo, setPosTableNo] = useState('Counter');
   const [posDiningType, setPosDiningType] = useState('Dine-in');
@@ -591,6 +590,23 @@ const PosOnlyView: React.FC<Props> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedItemForOptions, setSelectedItemForOptions] = useState<MenuItem | null>(null);
   const [priceEntryItem, setPriceEntryItem] = useState<MenuItem | null>(null);
+
+  useEffect(() => {
+    if (cartItemActionIndex === null) return;
+
+    const closeCartItemActions = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest('[data-cart-item-actions]')) return;
+      setCartItemActionIndex(null);
+    };
+
+    document.addEventListener('pointerdown', closeCartItemActions);
+    return () => document.removeEventListener('pointerdown', closeCartItemActions);
+  }, [cartItemActionIndex]);
+
+  useEffect(() => {
+    if (cartItemActionIndex !== null && !posCart[cartItemActionIndex]) setCartItemActionIndex(null);
+    if (cartItemRemarkIndex !== null && !posCart[cartItemRemarkIndex]) closeCartItemRemark();
+  }, [posCart.length, cartItemActionIndex, cartItemRemarkIndex]);
 
   // Menu Editor State
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
@@ -683,19 +699,14 @@ const PosOnlyView: React.FC<Props> = ({
   const [tempModifierRequired, setTempModifierRequired] = useState(false);
 
   // Reports State
-  const [reportStart, setReportStart] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  });
-  const [reportEnd, setReportEnd] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-  });
+  const [reportStart, setReportStart] = useState(() => getCalendarReportDateRange('month').start);
+  const [reportEnd, setReportEnd] = useState(() => getCalendarReportDateRange('month').end);
   const [reportStatus, setReportStatus] = useState<string>('ALL');
   const [reportSearchQuery, setReportSearchQuery] = useState('');
   const [entriesPerPage, setEntriesPerPage] = useState<number>(30);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [reportData, setReportData] = useState<ReportResponse | null>(null);
+  const reportRequestIdRef = useRef(0);
   const [isReportLoading, setIsReportLoading] = useState(false);
   const [reportsSubMenu, setReportsSubMenu] = useState<'salesReport' | 'statistics' | 'shiftReport'>('salesReport');
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
@@ -2050,16 +2061,40 @@ const PosOnlyView: React.FC<Props> = ({
 
   const removeFromPosCart = (cartIndex: number) => {
     setPosCart(prev => prev.filter((_, idx) => idx !== cartIndex));
+    setCartItemActionIndex(null);
   };
 
   const updateQuantity = (cartIndex: number, delta: number) => {
-    setPosCart(prev => prev.map((i, idx) => {
-      if (idx === cartIndex) {
-        const newQty = Math.max(1, i.quantity + delta);
-        return { ...i, quantity: newQty };
-      }
-      return i;
+    setPosCart(prev => prev.flatMap((item, idx) => {
+      if (idx !== cartIndex) return [item];
+
+      const newQty = item.quantity + delta;
+      return newQty > 0 ? [{ ...item, quantity: newQty }] : [];
     }));
+    setCartItemActionIndex(null);
+  };
+
+  const openCartItemRemark = (cartIndex: number) => {
+    setCartItemRemarkIndex(cartIndex);
+    setCartItemRemarkDraft(posCart[cartIndex]?.remark || '');
+    setCartItemActionIndex(null);
+  };
+
+  const closeCartItemRemark = () => {
+    setCartItemRemarkIndex(null);
+    setCartItemRemarkDraft('');
+  };
+
+  const saveCartItemRemark = () => {
+    if (cartItemRemarkIndex === null) return;
+
+    const remark = cartItemRemarkDraft.trim();
+    setPosCart(prev => prev.map((item, idx) => (
+      idx === cartItemRemarkIndex
+        ? { ...item, remark: remark || undefined }
+        : item
+    )));
+    closeCartItemRemark();
   };
 
   const getItemsSubtotal = (items: CartItem[]): number => {
@@ -3285,10 +3320,13 @@ const PosOnlyView: React.FC<Props> = ({
     exportRange?: { startDate: string; endDate: string },
     exportFilters?: { status?: string; search?: string },
   ) => {
+    const requestId = isExport ? 0 : ++reportRequestIdRef.current;
     // ─── OFFLINE: serve directly from local cache ───────────────────────────
     if (!isOnline) {
       if (isExport) return buildCachedReportData(true, exportRange, exportFilters) as Order[];
-      setReportData(buildCachedReportData(false) as ReportResponse);
+      if (requestId === reportRequestIdRef.current) {
+        setReportData(buildCachedReportData(false) as ReportResponse);
+      }
       return;
     }
 
@@ -3314,6 +3352,7 @@ const PosOnlyView: React.FC<Props> = ({
 
       if (!isExport && onFetchPaginatedOrders) {
         const data = await onFetchPaginatedOrders(filters, currentPage, entriesPerPage, true, false);
+        if (requestId !== reportRequestIdRef.current) return;
         // Persist fetched orders into local cache for offline access
         counterOrdersCache.mergeReportOrdersCache(restaurant.id, data.orders);
         setReportData(data);
@@ -3335,6 +3374,7 @@ const PosOnlyView: React.FC<Props> = ({
         counterOrdersCache.mergeReportOrdersCache(restaurant.id, data.orders);
         return applyReportAccess(data.orders);
       } else {
+        if (requestId !== reportRequestIdRef.current) return;
         counterOrdersCache.mergeReportOrdersCache(restaurant.id, data.orders);
         setReportData(data);
       }
@@ -3342,7 +3382,7 @@ const PosOnlyView: React.FC<Props> = ({
       console.error('Error fetching report:', error);
       if (isExport) throw error;
     } finally {
-      if (!isExport) setIsReportLoading(false);
+      if (!isExport && requestId === reportRequestIdRef.current) setIsReportLoading(false);
     }
   };
 
@@ -13068,6 +13108,11 @@ const PosOnlyView: React.FC<Props> = ({
                           {item.selectedMixMatch && item.selectedMixMatch.length > 0 && item.selectedMixMatch.map((m, mIdx) => (
                             m.choice && <p key={mIdx} className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {m.label}: {m.choice}</p>
                           ))}
+                          {item.remark && (
+                            <p className="flex items-start gap-1 text-xs text-orange-600 dark:text-orange-400 font-bold italic">
+                              <MessageSquare size={12} className="mt-0.5 shrink-0" /> {item.remark}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
@@ -13075,7 +13120,35 @@ const PosOnlyView: React.FC<Props> = ({
                         <span className="text-[10px] font-black w-4 text-center dark:text-white">{item.quantity}</span>
                         <button onClick={() => updateQuantity(idx, 1)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"><Plus size={12} /></button>
                       </div>
-                      <button onClick={() => removeFromPosCart(idx)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                      <div className="relative shrink-0" data-cart-item-actions>
+                        <button
+                          type="button"
+                          onClick={() => setCartItemActionIndex(current => current === idx ? null : idx)}
+                          className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+                          aria-label={`Actions for ${item.name}`}
+                          aria-expanded={cartItemActionIndex === idx}
+                        >
+                          <MoreVertical size={16} />
+                        </button>
+                        {cartItemActionIndex === idx && (
+                          <div className="absolute right-0 top-full mt-1 z-30 w-40 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-xl">
+                            <button
+                              type="button"
+                              onClick={() => openCartItemRemark(idx)}
+                              className="w-full px-3 py-2.5 flex items-center gap-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-700 dark:text-gray-200 hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                            >
+                              <MessageSquare size={14} className="text-orange-500" /> {item.remark ? 'Edit remark' : 'Add remark'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeFromPosCart(idx)}
+                              className="w-full px-3 py-2.5 flex items-center gap-2 text-left text-[10px] font-black uppercase tracking-wider text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            >
+                              <Trash2 size={14} /> Remove item
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))
               )}
@@ -13255,6 +13328,11 @@ const PosOnlyView: React.FC<Props> = ({
                       {item.selectedMixMatch && item.selectedMixMatch.length > 0 && item.selectedMixMatch.map((m, mIdx) => (
                         m.choice && <p key={mIdx} className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• {m.label}: {m.choice}</p>
                       ))}
+                      {item.remark && (
+                        <p className="flex items-start gap-1 text-[10px] text-orange-600 dark:text-orange-400 font-bold italic">
+                          <MessageSquare size={11} className="mt-0.5 shrink-0" /> {item.remark}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 bg-white dark:bg-gray-800 p-1 rounded-lg shadow-sm shrink-0">
@@ -13262,7 +13340,35 @@ const PosOnlyView: React.FC<Props> = ({
                     <span className="text-xs font-black w-5 text-center dark:text-white">{item.quantity}</span>
                     <button onClick={() => updateQuantity(idx, 1)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-all"><Plus size={12} /></button>
                   </div>
-                  <button onClick={() => removeFromPosCart(idx)} className="text-gray-300 hover:text-red-500 shrink-0 p-1"><Trash2 size={14} /></button>
+                  <div className="relative shrink-0" data-cart-item-actions>
+                    <button
+                      type="button"
+                      onClick={() => setCartItemActionIndex(current => current === idx ? null : idx)}
+                      className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-white dark:hover:bg-gray-700 rounded-lg transition-all"
+                      aria-label={`Actions for ${item.name}`}
+                      aria-expanded={cartItemActionIndex === idx}
+                    >
+                      <MoreVertical size={16} />
+                    </button>
+                    {cartItemActionIndex === idx && (
+                      <div className="absolute right-0 bottom-full mb-1 z-30 w-40 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-xl">
+                        <button
+                          type="button"
+                          onClick={() => openCartItemRemark(idx)}
+                          className="w-full px-3 py-2.5 flex items-center gap-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-700 dark:text-gray-200 hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                        >
+                          <MessageSquare size={14} className="text-orange-500" /> {item.remark ? 'Edit remark' : 'Add remark'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeFromPosCart(idx)}
+                          className="w-full px-3 py-2.5 flex items-center gap-2 text-left text-[10px] font-black uppercase tracking-wider text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        >
+                          <Trash2 size={14} /> Remove item
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -13325,6 +13431,44 @@ const PosOnlyView: React.FC<Props> = ({
                   <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : `Pay ${currencySymbol}${cartGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* Cart Item Remark Modal */}
+      {cartItemRemarkIndex !== null && posCart[cartItemRemarkIndex] && (
+        <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4" onClick={closeCartItemRemark}>
+          <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-white dark:bg-gray-800 p-5 sm:p-6 shadow-2xl" onClick={event => event.stopPropagation()}>
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-orange-500">Item remark</p>
+                <h3 className="mt-1 text-base font-black uppercase tracking-tight text-gray-900 dark:text-white">{posCart[cartItemRemarkIndex].name}</h3>
+              </div>
+              <button type="button" onClick={closeCartItemRemark} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Close remark editor">
+                <X size={18} />
+              </button>
+            </div>
+            <textarea
+              autoFocus
+              value={cartItemRemarkDraft}
+              onChange={event => setCartItemRemarkDraft(event.target.value)}
+              onKeyDown={event => {
+                if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') saveCartItemRemark();
+              }}
+              rows={4}
+              maxLength={250}
+              placeholder="e.g. No onions, less spicy"
+              className="w-full resize-none rounded-xl border-2 border-gray-200 bg-white p-3 text-sm font-semibold text-gray-900 outline-none transition-colors focus:border-orange-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            />
+            <div className="mt-4 flex gap-3">
+              <button type="button" onClick={closeCartItemRemark} className="flex-1 rounded-xl bg-gray-100 py-3 text-xs font-black uppercase tracking-wider text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+                Cancel
+              </button>
+              <button type="button" onClick={saveCartItemRemark} className="flex-1 rounded-xl bg-orange-500 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-orange-600">
+                Save remark
+              </button>
             </div>
           </div>
         </div>

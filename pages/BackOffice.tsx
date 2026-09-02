@@ -4,6 +4,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid,
 } from 'recharts';
 import { Calendar, TrendingUp, TrendingDown, DollarSign, ShoppingBag, Users, Receipt, ChevronRight, Filter } from 'lucide-react';
+import { localDateEnd, localDateStart, toLocalDateInputValue } from '../lib/reportDateRanges';
 
 interface Props {
   orders: Order[];
@@ -27,9 +28,9 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
   const [dateRange, setDateRange] = useState<DateRange>('30d');
   const [customStart, setCustomStart] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 30);
-    return d.toISOString().split('T')[0];
+    return toLocalDateInputValue(d);
   });
-  const [customEnd, setCustomEnd] = useState(() => today.toISOString().split('T')[0]);
+  const [customEnd, setCustomEnd] = useState(() => toLocalDateInputValue(today));
 
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
   useEffect(() => {
@@ -42,7 +43,7 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
 
   const { startDate, endDate } = useMemo(() => {
     if (dateRange === 'custom') {
-      return { startDate: new Date(customStart), endDate: new Date(customEnd + 'T23:59:59') };
+      return { startDate: localDateStart(customStart), endDate: localDateEnd(customEnd) };
     }
     const days = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 90;
     const start = new Date(); start.setDate(start.getDate() - days);

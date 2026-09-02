@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Order, OrderStatus, ReportResponse, CashierShift } from '../src/types';
 import type { PlanId } from '../src/types';
 import { REPORT_HISTORY_LIMITS } from '../lib/pricingPlans';
+import { getCalendarReportDateRange } from '../lib/reportDateRanges';
 import {
   Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users,
   Check, X, FileDown, FileText, Sheet, Info, ShieldCheck, CalendarDays, SlidersHorizontal,
@@ -216,22 +217,8 @@ const StandardReport: React.FC<Props> = ({
   };
 
   const getQuickDateRange = (range: 'today' | 'week' | 'month' | 'lastMonth') => {
-    const now = new Date();
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    const today = toLocal(now);
-    if (range === 'today') return { start: today, end: today };
-    if (range === 'week') {
-      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
-      return { start: toLocal(startOfWeek), end: today };
-    }
-    if (range === 'lastMonth') {
-      const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-      return { start: toLocal(startOfLastMonth), end: toLocal(endOfLastMonth) };
-    }
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    return { start: toLocal(startOfMonth), end: today };
+    const { start, end } = getCalendarReportDateRange(range);
+    return { start, end };
   };
 
   const detectQuickPreset = (start: string, end: string): 'today' | 'week' | 'month' | 'lastMonth' | null => {

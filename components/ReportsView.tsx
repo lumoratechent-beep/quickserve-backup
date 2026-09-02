@@ -9,6 +9,7 @@ import {
   TrendingUp, TrendingDown, Search, Download, Calendar, X, Clock, ArrowLeft, FileText,
 } from 'lucide-react';
 import { REPORT_CHART_COLORS, REPORT_PDF_THEME } from '../lib/reportPdfTheme';
+import { getCalendarReportDateRange, localDateEnd, localDateStart, toLocalDateInputValue } from '../lib/reportDateRanges';
 
 interface Props {
   orders: Order[];
@@ -43,35 +44,19 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
   const today = new Date();
   const [dateRange, setDateRange] = useState<DateRange>('month');
   const [selectedItemName, setSelectedItemName] = useState<string | null>(null);
-  const [customStart, setCustomStart] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  });
-  const [customEnd, setCustomEnd] = useState(() => today.toISOString().split('T')[0]);
+  const [customStart, setCustomStart] = useState(() => getCalendarReportDateRange('month').start);
+  const [customEnd, setCustomEnd] = useState(() => getCalendarReportDateRange('month').end);
   const [searchQuery, setSearchQuery] = useState('');
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   useEffect(() => {
-    const now = new Date();
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    const todayStr = toLocal(now);
-    if (dateRange === 'today') {
-      setCustomStart(todayStr);
-      setCustomEnd(todayStr);
-    } else if (dateRange === 'week') {
-      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
-      setCustomStart(toLocal(startOfWeek));
-      setCustomEnd(todayStr);
-    } else {
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      setCustomStart(toLocal(startOfMonth));
-      setCustomEnd(todayStr);
-    }
+    const { start, end } = getCalendarReportDateRange(dateRange);
+    setCustomStart(start);
+    setCustomEnd(end);
   }, [dateRange]);
 
   const { startDate, endDate } = useMemo(() => {
-    return { startDate: new Date(customStart), endDate: new Date(customEnd + 'T23:59:59') };
+    return { startDate: localDateStart(customStart), endDate: localDateEnd(customEnd) };
   }, [customStart, customEnd]);
 
   const filteredOrders = useMemo(
@@ -591,7 +576,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
         case 'weekly': {
           const sob = new Date(d);
           sob.setDate(d.getDate() - d.getDay());
-          sortKey = sob.toISOString().split('T')[0];
+          sortKey = toLocalDateInputValue(sob);
           label = `Wk ${sob.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
           key = sortKey;
           break;
@@ -603,7 +588,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
           break;
         }
         default: { // daily
-          sortKey = d.toISOString().split('T')[0];
+          sortKey = toLocalDateInputValue(d);
           label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           key = sortKey;
         }

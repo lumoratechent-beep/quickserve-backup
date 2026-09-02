@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { localDateEnd, localDateStart, toLocalDateInputValue } from '../lib/reportDateRanges';
 import { Restaurant, Order, OrderStatus, Subscription } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
@@ -179,13 +180,13 @@ const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, init
   const today = new Date();
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | 'custom'>('30d');
   const [customStart, setCustomStart] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split('T')[0];
+    const d = new Date(); d.setDate(d.getDate() - 30); return toLocalDateInputValue(d);
   });
-  const [customEnd, setCustomEnd] = useState(() => today.toISOString().split('T')[0]);
+  const [customEnd, setCustomEnd] = useState(() => toLocalDateInputValue(today));
 
   const { startDate, endDate } = useMemo(() => {
     if (dateRange === 'custom') {
-      return { startDate: new Date(customStart), endDate: new Date(customEnd + 'T23:59:59') };
+      return { startDate: localDateStart(customStart), endDate: localDateEnd(customEnd) };
     }
     const days = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 90;
     const start = new Date(); start.setDate(start.getDate() - days); start.setHours(0, 0, 0, 0);

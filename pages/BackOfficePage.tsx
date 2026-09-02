@@ -28,6 +28,7 @@ import SectionInfoButton from '../components/SectionInfoButton';
 import TableActionMenu from '../components/TableActionMenu';
 import StandardReport, { type ReportDownloadOptions } from '../components/StandardReport';
 import { getMenuItemEffectivePrice, isMenuPromotionActive } from '../lib/menuPricing';
+import { getCalendarReportDateRange, localDateEnd, localDateStart } from '../lib/reportDateRanges';
 import { deleteIngredientItemFromDb, fetchIngredientItemsFromDb, saveIngredientItemsToDb } from '../lib/ingredientItems';
 import { fetchStockItemsFromDb, saveStockItemsToDb, saveStockMovementsToDb } from '../lib/stockItems';
 
@@ -348,51 +349,25 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
   const tickFill = isDark ? '#9CA3AF' : '#6B7280';
   const today = new Date();
   const [dateRange, setDateRange] = useState<DateRange>('month');
-  const [customStart, setCustomStart] = useState(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
-  });
-  const [customEnd, setCustomEnd] = useState(() => today.toISOString().split('T')[0]);
+  const [customStart, setCustomStart] = useState(() => getCalendarReportDateRange('month').start);
+  const [customEnd, setCustomEnd] = useState(() => getCalendarReportDateRange('month').end);
 
   const getQuickDateRange = (range: Exclude<DateRange, 'custom'>) => {
-    const now = new Date();
-    if (range === 'today') {
-      return {
-        startDate: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0),
-        endDate: now,
-      };
-    }
-    if (range === 'week') {
-      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay(), 0, 0, 0, 0);
-      return { startDate: startOfWeek, endDate: now };
-    }
-    if (range === 'lastMonth') {
-      return {
-        startDate: new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0),
-        endDate: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999),
-      };
-    }
-    return {
-      startDate: new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0),
-      endDate: now,
-    };
+    return getCalendarReportDateRange(range);
   };
 
   useEffect(() => {
     if (dateRange === 'custom') return;
 
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    const { startDate: quickStart, endDate: quickEnd } = getQuickDateRange(dateRange);
-
-    setCustomStart(toLocal(quickStart));
-    setCustomEnd(toLocal(quickEnd));
+    const { start, end } = getQuickDateRange(dateRange);
+    setCustomStart(start);
+    setCustomEnd(end);
   }, [dateRange]);
 
   // â”€â”€â”€ Date filtering â”€â”€â”€
   const { startDate, endDate } = useMemo(() => {
     if (dateRange === 'custom') {
-      return { startDate: new Date(customStart), endDate: new Date(customEnd + 'T23:59:59') };
+      return { startDate: localDateStart(customStart), endDate: localDateEnd(customEnd) };
     }
     return getQuickDateRange(dateRange);
   }, [dateRange, customStart, customEnd]);
