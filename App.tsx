@@ -168,7 +168,7 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
 const getKitchenCategoryKey = (value: any): string => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
 
 const isKitchenEnabledForRouting = (restaurant: Restaurant | undefined): boolean => (
-  restaurant?.kitchenEnabled === true && restaurant?.settings?.features?.kitchenEnabled !== false
+  restaurant?.kitchenEnabled === true && restaurant?.settings?.features?.kitchenEnabled === true
 );
 
 const hasInstalledLiveOrderFeature = (restaurant: Restaurant | undefined): boolean => {
@@ -216,6 +216,54 @@ const getAggregateKitchenOrderStatus = (items: CartItem[]): OrderStatus => {
 };
 
 const getInitialKitchenOrderStatus = (items: CartItem[]): OrderStatus => getAggregateKitchenOrderStatus(items);
+
+const getFreshRestaurantForOrderRouting = async (
+  restaurantId: string,
+  cachedRestaurant: Restaurant | undefined,
+): Promise<Restaurant | undefined> => {
+  const fallback: Restaurant | undefined = cachedRestaurant
+    ? {
+        ...cachedRestaurant,
+        kitchenEnabled: false,
+        settings: {
+          ...(cachedRestaurant.settings || {}),
+          features: {
+            ...(cachedRestaurant.settings?.features || {}),
+            kitchenEnabled: false,
+          },
+        },
+      }
+    : undefined;
+
+  try {
+    const result = await withTimeout(
+      supabase
+        .from('restaurants')
+        .select('kitchen_enabled,settings,kitchen_divisions,name')
+        .eq('id', restaurantId)
+        .single(),
+      5000,
+    );
+    if (!result?.data || result.error) return fallback;
+
+    const data = result.data as any;
+    const rawSettings = typeof data.settings === 'string'
+      ? JSON.parse(data.settings)
+      : (data.settings || {});
+
+    return {
+      ...(cachedRestaurant || {} as Restaurant),
+      id: restaurantId,
+      name: cachedRestaurant?.name || data.name || '',
+      kitchenEnabled: data.kitchen_enabled === true,
+      kitchenDivisions: normalizeKitchenDepartments(data.kitchen_divisions),
+      settings: expandPosSettings(rawSettings, cachedRestaurant?.name || data.name || ''),
+    };
+  } catch (error) {
+    console.warn('Could not refresh Kitchen routing state; keeping the order Ongoing.', error);
+    return fallback;
+  }
+};
 
 function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T | null> {
   return new Promise<T | null>((resolve) => {
@@ -1924,6 +1972,7 @@ const App: React.FC = () => {
 
     for (const rid of uniqueRestaurantIdsInCart) {
       const res = restaurants.find(r => r.id === rid);
+      const routingRestaurant = await getFreshRestaurantForOrderRouting(rid, res);
       const code = resolveOrderCode(res, locations);
 
       // Query last order for THIS restaurant with its specific code prefix
@@ -1946,7 +1995,7 @@ const App: React.FC = () => {
       }
 
       const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
-      const itemsForThisRestaurant = withInitialKitchenItemStatuses(res, cart.filter(item => item.restaurantId === rid));
+      const itemsForThisRestaurant = withInitialKitchenItemStatuses(routingRestaurant, cart.filter(item => item.restaurantId === rid));
       const totalForThisRestaurant = itemsForThisRestaurant.reduce((acc, item) => acc + (item.price * item.quantity), 0);
       ordersToInsert.push({
         id: orderId, items: itemsForThisRestaurant, total: totalForThisRestaurant,
@@ -3392,6 +3441,7 @@ const App: React.FC = () => {
   const placeTablesideOrder = async (orderData: { items: CartItem[]; total: number; tableNumber: string; remark: string; orderSource: OrderSource }) => {
     if (orderData.items.length === 0 || !currentUser?.restaurantId) return;
     const res = restaurants.find(r => r.id === currentUser.restaurantId);
+    const routingRestaurant = await getFreshRestaurantForOrderRouting(currentUser.restaurantId, res);
     const code = resolveOrderCode(res, locations);
 
     let nextNum = 1;
@@ -3410,7 +3460,7 @@ const App: React.FC = () => {
     }
 
     const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
-    const kitchenItems = withInitialKitchenItemStatuses(res, orderData.items);
+    const kitchenItems = withInitialKitchenItemStatuses(routingRestaurant, orderData.items);
     const orderToInsert = {
       id: orderId,
       items: kitchenItems,
