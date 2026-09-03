@@ -877,6 +877,7 @@ const StandardReport: React.FC<Props> = ({
               <option value={OrderStatus.SERVED}>Served</option>
               <option value={OrderStatus.PENDING}>Pending</option>
               <option value={OrderStatus.ONGOING}>Ongoing</option>
+              <option value={OrderStatus.PREPARING}>Preparing</option>
               <option value={OrderStatus.CANCELLED}>Cancelled</option>
             </select>
             <select value={filterPayment} onChange={(e) => setFilterPayment(e.target.value)} className="py-2 px-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500">
@@ -937,6 +938,7 @@ const StandardReport: React.FC<Props> = ({
                       <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
                         report.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-600' :
                         report.status === OrderStatus.SERVED ? 'bg-blue-100 text-blue-600' :
+                        report.status === OrderStatus.PREPARING ? 'bg-cyan-100 text-cyan-700' :
                         'bg-orange-100 text-orange-600'
                       }`}>
                         {report.status === OrderStatus.COMPLETED ? 'Paid' : report.status === OrderStatus.SERVED ? 'Served' : report.status}

@@ -4806,6 +4806,7 @@ const PosOnlyView: React.FC<Props> = ({
     const pending = allOrders.filter(o => o.status === OrderStatus.PENDING);
     const served = allOrders.filter(o => o.status === OrderStatus.SERVED);
     const ongoing = allOrders.filter(o => o.status === OrderStatus.ONGOING);
+    const preparing = allOrders.filter(o => o.status === OrderStatus.PREPARING);
     const totalRevenue = completed.reduce((s, o) => s + o.total, 0);
     const avgOrder = completed.length > 0 ? totalRevenue / completed.length : 0;
     const cancelledValue = cancelled.reduce((s, o) => s + o.total, 0);
@@ -5033,6 +5034,7 @@ const PosOnlyView: React.FC<Props> = ({
     const statuses = [
       { label: 'Completed', count: completed.length, color: green },
       { label: 'Served', count: served.length, color: blue },
+      { label: 'Preparing', count: preparing.length, color: [37, 99, 235] as [number, number, number] },
       { label: 'Ongoing', count: ongoing.length, color: amber },
       { label: 'Pending', count: pending.length, color: [251, 191, 36] as [number, number, number] },
       { label: 'Cancelled', count: cancelled.length, color: red },
@@ -6311,7 +6313,7 @@ const PosOnlyView: React.FC<Props> = ({
     const currentOrder = orders.find(order => order.id === orderId);
     if (!currentOrder) return;
 
-    await updateKitchenOrderItemStatus(currentOrder, OrderStatus.ONGOING, {
+    await updateKitchenOrderItemStatus(currentOrder, OrderStatus.PREPARING, {
       fromStatuses: [OrderStatus.PENDING],
     });
   };
@@ -6368,7 +6370,7 @@ const PosOnlyView: React.FC<Props> = ({
       const currentOrder = orders.find(order => order.id === rejectingKitchenOrderId);
       if (currentOrder) {
         void updateKitchenOrderItemStatus(currentOrder, OrderStatus.CANCELLED, {
-          fromStatuses: [OrderStatus.PENDING, OrderStatus.ONGOING],
+          fromStatuses: [OrderStatus.PENDING, OrderStatus.ONGOING, OrderStatus.PREPARING],
           rejectionReason: kitchenRejectionReason,
           rejectionNote: kitchenRejectionNote,
         });
@@ -6450,6 +6452,7 @@ const PosOnlyView: React.FC<Props> = ({
   const getAggregateStatusFromItems = (items: CartItem[], fallbackStatus: OrderStatus): OrderStatus => {
     if (items.some(item => getItemKitchenStatus(item, fallbackStatus) === OrderStatus.PENDING)) return OrderStatus.PENDING;
     if (items.some(item => getItemKitchenStatus(item, fallbackStatus) === OrderStatus.ONGOING)) return OrderStatus.ONGOING;
+    if (items.some(item => getItemKitchenStatus(item, fallbackStatus) === OrderStatus.PREPARING)) return OrderStatus.PREPARING;
     if (items.some(item => getItemKitchenStatus(item, fallbackStatus) === OrderStatus.SERVED)) return OrderStatus.SERVED;
     if (items.some(item => getItemKitchenStatus(item, fallbackStatus) === OrderStatus.COMPLETED)) return OrderStatus.COMPLETED;
     return fallbackStatus;
@@ -6478,7 +6481,7 @@ const PosOnlyView: React.FC<Props> = ({
       if (kitchenOrderFilter === 'ONGOING_ALL') {
         return scopedItems.some(item => {
           const status = getItemKitchenStatus(item, order.status);
-          return status === OrderStatus.PENDING || status === OrderStatus.ONGOING;
+          return status === OrderStatus.PENDING || status === OrderStatus.ONGOING || status === OrderStatus.PREPARING;
         });
       }
       return scopedItems.some(item => getItemKitchenStatus(item, order.status) === kitchenOrderFilter);
@@ -6496,7 +6499,8 @@ const PosOnlyView: React.FC<Props> = ({
 
   const getKitchenStatusText = (status: OrderStatus) => {
     if (status === OrderStatus.PENDING) return 'Pending';
-    if (status === OrderStatus.ONGOING) return 'Preparing';
+    if (status === OrderStatus.ONGOING) return 'Ongoing';
+    if (status === OrderStatus.PREPARING) return 'Preparing';
     if (status === OrderStatus.SERVED) return 'Served';
     if (status === OrderStatus.COMPLETED) return 'Paid';
     return 'Cancelled';
@@ -6504,7 +6508,8 @@ const PosOnlyView: React.FC<Props> = ({
 
   const getKitchenStatusClass = (status: OrderStatus) => {
     if (status === OrderStatus.PENDING) return 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400';
-    if (status === OrderStatus.ONGOING) return 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400';
+    if (status === OrderStatus.ONGOING) return 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400';
+    if (status === OrderStatus.PREPARING) return 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400';
     if (status === OrderStatus.SERVED) return 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400';
     if (status === OrderStatus.COMPLETED) return 'bg-gray-50 text-gray-600 dark:bg-gray-900/20 dark:text-gray-400';
     return 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400';
@@ -6593,7 +6598,8 @@ const PosOnlyView: React.FC<Props> = ({
 
     const activeKitchenOrders = orders.filter(order =>
       order.status === OrderStatus.PENDING ||
-      order.status === OrderStatus.ONGOING
+      order.status === OrderStatus.ONGOING ||
+      order.status === OrderStatus.PREPARING
     );
     const previous = kitchenOrderSignatureRef.current;
     const next: Record<string, string> = {};
@@ -6626,7 +6632,7 @@ const PosOnlyView: React.FC<Props> = ({
     }
     if (qrPendingOrders.length > qrPrevPendingCount.current && qrOrderSettings.autoApprove) {
       qrPendingOrders.forEach(order => {
-        onUpdateOrder(order.id, OrderStatus.ONGOING);
+        onUpdateOrder(order.id, OrderStatus.PREPARING);
       });
     }
     qrPrevPendingCount.current = qrPendingOrders.length;
@@ -6642,7 +6648,7 @@ const PosOnlyView: React.FC<Props> = ({
     }
     if (tablesidePendingOrders.length > tablesidePrevPendingCount.current && tablesideOrderSettings.autoApprove) {
       tablesidePendingOrders.forEach(order => {
-        onUpdateOrder(order.id, OrderStatus.ONGOING);
+        onUpdateOrder(order.id, OrderStatus.PREPARING);
       });
     }
     tablesidePrevPendingCount.current = tablesidePendingOrders.length;
@@ -11534,7 +11540,7 @@ const PosOnlyView: React.FC<Props> = ({
                       const filteredQrOrders = orders.filter(o => {
                         if (o.orderSource !== 'qr_order' && o.orderSource !== 'tableside') return false;
                         if (qrOrderFilter === 'ALL') return true;
-                        if (qrOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
+                        if (qrOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING || o.status === OrderStatus.PREPARING;
                         return o.status === qrOrderFilter;
                       });
 
@@ -11558,15 +11564,15 @@ const PosOnlyView: React.FC<Props> = ({
                                 const totalQty = order.items.reduce((s, i) => s + i.quantity, 0);
                                 const orderId = typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : String(order.id).slice(-6).toUpperCase();
                                 const orderTime = new Date(order.timestamp).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' · ' + new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                                const borderColor = order.status === OrderStatus.PENDING ? 'border-l-amber-400' : order.status === OrderStatus.ONGOING ? 'border-l-blue-500' : order.status === OrderStatus.SERVED ? 'border-l-purple-500' : order.status === OrderStatus.COMPLETED ? 'border-l-green-500' : 'border-l-red-400';
-                                const statusPill = <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${order.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : order.status === OrderStatus.ONGOING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : order.status === OrderStatus.SERVED ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : order.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>{order.status}</span>;
+                                const borderColor = order.status === OrderStatus.PENDING ? 'border-l-amber-400' : order.status === OrderStatus.ONGOING ? 'border-l-orange-400' : order.status === OrderStatus.PREPARING ? 'border-l-blue-500' : order.status === OrderStatus.SERVED ? 'border-l-purple-500' : order.status === OrderStatus.COMPLETED ? 'border-l-green-500' : 'border-l-red-400';
+                                const statusPill = <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${order.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : order.status === OrderStatus.ONGOING ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : order.status === OrderStatus.PREPARING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : order.status === OrderStatus.SERVED ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : order.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>{order.status}</span>;
                                 const actionButtons = (compact?: boolean) => (<>
-                                  {showKitchenFeature && !isKitchenUser && (order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) ? (
-                                    <div className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'px-4 py-2 text-[10px]'} rounded-lg font-black uppercase tracking-widest text-center whitespace-nowrap ${order.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'}`}>{order.status === OrderStatus.PENDING ? 'Waiting for Kitchen' : 'Kitchen Preparing'}</div>
+                                  {showKitchenFeature && !isKitchenUser && (order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING || order.status === OrderStatus.PREPARING) ? (
+                                    <div className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'px-4 py-2 text-[10px]'} rounded-lg font-black uppercase tracking-widest text-center whitespace-nowrap ${order.status === OrderStatus.PREPARING ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' : 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400'}`}>{order.status === OrderStatus.PREPARING ? 'Kitchen Preparing' : 'Waiting for Kitchen'}</div>
                                   ) : (
                                     <div className="flex justify-between gap-1.5">
-                                      {order.status === OrderStatus.PENDING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} rounded-lg font-black uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all`}>Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow`}>Accept</button></>)}
-                                      {order.status === OrderStatus.ONGOING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} rounded-lg font-black uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all`}>Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all shadow`}>Serve</button></>)}
+                                      {(order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) && (<><button onClick={() => setRejectingQrOrderId(order.id)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} rounded-lg bg-red-500 font-black uppercase tracking-widest text-white shadow transition-all hover:bg-red-600`}>Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.PREPARING)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow`}>Prepare</button></>)}
+                                      {order.status === OrderStatus.PREPARING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} rounded-lg bg-red-500 font-black uppercase tracking-widest text-white shadow transition-all hover:bg-red-600`}>Cancel</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all shadow`}>Serve</button></>)}
                                       {order.status === OrderStatus.SERVED && (<button onClick={() => { setSelectedQrOrderForPayment(order); setActiveTab('COUNTER'); setCounterMode('QR_ORDER'); }} className={`${compact ? 'w-full px-3 py-1.5 text-[9px]' : 'w-full py-2.5 text-[10px]'} bg-blue-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow`}>Collect Payment</button>)}
                                       {(order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) && (<div className={`${compact ? 'w-full px-3 py-1.5 text-[9px]' : 'w-full py-2.5 text-[10px]'} rounded-lg font-black uppercase tracking-widest text-center ${order.status === OrderStatus.COMPLETED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>{order.status}</div>)}
                                     </div>
@@ -11604,13 +11610,12 @@ const PosOnlyView: React.FC<Props> = ({
                                 <table className="w-full min-w-max table-auto whitespace-nowrap">
                                   <thead className="whitespace-nowrap bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[9px] font-black uppercase tracking-widest border-b border-gray-200 dark:border-gray-700">
                                     <tr>
-                                      <th className="px-5 py-3 text-center">Status</th>
                                       <th className="px-5 py-3 text-center">Order No.</th>
+                                      <th className="px-5 py-3 text-center">Status</th>
                                       <th className="px-5 py-3 text-center">Table</th>
                                       <th className="px-5 py-3 text-center">Date</th>
                                       <th className="px-5 py-3 text-center">Time</th>
                                       <th className="px-5 py-3 text-center">Items</th>
-                                      <th className="px-5 py-3 text-center">Details</th>
                                       <th className="px-5 py-3 text-center">Total</th>
                                       <th className="px-5 py-3 text-center">Action</th>
                                     </tr>
@@ -11621,30 +11626,37 @@ const PosOnlyView: React.FC<Props> = ({
                                       const orderId = typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : String(order.id).slice(-6).toUpperCase();
                                       const orderDate = new Date(order.timestamp).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' });
                                       const orderTimeStr = new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                                      const statusPill = <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${order.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : order.status === OrderStatus.ONGOING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : order.status === OrderStatus.SERVED ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : order.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>{order.status}</span>;
+                                      const statusPill = <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${order.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : order.status === OrderStatus.ONGOING ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : order.status === OrderStatus.PREPARING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : order.status === OrderStatus.SERVED ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : order.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>{order.status}</span>;
                                       const actionButtons = (compact?: boolean) => (<>
-                                        {showKitchenFeature && !isKitchenUser && (order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) ? (
-                                          <div className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'px-4 py-2 text-[10px]'} rounded-lg font-black uppercase tracking-widest text-center whitespace-nowrap ${order.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'}`}>{order.status === OrderStatus.PENDING ? 'In Kitchen' : 'Preparing'}</div>
+                                        {showKitchenFeature && !isKitchenUser && (order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING || order.status === OrderStatus.PREPARING) ? (
+                                          <div className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'px-4 py-2 text-[10px]'} rounded-lg font-black uppercase tracking-widest text-center whitespace-nowrap ${order.status === OrderStatus.PREPARING ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' : 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400'}`}>{order.status === OrderStatus.PREPARING ? 'Preparing' : 'In Kitchen'}</div>
                                         ) : (
                                           <div className="flex justify-between gap-1.5">
-                                            {order.status === OrderStatus.PENDING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className="w-[47.5%] px-2 py-1.5 text-[9px] rounded-lg font-black uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className="w-[47.5%] px-2 py-1.5 text-[9px] bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow">Accept</button></>)}
-                                            {order.status === OrderStatus.ONGOING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className="w-[47.5%] px-2 py-1.5 text-[9px] rounded-lg font-black uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="w-[47.5%] px-2 py-1.5 text-[9px] bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all shadow">Serve</button></>)}
+                                            {(order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) && (<><button onClick={() => setRejectingQrOrderId(order.id)} className="w-[47.5%] rounded-lg bg-red-500 px-2 py-1.5 text-[9px] font-black uppercase tracking-widest text-white shadow transition-all hover:bg-red-600">Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.PREPARING)} className="w-[47.5%] rounded-lg bg-orange-500 px-2 py-1.5 text-[9px] font-black uppercase tracking-widest text-white shadow transition-all hover:bg-orange-600">Prepare</button></>)}
+                                            {order.status === OrderStatus.PREPARING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className="w-[47.5%] rounded-lg bg-red-500 px-2 py-1.5 text-[9px] font-black uppercase tracking-widest text-white shadow transition-all hover:bg-red-600">Cancel</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="w-[47.5%] rounded-lg bg-green-500 px-2 py-1.5 text-[9px] font-black uppercase tracking-widest text-white shadow transition-all hover:bg-green-600">Serve</button></>)}
                                             {order.status === OrderStatus.SERVED && (<button onClick={() => { setSelectedQrOrderForPayment(order); setActiveTab('COUNTER'); setCounterMode('QR_ORDER'); }} className="w-full px-3 py-1.5 text-[9px] bg-blue-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow">Collect Payment</button>)}
                                             {(order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) && (<div className={`w-full px-3 py-1.5 text-[9px] rounded-lg font-black uppercase tracking-widest text-center ${order.status === OrderStatus.COMPLETED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>{order.status}</div>)}
                                           </div>
                                         )}
                                       </>);
                                       return (
-                                        <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer" onClick={() => handleEditQrOrder(order)}>
+                                        <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                          <td className="px-5 py-3 text-center">
+                                            <button
+                                              type="button"
+                                              onClick={() => setViewingQrOrderDetail(order)}
+                                              className="text-[11px] font-black uppercase text-orange-500 transition-colors hover:text-orange-600"
+                                            >
+                                              #{orderId}
+                                            </button>
+                                          </td>
                                           <td className="px-5 py-3 text-center">{statusPill}</td>
-                                          <td className="px-5 py-3 text-center text-[11px] font-black text-gray-800 dark:text-white uppercase">#{orderId}</td>
                                           <td className="px-5 py-3 text-center text-[10px] text-gray-600 dark:text-gray-300">{order.tableNumber}</td>
                                           <td className="px-5 py-3 text-center text-[10px] text-gray-500 dark:text-gray-400">{orderDate}</td>
                                           <td className="px-5 py-3 text-center text-[10px] text-gray-500 dark:text-gray-400">{orderTimeStr}</td>
                                           <td className="px-5 py-3 text-center text-[10px] text-gray-500 dark:text-gray-400">{totalQty}</td>
-                                          <td className="px-5 py-3 text-center"><button onClick={(e) => { e.stopPropagation(); setViewingQrOrderDetail(order); }} className="text-orange-500 hover:text-orange-600 text-[10px] font-black uppercase tracking-wider transition-colors whitespace-nowrap">View Details →</button></td>
                                           <td className="px-5 py-3 text-center text-[10px] font-black text-gray-900 dark:text-white whitespace-nowrap">{currencySymbol}{order.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                          <td className="px-5 py-3 text-center" onClick={(e) => e.stopPropagation()}>{actionButtons(true)}</td>
+                                          <td className="px-5 py-3 text-center">{actionButtons(true)}</td>
                                         </tr>
                                       );
                                     })}
@@ -11692,7 +11704,8 @@ const PosOnlyView: React.FC<Props> = ({
                               <div className="flex items-center gap-2">
                                 <span className={`text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest ${
                                   o.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                  o.status === OrderStatus.ONGOING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                  o.status === OrderStatus.ONGOING ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                                  o.status === OrderStatus.PREPARING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
                                   o.status === OrderStatus.SERVED  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
                                   o.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
                                   'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
@@ -11731,26 +11744,26 @@ const PosOnlyView: React.FC<Props> = ({
                                 <span className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Grand Total</span>
                                 <span className="text-2xl font-black text-gray-900 dark:text-white">{currencySymbol}{o.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
-                              {(o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING) && (
+                              {(o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING || o.status === OrderStatus.PREPARING || o.status === OrderStatus.SERVED) && (
                                 <button onClick={() => handleEditQrOrder(o)} className="w-full py-3 mb-3 rounded-xl font-black text-xs uppercase tracking-widest border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">
                                   Edit Order
                                 </button>
                               )}
-                              {showKitchenFeature && !isKitchenUser && (o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING) ? (
-                                <div className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-center ${o.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600' : 'bg-blue-50 text-blue-600'}`}>
-                                  {o.status === OrderStatus.PENDING ? 'Waiting for Kitchen' : 'Kitchen Preparing'}
+                              {showKitchenFeature && !isKitchenUser && (o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING || o.status === OrderStatus.PREPARING) ? (
+                                <div className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-center ${o.status === OrderStatus.PREPARING ? 'bg-blue-50 text-blue-600' : 'bg-yellow-50 text-yellow-600'}`}>
+                                  {o.status === OrderStatus.PREPARING ? 'Kitchen Preparing' : 'Waiting for Kitchen'}
                                 </div>
                               ) : (
                                 <>
-                                  {o.status === OrderStatus.PENDING && (
+                                  {(o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING) && (
                                     <div className="flex justify-between">
-                                      <button onClick={() => { setRejectingQrOrderId(o.id); setViewingQrOrderDetail(null); }} className="w-[47.5%] py-3 rounded-xl font-black text-xs uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">Reject</button>
-                                      <button onClick={() => { onUpdateOrder(o.id, OrderStatus.ONGOING); setViewingQrOrderDetail(null); }} className="w-[47.5%] py-3 bg-orange-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg">Accept</button>
+                                      <button onClick={() => { setRejectingQrOrderId(o.id); setViewingQrOrderDetail(null); }} className="w-[47.5%] rounded-xl bg-red-500 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-red-600">Reject</button>
+                                      <button onClick={() => { onUpdateOrder(o.id, OrderStatus.PREPARING); setViewingQrOrderDetail(null); }} className="w-[47.5%] py-3 bg-orange-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg">Prepare</button>
                                     </div>
                                   )}
-                                  {o.status === OrderStatus.ONGOING && (
+                                  {o.status === OrderStatus.PREPARING && (
                                     <div className="flex justify-between">
-                                      <button onClick={() => { setRejectingQrOrderId(o.id); setViewingQrOrderDetail(null); }} className="w-[47.5%] py-3 rounded-xl font-black text-xs uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">Reject</button>
+                                      <button onClick={() => { setRejectingQrOrderId(o.id); setViewingQrOrderDetail(null); }} className="w-[47.5%] rounded-xl bg-red-500 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-red-600">Cancel</button>
                                       <button onClick={() => { onUpdateOrder(o.id, OrderStatus.SERVED); setViewingQrOrderDetail(null); }} className="w-[47.5%] py-3 bg-green-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all shadow-lg">
                                         Serve Order
                                       </button>
@@ -11765,6 +11778,16 @@ const PosOnlyView: React.FC<Props> = ({
                                     }} className="w-full py-3 bg-blue-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg">
                                       Collect Payment
                                     </button>
+                                  )}
+                                  {o.status === OrderStatus.COMPLETED && (
+                                    <div className="w-full rounded-xl bg-green-50 py-3 text-center text-xs font-black uppercase tracking-widest text-green-600 dark:bg-green-900/20 dark:text-green-400">
+                                      Payment Completed
+                                    </div>
+                                  )}
+                                  {o.status === OrderStatus.CANCELLED && (
+                                    <div className="w-full rounded-xl bg-red-50 py-3 text-center text-xs font-black uppercase tracking-widest text-red-600 dark:bg-red-900/20 dark:text-red-400">
+                                      Order Cancelled
+                                    </div>
                                   )}
                                 </>
                               )}
@@ -11999,7 +12022,7 @@ const PosOnlyView: React.FC<Props> = ({
                       const filteredOnlineOrders = orders.filter(o => {
                         if (o.orderSource !== 'online') return false;
                         if (onlineOrderFilter === 'ALL') return true;
-                        if (onlineOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
+                        if (onlineOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING || o.status === OrderStatus.PREPARING;
                         return o.status === onlineOrderFilter;
                       });
 
@@ -12035,7 +12058,8 @@ const PosOnlyView: React.FC<Props> = ({
                                   )}
                                   <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
                                     order.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                    order.status === OrderStatus.ONGOING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                    order.status === OrderStatus.ONGOING ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                                    order.status === OrderStatus.PREPARING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
                                     order.status === OrderStatus.SERVED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
                                     order.status === OrderStatus.COMPLETED ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
                                     'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
@@ -12065,22 +12089,22 @@ const PosOnlyView: React.FC<Props> = ({
                                 <span className="text-[10px] text-gray-400">{new Date(order.timestamp).toLocaleString()}</span>
                                 <span className="text-sm font-black dark:text-white">{currencySymbol}{order.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
-                              {(order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) && (
+                              {(order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING || order.status === OrderStatus.PREPARING) && (
                                 <div className="flex gap-2 mt-3">
-                                  {order.status === OrderStatus.PENDING && (
-                                    <button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-1.5">
-                                      <CheckCircle size={14} /> Accept
+                                  {(order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) && (
+                                    <button onClick={() => onUpdateOrder(order.id, OrderStatus.PREPARING)} className="flex-1 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-1.5">
+                                      <CheckCircle size={14} /> Prepare
                                     </button>
                                   )}
-                                  {order.status === OrderStatus.PENDING && (
+                                  {(order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING || order.status === OrderStatus.PREPARING) && (
                                     <button onClick={() => {
                                       if (onKitchenUpdateOrder) onKitchenUpdateOrder(order.id, OrderStatus.CANCELLED, 'Rejected by vendor');
                                       else onUpdateOrder(order.id, OrderStatus.CANCELLED);
-                                    }} className="py-2.5 px-3 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-red-200 dark:hover:bg-red-900/40 transition-all">
+                                    }} className="rounded-lg bg-red-500 px-3 py-2.5 text-[9px] font-black uppercase tracking-widest text-white transition-all hover:bg-red-600">
                                       <X size={14} />
                                     </button>
                                   )}
-                                  {order.status === OrderStatus.ONGOING && (
+                                  {order.status === OrderStatus.PREPARING && (
                                     <button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="flex-1 py-2.5 bg-green-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-1.5">
                                       <CheckCircle2 size={14} /> Mark Ready
                                     </button>
@@ -12848,7 +12872,10 @@ const PosOnlyView: React.FC<Props> = ({
                         userRole === 'KITCHEN' && kitchenHasAssignedScope ? kitchenScopeCategories : [],
                       );
                       const hasVisiblePending = visibleKitchenItems.some(item => getItemKitchenStatus(item, order.status) === OrderStatus.PENDING);
-                      const hasVisibleOngoing = visibleKitchenItems.some(item => getItemKitchenStatus(item, order.status) === OrderStatus.ONGOING);
+                      const hasVisiblePreparing = visibleKitchenItems.some(item => {
+                        const status = getItemKitchenStatus(item, order.status);
+                        return status === OrderStatus.PREPARING || status === OrderStatus.ONGOING;
+                      });
                       return (
                       <div key={order.id} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-start gap-6 transition-all hover:border-orange-200">
                         <div className="flex-1">
@@ -12875,7 +12902,7 @@ const PosOnlyView: React.FC<Props> = ({
                               <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
                           </div>
-                          {(order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) && (updatedKitchenOrderIds.has(order.id) || order.rejectionNote === 'New update on the menu') && (
+                          {(order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING || order.status === OrderStatus.PREPARING) && (updatedKitchenOrderIds.has(order.id) || order.rejectionNote === 'New update on the menu') && (
                             <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-800/60 dark:bg-blue-900/20">
                               <div className="flex items-center gap-2">
                                 <AlertCircle size={13} className="text-blue-500 shrink-0" />
@@ -12945,7 +12972,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     onClick={() => handleKitchenAcceptAndPrint(order.id)} 
                                     className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg"
                                   >
-                                    Accept
+                                    Prepare
                                   </button>
                               
                                   {connectedDevice && (
@@ -12967,26 +12994,36 @@ const PosOnlyView: React.FC<Props> = ({
                                 </>
                               )}
                           
-                              {hasVisibleOngoing && (
-                                <button 
-                                  onClick={() => void updateKitchenOrderItemStatus(order, OrderStatus.SERVED, { fromStatuses: [OrderStatus.PENDING, OrderStatus.ONGOING] })} 
-                                  className="flex-1 py-4 px-4 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg"
-                                >
-                                  <CheckCircle size={18} />
-                                  Serve Order
-                                </button>
+                              {hasVisiblePreparing && (
+                                <>
+                                  <button
+                                    onClick={() => setRejectingKitchenOrderId(order.id)}
+                                    className="flex-1 rounded-lg bg-red-500 px-4 py-4 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-red-600"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => void updateKitchenOrderItemStatus(order, OrderStatus.SERVED, { fromStatuses: [OrderStatus.ONGOING, OrderStatus.PREPARING] })}
+                                    className="flex-1 py-4 px-4 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg"
+                                  >
+                                    <CheckCircle size={18} />
+                                    Serve Order
+                                  </button>
+                                </>
                               )}
                             </>
                           ) : (
                             <div className={`px-4 py-3 rounded-lg font-black text-[10px] uppercase tracking-widest text-center ${
                               order.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400' :
-                              order.status === OrderStatus.ONGOING ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' :
+                              order.status === OrderStatus.ONGOING ? 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400' :
+                              order.status === OrderStatus.PREPARING ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' :
                               order.status === OrderStatus.SERVED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' :
                               order.status === OrderStatus.COMPLETED ? 'bg-gray-50 text-gray-600 dark:bg-gray-900/20 dark:text-gray-400' :
                               'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
                             }`}>
                               {order.status === OrderStatus.PENDING ? 'Waiting for Kitchen' :
-                               order.status === OrderStatus.ONGOING ? 'Preparing' :
+                               order.status === OrderStatus.ONGOING ? 'Ongoing' :
+                               order.status === OrderStatus.PREPARING ? 'Preparing' :
                                order.status === OrderStatus.SERVED ? 'Served' :
                                order.status === OrderStatus.COMPLETED ? 'Completed' :
                                'Cancelled'}
@@ -14288,6 +14325,7 @@ const PosOnlyView: React.FC<Props> = ({
                 <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
                   selectedReportOrder.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-600' :
                   selectedReportOrder.status === OrderStatus.SERVED ? 'bg-blue-100 text-blue-600' :
+                  selectedReportOrder.status === OrderStatus.PREPARING ? 'bg-cyan-100 text-cyan-700' :
                   selectedReportOrder.status === OrderStatus.CANCELLED ? 'bg-red-100 text-red-600' :
                   'bg-orange-100 text-orange-600'
                 }`}>
@@ -14896,7 +14934,9 @@ const PosOnlyView: React.FC<Props> = ({
       {rejectingQrOrderId && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[130] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in fade-in duration-200">
-            <h3 className="text-lg font-black dark:text-white uppercase tracking-tighter mb-4">Reject QR Order</h3>
+            <h3 className="text-lg font-black dark:text-white uppercase tracking-tighter mb-4">
+              {orders.find(order => order.id === rejectingQrOrderId)?.status === OrderStatus.PREPARING ? 'Cancel QR Order' : 'Reject QR Order'}
+            </h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Reason</label>
@@ -14941,7 +14981,7 @@ const PosOnlyView: React.FC<Props> = ({
                   }}
                   className="flex-1 py-3 rounded-xl bg-red-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all"
                 >
-                  Confirm Reject
+                  {orders.find(order => order.id === rejectingQrOrderId)?.status === OrderStatus.PREPARING ? 'Confirm Cancellation' : 'Confirm Reject'}
                 </button>
               </div>
             </div>
@@ -14953,7 +14993,9 @@ const PosOnlyView: React.FC<Props> = ({
       {rejectingKitchenOrderId && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[130] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in fade-in duration-200">
-            <h3 className="text-lg font-black dark:text-white uppercase tracking-tighter mb-4">Reject Kitchen Order</h3>
+            <h3 className="text-lg font-black dark:text-white uppercase tracking-tighter mb-4">
+              {orders.find(order => order.id === rejectingKitchenOrderId)?.status === OrderStatus.PREPARING ? 'Cancel Kitchen Order' : 'Reject Kitchen Order'}
+            </h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Reason</label>
@@ -14994,7 +15036,7 @@ const PosOnlyView: React.FC<Props> = ({
                   onClick={handleKitchenConfirmRejection}
                   className="flex-1 py-3 rounded-xl bg-red-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all"
                 >
-                  Confirm Reject
+                  {orders.find(order => order.id === rejectingKitchenOrderId)?.status === OrderStatus.PREPARING ? 'Confirm Cancellation' : 'Confirm Reject'}
                 </button>
               </div>
             </div>

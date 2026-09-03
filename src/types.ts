@@ -7,6 +7,7 @@ export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN' | 'CASHIER' | 'KITCHEN' | 'OR
 export enum OrderStatus {
   PENDING = 'PENDING',
   ONGOING = 'ONGOING',
+  PREPARING = 'PREPARING',
   SERVED = 'SERVED',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED'

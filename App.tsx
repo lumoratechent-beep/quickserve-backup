@@ -211,6 +211,7 @@ const withInitialKitchenItemStatuses = (restaurant: Restaurant | undefined, item
 const getAggregateKitchenOrderStatus = (items: CartItem[]): OrderStatus => {
   if (items.some(item => item.status === OrderStatus.PENDING)) return OrderStatus.PENDING;
   if (items.some(item => item.status === OrderStatus.ONGOING)) return OrderStatus.ONGOING;
+  if (items.some(item => item.status === OrderStatus.PREPARING)) return OrderStatus.PREPARING;
   if (items.some(item => item.status === OrderStatus.SERVED)) return OrderStatus.SERVED;
   return OrderStatus.SERVED;
 };
@@ -379,9 +380,10 @@ const App: React.FC = () => {
   const STATUS_PRIORITY: Record<string, number> = {
     [OrderStatus.PENDING]: 0,
     [OrderStatus.ONGOING]: 1,
-    [OrderStatus.SERVED]: 2,
-    [OrderStatus.COMPLETED]: 3,
-    [OrderStatus.CANCELLED]: 3,
+    [OrderStatus.PREPARING]: 2,
+    [OrderStatus.SERVED]: 3,
+    [OrderStatus.COMPLETED]: 4,
+    [OrderStatus.CANCELLED]: 4,
   };
 
   // --- TRANSACTION LOCKS ---

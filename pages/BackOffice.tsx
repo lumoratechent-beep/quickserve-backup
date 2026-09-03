@@ -499,6 +499,7 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
                             order.status === OrderStatus.SERVED ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400' :
                             order.status === OrderStatus.PENDING ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400' :
                             order.status === OrderStatus.ONGOING ? 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400' :
+                            order.status === OrderStatus.PREPARING ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400' :
                             'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400'
                           }`}>
                             {order.status}

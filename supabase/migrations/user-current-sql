@@ -66,7 +66,7 @@ CREATE TABLE public.orders (
   id text NOT NULL,
   items jsonb NOT NULL,
   total numeric NOT NULL,
-  status text NOT NULL CHECK (status = ANY (ARRAY['PENDING'::text, 'ONGOING'::text, 'SERVED'::text, 'COMPLETED'::text, 'CANCELLED'::text])),
+  status text NOT NULL CHECK (status = ANY (ARRAY['PENDING'::text, 'ONGOING'::text, 'PREPARING'::text, 'SERVED'::text, 'COMPLETED'::text, 'CANCELLED'::text])),
   timestamp bigint NOT NULL,
   customer_id text NOT NULL,
   restaurant_id uuid,

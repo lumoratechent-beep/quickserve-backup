@@ -238,16 +238,19 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
                       <div className={`w-2 h-2 rounded-full ${
                         order.status === OrderStatus.CANCELLED ? 'bg-red-500' : 
                         order.status === OrderStatus.SERVED ? 'bg-green-500' :
+                        order.status === OrderStatus.PREPARING ? 'bg-blue-500 animate-pulse' :
                         'bg-orange-500 animate-pulse'
                       }`}></div>
                       <span className={`text-[10px] font-black uppercase tracking-widest ${
                         order.status === OrderStatus.CANCELLED ? 'text-red-700 dark:text-red-400' : 
                         order.status === OrderStatus.SERVED ? 'text-green-700 dark:text-green-400' :
+                        order.status === OrderStatus.PREPARING ? 'text-blue-700 dark:text-blue-300' :
                         'text-orange-800 dark:text-orange-200'
                       }`}>
                         {order.status === OrderStatus.CANCELLED ? `Rejected: ${order.id}` : 
                          order.status === OrderStatus.SERVED ? `Served: ${order.id} - Please pay at counter` :
-                         `Preparing Your Meal: ${order.id}`}
+                         order.status === OrderStatus.PREPARING ? `Preparing Your Meal: ${order.id}` :
+                         `Order Received: ${order.id}`}
                       </span>
                    </div>
                 </div>
