@@ -671,6 +671,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [groupMenuByCategory, setGroupMenuByCategory] = useState(() => getInitialGroupMenuByCategory(restaurant));
   const [flashItemId, setFlashItemId] = useState<string | null>(null);
   const [showLayoutPicker, setShowLayoutPicker] = useState(false);
+  const [paymentPageClosing, setPaymentPageClosing] = useState(false);
+  const [paymentPageExitDirection, setPaymentPageExitDirection] = useState<'left' | 'right'>('left');
   const [showCounterModePicker, setShowCounterModePicker] = useState(false);
   const [showDiningOptionPicker, setShowDiningOptionPicker] = useState(false);
   const [posCart, setPosCart] = useState<CartItem[]>([]);
@@ -681,6 +683,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [removingCartItem, setRemovingCartItem] = useState<CartItem | null>(null);
   const [cartSwipe, setCartSwipe] = useState<{ item: CartItem; pointerId: number; startX: number; offsetX: number } | null>(null);
   const cartRemovalTimerRef = useRef<number | null>(null);
+  const paymentCloseTimerRef = useRef<number | null>(null);
   const [posRemark, setPosRemark] = useState('');
   const [posTableNo, setPosTableNo] = useState('Counter');
   const [posDiningType, setPosDiningType] = useState('Dine-in');
@@ -725,12 +728,39 @@ const PosOnlyView: React.FC<Props> = ({
   }, [cartItemActionIndex]);
 
   useEffect(() => {
+    if (!showLayoutPicker) return;
+
+    const closeLayoutPicker = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest('[data-layout-picker]')) return;
+      setShowLayoutPicker(false);
+    };
+
+    document.addEventListener('pointerdown', closeLayoutPicker);
+    return () => {
+      document.removeEventListener('pointerdown', closeLayoutPicker);
+    };
+  }, [showLayoutPicker]);
+
+  const closePaymentPage = () => {
+    if (isCompletingPayment) return;
+    setPaymentPageExitDirection('right');
+    setPaymentPageClosing(true);
+    if (paymentCloseTimerRef.current) window.clearTimeout(paymentCloseTimerRef.current);
+    paymentCloseTimerRef.current = window.setTimeout(() => {
+      setShowPaymentModal(false);
+      setPaymentPageClosing(false);
+    }, 180);
+  };
+
+  useEffect(() => {
     if (cartItemActionIndex !== null && !posCart[cartItemActionIndex]) setCartItemActionIndex(null);
     if (cartItemRemarkIndex !== null && !posCart[cartItemRemarkIndex]) closeCartItemRemark();
   }, [posCart.length, cartItemActionIndex, cartItemRemarkIndex]);
 
   useEffect(() => () => {
     if (cartRemovalTimerRef.current !== null) window.clearTimeout(cartRemovalTimerRef.current);
+    if (paymentCloseTimerRef.current !== null) window.clearTimeout(paymentCloseTimerRef.current);
   }, []);
 
   // Menu Editor State
@@ -2316,7 +2346,11 @@ const PosOnlyView: React.FC<Props> = ({
     }));
   }, [activeTaxEntries, cartTotal]);
   const cartTaxTotal = useMemo(() => cartTaxLines.reduce((sum, tax) => sum + tax.amount, 0), [cartTaxLines]);
-  const cartGrandTotal = useMemo(() => cartTotal + cartTaxTotal, [cartTotal, cartTaxTotal]);
+  const roundCashTotal = (amount: number): number => Math.round((Number(amount || 0) + Number.EPSILON) * 20) / 20;
+  const getCashRoundingAdjustment = (amount: number): number => roundCashTotal(amount) - Number(amount || 0);
+  const cartBeforeRoundingTotal = useMemo(() => cartTotal + cartTaxTotal, [cartTotal, cartTaxTotal]);
+  const cartRoundingAdjustment = useMemo(() => getCashRoundingAdjustment(cartBeforeRoundingTotal), [cartBeforeRoundingTotal]);
+  const cartGrandTotal = useMemo(() => roundCashTotal(cartBeforeRoundingTotal), [cartBeforeRoundingTotal]);
 
   const selectedQrOrderSubtotal = selectedQrOrderForPayment?.total ?? 0;
   const selectedQrOrderDiscount = useMemo(
@@ -2333,12 +2367,14 @@ const PosOnlyView: React.FC<Props> = ({
     }));
   }, [activeTaxEntries, selectedQrOrderSubtotal]);
   const selectedQrTaxTotal = useMemo(() => selectedQrTaxLines.reduce((sum, tax) => sum + tax.amount, 0), [selectedQrTaxLines]);
-  const selectedQrGrandTotal = useMemo(() => selectedQrOrderSubtotal + selectedQrTaxTotal, [selectedQrOrderSubtotal, selectedQrTaxTotal]);
+  const selectedQrBeforeRoundingTotal = useMemo(() => selectedQrOrderSubtotal + selectedQrTaxTotal, [selectedQrOrderSubtotal, selectedQrTaxTotal]);
+  const selectedQrRoundingAdjustment = useMemo(() => getCashRoundingAdjustment(selectedQrBeforeRoundingTotal), [selectedQrBeforeRoundingTotal]);
+  const selectedQrGrandTotal = useMemo(() => roundCashTotal(selectedQrBeforeRoundingTotal), [selectedQrBeforeRoundingTotal]);
 
   const getItemsGrandTotal = (items: CartItem[]): number => {
     const subtotal = getItemsSubtotal(items);
     const taxAmount = activeTaxEntries.reduce((sum, tax) => sum + ((subtotal * tax.percentage) / 100), 0);
-    return subtotal + taxAmount;
+    return roundCashTotal(subtotal + taxAmount);
   };
 
   const effectiveTableCount = Math.max(1, Number(featureSettings.tableCount) || 1);
@@ -2429,9 +2465,15 @@ const PosOnlyView: React.FC<Props> = ({
     return selectedSavedBillTaxLines.reduce((sum, tax) => sum + tax.amount, 0);
   }, [selectedSavedBillTaxLines]);
 
-  const selectedSavedBillGrandTotal = useMemo(() => {
+  const selectedSavedBillBeforeRoundingTotal = useMemo(() => {
     return selectedSavedBillSubtotal + selectedSavedBillTaxTotal;
   }, [selectedSavedBillSubtotal, selectedSavedBillTaxTotal]);
+  const selectedSavedBillRoundingAdjustment = useMemo(() => {
+    return getCashRoundingAdjustment(selectedSavedBillBeforeRoundingTotal);
+  }, [selectedSavedBillBeforeRoundingTotal]);
+  const selectedSavedBillGrandTotal = useMemo(() => {
+    return roundCashTotal(selectedSavedBillBeforeRoundingTotal);
+  }, [selectedSavedBillBeforeRoundingTotal]);
 
   const getFloorFromTableLabel = (tableNumber: string): number => {
     if (!featureSettings.floorEnabled || effectiveFloorCount <= 1) return 1;
@@ -2647,11 +2689,17 @@ const PosOnlyView: React.FC<Props> = ({
       tableNumber: selectedSavedBillEntry.tableNumber,
       diningType: selectedSavedBillEntry.diningType || preferredDiningOption,
       total: selectedSavedBillGrandTotal,
+      beforeRoundingTotal: selectedSavedBillBeforeRoundingTotal,
+      roundingAdjustment: selectedSavedBillRoundingAdjustment,
     });
     setSelectedCashAmount(selectedSavedBillGrandTotal);
     setCashAmountInput(selectedSavedBillGrandTotal.toFixed(2));
     setSelectedPaymentType(getPreferredPaymentTypeId(paymentTypes));
     setIsQrPaymentMode(false);
+    setShowPaymentResult(false);
+    setShowPaymentAmountKeypad(false);
+    setPaymentPageExitDirection('left');
+    setPaymentPageClosing(false);
     setShowPaymentModal(true);
   };
 
@@ -2723,12 +2771,18 @@ const PosOnlyView: React.FC<Props> = ({
       tableNumber: posTableNo,
       diningType: posDiningType,
       total: cartGrandTotal,
+      beforeRoundingTotal: cartBeforeRoundingTotal,
+      roundingAdjustment: cartRoundingAdjustment,
     });
     
     setSelectedCashAmount(cartGrandTotal);
     setCashAmountInput(cartGrandTotal.toFixed(2));
     setSelectedPaymentType(getPreferredPaymentTypeId(paymentTypes));
     setIsQrPaymentMode(false);
+    setShowPaymentResult(false);
+    setShowPaymentAmountKeypad(false);
+    setPaymentPageExitDirection('left');
+    setPaymentPageClosing(false);
     setShowPaymentModal(true);
   };
 
@@ -2780,11 +2834,17 @@ const PosOnlyView: React.FC<Props> = ({
       tableNumber: selectedQrOrderForPayment.tableNumber,
       diningType: selectedQrOrderForPayment.diningType,
       total: selectedQrGrandTotal,
+      beforeRoundingTotal: selectedQrBeforeRoundingTotal,
+      roundingAdjustment: selectedQrRoundingAdjustment,
     });
     setSelectedCashAmount(selectedQrGrandTotal);
     setCashAmountInput(selectedQrGrandTotal.toFixed(2));
     setSelectedPaymentType(getPreferredPaymentTypeId(paymentTypes));
     setIsQrPaymentMode(true);
+    setShowPaymentResult(false);
+    setShowPaymentAmountKeypad(false);
+    setPaymentPageExitDirection('left');
+    setPaymentPageClosing(false);
     setShowPaymentModal(true);
   };
 
@@ -2878,7 +2938,7 @@ const PosOnlyView: React.FC<Props> = ({
           paymentMethod: paymentName,
           cashierName: cashierName || '',
           amountReceived: selectedCashAmount ?? undefined,
-          changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - selectedQrOrderForPayment.total) : undefined,
+          changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
           eReceipt,
         }));
       } catch (error: any) {
@@ -2903,7 +2963,7 @@ const PosOnlyView: React.FC<Props> = ({
         paymentMethod: paymentName,
         cashierName: cashierName || '',
         amountReceived: selectedCashAmount ?? undefined,
-        changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - selectedQrOrderForPayment.total) : undefined,
+        changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
         orderSource: selectedQrOrderForPayment.orderSource,
       }]);
     } else {
@@ -3099,6 +3159,16 @@ const PosOnlyView: React.FC<Props> = ({
         setShowPaymentSuccess(false);
       }, 1800);
     }
+  };
+
+  const finishPaymentPage = () => {
+    setPaymentPageExitDirection('left');
+    setPaymentPageClosing(true);
+    if (paymentCloseTimerRef.current) window.clearTimeout(paymentCloseTimerRef.current);
+    paymentCloseTimerRef.current = window.setTimeout(() => {
+      finalizePaymentFlow();
+      setPaymentPageClosing(false);
+    }, 180);
   };
 
   // Handle order status updates (e.g., marking as paid/completed)
@@ -8338,7 +8408,7 @@ const PosOnlyView: React.FC<Props> = ({
             {/* Mobile View Option (only on COUNTER tab) */}
             {activeTab === 'COUNTER' && (
               <div className="ml-2 flex items-center gap-2 flex-shrink-0">
-                <div className="relative">
+                <div className="relative" data-layout-picker>
                   <button
                     onClick={() => {
                       setShowCounterModePicker(prev => !prev);
@@ -8662,41 +8732,48 @@ const PosOnlyView: React.FC<Props> = ({
                       </button>
                     ))}
                   </div>
-                  <button
-                    onClick={handleToggleGroupMenuByCategory}
-                    className={`p-1.5 rounded-xl border dark:border-gray-700 transition-all shrink-0 ${
-                      groupMenuByCategory
-                        ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
-                        : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-300 hover:border-orange-300'
-                    }`}
-                    title={groupMenuByCategory ? 'Category grouping on' : 'Category grouping off'}
-                  >
-                    {groupMenuByCategory ? <ListTree size={14} /> : <Tag size={14} />}
-                  </button>
-                  <div className="relative shrink-0 hidden lg:block">
-                    <button onClick={() => setShowLayoutPicker(!showLayoutPicker)} className="p-1.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-all">
-                      <LayoutGrid size={14} />
-                    </button>
-                    {showLayoutPicker && (
-                      <div className="absolute right-0 top-full mt-1 z-50 flex items-center gap-1 bg-white dark:bg-gray-800 border dark:border-gray-700 p-1 rounded-xl shadow-lg">
-                        <button onClick={() => { setMenuLayout('grid-3'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-3' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>3</button>
-                        <button onClick={() => { setMenuLayout('grid-4'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-4' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>4</button>
-                        <button onClick={() => { setMenuLayout('grid-5'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-5' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>5</button>
-                        <button onClick={() => { setMenuLayout('grid-6'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-6' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>6</button>
-                        <button onClick={() => { setMenuLayout('list'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all ${menuLayout === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><List size={14} /></button>
-                      </div>
-                    )}
-                  </div>
                 </div>
-                <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input 
-                    type="text" 
-                    placeholder="Search menu items..." 
-                    className="w-full pl-10 pr-3 py-2 max-lg:landscape:py-1.5 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white outline-none focus:ring-2 focus:ring-orange-500 transition-all"
-                    value={menuSearch}
-                    onChange={e => setMenuSearch(e.target.value)}
-                  />
+                <div className="flex items-center">
+                  <div className="relative min-w-0 flex-1">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search menu items..."
+                      className="h-9 w-full rounded-lg border-none bg-gray-50 pl-10 pr-3 text-xs font-black outline-none transition-all focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white max-lg:landscape:h-8"
+                      value={menuSearch}
+                      onChange={e => setMenuSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="ml-3 flex shrink-0 items-center gap-1">
+                    <button
+                      onClick={handleToggleGroupMenuByCategory}
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-all max-lg:landscape:h-8 max-lg:landscape:w-8 ${
+                        groupMenuByCategory
+                          ? 'border-orange-500 bg-orange-500 text-white shadow-sm'
+                          : 'border-gray-200 bg-gray-50 text-gray-500 hover:border-orange-300 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                      }`}
+                      title={groupMenuByCategory ? 'Category grouping on' : 'Category grouping off'}
+                    >
+                      {groupMenuByCategory ? <ListTree size={18} /> : <Tag size={18} />}
+                    </button>
+                    <div className="relative hidden shrink-0 lg:block" data-layout-picker>
+                      <button
+                        onClick={() => setShowLayoutPicker(!showLayoutPicker)}
+                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500 transition-all hover:border-orange-300 hover:text-orange-500 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-300 max-lg:landscape:h-8 max-lg:landscape:w-8"
+                      >
+                        <LayoutGrid size={18} />
+                      </button>
+                      {showLayoutPicker && (
+                        <div className="absolute right-0 top-full z-50 mt-1 flex items-center gap-1 rounded-xl border bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                          <button onClick={() => { setMenuLayout('grid-3'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-3' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>3</button>
+                          <button onClick={() => { setMenuLayout('grid-4'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-4' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>4</button>
+                          <button onClick={() => { setMenuLayout('grid-5'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-5' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>5</button>
+                          <button onClick={() => { setMenuLayout('grid-6'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-6' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>6</button>
+                          <button onClick={() => { setMenuLayout('list'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all ${menuLayout === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><List size={14} /></button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -12114,20 +12191,28 @@ const PosOnlyView: React.FC<Props> = ({
                               {order.status === OrderStatus.SERVED && (
                                 <div className="flex gap-2 mt-3">
                                   <button onClick={() => {
+                                    const roundedOrderTotal = roundCashTotal(order.total);
+                                    const orderRoundingAdjustment = getCashRoundingAdjustment(order.total);
                                     setSelectedQrOrderForPayment(order);
                                     setPendingOrderData({
                                       items: order.items,
                                       remark: order.remark,
                                       tableNumber: order.tableNumber,
                                       diningType: order.diningType,
-                                      total: order.total,
+                                      total: roundedOrderTotal,
+                                      beforeRoundingTotal: order.total,
+                                      roundingAdjustment: orderRoundingAdjustment,
                                     });
-                                    setSelectedCashAmount(order.total);
-                                    setCashAmountInput(order.total.toFixed(2));
+                                    setSelectedCashAmount(roundedOrderTotal);
+                                    setCashAmountInput(roundedOrderTotal.toFixed(2));
                                     setSelectedPaymentType(getFirstEnabledPaymentTypeId(paymentTypes));
                                     setIsQrPaymentMode(true);
+                                    setShowPaymentResult(false);
+                                    setShowPaymentAmountKeypad(false);
+                                    setPaymentPageExitDirection('left');
+                                    setPaymentPageClosing(false);
                                     setShowPaymentModal(true);
-                                  }} className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-1.5">
+                                  }} className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-blue-600 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5">
                                     <CreditCard size={14} /> Mark Paid
                                   </button>
                                 </div>
@@ -13227,7 +13312,7 @@ const PosOnlyView: React.FC<Props> = ({
                   <button
                     onClick={handleSavedBillCheckout}
                     disabled={!selectedSavedBillEntry || isCompletingPayment}
-                    className="flex-[2] py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
+                    className="flex-[2] py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 active:scale-[0.98] transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
                   >
                     Complete Payment
                   </button>
@@ -13329,7 +13414,7 @@ const PosOnlyView: React.FC<Props> = ({
                       <button
                         onClick={handleQrOrderCheckout}
                         disabled={!selectedQrOrderForPayment || isCompletingPayment}
-                        className="flex-[2] py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                        className="flex-[2] py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 active:scale-[0.98] transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                       >
                         <CreditCard size={16} /> Complete Payment
                       </button>
@@ -13501,7 +13586,7 @@ const PosOnlyView: React.FC<Props> = ({
                       <button
                         onClick={handleCheckout}
                         disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
-                        className="w-[47.5%] py-4 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
+                        className="w-[47.5%] py-4 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 active:scale-[0.98] transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
                       >
                         {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Payment'}
                       </button>
@@ -13510,7 +13595,7 @@ const PosOnlyView: React.FC<Props> = ({
                     <button
                       onClick={handleCheckout}
                       disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
-                      className="w-full py-4 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
+                      className="w-full py-4 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 active:scale-[0.98] transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
                     >
                       {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Payment'}
                     </button>
@@ -13750,10 +13835,18 @@ const PosOnlyView: React.FC<Props> = ({
 
       {/* Payment Page */}
       {showPaymentModal && pendingOrderData && (
-        <div className="fixed inset-0 z-[130] bg-gray-100 dark:bg-gray-950">
+        <div
+          className={`fixed inset-0 z-[130] bg-gray-100 dark:bg-gray-950 transition-transform duration-300 ease-in-out ${
+            paymentPageClosing
+              ? paymentPageExitDirection === 'right'
+                ? 'translate-x-full'
+                : '-translate-x-full'
+              : 'translate-x-0 animate-in slide-in-from-right fade-in'
+          }`}
+        >
           <div className="flex h-[100dvh] w-full overflow-hidden bg-white dark:bg-gray-900">
             <aside className={`${showPaymentResult ? 'hidden' : 'hidden lg:flex'} w-[360px] shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 xl:w-[410px]`}>
-              <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800">
+              <div className="border-b border-gray-200 px-5 pb-2 pt-4 dark:border-gray-800">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">
@@ -13767,7 +13860,7 @@ const PosOnlyView: React.FC<Props> = ({
                     {pendingOrderData.tableNumber || 'Counter'}
                   </div>
                 </div>
-                <div className="mt-4 flex items-center justify-between text-xs font-black uppercase tracking-widest text-gray-400">
+                <div className="mt-3 flex items-center justify-between text-xs font-black uppercase tracking-widest text-gray-400">
                   <span>{pendingOrderData.items.reduce((sum: number, item: CartItem) => sum + Number(item.quantity || 0), 0)} items</span>
                   <span>{pendingOrderData.diningType || preferredDiningOption}</span>
                 </div>
@@ -13815,23 +13908,50 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               </div>
 
-              <div className="border-t border-gray-200 bg-gray-50 px-5 py-4 dark:border-gray-800 dark:bg-gray-900">
+              <div className="border-t border-gray-200 bg-gray-50 px-5 py-3 dark:border-gray-800 dark:bg-gray-900">
                 {pendingOrderData.remark && (
                   <div className="mb-4">
                     <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Bill remark</p>
                     <p className="mt-1 text-xs font-bold text-gray-600 dark:text-gray-300">{pendingOrderData.remark}</p>
                   </div>
                 )}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-gray-500 dark:text-gray-400">
-                    <span>Subtotal</span>
-                    <span>{currencySymbol}{pendingOrderData.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs font-bold text-gray-500 dark:text-gray-400">
-                    <span>Rounding</span>
-                    <span>{currencySymbol}0.00</span>
-                  </div>
-                  <div className="flex items-center justify-between border-t border-gray-200 pt-3 text-lg font-black uppercase tracking-tight text-gray-900 dark:border-gray-800 dark:text-white">
+                <div className="space-y-1">
+                  {(() => {
+                    const itemSubtotal = getItemsSubtotal((pendingOrderData.items || []) as CartItem[]);
+                    const discount = getItemsDiscount((pendingOrderData.items || []) as CartItem[]);
+                    const beforeRoundingTotal = pendingOrderData.beforeRoundingTotal ?? pendingOrderData.total;
+                    const roundingAdjustment = pendingOrderData.roundingAdjustment ?? getCashRoundingAdjustment(beforeRoundingTotal);
+                    const preDiscountSubtotal = itemSubtotal + discount;
+                    const taxLines = activeTaxEntries.map(tax => ({
+                      id: tax.id,
+                      name: tax.name,
+                      percentage: tax.percentage,
+                      amount: (itemSubtotal * tax.percentage) / 100,
+                    }));
+                    return (
+                      <>
+                        <div className="flex items-center justify-between text-[11px] font-bold text-gray-500 dark:text-gray-400">
+                          <span>Subtotal</span>
+                          <span>{currencySymbol}{preDiscountSubtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] font-bold text-gray-500 dark:text-gray-400">
+                          <span>Discount</span>
+                          <span>-{currencySymbol}{discount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        {taxLines.map(tax => (
+                          <div key={`payment-side-tax-${tax.id}`} className="flex items-center justify-between text-[11px] font-bold text-gray-500 dark:text-gray-400">
+                            <span>{tax.name} ({tax.percentage.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)</span>
+                            <span>{currencySymbol}{tax.amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        ))}
+                        <div className="flex items-center justify-between text-[11px] font-bold text-gray-500 dark:text-gray-400">
+                          <span>Rounding</span>
+                          <span>{roundingAdjustment >= 0 ? '' : '-'}{currencySymbol}{Math.abs(roundingAdjustment).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                  <div className="flex items-center justify-between pt-1.5 text-base font-black uppercase tracking-tight text-gray-900 dark:text-white">
                     <span>Total</span>
                     <span className="text-orange-500">{currencySymbol}{pendingOrderData.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
@@ -13842,9 +13962,9 @@ const PosOnlyView: React.FC<Props> = ({
             <div className="relative min-w-0 flex-1 bg-gray-50 dark:bg-gray-950">
             
             {/* Payment Input View */}
-            <div className={`absolute inset-0 flex-col ${showPaymentResult ? 'hidden' : 'flex'}`}>
+            <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out ${showPaymentResult ? 'pointer-events-none -translate-x-full' : 'translate-x-0'}`}>
               <div className="relative flex-1 min-h-0 overflow-hidden pt-4 lg:pt-6">
-                <div className="border-b border-gray-200 px-5 pb-4 dark:border-gray-800 lg:hidden">
+                <div className="border-b border-gray-200 px-5 pb-2 dark:border-gray-800 lg:hidden">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">{pendingOrderData.tableNumber || 'Counter'}</p>
@@ -13861,7 +13981,7 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* Main payment view */}
                 <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out ${showPaymentAmountKeypad ? '-translate-x-full' : 'translate-x-0'}`}>
                   {/* Content */}
-                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-4 pt-24 lg:px-12 lg:pb-5 lg:pt-8 xl:px-16 space-y-3 lg:space-y-4">
+                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-4 pt-24 lg:px-12 lg:pb-5 lg:pt-8 xl:px-16 space-y-4 lg:space-y-5">
                     {/* Total Amount Due - Centered */}
                     <div className="text-center space-y-1.5">
                       <label className="block text-[10px] lg:text-xs font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
@@ -13871,22 +13991,22 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
 
                     {/* Amount Received - Tap to keypad */}
-                    <div className="space-y-2 mt-4 lg:mt-5">
+                    <div className="space-y-2.5 mt-5 lg:mt-6">
                       <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
                       <button
                         type="button"
                         onClick={openPaymentAmountKeypad}
-                        className="w-full flex items-center justify-center border-b-2 dark:border-gray-600 border-gray-300 hover:border-orange-500 dark:hover:border-orange-500 transition-colors pb-1.5"
+                        className="w-full overflow-hidden rounded-lg border-2 border-gray-200 bg-white text-left shadow-sm transition-all hover:border-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-500/20 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-orange-500"
                       >
-                        <span className="text-xl font-black text-gray-600 dark:text-gray-400">{currencySymbol}</span>
-                        <span className="flex-1 px-2 py-1 text-xl font-black dark:text-white text-center">
+                        <span className="inline-flex h-12 w-14 items-center justify-center border-r border-gray-200 bg-gray-50 text-sm font-black text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">{currencySymbol}</span>
+                        <span className="inline-flex h-12 flex-1 items-center px-4 text-lg font-black text-gray-900 dark:text-white">
                           {cashAmountInput || '0.00'}
                         </span>
                       </button>
                     </div>
 
                     {/* Cash Denomination Boxes */}
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">
                         {paymentQuickSelectAmounts.map((amount, index) => (
@@ -13906,25 +14026,39 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
 
                     {/* Payment Method */}
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
                       <div className="grid grid-cols-3 gap-2 lg:gap-3">
                         {Array.from({ length: 3 }, (_, index) => {
                           const type = paymentMethodButtons[index];
                           if (!type) return <div key={`payment-method-empty-${index}`} aria-hidden="true" />;
                           const selected = selectedPaymentType === type.id;
+                          const normalizedPaymentName = type.name.trim().toLowerCase();
+                          const paymentIcon = normalizedPaymentName.includes('qr')
+                            ? <QrCode size={18} />
+                            : normalizedPaymentName.includes('card')
+                              ? <CreditCard size={20} />
+                              : <Banknote size={20} />;
                           return (
                             <button
                               key={type.id}
                               type="button"
                               onClick={() => setSelectedPaymentType(type.id)}
-                              className={`py-3 rounded-xl border-2 text-sm font-black uppercase tracking-widest transition-all ${
+                              className={`relative flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-black uppercase tracking-widest transition-all ${
                                 selected
-                                  ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
-                                  : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
+                                  ? 'bg-white text-orange-500 border-orange-500 shadow-sm dark:bg-gray-900 dark:text-orange-400 dark:border-orange-500'
+                                  : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-orange-500 dark:hover:border-orange-500'
                               }`}
                             >
+                              <span className={selected ? 'text-orange-500 dark:text-orange-400' : 'text-gray-500 dark:text-gray-300'}>
+                                {paymentIcon}
+                              </span>
                               {type.name}
+                              {selected && (
+                                <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 text-white">
+                                  <Check size={11} strokeWidth={4} />
+                                </span>
+                              )}
                             </button>
                           );
                         })}
@@ -13932,7 +14066,7 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
 
                     {/* Remark */}
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Remark</label>
                       <textarea
                         value={pendingOrderData.remark || ''}
@@ -13941,7 +14075,7 @@ const PosOnlyView: React.FC<Props> = ({
                           setPendingOrderData((prev: any) => ({ ...(prev || {}), remark: nextRemark }));
                           setPosRemark(nextRemark);
                         }}
-                        rows={1}
+                        rows={3}
                         placeholder="Optional order note"
                         className="w-full p-2.5 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500 resize-none"
                       />
@@ -13951,16 +14085,16 @@ const PosOnlyView: React.FC<Props> = ({
                   {/* Footer / Action Buttons */}
                   <div className="px-5 lg:px-12 xl:px-16 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
                     <button
-                      onClick={() => setShowPaymentModal(false)}
+                      onClick={closePaymentPage}
                       disabled={isCompletingPayment}
-                      className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                      className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm uppercase tracking-wider hover:bg-gray-200 active:scale-[0.98] dark:hover:bg-gray-600 transition-all disabled:opacity-50"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleConfirmPayment}
                       disabled={isCompletingPayment || !selectedPaymentType}
-                      className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-sm uppercase tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-1 lg:gap-3"
+                      className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-sm uppercase tracking-wider hover:bg-orange-600 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-1 lg:gap-3"
                     >
                       {isCompletingPayment ? (
                         <>
@@ -14056,12 +14190,14 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
 
             {/* Payment Result View */}
-            <div className={`absolute inset-0 overflow-hidden bg-slate-50 text-slate-900 ${showPaymentResult ? 'block' : 'hidden'}`}>
+            <div className={`absolute inset-0 overflow-hidden bg-slate-50 text-slate-900 transition-transform duration-300 ease-in-out dark:bg-gray-950 dark:text-white ${showPaymentResult ? 'pointer-events-auto translate-x-0' : 'pointer-events-none translate-x-full'}`}>
               {(() => {
                 const totalPaid = selectedCashAmount || 0;
                 const changeDue = Math.max(0, totalPaid - pendingOrderData.total);
                 const discount = getItemsDiscount((pendingOrderData.items || []) as CartItem[]);
-                const subtotal = pendingOrderData.total + discount;
+                const beforeRoundingTotal = pendingOrderData.beforeRoundingTotal ?? pendingOrderData.total;
+                const roundingAdjustment = pendingOrderData.roundingAdjustment ?? getCashRoundingAdjustment(beforeRoundingTotal);
+                const subtotal = beforeRoundingTotal + discount;
                 const paidAt = pendingOrderData.timestamp ? new Date(pendingOrderData.timestamp) : new Date();
                 const paidDate = paidAt.toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).replace('Sep', 'Sept');
                 const paidTime = paidAt.toLocaleTimeString('en-MY', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
@@ -14081,51 +14217,51 @@ const PosOnlyView: React.FC<Props> = ({
                 });
 
                 return (
-                  <div className="flex h-full flex-col px-5 py-4 lg:px-8">
-                    <div className="mx-auto flex h-full w-full max-w-5xl flex-col">
+                  <div className="flex h-full items-center justify-center px-5 py-6 lg:px-8 lg:py-8">
+                    <div className="mx-auto flex max-h-full w-full max-w-[820px] flex-col justify-center">
                       <div className="text-center">
-                        <div className="relative mx-auto h-24 w-40">
-                          <span className="absolute left-1 top-14 h-1.5 w-4 animate-pulse rounded-full" style={{ backgroundColor: '#A6EFD3' }} />
-                          <span className="absolute left-8 top-5 h-1.5 w-4 rotate-45 animate-bounce rounded-full" style={{ backgroundColor: '#FDBA74' }} />
-                          <span className="absolute right-7 top-5 h-1.5 w-4 -rotate-45 animate-bounce rounded-full" style={{ backgroundColor: '#A6EFD3' }} />
-                          <span className="absolute right-2 top-14 h-1.5 w-4 animate-pulse rounded-full bg-cyan-300" />
-                          <div className="absolute left-1/2 top-1 h-20 w-20 -translate-x-1/2 rounded-full bg-green-400 opacity-30 animate-ping" />
-                          <div className="absolute left-1/2 top-1 h-20 w-20 -translate-x-1/2">
-                            <div className="flex h-full w-full animate-bounce items-center justify-center rounded-full bg-green-500 shadow-xl shadow-green-200">
-                              <Check size={44} className="animate-pulse text-white" strokeWidth={4} />
+                        <div className="relative mx-auto h-[5.5rem] w-36">
+                          <span className="absolute left-0 top-12 h-1.5 w-4 animate-pulse rounded-full" style={{ backgroundColor: '#A6EFD3' }} />
+                          <span className="absolute left-7 top-4 h-1.5 w-4 rotate-45 animate-bounce rounded-full" style={{ backgroundColor: '#FDBA74' }} />
+                          <span className="absolute right-6 top-4 h-1.5 w-4 -rotate-45 animate-bounce rounded-full" style={{ backgroundColor: '#A6EFD3' }} />
+                          <span className="absolute right-0 top-12 h-1.5 w-4 animate-pulse rounded-full bg-cyan-300" />
+                          <div className="absolute left-1/2 top-1 h-[4.5rem] w-[4.5rem] -translate-x-1/2 rounded-full bg-green-400 opacity-30 animate-ping dark:bg-green-500 dark:opacity-20" />
+                          <div className="absolute left-1/2 top-1 h-[4.5rem] w-[4.5rem] -translate-x-1/2">
+                            <div className="flex h-full w-full animate-bounce items-center justify-center rounded-full bg-green-500 shadow-xl shadow-green-200 dark:shadow-none">
+                              <Check size={40} className="animate-pulse text-white" strokeWidth={4} />
                             </div>
                           </div>
                         </div>
-                        <h2 className="text-2xl font-black tracking-tight text-slate-950 lg:text-3xl">Payment Complete!</h2>
-                        <p className="mt-1 text-sm font-semibold text-slate-500 lg:text-base">Thank you! Your payment has been successfully processed.</p>
-                        <p className="mt-1 text-sm font-semibold text-slate-400">{paidDate} {paidTime}</p>
+                        <h2 className="text-2xl font-black tracking-tight text-slate-950 dark:text-white lg:text-3xl">Payment Complete!</h2>
+                        <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-gray-300 lg:text-base">Thank you! Your payment has been successfully processed.</p>
+                        <p className="mt-1 text-xs font-semibold text-slate-400 dark:text-gray-500 lg:text-sm">{paidDate} {paidTime}</p>
                       </div>
 
                       <div className="mt-4 grid gap-3 md:grid-cols-2">
-                        <div className="flex items-center gap-5 rounded-lg bg-emerald-50 px-6 py-4 shadow-sm ring-1 ring-emerald-100">
-                          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/80 text-emerald-500">
-                            <Banknote size={34} />
+                        <div className="flex items-center gap-4 rounded-lg bg-emerald-50 px-5 py-3.5 shadow-sm ring-1 ring-emerald-100 dark:bg-gray-900 dark:ring-emerald-500/25">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/80 text-emerald-500 dark:bg-emerald-500/15 dark:text-emerald-300">
+                            <Banknote size={30} />
                           </div>
                           <div>
-                            <p className="text-sm font-black text-emerald-700/60">Total Paid</p>
-                            <p className="mt-1 text-3xl font-black tracking-tight text-emerald-600">{currencySymbol}{totalPaid.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            <p className="text-xs font-black text-emerald-700/60 dark:text-emerald-300/70">Total Paid</p>
+                            <p className="mt-0.5 text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-300 lg:text-3xl">{currencySymbol}{totalPaid.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-5 rounded-lg bg-blue-50 px-6 py-4 shadow-sm ring-1 ring-blue-100">
-                          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/80 text-blue-500">
-                            <RotateCcw size={34} />
+                        <div className="flex items-center gap-4 rounded-lg bg-blue-50 px-5 py-3.5 shadow-sm ring-1 ring-blue-100 dark:bg-gray-900 dark:ring-blue-500/25">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/80 text-blue-500 dark:bg-blue-500/15 dark:text-blue-300">
+                            <RotateCcw size={30} />
                           </div>
                           <div>
-                            <p className="text-sm font-black text-blue-700/60">Change</p>
-                            <p className="mt-1 text-3xl font-black tracking-tight text-blue-600">{currencySymbol}{changeDue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            <p className="text-xs font-black text-blue-700/60 dark:text-blue-300/70">Change</p>
+                            <p className="mt-0.5 text-2xl font-black tracking-tight text-blue-600 dark:text-blue-300 lg:text-3xl">{currencySymbol}{changeDue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                           </div>
                         </div>
                       </div>
 
                       <div className={`mt-3 flex items-center justify-between gap-4 rounded-lg px-5 py-2.5 ring-1 ${
                         hasPrintableTransport
-                          ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
-                          : 'bg-red-50 text-red-600 ring-red-100'
+                          ? 'bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-gray-900 dark:text-emerald-300 dark:ring-emerald-500/25'
+                          : 'bg-red-50 text-red-600 ring-red-100 dark:bg-gray-900 dark:text-red-300 dark:ring-red-500/25'
                       }`}>
                         <div className="flex items-center gap-3 text-sm font-bold">
                           <Printer size={20} />
@@ -14138,38 +14274,38 @@ const PosOnlyView: React.FC<Props> = ({
                           disabled={hasPrintableTransport || isAutoReconnecting}
                           className={`rounded-lg border px-4 py-1.5 text-xs font-bold transition ${
                             hasPrintableTransport
-                              ? 'cursor-default border-emerald-200 text-emerald-500'
-                              : 'border-red-400 text-red-600 hover:bg-red-100 disabled:opacity-60'
+                              ? 'cursor-default border-emerald-200 text-emerald-500 dark:border-emerald-800 dark:text-emerald-300'
+                              : 'border-red-400 text-red-600 hover:bg-red-100 disabled:opacity-60 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30'
                           }`}
                         >
                           {isAutoReconnecting ? 'Connecting...' : 'Manage Printers'}
                         </button>
                       </div>
 
-                      <div className="mt-3 rounded-lg bg-white px-5 py-4 shadow-sm ring-1 ring-slate-200">
-                        <div className="flex flex-col gap-2 border-b border-slate-200 pb-3 md:flex-row md:items-center md:justify-between">
-                          <h3 className="text-base font-black tracking-tight text-slate-950">Order Summary</h3>
-                          <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-500">
+                      <div className="mt-3 rounded-lg bg-white px-5 py-3.5 shadow-sm ring-1 ring-slate-200 dark:bg-gray-900 dark:ring-gray-700">
+                        <div className="flex flex-col gap-2 border-b border-slate-200 pb-2.5 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
+                          <h3 className="text-base font-black tracking-tight text-slate-950 dark:text-white">Order Summary</h3>
+                          <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-500 dark:text-gray-400">
                             <span className="flex items-center gap-2"><Hash size={18} /> Table: {pendingOrderData.tableNumber || 'Counter'}</span>
-                            <span className="hidden h-6 w-px bg-slate-300 md:block" />
+                            <span className="hidden h-6 w-px bg-slate-300 dark:bg-gray-700 md:block" />
                             <span className="flex items-center gap-2"><Coffee size={18} /> Dining Option: {pendingOrderData.diningType || preferredDiningOption}</span>
                           </div>
                         </div>
-                        <div className="space-y-1.5 py-3 text-sm font-semibold text-slate-600">
+                        <div className="space-y-1.5 py-2.5 text-sm font-semibold text-slate-600 dark:text-gray-300">
                           <div className="flex items-center justify-between gap-4">
                             <span>Subtotal</span>
-                            <span className="font-bold text-slate-800">{currencySymbol}{subtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <span className="font-bold text-slate-800 dark:text-gray-100">{currencySymbol}{subtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                           <div className="flex items-center justify-between gap-4">
                             <span>Discount</span>
-                            <span className="font-bold text-slate-800">- {currencySymbol}{discount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <span className="font-bold text-slate-800 dark:text-gray-100">- {currencySymbol}{discount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                           <div className="flex items-center justify-between gap-4">
                             <span>Rounding</span>
-                            <span className="font-bold text-slate-800">{currencySymbol}0.00</span>
+                            <span className="font-bold text-slate-800 dark:text-gray-100">{roundingAdjustment >= 0 ? '' : '-'}{currencySymbol}{Math.abs(roundingAdjustment).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between border-t border-slate-200 pt-3 text-base font-black text-slate-950">
+                        <div className="flex items-center justify-between border-t border-slate-200 pt-2.5 text-base font-black text-slate-950 dark:border-gray-700 dark:text-white">
                           <span>Total Paid</span>
                           <span>{currencySymbol}{pendingOrderData.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
@@ -14184,7 +14320,7 @@ const PosOnlyView: React.FC<Props> = ({
                             const success = await printerService.printReceipt(buildPrintOrder(), printRestaurant, getReceiptPrintOptions(pendingOrderData.eReceiptId));
                             toast(success ? (featureSettings.autoPrintReceipt ? 'Receipt reprinted!' : 'Receipt printed!') : 'Print failed. Please try again.', success ? 'success' : 'error');
                           }}
-                          className="flex items-center justify-center gap-3 rounded-lg bg-slate-200 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-300 disabled:opacity-50"
+                          className="flex items-center justify-center gap-3 rounded-lg bg-slate-200 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-300 disabled:opacity-50 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                         >
                           <Receipt size={21} /> Print Receipt
                         </button>
@@ -14196,20 +14332,20 @@ const PosOnlyView: React.FC<Props> = ({
                             const success = await printerService.printReceipt(buildPrintOrder(), printRestaurant, getOrderListPrintOptions());
                             toast(success ? (featureSettings.autoPrintOrderList ? 'Order list reprinted!' : 'Order list printed!') : 'Print failed. Please try again.', success ? 'success' : 'error');
                           }}
-                          className="flex items-center justify-center gap-3 rounded-lg bg-slate-200 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-300 disabled:opacity-50"
+                          className="flex items-center justify-center gap-3 rounded-lg bg-slate-200 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-300 disabled:opacity-50 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                         >
                           <List size={21} /> Print Order List
                         </button>
                         <button
                           type="button"
-                          onClick={finalizePaymentFlow}
-                          className="flex items-center justify-center gap-3 rounded-lg bg-orange-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-orange-200 transition hover:bg-orange-600"
+                          onClick={finishPaymentPage}
+                          className="flex items-center justify-center gap-3 rounded-lg bg-orange-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-orange-200 transition hover:bg-orange-600 active:scale-[0.98] dark:shadow-none"
                         >
                           <Check size={22} /> Done
                         </button>
                       </div>
 
-                      <p className="mt-3 text-center text-xs font-medium text-slate-400">Please make sure all balances are correct before completing payment.</p>
+                      <p className="mt-3 text-center text-xs font-medium text-slate-400 dark:text-gray-500">Please make sure all balances are correct before completing payment.</p>
                     </div>
                   </div>
                 );
