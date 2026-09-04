@@ -25,7 +25,7 @@ import { getCalendarReportDateRange } from '../lib/reportDateRanges';
 import {
   ShoppingBag, Search, Download, Calendar,
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid,
-  List, ListTree, Clock, CheckCircle, CheckCircle2, BarChart3, Hash, Menu, Settings, BookOpen,
+  List, ListTree, Clock, Check, CheckCircle, CheckCircle2, BarChart3, Hash, Menu, Settings, BookOpen,
   X, Edit3, Archive, RotateCcw, Upload, Eye,
   AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon, Smartphone, Usb,
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeftRight, RotateCw, Wifi, WifiOff,
@@ -13752,7 +13752,7 @@ const PosOnlyView: React.FC<Props> = ({
       {showPaymentModal && pendingOrderData && (
         <div className="fixed inset-0 z-[130] bg-gray-100 dark:bg-gray-950">
           <div className="flex h-[100dvh] w-full overflow-hidden bg-white dark:bg-gray-900">
-            <aside className="hidden w-[360px] shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 lg:flex xl:w-[410px]">
+            <aside className={`${showPaymentResult ? 'hidden' : 'hidden lg:flex'} w-[360px] shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 xl:w-[410px]`}>
               <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -13836,30 +13836,14 @@ const PosOnlyView: React.FC<Props> = ({
                     <span className="text-orange-500">{currencySymbol}{pendingOrderData.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowPaymentModal(false)}
-                  disabled={isCompletingPayment || showPaymentResult}
-                  className="mt-4 w-full rounded-lg border border-red-200 bg-white py-3 text-xs font-black uppercase tracking-widest text-red-500 transition-all hover:bg-red-50 disabled:opacity-50 dark:border-red-900/50 dark:bg-gray-800 dark:text-red-300 dark:hover:bg-red-900/20"
-                >
-                  Cancel Payment
-                </button>
               </div>
             </aside>
 
             <div className="relative min-w-0 flex-1 bg-gray-50 dark:bg-gray-950">
             
             {/* Payment Input View */}
-            <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? '-translate-x-full' : 'translate-x-0'}`}>
-              <button
-                onClick={() => setShowPaymentModal(false)}
-                disabled={isCompletingPayment}
-                className="absolute right-4 top-4 z-10 rounded-lg p-2 transition-all hover:bg-gray-100 disabled:opacity-50 dark:hover:bg-gray-800 lg:right-5"
-              >
-                <X size={28} className="text-gray-400" />
-              </button>
-
-              <div className="relative flex-1 min-h-0 overflow-hidden pt-[3.75rem]">
+            <div className={`absolute inset-0 flex-col ${showPaymentResult ? 'hidden' : 'flex'}`}>
+              <div className="relative flex-1 min-h-0 overflow-hidden pt-4 lg:pt-6">
                 <div className="border-b border-gray-200 px-5 pb-4 dark:border-gray-800 lg:hidden">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -13877,39 +13861,39 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* Main payment view */}
                 <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out ${showPaymentAmountKeypad ? '-translate-x-full' : 'translate-x-0'}`}>
                   {/* Content */}
-                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-6 pt-24 lg:px-12 lg:pb-8 lg:pt-14 xl:px-20 space-y-4 lg:space-y-6">
+                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-4 pt-24 lg:px-12 lg:pb-5 lg:pt-8 xl:px-16 space-y-3 lg:space-y-4">
                     {/* Total Amount Due - Centered */}
-                    <div className="text-center space-y-2 lg:space-y-3">
-                      <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
-                      <div className="text-4xl lg:text-6xl font-black text-orange-500 tracking-tighter">
+                    <div className="text-center space-y-1.5">
+                      <label className="block text-[10px] lg:text-xs font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
+                      <div className="text-4xl lg:text-5xl font-black text-orange-500 tracking-tighter">
                         {currencySymbol}{pendingOrderData.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     </div>
 
                     {/* Amount Received - Tap to keypad */}
-                    <div className="space-y-3 mt-6 lg:mt-8">
-                      <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
+                    <div className="space-y-2 mt-4 lg:mt-5">
+                      <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
                       <button
                         type="button"
                         onClick={openPaymentAmountKeypad}
-                        className="w-full flex items-center justify-center border-b-2 dark:border-gray-600 border-gray-300 hover:border-orange-500 dark:hover:border-orange-500 transition-colors pb-2"
+                        className="w-full flex items-center justify-center border-b-2 dark:border-gray-600 border-gray-300 hover:border-orange-500 dark:hover:border-orange-500 transition-colors pb-1.5"
                       >
-                        <span className="text-2xl font-black text-gray-600 dark:text-gray-400">{currencySymbol}</span>
-                        <span className="flex-1 p-2 text-2xl font-black dark:text-white text-center">
+                        <span className="text-xl font-black text-gray-600 dark:text-gray-400">{currencySymbol}</span>
+                        <span className="flex-1 px-2 py-1 text-xl font-black dark:text-white text-center">
                           {cashAmountInput || '0.00'}
                         </span>
                       </button>
                     </div>
 
                     {/* Cash Denomination Boxes */}
-                    <div className="space-y-2 lg:space-y-3">
+                    <div className="space-y-2">
                       <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">
                         {paymentQuickSelectAmounts.map((amount, index) => (
                           <button
                             key={`pay-quick-${index}-${amount}`}
                             onClick={() => { setSelectedCashAmount(amount); setCashAmountInput(amount.toFixed(2)); }}
-                            className={`p-3 rounded-xl font-black text-lg uppercase tracking-widest transition-all border-2 ${
+                            className={`p-2.5 rounded-xl font-black text-sm lg:text-base uppercase tracking-widest transition-all border-2 ${
                               selectedCashAmount === amount
                                 ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
                                 : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
@@ -13922,7 +13906,7 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
 
                     {/* Payment Method */}
-                    <div className="space-y-2 lg:space-y-3">
+                    <div className="space-y-2">
                       <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
                       <div className="grid grid-cols-3 gap-2 lg:gap-3">
                         {Array.from({ length: 3 }, (_, index) => {
@@ -13934,7 +13918,7 @@ const PosOnlyView: React.FC<Props> = ({
                               key={type.id}
                               type="button"
                               onClick={() => setSelectedPaymentType(type.id)}
-                              className={`py-3 lg:py-3.5 rounded-xl border-2 text-sm lg:text-base font-black uppercase tracking-widest transition-all ${
+                              className={`py-3 rounded-xl border-2 text-sm font-black uppercase tracking-widest transition-all ${
                                 selected
                                   ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
                                   : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
@@ -13948,7 +13932,7 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
 
                     {/* Remark */}
-                    <div className="space-y-2 lg:space-y-3">
+                    <div className="space-y-2">
                       <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Remark</label>
                       <textarea
                         value={pendingOrderData.remark || ''}
@@ -13957,26 +13941,26 @@ const PosOnlyView: React.FC<Props> = ({
                           setPendingOrderData((prev: any) => ({ ...(prev || {}), remark: nextRemark }));
                           setPosRemark(nextRemark);
                         }}
-                        rows={2}
+                        rows={1}
                         placeholder="Optional order note"
-                        className="w-full p-2.5 lg:p-3 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-sm lg:text-base font-semibold dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500 resize-none"
+                        className="w-full p-2.5 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-sm font-semibold dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500 resize-none"
                       />
                     </div>
                   </div>
 
                   {/* Footer / Action Buttons */}
-                  <div className="px-5 lg:px-12 xl:px-20 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:py-5 border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
+                  <div className="px-5 lg:px-12 xl:px-16 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
                     <button
                       onClick={() => setShowPaymentModal(false)}
                       disabled={isCompletingPayment}
-                      className="flex-1 py-2 lg:py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                      className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleConfirmPayment}
                       disabled={isCompletingPayment || !selectedPaymentType}
-                      className="flex-1 py-2 lg:py-3 bg-orange-500 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-1 lg:gap-3"
+                      className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-sm uppercase tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-1 lg:gap-3"
                     >
                       {isCompletingPayment ? (
                         <>
@@ -14072,177 +14056,165 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
 
             {/* Payment Result View */}
-            <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? 'translate-x-0' : 'translate-x-full'}`}>
-              {/* Header */}
-              <div className="px-8 py-4 border-b dark:border-gray-700 flex items-center justify-center flex-shrink-0">
-                <h3 className="font-black dark:text-white uppercase tracking-wider text-lg">Payment Complete</h3>
-              </div>
+            <div className={`absolute inset-0 overflow-hidden bg-slate-50 text-slate-900 ${showPaymentResult ? 'block' : 'hidden'}`}>
+              {(() => {
+                const totalPaid = selectedCashAmount || 0;
+                const changeDue = Math.max(0, totalPaid - pendingOrderData.total);
+                const discount = getItemsDiscount((pendingOrderData.items || []) as CartItem[]);
+                const subtotal = pendingOrderData.total + discount;
+                const paidAt = pendingOrderData.timestamp ? new Date(pendingOrderData.timestamp) : new Date();
+                const paidDate = paidAt.toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).replace('Sep', 'Sept');
+                const paidTime = paidAt.toLocaleTimeString('en-MY', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+                const buildPrintOrder = () => ({
+                  id: pendingOrderData.orderId || pendingOrderData.id || '',
+                  tableNumber: pendingOrderData.tableNumber,
+                  diningType: pendingOrderData.diningType,
+                  timestamp: pendingOrderData.timestamp || new Date().toISOString(),
+                  total: pendingOrderData.total,
+                  items: pendingOrderData.items,
+                  remark: pendingOrderData.remark,
+                  paymentMethod: pendingOrderData.paymentMethod || '',
+                  cashierName: pendingOrderData.cashierName || cashierName || '',
+                  amountReceived: pendingOrderData.amountReceived ?? selectedCashAmount ?? undefined,
+                  changeAmount: pendingOrderData.changeAmount ?? (selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined),
+                  orderSource: pendingOrderData.orderSource || (isQrPaymentMode ? (selectedQrOrderForPayment?.orderSource || 'qr_order') : 'counter'),
+                });
 
-              {/* Content */}
-              <div className="flex-1 flex flex-col px-8 py-8">
-                <div className="w-full max-w-3xl mx-auto flex min-h-0 flex-1 flex-col">
-                  {/* Totals Area */}
-                  <div className="px-8 pt-16 pb-8">
-                    <div className="w-full max-w-2xl mx-auto grid grid-cols-2">
-                      <div className="pr-6 text-center border-r-2 border-dotted border-gray-300 dark:border-gray-600">
-                        <div className="text-4xl lg:text-6xl font-black text-green-500 tracking-tighter leading-none">
-                          {currencySymbol}{(selectedCashAmount || 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                return (
+                  <div className="flex h-full flex-col px-5 py-4 lg:px-8">
+                    <div className="mx-auto flex h-full w-full max-w-5xl flex-col">
+                      <div className="text-center">
+                        <div className="relative mx-auto h-24 w-40">
+                          <span className="absolute left-1 top-14 h-1.5 w-4 animate-pulse rounded-full" style={{ backgroundColor: '#A6EFD3' }} />
+                          <span className="absolute left-8 top-5 h-1.5 w-4 rotate-45 animate-bounce rounded-full" style={{ backgroundColor: '#FDBA74' }} />
+                          <span className="absolute right-7 top-5 h-1.5 w-4 -rotate-45 animate-bounce rounded-full" style={{ backgroundColor: '#A6EFD3' }} />
+                          <span className="absolute right-2 top-14 h-1.5 w-4 animate-pulse rounded-full bg-cyan-300" />
+                          <div className="absolute left-1/2 top-1 h-20 w-20 -translate-x-1/2 rounded-full bg-green-400 opacity-30 animate-ping" />
+                          <div className="absolute left-1/2 top-1 h-20 w-20 -translate-x-1/2">
+                            <div className="flex h-full w-full animate-bounce items-center justify-center rounded-full bg-green-500 shadow-xl shadow-green-200">
+                              <Check size={44} className="animate-pulse text-white" strokeWidth={4} />
+                            </div>
+                          </div>
                         </div>
-                        <label className="block mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-[0.2em]">Total Paid</label>
+                        <h2 className="text-2xl font-black tracking-tight text-slate-950 lg:text-3xl">Payment Complete!</h2>
+                        <p className="mt-1 text-sm font-semibold text-slate-500 lg:text-base">Thank you! Your payment has been successfully processed.</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-400">{paidDate} {paidTime}</p>
                       </div>
-                      <div className="pl-6 text-center">
-                        <div className="text-4xl lg:text-6xl font-black text-blue-500 tracking-tighter leading-none">
-                          {currencySymbol}{Math.max(0, (selectedCashAmount || 0) - pendingOrderData.total).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+
+                      <div className="mt-4 grid gap-3 md:grid-cols-2">
+                        <div className="flex items-center gap-5 rounded-lg bg-emerald-50 px-6 py-4 shadow-sm ring-1 ring-emerald-100">
+                          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/80 text-emerald-500">
+                            <Banknote size={34} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-emerald-700/60">Total Paid</p>
+                            <p className="mt-1 text-3xl font-black tracking-tight text-emerald-600">{currencySymbol}{totalPaid.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                          </div>
                         </div>
-                        <label className="block mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-[0.2em]">Total Change</label>
+                        <div className="flex items-center gap-5 rounded-lg bg-blue-50 px-6 py-4 shadow-sm ring-1 ring-blue-100">
+                          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/80 text-blue-500">
+                            <RotateCcw size={34} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-blue-700/60">Change</p>
+                            <p className="mt-1 text-3xl font-black tracking-tight text-blue-600">{currencySymbol}{changeDue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
 
-                  {/* Printer Status */}
-                  <div className="flex flex-1 items-center justify-center">
-                    {hasPrintableTransport ? (
-                      <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
-                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        {hasConfiguredNetworkPrinter ? 'WiFi/LAN Printer Ready' : 'Printer Connected'}
+                      <div className={`mt-3 flex items-center justify-between gap-4 rounded-lg px-5 py-2.5 ring-1 ${
+                        hasPrintableTransport
+                          ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+                          : 'bg-red-50 text-red-600 ring-red-100'
+                      }`}>
+                        <div className="flex items-center gap-3 text-sm font-bold">
+                          <Printer size={20} />
+                          {!hasPrintableTransport && <AlertCircle size={18} />}
+                          <span>{hasPrintableTransport ? (hasConfiguredNetworkPrinter ? 'WiFi/LAN printer ready' : 'Printer connected') : 'Printer not connected'}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handlePrinterButtonClick}
+                          disabled={hasPrintableTransport || isAutoReconnecting}
+                          className={`rounded-lg border px-4 py-1.5 text-xs font-bold transition ${
+                            hasPrintableTransport
+                              ? 'cursor-default border-emerald-200 text-emerald-500'
+                              : 'border-red-400 text-red-600 hover:bg-red-100 disabled:opacity-60'
+                          }`}
+                        >
+                          {isAutoReconnecting ? 'Connecting...' : 'Manage Printers'}
+                        </button>
                       </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handlePrinterButtonClick}
-                        disabled={isAutoReconnecting}
-                        className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider ${
-                          isAutoReconnecting
-                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 cursor-wait'
-                            : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 cursor-pointer'
-                        }`}
-                      >
-                        <div className={`w-2 h-2 rounded-full ${isAutoReconnecting ? 'bg-blue-400 animate-pulse' : 'bg-red-400'}`} />
-                        {isAutoReconnecting ? 'Connecting...' : 'Printer Not Connected'}
-                      </button>
-                    )}
-                  </div>
 
-                  <div className="mt-auto">
-                  {/* Summary Section */}
-                  <div className="w-full max-w-3xl mx-auto">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600" />
-                      <span className="text-sm font-black uppercase tracking-wider text-gray-800 dark:text-white">Summary</span>
-                      <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600" />
+                      <div className="mt-3 rounded-lg bg-white px-5 py-4 shadow-sm ring-1 ring-slate-200">
+                        <div className="flex flex-col gap-2 border-b border-slate-200 pb-3 md:flex-row md:items-center md:justify-between">
+                          <h3 className="text-base font-black tracking-tight text-slate-950">Order Summary</h3>
+                          <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-500">
+                            <span className="flex items-center gap-2"><Hash size={18} /> Table: {pendingOrderData.tableNumber || 'Counter'}</span>
+                            <span className="hidden h-6 w-px bg-slate-300 md:block" />
+                            <span className="flex items-center gap-2"><Coffee size={18} /> Dining Option: {pendingOrderData.diningType || preferredDiningOption}</span>
+                          </div>
+                        </div>
+                        <div className="space-y-1.5 py-3 text-sm font-semibold text-slate-600">
+                          <div className="flex items-center justify-between gap-4">
+                            <span>Subtotal</span>
+                            <span className="font-bold text-slate-800">{currencySymbol}{subtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-4">
+                            <span>Discount</span>
+                            <span className="font-bold text-slate-800">- {currencySymbol}{discount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-4">
+                            <span>Rounding</span>
+                            <span className="font-bold text-slate-800">{currencySymbol}0.00</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between border-t border-slate-200 pt-3 text-base font-black text-slate-950">
+                          <span>Total Paid</span>
+                          <span>{currencySymbol}{pendingOrderData.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 grid gap-3 md:grid-cols-[1fr_1fr_1.2fr]">
+                        <button
+                          type="button"
+                          disabled={!hasPrintableTransport}
+                          onClick={async () => {
+                            const printRestaurant = { ...restaurant, name: receiptConfig.businessName.trim() || restaurant.name };
+                            const success = await printerService.printReceipt(buildPrintOrder(), printRestaurant, getReceiptPrintOptions(pendingOrderData.eReceiptId));
+                            toast(success ? (featureSettings.autoPrintReceipt ? 'Receipt reprinted!' : 'Receipt printed!') : 'Print failed. Please try again.', success ? 'success' : 'error');
+                          }}
+                          className="flex items-center justify-center gap-3 rounded-lg bg-slate-200 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-300 disabled:opacity-50"
+                        >
+                          <Receipt size={21} /> Print Receipt
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!hasPrintableTransport}
+                          onClick={async () => {
+                            const printRestaurant = { ...restaurant, name: orderListConfig.businessName.trim() };
+                            const success = await printerService.printReceipt(buildPrintOrder(), printRestaurant, getOrderListPrintOptions());
+                            toast(success ? (featureSettings.autoPrintOrderList ? 'Order list reprinted!' : 'Order list printed!') : 'Print failed. Please try again.', success ? 'success' : 'error');
+                          }}
+                          className="flex items-center justify-center gap-3 rounded-lg bg-slate-200 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-300 disabled:opacity-50"
+                        >
+                          <List size={21} /> Print Order List
+                        </button>
+                        <button
+                          type="button"
+                          onClick={finalizePaymentFlow}
+                          className="flex items-center justify-center gap-3 rounded-lg bg-orange-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-orange-200 transition hover:bg-orange-600"
+                        >
+                          <Check size={22} /> Done
+                        </button>
+                      </div>
+
+                      <p className="mt-3 text-center text-xs font-medium text-slate-400">Please make sure all balances are correct before completing payment.</p>
                     </div>
-                    <div className="border border-gray-700 dark:border-gray-500 rounded-lg px-5 py-3">
-                      <p className="text-sm font-black text-gray-800 dark:text-white uppercase tracking-wider text-center">
-                        {pendingOrderData?.tableNumber ? `Table: ${pendingOrderData.tableNumber}` : 'Counter'}
-                        {pendingOrderData?.diningType ? <span className="mx-2 text-gray-400">|</span> : ''}
-                        {pendingOrderData?.diningType ? `Dining Option: ${pendingOrderData.diningType}` : ''}
-                      </p>
-                    </div>
                   </div>
-
-                  {/* Disclaimer */}
-                  <div className="w-full max-w-3xl mx-auto mt-4 text-center">
-                    <p className="text-sm text-gray-400 dark:text-gray-500">Please make sure all the balances are correct before completing the payment.</p>
-                  </div>
-
-                  {/* Print / Reprint buttons — single row */}
-                  <div className="w-full max-w-3xl mx-auto mt-4 grid grid-cols-2 gap-3 pb-2">
-                    <button
-                      type="button"
-                      disabled={!hasPrintableTransport}
-                      onClick={async () => {
-                        if (!pendingOrderData) return;
-                        const printRestaurant = {
-                          ...restaurant,
-                          name: receiptConfig.businessName.trim() || restaurant.name,
-                        };
-                        const orderForPrint = {
-                          id: pendingOrderData.orderId || pendingOrderData.id || '',
-                          tableNumber: pendingOrderData.tableNumber,
-                          diningType: pendingOrderData.diningType,
-                          timestamp: pendingOrderData.timestamp || new Date().toISOString(),
-                          total: pendingOrderData.total,
-                          items: pendingOrderData.items,
-                          remark: pendingOrderData.remark,
-                          paymentMethod: pendingOrderData.paymentMethod || '',
-                          cashierName: pendingOrderData.cashierName || cashierName || '',
-                          amountReceived: pendingOrderData.amountReceived ?? selectedCashAmount ?? undefined,
-                          changeAmount: pendingOrderData.changeAmount ?? (selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined),
-                          orderSource: pendingOrderData.orderSource || (isQrPaymentMode ? (selectedQrOrderForPayment?.orderSource || 'qr_order') : 'counter'),
-                        };
-                        const success = await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions(pendingOrderData.eReceiptId));
-                        if (success) {
-                          toast(featureSettings.autoPrintReceipt ? 'Receipt reprinted!' : 'Receipt printed!', 'success');
-                        } else {
-                          toast('Print failed. Please try again.', 'error');
-                        }
-                      }}
-                      className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-black text-sm uppercase tracking-wider transition-all ${
-                        hasPrintableTransport
-                          ? 'bg-gray-800 dark:bg-white text-white dark:text-gray-800 hover:bg-gray-700 dark:hover:bg-gray-100'
-                          : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                      }`}
-                    >
-                      <Receipt size={16} />
-                      {featureSettings.autoPrintReceipt ? 'Reprint Receipt' : 'Print Receipt'}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!hasPrintableTransport}
-                      onClick={async () => {
-                        if (!pendingOrderData) return;
-                        const printRestaurant = {
-                          ...restaurant,
-                          name: orderListConfig.businessName.trim(),
-                        };
-                        const orderForPrint = {
-                          id: pendingOrderData.orderId || pendingOrderData.id || '',
-                          tableNumber: pendingOrderData.tableNumber,
-                          diningType: pendingOrderData.diningType,
-                          timestamp: pendingOrderData.timestamp || new Date().toISOString(),
-                          total: pendingOrderData.total,
-                          items: pendingOrderData.items,
-                          remark: pendingOrderData.remark,
-                          paymentMethod: pendingOrderData.paymentMethod || '',
-                          cashierName: pendingOrderData.cashierName || cashierName || '',
-                          amountReceived: pendingOrderData.amountReceived ?? selectedCashAmount ?? undefined,
-                          changeAmount: pendingOrderData.changeAmount ?? (selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined),
-                          orderSource: pendingOrderData.orderSource || (isQrPaymentMode ? (selectedQrOrderForPayment?.orderSource || 'qr_order') : 'counter'),
-                        };
-                        const success = await printerService.printReceipt(orderForPrint, printRestaurant, getOrderListPrintOptions());
-                        if (success) {
-                          toast(featureSettings.autoPrintOrderList ? 'Order list reprinted!' : 'Order list printed!', 'success');
-                        } else {
-                          toast('Print failed. Please try again.', 'error');
-                        }
-                      }}
-                      className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-black text-sm uppercase tracking-wider transition-all ${
-                        hasPrintableTransport
-                          ? 'bg-gray-800 dark:bg-white text-white dark:text-gray-800 hover:bg-gray-700 dark:hover:bg-gray-100'
-                          : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                      }`}
-                    >
-                      <List size={16} />
-                      {featureSettings.autoPrintOrderList ? 'Reprint Order List' : 'Print Order List'}
-                    </button>
-                  </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="px-8 py-5 border-t dark:border-gray-700 flex-shrink-0">
-                <div className="w-full max-w-3xl mx-auto">
-                  <button
-                    onClick={finalizePaymentFlow}
-                    className="w-full py-3 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-xl font-black text-lg uppercase tracking-wider hover:bg-orange-600 transition-all"
-                  >
-                    Complete Payment
-                  </button>
-                </div>
-              </div>
+                );
+              })()}
             </div>
-
             </div>
           </div>
         </div>
