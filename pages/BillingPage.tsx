@@ -62,6 +62,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const [isTogglingAutoRenew, setIsTogglingAutoRenew] = useState(false);
   const [isAddingCard, setIsAddingCard] = useState(false);
   const [isDeletingCard, setIsDeletingCard] = useState<string | null>(null);
+  const [isSettingDefaultPaymentMethod, setIsSettingDefaultPaymentMethod] = useState<string | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
   const [isRenewing, setIsRenewing] = useState(false);
@@ -431,6 +432,35 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     }
   };
 
+  const handleSelectCard = async (methodId: string) => {
+    setSelectedMethodId(methodId);
+    setConfirmingDeleteId(null);
+
+    if (!subscription?.stripe_customer_id) return;
+
+    setIsSettingDefaultPaymentMethod(methodId);
+    try {
+      const res = await fetch('/api/stripe/billing?action=set-default-payment-method', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: subscription.stripe_customer_id,
+          paymentMethodId: methodId,
+          restaurantId,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to update default card.');
+      await fetchPaymentMethods();
+      onSubscriptionUpdated?.();
+      toast('Default card updated for future Stripe payments.', 'success');
+    } catch (err: any) {
+      toast(err.message || 'Failed to update default card.', 'error');
+    } finally {
+      setIsSettingDefaultPaymentMethod(null);
+    }
+  };
+
   const handleAddCard = async () => {
     setIsAddingCard(true);
     try {
@@ -789,7 +819,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   <div className="mt-auto flex items-center gap-2 min-h-[34px] flex-wrap">
                     {isCurrent ? (
                       <>
-                        {subscription?.stripe_subscription_id && (
+                        {!isDuitNowEnabled && subscription?.stripe_subscription_id && (
                           <button
                             onClick={handleToggleAutoRenew}
                             disabled={isTogglingAutoRenew}
@@ -850,23 +880,23 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         {/* ── Enable auto renew ── */}
         <section>
           <div className="flex items-center justify-between gap-4 mb-1">
-            <h3 className={`text-lg font-bold ${selectedMethodId === 'duitnow' ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>Enable auto renew</h3>
+            <h3 className={`text-lg font-bold ${isDuitNowEnabled || selectedMethodId === 'duitnow' ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>Enable auto renew</h3>
             <button
               onClick={handleToggleAutoRenew}
-              disabled={isTogglingAutoRenew || !subscription?.stripe_subscription_id || selectedMethodId === 'duitnow'}
+              disabled={isTogglingAutoRenew || !subscription?.stripe_subscription_id || isDuitNowEnabled || selectedMethodId === 'duitnow'}
               className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                selectedMethodId === 'duitnow'
+                isDuitNowEnabled || selectedMethodId === 'duitnow'
                   ? 'bg-gray-300 dark:bg-gray-600 opacity-40 cursor-not-allowed'
                   : autoRenew ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
-              } ${(isTogglingAutoRenew || !subscription?.stripe_subscription_id) && selectedMethodId !== 'duitnow' ? 'opacity-60 cursor-not-allowed' : selectedMethodId !== 'duitnow' ? 'cursor-pointer' : ''}`}
+              } ${(isTogglingAutoRenew || !subscription?.stripe_subscription_id) && !isDuitNowEnabled && selectedMethodId !== 'duitnow' ? 'opacity-60 cursor-not-allowed' : !isDuitNowEnabled && selectedMethodId !== 'duitnow' ? 'cursor-pointer' : ''}`}
             >
               <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                selectedMethodId === 'duitnow' ? 'translate-x-1' : autoRenew ? 'translate-x-6' : 'translate-x-1'
+                isDuitNowEnabled || selectedMethodId === 'duitnow' ? 'translate-x-1' : autoRenew ? 'translate-x-6' : 'translate-x-1'
               }`} />
             </button>
           </div>
           <p className="text-[11px] text-gray-400 leading-relaxed max-w-xl">
-            {selectedMethodId === 'duitnow'
+            {isDuitNowEnabled || selectedMethodId === 'duitnow'
               ? 'Auto-renew is not available with DuitNow. You will need to manually renew each billing cycle by scanning the QR code.'
               : 'This option, if checked, will renew your productive subscription, if the current plan expires. However, this might prevent you from downgrading.'}
           </p>
@@ -974,8 +1004,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                       if (isConfirming) {
                         handleDeleteCard(method.id);
                       } else if (!isSelected) {
-                        setSelectedMethodId(method.id);
-                        setConfirmingDeleteId(null);
+                        handleSelectCard(method.id);
                       } else {
                         setConfirmingDeleteId(method.id);
                       }
@@ -1023,7 +1052,11 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                       </span>
                     </div>
                     <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
-                      Saved card for faster renewals.
+                      {isSettingDefaultPaymentMethod === method.id
+                        ? 'Updating default card...'
+                        : method.isDefault
+                          ? 'Default card for future Stripe payments.'
+                          : 'Saved card for faster renewals.'}
                     </p>
                   </div>
                 );

@@ -46,6 +46,11 @@ function getDateMs(value: string | null | undefined): number | null {
   return Number.isNaN(date.getTime()) ? null : date.getTime();
 }
 
+function hasFutureLocalAccess(sub: any, now: Date = new Date()): boolean {
+  const currentEndMs = getDateMs(sub?.current_period_end || sub?.trial_end || null);
+  return Boolean(currentEndMs && currentEndMs > now.getTime());
+}
+
 function getInvoicePaidAt(invoice: Stripe.Invoice, event: Stripe.Event): Date {
   const paidAt = invoice.status_transitions?.paid_at;
   if (paidAt) return new Date(paidAt * 1000);
@@ -526,9 +531,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Look up the restaurant for this subscription
         const { data: subRow } = await supabase
           .from('subscriptions')
-          .select('restaurant_id')
+          .select('restaurant_id, status, current_period_end, trial_end, duitnow_enabled')
           .eq('stripe_subscription_id', subscriptionId)
           .single();
+
+        if (!subRow?.restaurant_id) break;
+
+        const failedReference = invoice.id || `failed-${event.id}`;
+        const { data: existingFailedPayment } = await supabase
+          .from('subscription_payments')
+          .select('id')
+          .eq('provider', 'stripe')
+          .eq('provider_reference', failedReference)
+          .maybeSingle();
+
+        if (subRow.duitnow_enabled || hasFutureLocalAccess(subRow)) {
+          await upsertSubscriptionPayment(supabase, {
+            restaurantId: subRow.restaurant_id,
+            provider: 'stripe',
+            status: 'failed',
+            providerReference: failedReference,
+          });
+          console.warn(
+            'Ignored Stripe payment_failed for locally paid subscription:',
+            subscriptionId,
+            subRow.restaurant_id
+          );
+          break;
+        }
 
         await supabase
           .from('subscriptions')
@@ -544,17 +574,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             restaurantId: subRow.restaurant_id,
             provider: 'stripe',
             status: 'failed',
-            providerReference: invoice.id || `failed-${event.id}`,
+            providerReference: failedReference,
           });
 
-          await supabase.from('announcements').insert({
+          if (!existingFailedPayment) {
+            await supabase.from('announcements').insert({
             title: 'Payment Failed — Action Required',
             body: 'Your latest subscription payment could not be processed. Please update your payment method in Wallet & Billing to avoid service interruption.',
             category: 'billing',
             is_active: true,
             hub: 'all',
             restaurant_id: subRow.restaurant_id,
-          });
+            });
+          }
         }
         break;
       }

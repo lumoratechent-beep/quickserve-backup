@@ -991,6 +991,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ methods });
       }
 
+      // POST /api/stripe/billing?action=set-default-payment-method
+      // body: { customerId, paymentMethodId, restaurantId? }
+      case 'set-default-payment-method': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { customerId, paymentMethodId, restaurantId } = req.body || {};
+        if (!customerId || !paymentMethodId) {
+          return res.status(400).json({ error: 'customerId and paymentMethodId are required.' });
+        }
+
+        const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+        const attachedCustomer = typeof paymentMethod.customer === 'string'
+          ? paymentMethod.customer
+          : paymentMethod.customer?.id;
+
+        if (attachedCustomer && attachedCustomer !== customerId) {
+          return res.status(400).json({ error: 'This payment method belongs to another customer.' });
+        }
+
+        if (!attachedCustomer) {
+          await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
+        }
+
+        await stripe.customers.update(customerId, {
+          invoice_settings: { default_payment_method: paymentMethodId },
+        });
+
+        if (restaurantId) {
+          const { data: defaultSub } = await supabase
+            .from('subscriptions')
+            .select('stripe_subscription_id')
+            .eq('restaurant_id', restaurantId)
+            .maybeSingle();
+
+          if (defaultSub?.stripe_subscription_id) {
+            try {
+              await stripe.subscriptions.update(defaultSub.stripe_subscription_id, {
+                default_payment_method: paymentMethodId,
+              });
+            } catch (stripeError: any) {
+              if (!isMissingStripeSubscriptionError(stripeError)) throw stripeError;
+              console.warn(
+                'Skipped default payment method update for stale Stripe subscription id:',
+                defaultSub.stripe_subscription_id
+              );
+            }
+          }
+        }
+
+        return res.status(200).json({ success: true, paymentMethodId });
+      }
+
       // POST /api/stripe/billing?action=setup-session  body: { customerId?, restaurantId }
       case 'setup-session': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -2347,7 +2398,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       default:
-        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, wallet-topup-direct, plan-change-wallet, renew-wallet, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access, admin-extend, set-duitnow-enabled, duitnow-submit, duitnow-reconcile, duitnow-force-reject, duitnow-list, duitnow-review' });
+        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, set-default-payment-method, setup-session, delete-payment-method, wallet-topup-direct, plan-change-wallet, renew-wallet, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access, admin-extend, set-duitnow-enabled, duitnow-submit, duitnow-reconcile, duitnow-force-reject, duitnow-list, duitnow-review' });
     }
   } catch (err: any) {
     console.error(`Stripe billing error (${action}):`, err);
