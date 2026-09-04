@@ -88,6 +88,109 @@
   }
 }
 
+.qs-shell-loader {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(249, 115, 22, 0.13), transparent 28rem),
+    linear-gradient(135deg, #fff7ed 0%, #f8fafc 46%, #e2e8f0 100%);
+}
+
+.dark .qs-shell-loader {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(249, 115, 22, 0.18), transparent 28rem),
+    linear-gradient(135deg, #020617 0%, #0f172a 48%, #111827 100%);
+}
+
+.qs-shell-loader-inner {
+  display: flex;
+  width: min(20rem, 100%);
+  flex-direction: column;
+  align-items: center;
+  gap: 1.125rem;
+  text-align: center;
+}
+
+.qs-shell-loader-mark {
+  position: relative;
+  display: flex;
+  min-height: 4.25rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.qs-shell-loader-mark::before {
+  position: absolute;
+  inset: -0.625rem;
+  border-radius: 999px;
+  background: rgba(249, 115, 22, 0.12);
+  filter: blur(18px);
+  content: "";
+  animation: qsShellLoaderPulse 2.2s ease-in-out infinite;
+}
+
+.qs-shell-loader-logo {
+  position: relative;
+  z-index: 1;
+  height: 3.125rem;
+  width: auto;
+  max-width: min(15rem, 80vw);
+  object-fit: contain;
+}
+
+.qs-shell-loader-track {
+  position: relative;
+  height: 0.25rem;
+  width: min(13.75rem, 72vw);
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.1);
+}
+
+.dark .qs-shell-loader-track {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.qs-shell-loader-track::after {
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f97316, #f59e0b);
+  box-shadow: 0 0 22px rgba(249, 115, 22, 0.45);
+  content: "";
+  animation: qsShellLoaderSweep 1.15s ease-in-out infinite;
+}
+
+.qs-shell-loader-label {
+  margin: 0;
+  color: #475569;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.dark .qs-shell-loader-label {
+  color: #cbd5e1;
+}
+
+@keyframes qsShellLoaderSweep {
+  0% { transform: translateX(-110%); }
+  50% { transform: translateX(85%); }
+  100% { transform: translateX(260%); }
+}
+
+@keyframes qsShellLoaderPulse {
+  0%, 100% { opacity: 0.65; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+
 .hide-scrollbar::-webkit-scrollbar,
 .scrollbar-hide::-webkit-scrollbar {
   display: none;

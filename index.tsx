@@ -13,9 +13,36 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
+const QuickServeLoader = ({ label = 'Preparing your workspace' }: { label?: string }) => (
+  <div className="qs-shell-loader" role="status" aria-label="Loading QuickServe">
+    <div className="qs-shell-loader-inner">
+      <div className="qs-shell-loader-mark">
+        <img
+          src="/LOGO/9.png"
+          alt="QuickServe"
+          className="qs-shell-loader-logo dark:hidden"
+          onError={(event) => {
+            event.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="180" height="48"><text x="0" y="34" font-family="Arial,sans-serif" font-size="28" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`;
+          }}
+        />
+        <img
+          src="/LOGO/9-dark.png"
+          alt="QuickServe"
+          className="qs-shell-loader-logo hidden dark:block"
+          onError={(event) => {
+            event.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="180" height="48"><text x="0" y="34" font-family="Arial,sans-serif" font-size="28" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`;
+          }}
+        />
+      </div>
+      <div className="qs-shell-loader-track" aria-hidden="true" />
+      <p className="qs-shell-loader-label">{label}</p>
+    </div>
+  </div>
+);
+
 const root = ReactDOM.createRoot(rootElement);
 root.render(
-  <React.Suspense fallback={<div className="min-h-screen bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-500">Loading...</div>}>
+  <React.Suspense fallback={<QuickServeLoader />}>
     {receiptMatch ? (
       <EReceiptPage token={receiptMatch[1]} />
     ) : (

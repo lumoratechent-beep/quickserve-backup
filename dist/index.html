@@ -6,6 +6,102 @@
     <title>QuickServe</title>
     <link rel="icon" type="image/png" sizes="32x32" href="/LOGO/favicon-32x32.png" />
     <meta name="theme-color" content="#f97316" />
+    <style>
+      :root {
+        color-scheme: light;
+        background: #f8fafc;
+      }
+      :root.dark {
+        color-scheme: dark;
+        background: #020617;
+      }
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 50% 42%, rgba(249, 115, 22, 0.13), transparent 28rem),
+          linear-gradient(135deg, #fff7ed 0%, #f8fafc 46%, #e2e8f0 100%);
+      }
+      :root.dark body {
+        background:
+          radial-gradient(circle at 50% 42%, rgba(249, 115, 22, 0.18), transparent 28rem),
+          linear-gradient(135deg, #020617 0%, #0f172a 48%, #111827 100%);
+      }
+      #root {
+        min-height: 100vh;
+        min-height: 100dvh;
+      }
+      .qs-shell-loader {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        box-sizing: border-box;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      .qs-shell-loader-inner {
+        display: flex;
+        width: min(320px, 100%);
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+        text-align: center;
+      }
+      .qs-shell-loader-logo {
+        height: 50px;
+        width: auto;
+        -o-object-fit: contain;
+           object-fit: contain;
+      }
+      .qs-shell-loader-logo-dark {
+        display: none;
+      }
+      :root.dark .qs-shell-loader-logo-light {
+        display: none;
+      }
+      :root.dark .qs-shell-loader-logo-dark {
+        display: block;
+      }
+      .qs-shell-loader-track {
+        position: relative;
+        height: 4px;
+        width: min(220px, 72vw);
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.1);
+      }
+      :root.dark .qs-shell-loader-track {
+        background: rgba(255, 255, 255, 0.14);
+      }
+      .qs-shell-loader-track::after {
+        position: absolute;
+        inset: 0;
+        width: 45%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #f97316, #f59e0b);
+        box-shadow: 0 0 22px rgba(249, 115, 22, 0.45);
+        content: "";
+        animation: qsShellLoaderSweep 1.15s ease-in-out infinite;
+      }
+      .qs-shell-loader-label {
+        margin: 0;
+        color: #475569;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        line-height: 1.4;
+        text-transform: uppercase;
+      }
+      :root.dark .qs-shell-loader-label {
+        color: #cbd5e1;
+      }
+      @keyframes qsShellLoaderSweep {
+        0% { transform: translateX(-110%); }
+        50% { transform: translateX(85%); }
+        100% { transform: translateX(260%); }
+      }
+    </style>
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -41,10 +137,19 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="/assets/index-BXB2wqll.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-BY-IbDEE.css">
+  <script type="module" crossorigin src="/assets/index-DPm5hSC6.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-ev7uQrTz.css">
 </head>
   <body class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 overscroll-none">
-    <div id="root"></div>
+    <div id="root">
+      <div class="qs-shell-loader" role="status" aria-label="Loading QuickServe">
+        <div class="qs-shell-loader-inner">
+          <img class="qs-shell-loader-logo qs-shell-loader-logo-light" src="/LOGO/9.png" alt="QuickServe" />
+          <img class="qs-shell-loader-logo qs-shell-loader-logo-dark" src="/LOGO/9-dark.png" alt="QuickServe" />
+          <div class="qs-shell-loader-track" aria-hidden="true"></div>
+          <p class="qs-shell-loader-label">Preparing your workspace</p>
+        </div>
+      </div>
+    </div>
   </body>
 </html>

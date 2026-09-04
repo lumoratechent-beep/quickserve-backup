@@ -8445,7 +8445,7 @@ const PosOnlyView: React.FC<Props> = ({
                         return (
                           <>
                       <div
-                        className="flex-1 overflow-y-auto space-y-2 min-h-0"
+                        className="saved-bill-table-panel-scroll flex-1 overflow-y-auto overflow-x-hidden space-y-2 min-h-0 pr-3"
                         onTouchStart={e => { tableSwipeStartX.current = e.touches[0].clientX; }}
                         onTouchEnd={e => {
                           if (tableSwipeStartX.current === null) return;
@@ -15090,6 +15090,32 @@ const PosOnlyView: React.FC<Props> = ({
           border: 1px dashed transparent;
           background: transparent;
           pointer-events: none;
+        }
+        .saved-bill-table-panel-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+          scrollbar-gutter: stable;
+        }
+        .saved-bill-table-panel-scroll::-webkit-scrollbar {
+          width: 3px;
+        }
+        .saved-bill-table-panel-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .saved-bill-table-panel-scroll::-webkit-scrollbar-thumb {
+          background: rgba(148, 163, 184, 0.55);
+          border-radius: 999px;
+        }
+        .saved-bill-table-panel-scroll::-webkit-scrollbar-button {
+          display: none;
+          height: 0;
+          width: 0;
+        }
+        .dark .saved-bill-table-panel-scroll {
+          scrollbar-color: rgba(100, 116, 139, 0.7) transparent;
+        }
+        .dark .saved-bill-table-panel-scroll::-webkit-scrollbar-thumb {
+          background: rgba(100, 116, 139, 0.7);
         }
         @media (min-width: 768px) {
           .saved-table-row {

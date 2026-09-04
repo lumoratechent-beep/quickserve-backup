@@ -69,6 +69,33 @@ const MENU_ITEM_COLUMNS = 'id,restaurant_id,name,description,price,image,categor
 const ORDER_COLUMNS = 'id,items,total,status,timestamp,customer_id,restaurant_id,table_number,dining_type,location_name,remark,rejection_reason,rejection_note,payment_method,cashier_name,amount_received,change_amount,order_source,e_receipt_id';
 const SUBSCRIPTION_COLUMNS = 'id,restaurant_id,plan_id,pending_plan_id,status,stripe_customer_id,stripe_subscription_id,billing_interval,pending_billing_interval,pending_change_effective_at,trial_start,trial_end,current_period_start,current_period_end,cancel_at_period_end,duitnow_enabled,access_locked,access_lock_at,access_locked_at,created_at,updated_at';
 
+const QuickServeLoader = ({ label = 'Syncing Hub' }: { label?: string }) => (
+  <div className="qs-shell-loader" role="status" aria-label={`Loading QuickServe - ${label}`}>
+    <div className="qs-shell-loader-inner">
+      <div className="qs-shell-loader-mark">
+        <img
+          src="/LOGO/9.png"
+          alt="QuickServe"
+          className="qs-shell-loader-logo dark:hidden"
+          onError={(event) => {
+            event.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="180" height="48"><text x="0" y="34" font-family="Arial,sans-serif" font-size="28" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`;
+          }}
+        />
+        <img
+          src="/LOGO/9-dark.png"
+          alt="QuickServe"
+          className="qs-shell-loader-logo hidden dark:block"
+          onError={(event) => {
+            event.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="180" height="48"><text x="0" y="34" font-family="Arial,sans-serif" font-size="28" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`;
+          }}
+        />
+      </div>
+      <div className="qs-shell-loader-track" aria-hidden="true" />
+      <p className="qs-shell-loader-label">{label}</p>
+    </div>
+  </div>
+);
+
 const getStoredRole = (): Role | null => {
   try {
     const savedUser = localStorage.getItem('qs_user');
@@ -3627,12 +3654,7 @@ const App: React.FC = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="w-12 h-12 text-orange-500 animate-spin mb-4" />
-        <p className="text-gray-500 font-black uppercase tracking-[0.2em] text-[10px]">Syncing Hub...</p>
-      </div>
-    );
+    return <QuickServeLoader />;
   }
 
   const showMarketing = () => {
