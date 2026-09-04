@@ -61,6 +61,11 @@ type DuitNowRepairResult = {
   error?: string;
 };
 
+function isMissingStripeSubscriptionError(error: any): boolean {
+  const message = String(error?.message || '').toLowerCase();
+  return error?.code === 'resource_missing' && message.includes('no such subscription');
+}
+
 function isMissingColumnError(error: any, columns: string[] = []): boolean {
   const code = String(error?.code || '').toUpperCase();
   const message = String(error?.message || '').toLowerCase();
@@ -1889,9 +1894,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           try {
             await stripe.subscriptions.update(toggleSub.stripe_subscription_id, { cancel_at_period_end: true });
           } catch (stripeError: any) {
-            return res.status(502).json({
-              error: `DuitNow was not enabled because Stripe auto-renew could not be disabled: ${stripeError?.message || 'Stripe request failed.'}`,
-            });
+            if (isMissingStripeSubscriptionError(stripeError)) {
+              console.warn(
+                'Enabling DuitNow with stale Stripe subscription id:',
+                toggleSub.stripe_subscription_id
+              );
+            } else {
+              return res.status(502).json({
+                error: `DuitNow was not enabled because Stripe auto-renew could not be disabled: ${stripeError?.message || 'Stripe request failed.'}`,
+              });
+            }
           }
         }
 
