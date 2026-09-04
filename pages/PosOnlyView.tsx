@@ -13748,26 +13748,136 @@ const PosOnlyView: React.FC<Props> = ({
       )}
 
 
-      {/* Payment Modal */}
+      {/* Payment Page */}
       {showPaymentModal && pendingOrderData && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[130] flex items-end lg:items-center justify-center lg:p-4" onClick={() => !isCompletingPayment && !showPaymentResult && setShowPaymentModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-4xl h-[100dvh] lg:h-[900px] lg:max-h-[99dvh] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[130] bg-gray-100 dark:bg-gray-950">
+          <div className="flex h-[100dvh] w-full overflow-hidden bg-white dark:bg-gray-900">
+            <aside className="hidden w-[360px] shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 lg:flex xl:w-[410px]">
+              <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">
+                      {restaurant.name}
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                      {cashierName ? `Cashier: ${cashierName}` : 'POS payment'}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-gray-100 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:bg-gray-800 dark:text-gray-300">
+                    {pendingOrderData.tableNumber || 'Counter'}
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center justify-between text-xs font-black uppercase tracking-widest text-gray-400">
+                  <span>{pendingOrderData.items.reduce((sum: number, item: CartItem) => sum + Number(item.quantity || 0), 0)} items</span>
+                  <span>{pendingOrderData.diningType || preferredDiningOption}</span>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-5 py-4">
+                <div className="space-y-4">
+                  {pendingOrderData.items.map((item: CartItem, idx: number) => (
+                    <div key={`payment-order-${item.id}-${idx}`} className="flex gap-3 border-b border-gray-100 pb-4 last:border-b-0 dark:border-gray-800">
+                      <div className="w-6 shrink-0 text-sm font-black text-gray-700 dark:text-gray-200">{item.quantity}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <h4 className="min-w-0 text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">
+                            {item.name}
+                          </h4>
+                          <span className="shrink-0 text-sm font-black text-gray-700 dark:text-gray-200">
+                            {currencySymbol}{(Number(item.price || 0) * Number(item.quantity || 0)).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        <div className="mt-1 space-y-0.5">
+                          {item.selectedSize && <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400">- Size: {item.selectedSize}</p>}
+                          {item.selectedTemp && <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400">- Temperature: {item.selectedTemp}</p>}
+                          {item.selectedVariantOption && <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400">- Variant: {item.selectedVariantOption}</p>}
+                          {item.selectedOtherVariant && !item.selectedModifiers && <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400">- {item.otherVariantName ? item.otherVariantName.charAt(0).toUpperCase() + item.otherVariantName.slice(1) : 'Option'}: {item.selectedOtherVariant}</p>}
+                          {item.selectedModifiers && Object.entries(item.selectedModifiers).map(([modName, optName]) => (
+                            optName && <p key={modName} className="text-[11px] font-bold text-gray-500 dark:text-gray-400">- {modName.charAt(0).toUpperCase() + modName.slice(1)}: {optName}</p>
+                          ))}
+                          {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                            <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400">
+                              - Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
+                            </p>
+                          )}
+                          {item.selectedMixMatch && item.selectedMixMatch.length > 0 && item.selectedMixMatch.map((m, mIdx) => (
+                            m.choice && <p key={mIdx} className="text-[11px] font-bold text-gray-500 dark:text-gray-400">- {m.label}: {m.choice}</p>
+                          ))}
+                          {item.remark && (
+                            <p className="flex items-start gap-1 text-[11px] font-bold italic text-orange-600 dark:text-orange-400">
+                              <MessageSquare size={11} className="mt-0.5 shrink-0" /> {item.remark}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 bg-gray-50 px-5 py-4 dark:border-gray-800 dark:bg-gray-900">
+                {pendingOrderData.remark && (
+                  <div className="mb-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Bill remark</p>
+                    <p className="mt-1 text-xs font-bold text-gray-600 dark:text-gray-300">{pendingOrderData.remark}</p>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-gray-500 dark:text-gray-400">
+                    <span>Subtotal</span>
+                    <span>{currencySymbol}{pendingOrderData.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs font-bold text-gray-500 dark:text-gray-400">
+                    <span>Rounding</span>
+                    <span>{currencySymbol}0.00</span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-gray-200 pt-3 text-lg font-black uppercase tracking-tight text-gray-900 dark:border-gray-800 dark:text-white">
+                    <span>Total</span>
+                    <span className="text-orange-500">{currencySymbol}{pendingOrderData.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPaymentModal(false)}
+                  disabled={isCompletingPayment || showPaymentResult}
+                  className="mt-4 w-full rounded-lg border border-red-200 bg-white py-3 text-xs font-black uppercase tracking-widest text-red-500 transition-all hover:bg-red-50 disabled:opacity-50 dark:border-red-900/50 dark:bg-gray-800 dark:text-red-300 dark:hover:bg-red-900/20"
+                >
+                  Cancel Payment
+                </button>
+              </div>
+            </aside>
+
+            <div className="relative min-w-0 flex-1 bg-gray-50 dark:bg-gray-950">
             
             {/* Payment Input View */}
             <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? '-translate-x-full' : 'translate-x-0'}`}>
               <button
                 onClick={() => setShowPaymentModal(false)}
                 disabled={isCompletingPayment}
-                className="absolute top-4 right-5 z-10 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50"
+                className="absolute right-4 top-4 z-10 rounded-lg p-2 transition-all hover:bg-gray-100 disabled:opacity-50 dark:hover:bg-gray-800 lg:right-5"
               >
                 <X size={28} className="text-gray-400" />
               </button>
 
               <div className="relative flex-1 min-h-0 overflow-hidden pt-[3.75rem]">
+                <div className="border-b border-gray-200 px-5 pb-4 dark:border-gray-800 lg:hidden">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">{pendingOrderData.tableNumber || 'Counter'}</p>
+                      <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                        {pendingOrderData.items.reduce((sum: number, item: CartItem) => sum + Number(item.quantity || 0), 0)} items - {pendingOrderData.diningType || preferredDiningOption}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Total</p>
+                      <p className="text-lg font-black text-orange-500">{currencySymbol}{pendingOrderData.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    </div>
+                  </div>
+                </div>
                 {/* Main payment view */}
                 <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out ${showPaymentAmountKeypad ? '-translate-x-full' : 'translate-x-0'}`}>
                   {/* Content */}
-                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 lg:px-8 pb-6 lg:pb-8 pt-8 lg:pt-10 space-y-4 lg:space-y-6">
+                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-6 pt-24 lg:px-12 lg:pb-8 lg:pt-14 xl:px-20 space-y-4 lg:space-y-6">
                     {/* Total Amount Due - Centered */}
                     <div className="text-center space-y-2 lg:space-y-3">
                       <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
@@ -13855,7 +13965,7 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
 
                   {/* Footer / Action Buttons */}
-                  <div className="px-5 lg:px-8 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:py-5 border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
+                  <div className="px-5 lg:px-12 xl:px-20 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:py-5 border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
                     <button
                       onClick={() => setShowPaymentModal(false)}
                       disabled={isCompletingPayment}
@@ -13884,7 +13994,7 @@ const PosOnlyView: React.FC<Props> = ({
 
                 {/* Amount keypad view */}
                 <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out ${showPaymentAmountKeypad ? 'translate-x-0' : 'translate-x-full'}`}>
-                  <div className="flex-1 min-h-0 overflow-y-auto px-5 lg:px-8 pb-6 lg:pb-8 pt-10 lg:pt-14 space-y-5 lg:space-y-6">
+                  <div className="flex-1 min-h-0 overflow-y-auto px-5 lg:px-12 xl:px-20 pb-6 lg:pb-8 pt-10 lg:pt-14 space-y-5 lg:space-y-6">
                     <div className="text-center space-y-3">
                       <p className="text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</p>
                       <div className="mx-auto w-64 lg:w-80 relative flex items-end border-b-2 border-orange-500 pb-1">
@@ -13938,7 +14048,7 @@ const PosOnlyView: React.FC<Props> = ({
                     </button>
                   </div>
 
-                  <div className="px-5 lg:px-8 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:py-5 border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
+                  <div className="px-5 lg:px-12 xl:px-20 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:py-5 border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
                     <button
                       type="button"
                       onClick={() => {
@@ -14133,6 +14243,7 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
             </div>
 
+            </div>
           </div>
         </div>
       )}
