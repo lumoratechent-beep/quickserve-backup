@@ -207,33 +207,13 @@ const hasInstalledLiveOrderFeature = (restaurant: Restaurant | undefined): boole
     || isKitchenEnabledForRouting(restaurant);
 };
 
-const getKitchenRoutedCategories = (restaurant: Restaurant | undefined): Set<string> | null => {
-  if (!isKitchenEnabledForRouting(restaurant)) return new Set<string>();
-  if (!restaurant) return new Set<string>();
-
-  const departments = normalizeKitchenDepartments(restaurant.kitchenDivisions);
-  if (departments.length === 0) return null;
-
-  const routedCategories = new Set<string>();
-  departments.forEach(department => {
-    department.categories.forEach(category => {
-      const key = getKitchenCategoryKey(category);
-      if (key) routedCategories.add(key);
-    });
-  });
-
-  return routedCategories.size > 0 ? routedCategories : null;
-};
-
-const getInitialKitchenItemStatus = (restaurant: Restaurant | undefined, item: CartItem): OrderStatus => {
+const getInitialKitchenItemStatus = (restaurant: Restaurant | undefined): OrderStatus => {
   if (!isKitchenEnabledForRouting(restaurant)) return OrderStatus.ONGOING;
-  const routedCategories = getKitchenRoutedCategories(restaurant);
-  if (routedCategories === null) return OrderStatus.PENDING;
-  return routedCategories.has(getKitchenCategoryKey(item.category)) ? OrderStatus.PENDING : OrderStatus.SERVED;
+  return OrderStatus.PENDING;
 };
 
 const withInitialKitchenItemStatuses = (restaurant: Restaurant | undefined, items: CartItem[]): CartItem[] => (
-  items.map(item => ({ ...item, status: getInitialKitchenItemStatus(restaurant, item) }))
+  items.map(item => ({ ...item, status: getInitialKitchenItemStatus(restaurant) }))
 );
 
 const getAggregateKitchenOrderStatus = (items: CartItem[]): OrderStatus => {

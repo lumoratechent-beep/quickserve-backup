@@ -279,15 +279,15 @@ const KitchenDisplayPage: React.FC<Props> = ({
   const kitchenVisibleOrders = useMemo(() => (
     kitchenFilteredOrders.filter(order => {
       const scopedItems = getSortedOrderItems(order, kitchenHasAssignedScope ? kitchenScopeCategories : []);
+      const isActiveOrder = order.status === OrderStatus.PENDING
+        || order.status === OrderStatus.ONGOING
+        || order.status === OrderStatus.PREPARING;
       if (scopedItems.length === 0) return false;
       if (kitchenOrderFilter === 'ALL') return true;
       if (kitchenOrderFilter === 'ONGOING_ALL') {
-        const isActiveOrder = order.status === OrderStatus.PENDING
-          || order.status === OrderStatus.ONGOING
-          || order.status === OrderStatus.PREPARING;
-        return isActiveOrder && !areAllKitchenItemsCooked(order.items, order.status);
+        return isActiveOrder && !areAllKitchenItemsCooked(scopedItems, order.status);
       }
-      if (kitchenOrderFilter === 'COOKED') return order.status !== OrderStatus.SERVED && areAllKitchenItemsCooked(order.items, order.status);
+      if (kitchenOrderFilter === 'COOKED') return isActiveOrder && areAllKitchenItemsCooked(scopedItems, order.status);
       if (kitchenOrderFilter === OrderStatus.SERVED) return order.status === OrderStatus.SERVED;
       return scopedItems.some(item => getItemKitchenStatus(item, order.status) === kitchenOrderFilter);
     })
@@ -298,25 +298,43 @@ const KitchenDisplayPage: React.FC<Props> = ({
     (currentKitchenPage - 1) * ticketColumns,
     currentKitchenPage * ticketColumns,
   );
-  const serveOrder = serveOrderId
-    ? orders.find(order => (
-        order.id === serveOrderId
-        && order.status !== OrderStatus.SERVED
-        && areAllKitchenItemsCooked(order.items, order.status)
-      )) || null
-    : null;
+  const serveOrderCandidate = serveOrderId ? orders.find(order => order.id === serveOrderId) || null : null;
+  const serveOrderItems = serveOrderCandidate
+    ? getSortedOrderItems(serveOrderCandidate, kitchenHasAssignedScope ? kitchenScopeCategories : [])
+    : [];
+  const serveOrder = serveOrderCandidate
+    && serveOrderCandidate.status !== OrderStatus.SERVED
+    && areAllKitchenItemsCooked(serveOrderItems, serveOrderCandidate.status)
+      ? serveOrderCandidate
+      : null;
   const ticketGridClass = ticketColumns === 3
     ? 'md:grid-cols-3'
     : ticketColumns === 5
       ? 'md:grid-cols-5'
       : 'md:grid-cols-4';
 
-  const formatElapsedTime = (timestamp: number) => {
-    const elapsedSeconds = Math.max(0, Math.floor((clockNow - timestamp) / 1000));
+  const formatDuration = (durationMs: number) => {
+    const elapsedSeconds = Math.max(0, Math.floor(durationMs / 1000));
     const hours = Math.floor(elapsedSeconds / 3600);
     const minutes = Math.floor((elapsedSeconds % 3600) / 60);
     const seconds = elapsedSeconds % 60;
     return [hours, minutes, seconds].map(value => String(value).padStart(2, '0')).join(':');
+  };
+
+  const formatCookingStopwatch = (order: Order, items: CartItem[]) => {
+    const startedAtValues = items
+      .map(item => Number(item.kitchenStartedAt || 0))
+      .filter(value => value > 0);
+    if (startedAtValues.length === 0) return '00:00:00';
+
+    const startedAt = Math.min(...startedAtValues);
+    const activeItems = items.filter(item => getItemKitchenStatus(item, order.status) !== OrderStatus.CANCELLED);
+    const allCooked = areAllKitchenItemsCooked(activeItems, order.status);
+    const cookedAtValues = activeItems
+      .map(item => Number(item.kitchenCookedAt || 0))
+      .filter(value => value > 0);
+    const stoppedAt = allCooked && cookedAtValues.length > 0 ? Math.max(...cookedAtValues) : clockNow;
+    return formatDuration(stoppedAt - startedAt);
   };
 
   const kitchenPendingOrders = useMemo(() => (
@@ -527,9 +545,18 @@ const KitchenDisplayPage: React.FC<Props> = ({
     setUpdatingItemKeys(previous => new Set(previous).add(itemKey));
     setOpenItemMenuKey(null);
     try {
-      const updatedItems = order.items.map((item, index) => (
-        index === targetIndex ? { ...item, status: nextStatus } : item
-      ));
+      const transitionAt = Date.now();
+      const updatedItems = order.items.map((item, index) => {
+        if (index !== targetIndex) return item;
+        return {
+          ...item,
+          status: nextStatus,
+          ...(nextStatus === OrderStatus.PREPARING
+            ? { kitchenStartedAt: item.kitchenStartedAt || transitionAt, kitchenCookedAt: undefined }
+            : {}),
+          ...(nextStatus === OrderStatus.COMPLETED ? { kitchenCookedAt: transitionAt } : {}),
+        };
+      });
       const aggregateStatus = getAggregateStatusFromItems(updatedItems, order.status);
       const previousCancelledValue = order.items.reduce((sum, item) => (
         getItemKitchenStatus(item, order.status) === OrderStatus.CANCELLED
@@ -568,7 +595,8 @@ const KitchenDisplayPage: React.FC<Props> = ({
   };
 
   const serveKitchenOrder = async (order: Order) => {
-    if (isServingOrder || order.status === OrderStatus.SERVED || !areAllKitchenItemsCooked(order.items, order.status)) return;
+    const scopedItems = getSortedOrderItems(order, kitchenHasAssignedScope ? kitchenScopeCategories : []);
+    if (isServingOrder || order.status === OrderStatus.SERVED || !areAllKitchenItemsCooked(scopedItems, order.status)) return;
     setIsServingOrder(true);
     try {
       const servedItems = order.items.map(item => (
@@ -789,8 +817,12 @@ const KitchenDisplayPage: React.FC<Props> = ({
             {pagedKitchenOrders.map(order => {
               const visibleKitchenItems = getSortedOrderItems(order, kitchenHasAssignedScope ? kitchenScopeCategories : []);
               const isExpanded = expandedOrderId === order.id;
-              const allItemsCooked = areAllKitchenItemsCooked(order.items, order.status);
-              const canServeOrder = allItemsCooked && order.status !== OrderStatus.SERVED;
+              const allItemsCooked = areAllKitchenItemsCooked(visibleKitchenItems, order.status);
+              const canServeOrder = allItemsCooked && (
+                order.status === OrderStatus.PENDING
+                || order.status === OrderStatus.ONGOING
+                || order.status === OrderStatus.PREPARING
+              );
 
               return (
                 <article
@@ -802,7 +834,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
                     <div className="flex items-center justify-between gap-2">
                       <h2 className="truncate text-lg font-black tracking-tight">{order.tableNumber || 'Takeaway'}</h2>
                       <span className="shrink-0 rounded-lg bg-red-500 px-3 py-1 text-[10px] font-black tabular-nums text-white">
-                        {formatElapsedTime(order.timestamp)}
+                        {formatCookingStopwatch(order, visibleKitchenItems)}
                       </span>
                     </div>
                     <div className="mt-1.5 flex items-end justify-between gap-3">
