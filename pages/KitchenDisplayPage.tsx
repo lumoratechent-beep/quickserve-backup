@@ -937,8 +937,8 @@ const KitchenDisplayPage: React.FC<Props> = ({
                       const nextItemStatus = getNextKitchenItemStatus(itemStatus);
                       const isUpdatingItem = updatingItemKeys.has(itemKey);
                       const isItemMenuOpen = openItemMenuKey === itemKey;
-                      const isServedItem = itemStatus === OrderStatus.SERVED && order.status === OrderStatus.SERVED;
-                      const isCookedItem = itemStatus === OrderStatus.COMPLETED || (itemStatus === OrderStatus.SERVED && order.status !== OrderStatus.SERVED);
+                      const isServedItem = itemStatus === OrderStatus.SERVED;
+                      const isCookedItem = itemStatus === OrderStatus.COMPLETED;
                       const rowStateClass = itemStatus === OrderStatus.PREPARING
                         ? 'bg-blue-50'
                         : isServedItem

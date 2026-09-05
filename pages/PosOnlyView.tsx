@@ -163,6 +163,38 @@ const getKitchenCategoryKey = (value: any): string => String(value || '').trim()
 
 const DISABLED_KITCHEN_ORDER_SETTINGS: Record<string, never> = {};
 
+const getCartItemKitchenStatus = (item: CartItem, fallbackStatus: OrderStatus): OrderStatus => item.status || fallbackStatus;
+
+const getAggregateStatusForKitchenItems = (items: CartItem[], fallbackStatus: OrderStatus): OrderStatus => {
+  const activeItems = items.filter(item => getCartItemKitchenStatus(item, fallbackStatus) !== OrderStatus.CANCELLED);
+  if (items.length > 0 && activeItems.length === 0) return OrderStatus.CANCELLED;
+  if (activeItems.some(item => getCartItemKitchenStatus(item, fallbackStatus) === OrderStatus.PENDING)) return OrderStatus.PENDING;
+  if (activeItems.some(item => getCartItemKitchenStatus(item, fallbackStatus) === OrderStatus.ONGOING)) return OrderStatus.ONGOING;
+  if (activeItems.some(item => getCartItemKitchenStatus(item, fallbackStatus) === OrderStatus.PREPARING)) return OrderStatus.PREPARING;
+  if (activeItems.some(item => getCartItemKitchenStatus(item, fallbackStatus) === OrderStatus.COMPLETED)) return OrderStatus.PREPARING;
+  if (activeItems.some(item => getCartItemKitchenStatus(item, fallbackStatus) === OrderStatus.SERVED)) return OrderStatus.SERVED;
+  return fallbackStatus;
+};
+
+const ensureSavedBillItemIdentity = (item: CartItem, dispatchId: string): CartItem => ({
+  ...item,
+  savedBillId: dispatchId,
+  savedBillLineId: item.savedBillLineId || crypto.randomUUID(),
+});
+
+const getSavedBillItemSignature = (item: CartItem): string => JSON.stringify({
+  id: item.id,
+  name: item.name,
+  price: Number(item.price || 0),
+  selectedSize: item.selectedSize || '',
+  selectedTemp: item.selectedTemp || '',
+  selectedOtherVariant: item.selectedOtherVariant || '',
+  selectedVariantOption: item.selectedVariantOption || '',
+  selectedModifiers: item.selectedModifiers || {},
+  selectedAddOns: item.selectedAddOns || [],
+  selectedMixMatch: item.selectedMixMatch || [],
+});
+
 type CounterQrOrderView = 'list' | 'grid';
 type QrTableOrderView = 'list' | 'grid';
 
@@ -690,6 +722,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [sendingSavedBillId, setSendingSavedBillId] = useState<string | null>(null);
   const [savedBillKitchenOrderIds, setSavedBillKitchenOrderIds] = useState<Record<string, string>>({});
   const [activeSavedBillTable, setActiveSavedBillTable] = useState<string | null>(null);
+  const [savedBillActionMenuOpen, setSavedBillActionMenuOpen] = useState(false);
   const [showMobileSavedBillCart, setShowMobileSavedBillCart] = useState(false);
   const [showSaveBillTableModal, setShowSaveBillTableModal] = useState(false);
   const [pendingSaveBillSource, setPendingSaveBillSource] = useState<'COUNTER' | 'QR' | null>(null);
@@ -737,6 +770,18 @@ const PosOnlyView: React.FC<Props> = ({
       document.removeEventListener('pointerdown', closeLayoutPicker);
     };
   }, [showLayoutPicker]);
+
+  useEffect(() => {
+    if (!savedBillActionMenuOpen) return;
+
+    const closeSavedBillActions = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest('[data-saved-bill-actions]')) return;
+      setSavedBillActionMenuOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeSavedBillActions);
+    return () => document.removeEventListener('pointerdown', closeSavedBillActions);
+  }, [savedBillActionMenuOpen]);
 
   const closePaymentPage = () => {
     if (isCompletingPayment) return;
@@ -2460,6 +2505,36 @@ const PosOnlyView: React.FC<Props> = ({
     ? savedBillKitchenOrderIds[selectedSavedBillDispatchId] || selectedSavedBillKitchenOrder?.id || ''
     : '';
 
+  const getSavedBillKitchenOrderForBill = (bill: SavedBillEntry): Order | null => {
+    const dispatchId = bill.items.find(item => item.savedBillId)?.savedBillId || bill.id;
+    if (!dispatchId) return null;
+    return orders.find(order => order.status !== OrderStatus.CANCELLED && order.items.some(item => item.savedBillId === dispatchId)) || null;
+  };
+
+  const getSavedBillDisplayStatus = (bill?: SavedBillEntry | null): OrderStatus | 'AVAILABLE' => {
+    if (!bill) return 'AVAILABLE';
+    return getSavedBillKitchenOrderForBill(bill)?.status || OrderStatus.PENDING;
+  };
+
+  const getSavedBillStatusLabel = (status: OrderStatus | 'AVAILABLE'): string => {
+    if (status === 'AVAILABLE') return 'Available';
+    if (status === OrderStatus.PREPARING) return 'Cooking';
+    if (status === OrderStatus.SERVED) return 'Served';
+    if (status === OrderStatus.COMPLETED) return 'Paid';
+    if (status === OrderStatus.CANCELLED) return 'Cancelled';
+    return status.charAt(0) + status.slice(1).toLowerCase();
+  };
+
+  const getSavedBillStatusClass = (status: OrderStatus | 'AVAILABLE'): string => {
+    if (status === OrderStatus.PENDING) return 'text-amber-500';
+    if (status === OrderStatus.ONGOING) return 'text-orange-500';
+    if (status === OrderStatus.PREPARING) return 'text-blue-500';
+    if (status === OrderStatus.SERVED) return 'text-green-600 dark:text-green-400';
+    if (status === OrderStatus.COMPLETED) return 'text-emerald-600 dark:text-emerald-400';
+    if (status === OrderStatus.CANCELLED) return 'text-red-500';
+    return 'text-gray-400';
+  };
+
   const selectedSavedBillSubtotal = useMemo(() => {
     if (!selectedSavedBillEntry) return 0;
     return getItemsSubtotal(selectedSavedBillEntry.items);
@@ -2512,7 +2587,7 @@ const PosOnlyView: React.FC<Props> = ({
     const now = Date.now();
     const sourceItems = source === 'COUNTER' ? posCart : selectedQrOrderForPayment?.items;
     const dispatchId = sourceItems?.find(item => item.savedBillId)?.savedBillId || crypto.randomUUID();
-    const savedItems = (sourceItems || []).map(item => ({ ...item, savedBillId: dispatchId }));
+    const savedItems = (sourceItems || []).map(item => ensureSavedBillItemIdentity(item, dispatchId));
 
     const entry: SavedBillEntry | null = source === 'COUNTER'
       ? {
@@ -2737,10 +2812,11 @@ const PosOnlyView: React.FC<Props> = ({
 
     try {
       let existingOrderId = selectedSavedBillKitchenOrderId;
+      let existingKitchenOrder: Order | null = selectedSavedBillKitchenOrder;
       if (!existingOrderId) {
         const { data, error } = await supabase
           .from('orders')
-          .select('id,items')
+          .select('id,items,remark,table_number,dining_type,timestamp,total,status,payment_method,cashier_name,order_source,customer_id')
           .eq('restaurant_id', restaurant.id)
           .eq('table_number', selectedSavedBillEntry.tableNumber)
           .gte('timestamp', selectedSavedBillEntry.createdAt - 5000)
@@ -2757,6 +2833,102 @@ const PosOnlyView: React.FC<Props> = ({
           }
         });
         existingOrderId = existingOrder?.id || '';
+        if (existingOrder) {
+          const parsedItems = Array.isArray(existingOrder.items) ? existingOrder.items : JSON.parse(existingOrder.items || '[]');
+          existingKitchenOrder = {
+            id: existingOrder.id,
+            items: parsedItems,
+            remark: existingOrder.remark || '',
+            tableNumber: existingOrder.table_number || selectedSavedBillEntry.tableNumber,
+            diningType: existingOrder.dining_type || selectedSavedBillEntry.diningType || preferredDiningOption,
+            timestamp: existingOrder.timestamp,
+            total: Number(existingOrder.total || 0),
+            status: existingOrder.status,
+            paymentMethod: existingOrder.payment_method || '',
+            cashierName: existingOrder.cashier_name || '',
+            orderSource: existingOrder.order_source || 'counter',
+            customerId: existingOrder.customer_id || 'pos_user',
+          } as Order;
+        }
+      }
+
+      const kitchenItems = selectedSavedBillEntry.items.map(item => ensureSavedBillItemIdentity(item, dispatchId));
+
+      if (existingOrderId && existingKitchenOrder) {
+        const currentLineIds = new Set(kitchenItems.map(item => item.savedBillLineId).filter(Boolean));
+        const existingByLineId = new Map<string, CartItem>();
+        const existingBySignature = new Map<string, CartItem[]>();
+        existingKitchenOrder.items.forEach(item => {
+          if (item.savedBillLineId) existingByLineId.set(item.savedBillLineId, item);
+          const signature = getSavedBillItemSignature(item);
+          existingBySignature.set(signature, [...(existingBySignature.get(signature) || []), item]);
+        });
+        const consumedExistingItems = new Set<CartItem>();
+
+        const updatedItems: CartItem[] = kitchenItems.map(item => {
+          const signature = getSavedBillItemSignature(item);
+          const existingItem = (item.savedBillLineId ? existingByLineId.get(item.savedBillLineId) : undefined)
+            || existingBySignature.get(signature)?.shift();
+          if (!existingItem) {
+            return {
+              ...item,
+              status: existingKitchenOrder.status === OrderStatus.SERVED ? OrderStatus.PREPARING : undefined,
+              kitchenStartedAt: existingKitchenOrder.status === OrderStatus.SERVED ? Date.now() : undefined,
+              kitchenCookedAt: undefined,
+              kitchenCancelReason: undefined,
+            };
+          }
+          consumedExistingItems.add(existingItem);
+
+          return {
+            ...item,
+            status: existingItem.status,
+            kitchenStartedAt: existingItem.kitchenStartedAt,
+            kitchenCookedAt: existingItem.kitchenCookedAt,
+            kitchenCancelReason: existingItem.kitchenCancelReason,
+          };
+        });
+
+        existingKitchenOrder.items.forEach(item => {
+          if (consumedExistingItems.has(item) || (item.savedBillLineId && currentLineIds.has(item.savedBillLineId))) return;
+          const itemStatus = getCartItemKitchenStatus(item, existingKitchenOrder.status);
+          if (itemStatus === OrderStatus.SERVED || itemStatus === OrderStatus.COMPLETED) {
+            updatedItems.push({
+              ...item,
+              status: OrderStatus.CANCELLED,
+              kitchenCancelReason: 'Cancelled via POS',
+            });
+          }
+        });
+
+        const updatedTotal = getItemsGrandTotal(updatedItems);
+        const nextStatus = getAggregateStatusForKitchenItems(updatedItems, existingKitchenOrder.status);
+        const { error } = await supabase
+          .from('orders')
+          .update({
+            items: updatedItems,
+            remark: selectedSavedBillEntry.remark,
+            dining_type: selectedSavedBillEntry.diningType || preferredDiningOption,
+            total: updatedTotal,
+            status: nextStatus,
+          })
+          .eq('id', existingOrderId);
+        if (error) throw error;
+
+        savedBillsSyncRef.current = true;
+        const { error: billUpdateError } = await supabase
+          .from('saved_bills')
+          .update({ items: updatedItems, updated_at: new Date().toISOString() })
+          .eq('restaurant_id', restaurant.id)
+          .eq('table_number', selectedSavedBillEntry.tableNumber);
+        if (billUpdateError) console.error('Failed to sync edited saved bill after kitchen update:', billUpdateError);
+
+        setSavedBillKitchenOrderIds(prev => ({ ...prev, [dispatchId]: existingOrderId }));
+        setSavedBills(prev => prev.map(bill => bill.id === selectedSavedBillEntry.id ? { ...bill, items: updatedItems } : bill));
+        onUpdateOrderItems?.(existingOrderId, updatedItems, updatedTotal);
+        await Promise.resolve(onUpdateOrder(existingOrderId, nextStatus));
+        toast(`Kitchen order #${existingOrderId} updated.`, 'success');
+        return;
       }
 
       if (existingOrderId) {
@@ -2765,15 +2937,14 @@ const PosOnlyView: React.FC<Props> = ({
         return;
       }
 
-      const kitchenItems = selectedSavedBillEntry.items.map(item => ({
+      const firstDispatchItems = kitchenItems.map(item => ({
         ...item,
-        savedBillId: dispatchId,
         status: undefined,
         kitchenStartedAt: undefined,
         kitchenCookedAt: undefined,
       }));
       const orderId = await onPlaceOrder(
-        kitchenItems,
+        firstDispatchItems,
         selectedSavedBillEntry.remark,
         selectedSavedBillEntry.tableNumber,
         selectedSavedBillEntry.diningType || preferredDiningOption,
@@ -2786,12 +2957,12 @@ const PosOnlyView: React.FC<Props> = ({
       if (!orderId) throw new Error('The kitchen order was not created.');
 
       setSavedBillKitchenOrderIds(prev => ({ ...prev, [dispatchId]: orderId }));
-      if (selectedSavedBillEntry.items.some(item => item.savedBillId !== dispatchId)) {
-        setSavedBills(prev => prev.map(bill => bill.id === selectedSavedBillEntry.id ? { ...bill, items: kitchenItems } : bill));
+      if (selectedSavedBillEntry.items.some(item => item.savedBillId !== dispatchId || !item.savedBillLineId)) {
+        setSavedBills(prev => prev.map(bill => bill.id === selectedSavedBillEntry.id ? { ...bill, items: firstDispatchItems } : bill));
         savedBillsSyncRef.current = true;
         const { error } = await supabase
           .from('saved_bills')
-          .update({ items: kitchenItems, updated_at: new Date().toISOString() })
+          .update({ items: firstDispatchItems, updated_at: new Date().toISOString() })
           .eq('restaurant_id', restaurant.id)
           .eq('table_number', selectedSavedBillEntry.tableNumber);
         if (error) console.error('Failed to attach kitchen dispatch ID to saved bill:', error);
@@ -2839,6 +3010,23 @@ const PosOnlyView: React.FC<Props> = ({
     } else {
       toast('Print failed. Please try again.', 'error');
     }
+  };
+
+  const handleCancelSavedBillOrder = async () => {
+    if (!selectedSavedBillEntry) {
+      toast('Select a pending saved bill first.', 'error');
+      return;
+    }
+    if (!confirm(`Cancel order for ${selectedSavedBillEntry.tableNumber}?`)) return;
+
+    setSavedBillActionMenuOpen(false);
+    const orderToCancel = selectedSavedBillKitchenOrder;
+    if (orderToCancel && orderToCancel.status !== OrderStatus.SERVED && orderToCancel.status !== OrderStatus.COMPLETED) {
+      await Promise.resolve(onUpdateOrder(orderToCancel.id, OrderStatus.CANCELLED));
+    }
+    clearSavedBillByTable(selectedSavedBillEntry.tableNumber);
+    setActiveSavedBillTable(null);
+    toast(`${selectedSavedBillEntry.tableNumber} order cancelled.`, 'success');
   };
 
   const loadSavedBill = (tableNumber: string) => {
@@ -8379,6 +8567,7 @@ const PosOnlyView: React.FC<Props> = ({
                               const isActiveTable = activeSavedBillTable === table;
                               const tableItemCount = tableBill?.items.length ?? 0;
                               const tableGrandTotal = tableBill ? getItemsGrandTotal(tableBill.items) : 0;
+                              const tableStatus = getSavedBillDisplayStatus(tableBill);
                               return (
                                 <button
                                   type="button"
@@ -8390,7 +8579,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     setActiveSavedBillTable(isActiveTable ? null : table);
                                     setShowMobileSavedBillCart(false);
                                   }}
-                                  className={`saved-table-cell h-[96px] rounded-xl border-2 p-3 transition-all text-left flex flex-col justify-between ${
+                                  className={`saved-table-cell h-[96px] rounded-xl border-2 p-3 text-center transition-all flex flex-col items-center justify-center gap-2 ${
                                     isActiveTable
                                       ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-[0_0_0_2px_rgba(249,115,22,0.5)]'
                                       :
@@ -8400,11 +8589,12 @@ const PosOnlyView: React.FC<Props> = ({
                                   }`}
                                 >
                                   <p className="text-[10px] font-black uppercase tracking-widest dark:text-white line-clamp-1">{table}</p>
-                                  <p className={`text-[9px] font-black uppercase tracking-widest ${hasPending ? 'text-orange-500' : 'text-gray-400'}`}>
-                                    {hasPending ? 'Pending' : 'Available'}
+                                  <p className={`text-[9px] font-black uppercase tracking-widest ${getSavedBillStatusClass(tableStatus)}`}>
+                                    {getSavedBillStatusLabel(tableStatus)}
                                   </p>
-                                  <p className="text-[9px] text-gray-500 dark:text-gray-300 line-clamp-1">
-                                    {hasPending ? `${tableItemCount} ${tableItemCount === 1 ? 'item' : 'items'} ${currencySymbol}${tableGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `0 item ${currencySymbol}0.00`}
+                                  <p className="text-[9px] leading-4 text-gray-500 dark:text-gray-300">
+                                    <span className="block">{hasPending ? `${tableItemCount} ${tableItemCount === 1 ? 'item' : 'items'}` : '0 item'}</span>
+                                    <span className="block">{hasPending ? `${currencySymbol}${tableGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `${currencySymbol}0.00`}</span>
                                   </p>
                                 </button>
                               );
@@ -12849,21 +13039,40 @@ const PosOnlyView: React.FC<Props> = ({
                         : 'Current Order'}
                     </h3>
                     {!editingQrOrderId && showSavedBillFeature && counterMode === 'SAVED_BILL' && (
-                      <button
-                        type="button"
-                        onClick={handlePrintSavedBillOrderList}
-                        disabled={!selectedSavedBillEntry}
-                        className={`inline-flex h-7 items-center gap-2 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest leading-none transition-all ${
-                          selectedSavedBillEntry && hasPrintableTransport
-                            ? 'border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30'
-                            : selectedSavedBillEntry
-                            ? 'border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500'
-                            : 'border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                        }`}
-                      >
-                        <Printer size={14} />
-                        Print Order List
-                      </button>
+                      <div className="relative" data-saved-bill-actions>
+                        <button
+                          type="button"
+                          onClick={() => setSavedBillActionMenuOpen(prev => !prev)}
+                          disabled={!selectedSavedBillEntry}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 text-gray-500 transition-all hover:border-orange-300 hover:text-orange-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-300"
+                          title="Saved bill actions"
+                          aria-label="Saved bill actions"
+                          aria-expanded={savedBillActionMenuOpen}
+                        >
+                          <MoreVertical size={16} />
+                        </button>
+                        {savedBillActionMenuOpen && selectedSavedBillEntry && (
+                          <div className="absolute right-0 top-9 z-40 w-44 overflow-hidden rounded-lg border border-gray-200 bg-white p-1 shadow-xl dark:border-gray-700 dark:bg-gray-800">
+                            <button
+                              type="button"
+                              onClick={handleCancelSavedBillOrder}
+                              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                            >
+                              <X size={13} />
+                              Cancel Order
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setSavedBillActionMenuOpen(false); handlePrintSavedBillOrderList(); }}
+                              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:text-gray-300 dark:hover:bg-gray-700"
+                              disabled={!hasPrintableTransport}
+                            >
+                              <Printer size={13} />
+                              Print Order List
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     )}
                     {!editingQrOrderId && (counterMode === 'COUNTER_ORDER' || (!showQrFeature && counterMode !== 'SAVED_BILL')) && (
                       <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors">
