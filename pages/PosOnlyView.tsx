@@ -22,6 +22,7 @@ import ImageCropModal from '../components/ImageCropModal';
 import WalletBillingPage from './WalletBillingPage';
 import { getMenuItemEffectivePrice, isMenuPromotionActive } from '../lib/menuPricing';
 import { getCalendarReportDateRange } from '../lib/reportDateRanges';
+import { ensureKdsItemIdentities, getAggregateKdsOrderStatus, getKdsItemStatus } from '../lib/kdsOrderState';
 import {
   ShoppingBag, Search, Download, Calendar,
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid,
@@ -114,7 +115,10 @@ interface Props {
   showQrOrders?: boolean;
   onToggleOnline?: () => void;
   userRole?: string;
-  onSaveKitchenDivisions?: (divisions: KitchenDepartment[]) => void;
+  onSaveKitchenDivisions?: (
+    divisions: KitchenDepartment[],
+    renamedDepartment?: { oldName: string; newName: string },
+  ) => boolean | Promise<boolean>;
   subscription?: Subscription | null;
   onSubscriptionUpdated?: () => void | Promise<void>;
   onFeatureSettingUpdated?: (restaurantId: string, key: string, value: boolean) => void;
@@ -130,7 +134,7 @@ interface Props {
   onMailTabOpened?: () => void;
   openBillingTab?: boolean;
   onBillingTabOpened?: () => void;
-  onUpdateOrderItems?: (orderId: string, items: CartItem[], total: number) => void;
+  onUpdateOrderItems?: (orderId: string, items: CartItem[], total: number, remark?: string, updateNote?: string, status?: OrderStatus) => void;
   onComparePlans?: () => void;
   activeShift?: CashierShift | null;
   onOpenShiftModal?: () => void;
@@ -163,24 +167,18 @@ const getKitchenCategoryKey = (value: any): string => String(value || '').trim()
 
 const DISABLED_KITCHEN_ORDER_SETTINGS: Record<string, never> = {};
 
-const getCartItemKitchenStatus = (item: CartItem, fallbackStatus: OrderStatus): OrderStatus => item.status || fallbackStatus;
+const getCartItemKitchenStatus = getKdsItemStatus;
+const getAggregateStatusForKitchenItems = getAggregateKdsOrderStatus;
 
-const getAggregateStatusForKitchenItems = (items: CartItem[], fallbackStatus: OrderStatus): OrderStatus => {
-  const activeItems = items.filter(item => getCartItemKitchenStatus(item, fallbackStatus) !== OrderStatus.CANCELLED);
-  if (items.length > 0 && activeItems.length === 0) return OrderStatus.CANCELLED;
-  if (activeItems.some(item => getCartItemKitchenStatus(item, fallbackStatus) === OrderStatus.PENDING)) return OrderStatus.PENDING;
-  if (activeItems.some(item => getCartItemKitchenStatus(item, fallbackStatus) === OrderStatus.ONGOING)) return OrderStatus.ONGOING;
-  if (activeItems.some(item => getCartItemKitchenStatus(item, fallbackStatus) === OrderStatus.PREPARING)) return OrderStatus.PREPARING;
-  if (activeItems.some(item => getCartItemKitchenStatus(item, fallbackStatus) === OrderStatus.COMPLETED)) return OrderStatus.PREPARING;
-  if (activeItems.some(item => getCartItemKitchenStatus(item, fallbackStatus) === OrderStatus.SERVED)) return OrderStatus.SERVED;
-  return fallbackStatus;
+const ensureSavedBillItemIdentity = (item: CartItem, dispatchId: string): CartItem => {
+  const savedBillLineId = item.savedBillLineId || crypto.randomUUID();
+  return {
+    ...item,
+    savedBillId: dispatchId,
+    savedBillLineId,
+    kdsItemId: item.kdsItemId || savedBillLineId,
+  };
 };
-
-const ensureSavedBillItemIdentity = (item: CartItem, dispatchId: string): CartItem => ({
-  ...item,
-  savedBillId: dispatchId,
-  savedBillLineId: item.savedBillLineId || crypto.randomUUID(),
-});
 
 const getSavedBillItemSignature = (item: CartItem): string => JSON.stringify({
   id: item.id,
@@ -735,6 +733,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [departmentDraftName, setDepartmentDraftName] = useState('');
   const [departmentDraftCategories, setDepartmentDraftCategories] = useState<string[]>([]);
   const [departmentActionMenuName, setDepartmentActionMenuName] = useState<string | null>(null);
+  const [isSavingDepartment, setIsSavingDepartment] = useState(false);
   const [newStaffRole, setNewStaffRole] = useState<'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' | 'MANAGER'>('CASHIER');
   const [showLockedRoleAlert, setShowLockedRoleAlert] = useState<string | null>(null);
   const [newStaffKitchenCategories, setNewStaffKitchenCategories] = useState<string[]>([]);
@@ -1145,12 +1144,14 @@ const PosOnlyView: React.FC<Props> = ({
     const saved = localStorage.getItem(`staff_${restaurant.id}`);
     return saved ? JSON.parse(saved) : [];
   });
+  const staffMutationVersionRef = useRef(0);
   const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState(false);
   const [newStaffUsername, setNewStaffUsername] = useState('');
   const [newStaffPassword, setNewStaffPassword] = useState('');
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffPhone, setNewStaffPhone] = useState('');
   const [isAddingStaff, setIsAddingStaff] = useState(false);
+  const [deletingStaffIds, setDeletingStaffIds] = useState<Set<string>>(new Set());
   const [editingStaffIndex, setEditingStaffIndex] = useState<number | null>(null);
   const isEditingStaff = editingStaffIndex !== null;
   const [expandedCashierAccessSettings, setExpandedCashierAccessSettings] = useState<Record<CashierAccessPermissionKey, boolean>>({
@@ -1169,19 +1170,51 @@ const PosOnlyView: React.FC<Props> = ({
 
   // Fetch staff from database on mount (localStorage is only a cache)
   useEffect(() => {
+    let active = true;
+    const requestVersion = staffMutationVersionRef.current;
     const fetchStaff = async () => {
       const { data, error } = await supabase
         .from('users')
         .select('id, username, role, restaurant_id, is_active, email, phone, kitchen_categories, access_permissions')
         .eq('restaurant_id', restaurant.id)
         .in('role', ['CASHIER', 'KITCHEN', 'ORDER_TAKER', 'MANAGER']);
-      if (!error && data) {
+      if (active && requestVersion === staffMutationVersionRef.current && !error && data) {
         const accessUsers = data.filter((user: any) => user.access_permissions?.staffProfileOnly !== true);
         setStaffList(accessUsers);
         localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(accessUsers));
       }
     };
-    fetchStaff();
+    void fetchStaff();
+
+    const channel = supabase
+      .channel(`qs-pos-staff-${restaurant.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `restaurant_id=eq.${restaurant.id}` }, payload => {
+        ++staffMutationVersionRef.current;
+        const row = payload.new as any;
+        const oldRow = payload.old as any;
+        setStaffList(previous => {
+          let next = previous;
+          if (payload.eventType === 'DELETE') {
+            next = previous.filter(staff => staff.id !== oldRow?.id);
+          } else if (row && ['CASHIER', 'KITCHEN', 'ORDER_TAKER', 'MANAGER'].includes(row.role)) {
+            if (row.access_permissions?.staffProfileOnly === true) {
+              next = previous.filter(staff => staff.id !== row.id);
+            } else {
+              const exists = previous.some(staff => staff.id === row.id);
+              next = exists
+                ? previous.map(staff => staff.id === row.id ? row : staff)
+                : [...previous, row];
+            }
+          }
+          localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(next));
+          return next;
+        });
+      })
+      .subscribe();
+    return () => {
+      active = false;
+      void supabase.removeChannel(channel);
+    };
   }, [restaurant.id]);
 
   // User Experience settings
@@ -1225,13 +1258,12 @@ const PosOnlyView: React.FC<Props> = ({
   // Feature settings
   const [featureSettings, setFeatureSettings] = useState<FeatureSettings>(() => {
     const defaults = getDefaultFeatureSettings();
-    // Apply kitchenEnabled from dedicated DB column as the base default only
-    if (restaurant.kitchenEnabled) defaults.kitchenEnabled = true;
+    defaults.kitchenEnabled = restaurant.kitchenEnabled === true;
     // Priority 1: DB settings.features (cross-device authoritative — always prefer DB over localStorage)
     const dbSaved = restaurant.settings?.features;
     if (dbSaved && typeof dbSaved === 'object') {
       const merged = { ...defaults, ...dbSaved };
-      return { ...merged, kitchenEnabled: restaurant.kitchenEnabled === true && merged.kitchenEnabled === true };
+      return { ...merged, kitchenEnabled: restaurant.kitchenEnabled === true };
     }
     // Priority 2: localStorage (same-device offline cache)
     const saved = localStorage.getItem(`features_${restaurant.id}`);
@@ -1239,11 +1271,22 @@ const PosOnlyView: React.FC<Props> = ({
       try {
         const parsed = JSON.parse(saved);
         const merged = { ...defaults, ...parsed };
-        return { ...merged, kitchenEnabled: restaurant.kitchenEnabled === true && merged.kitchenEnabled === true };
+        return { ...merged, kitchenEnabled: restaurant.kitchenEnabled === true };
       } catch {}
     }
     return defaults;
   });
+  const settingsFetchVersionRef = useRef(0);
+  const [savingFeatureKeys, setSavingFeatureKeys] = useState<Set<keyof FeatureSettings>>(new Set());
+
+  useEffect(() => {
+    if (savingFeatureKeys.has('kitchenEnabled')) return;
+    setFeatureSettings(previous => (
+      previous.kitchenEnabled === (restaurant.kitchenEnabled === true)
+        ? previous
+        : { ...previous, kitchenEnabled: restaurant.kitchenEnabled === true }
+    ));
+  }, [restaurant.kitchenEnabled, savingFeatureKeys]);
 
   // Shift guard: if shift feature is enabled but cashier has no active shift
   const shiftRequired = featureSettings.shiftEnabled && !activeShift;
@@ -1508,26 +1551,42 @@ const PosOnlyView: React.FC<Props> = ({
     }
   }, [showCollectPaymentSidebar]);
 
-  const handleRemoveStaff = async (staff: any, index: number) => {
-    const updated = staffList.filter((_: any, idx: number) => idx !== index);
-
+  const handleRemoveStaff = async (staff: any) => {
+    if (!staff?.id) {
+      toast('This staff record is not synchronized with the database. Refresh and try again.', 'error');
+      return;
+    }
+    if (deletingStaffIds.has(staff.id)) return;
+    ++staffMutationVersionRef.current;
+    setDeletingStaffIds(previous => new Set(previous).add(staff.id));
     try {
-      if (staff?.id) {
-        const { error } = await supabase
-          .from('users')
-          .delete()
-          .eq('id', staff.id);
+      const { data, error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', staff.id)
+        .eq('restaurant_id', restaurant.id)
+        .select('id')
+        .maybeSingle();
 
-        if (error) {
-          toast('Error removing staff: ' + error.message, 'error');
-          return;
-        }
+      if (error) throw error;
+      if (!data) {
+        throw new Error('The database did not delete this staff record. Refresh and try again.');
       }
 
-      setStaffList(updated);
-      localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+      setStaffList(previous => {
+        const updated = previous.filter(existing => existing.id !== staff.id);
+        localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+        return updated;
+      });
+      toast('Staff member removed.', 'success');
     } catch (error: any) {
       toast('Error removing staff: ' + error.message, 'error');
+    } finally {
+      setDeletingStaffIds(previous => {
+        const next = new Set(previous);
+        next.delete(staff.id);
+        return next;
+      });
     }
   };
 
@@ -1669,9 +1728,11 @@ const PosOnlyView: React.FC<Props> = ({
     }
 
     setIsAddingStaff(true);
+    ++staffMutationVersionRef.current;
     try {
-      // Auto-assign MANAGER to the first staff member added
-      const isFirstStaff = !isEditingStaff && staffList.length === 0;
+      // Preserve the explicitly selected Kitchen role. The first-user manager
+      // shortcut applies only to the default Cashier creation flow.
+      const isFirstStaff = !isEditingStaff && staffList.length === 0 && newStaffRole === 'CASHIER';
       const assignedRole = isFirstStaff ? 'MANAGER' : newStaffRole;
       const basePayload: Record<string, any> = {
         username,
@@ -1693,6 +1754,7 @@ const PosOnlyView: React.FC<Props> = ({
             .from('users')
             .update(payload)
             .eq('id', currentStaff.id)
+            .eq('restaurant_id', restaurant.id)
             .select()
             .single();
 
@@ -1702,19 +1764,15 @@ const PosOnlyView: React.FC<Props> = ({
             return;
           }
 
-          const updated = [...staffList];
-          updated[editingStaffIndex!] = data;
-          setStaffList(updated);
-          localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+          setStaffList(previous => {
+            const updated = previous.map(existing => existing.id === currentStaff.id ? data : existing);
+            localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+            return updated;
+          });
         } else {
-          const updated = [...staffList];
-          updated[editingStaffIndex!] = {
-            ...updated[editingStaffIndex!],
-            ...payload,
-            kitchen_categories: payload.kitchen_categories,
-          };
-          setStaffList(updated);
-          localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+          toast('This staff record is not synchronized with the database. Refresh and try again.', 'error');
+          setIsAddingStaff(false);
+          return;
         }
 
         toast('User updated successfully!', 'success');
@@ -1727,7 +1785,8 @@ const PosOnlyView: React.FC<Props> = ({
         const { data, error } = await supabase
           .from('users')
           .insert([newStaff])
-          .select();
+          .select()
+          .single();
 
         if (error) {
           toast('Error saving to database: ' + error.message, 'error');
@@ -1735,10 +1794,16 @@ const PosOnlyView: React.FC<Props> = ({
           return;
         }
 
-        const staffFromDb = data && data.length > 0 ? data[0] : newStaff;
-        const updated = [...staffList, staffFromDb];
-        setStaffList(updated);
-        localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+        if (!data?.id) {
+          toast('The database did not confirm the new staff record.', 'error');
+          setIsAddingStaff(false);
+          return;
+        }
+        setStaffList(previous => {
+          const updated = [...previous, data];
+          localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+          return updated;
+        });
         toast('Staff member added successfully!', 'success');
       }
 
@@ -3013,7 +3078,7 @@ const PosOnlyView: React.FC<Props> = ({
       if (!existingOrderId) {
         const { data, error } = await supabase
           .from('orders')
-          .select('id,items,remark,table_number,dining_type,timestamp,total,status,payment_method,cashier_name,order_source,customer_id')
+          .select('id,items,remark,table_number,dining_type,timestamp,total,status,payment_method,cashier_name,order_source,customer_id,updated_at')
           .eq('restaurant_id', restaurant.id)
           .eq('table_number', selectedSavedBillEntry.tableNumber)
           .gte('timestamp', selectedSavedBillEntry.createdAt - 5000)
@@ -3045,6 +3110,37 @@ const PosOnlyView: React.FC<Props> = ({
             cashierName: existingOrder.cashier_name || '',
             orderSource: existingOrder.order_source || 'counter',
             customerId: existingOrder.customer_id || 'pos_user',
+            updatedAt: existingOrder.updated_at || undefined,
+          } as Order;
+        }
+      }
+
+      // Always refresh an existing kitchen order before merging bill edits.
+      // This preserves item status changes made moments earlier on another KDS.
+      if (existingOrderId) {
+        const { data: latestOrder, error: latestOrderError } = await supabase
+          .from('orders')
+          .select('id,items,remark,table_number,dining_type,timestamp,total,status,payment_method,cashier_name,order_source,customer_id,updated_at')
+          .eq('id', existingOrderId)
+          .eq('restaurant_id', restaurant.id)
+          .maybeSingle();
+        if (latestOrderError) throw latestOrderError;
+        if (latestOrder) {
+          existingKitchenOrder = {
+            id: latestOrder.id,
+            items: Array.isArray(latestOrder.items) ? latestOrder.items : JSON.parse(latestOrder.items || '[]'),
+            remark: latestOrder.remark || '',
+            tableNumber: latestOrder.table_number || selectedSavedBillEntry.tableNumber,
+            diningType: latestOrder.dining_type || selectedSavedBillEntry.diningType || preferredDiningOption,
+            timestamp: latestOrder.timestamp,
+            total: Number(latestOrder.total || 0),
+            status: latestOrder.status,
+            paymentMethod: latestOrder.payment_method || '',
+            cashierName: latestOrder.cashier_name || '',
+            orderSource: latestOrder.order_source || 'counter',
+            customerId: latestOrder.customer_id || 'pos_user',
+            restaurantId: restaurant.id,
+            updatedAt: latestOrder.updated_at || undefined,
           } as Order;
         }
       }
@@ -3053,6 +3149,9 @@ const PosOnlyView: React.FC<Props> = ({
 
       if (existingOrderId && existingKitchenOrder) {
         const currentLineIds = new Set(kitchenItems.map(item => item.savedBillLineId).filter(Boolean));
+        const routedCategoryKeys = new Set(
+          kitchenDivisions.flatMap(department => department.categories.map(getKitchenCategoryKey)).filter(Boolean),
+        );
         const existingByLineId = new Map<string, CartItem>();
         const existingBySignature = new Map<string, CartItem[]>();
         existingKitchenOrder.items.forEach(item => {
@@ -3062,15 +3161,18 @@ const PosOnlyView: React.FC<Props> = ({
         });
         const consumedExistingItems = new Set<CartItem>();
 
-        const updatedItems: CartItem[] = kitchenItems.map(item => {
+        const updatedItems: CartItem[] = ensureKdsItemIdentities(kitchenItems.map(item => {
           const signature = getSavedBillItemSignature(item);
           const existingItem = (item.savedBillLineId ? existingByLineId.get(item.savedBillLineId) : undefined)
             || existingBySignature.get(signature)?.shift();
           if (!existingItem) {
+            const kdsRouted = kitchenDivisions.length === 0
+              || routedCategoryKeys.has(getKitchenCategoryKey(item.category));
             return {
               ...item,
-              status: existingKitchenOrder.status === OrderStatus.SERVED ? OrderStatus.PREPARING : undefined,
-              kitchenStartedAt: existingKitchenOrder.status === OrderStatus.SERVED ? Date.now() : undefined,
+              kdsRouted,
+              status: kdsRouted ? OrderStatus.PENDING : OrderStatus.SERVED,
+              kitchenStartedAt: undefined,
               kitchenCookedAt: undefined,
               kitchenCancelReason: undefined,
             };
@@ -3079,12 +3181,14 @@ const PosOnlyView: React.FC<Props> = ({
 
           return {
             ...item,
+            kdsItemId: existingItem.kdsItemId || item.kdsItemId,
+            kdsRouted: existingItem.kdsRouted,
             status: existingItem.status,
             kitchenStartedAt: existingItem.kitchenStartedAt,
             kitchenCookedAt: existingItem.kitchenCookedAt,
             kitchenCancelReason: existingItem.kitchenCancelReason,
           };
-        });
+        }));
 
         existingKitchenOrder.items.forEach(item => {
           if (consumedExistingItems.has(item) || (item.savedBillLineId && currentLineIds.has(item.savedBillLineId))) return;
@@ -3100,7 +3204,7 @@ const PosOnlyView: React.FC<Props> = ({
 
         const updatedTotal = getItemsGrandTotal(updatedItems);
         const nextStatus = getAggregateStatusForKitchenItems(updatedItems, existingKitchenOrder.status);
-        const { error } = await supabase
+        let orderUpdate = supabase
           .from('orders')
           .update({
             items: updatedItems,
@@ -3109,8 +3213,12 @@ const PosOnlyView: React.FC<Props> = ({
             total: updatedTotal,
             status: nextStatus,
           })
-          .eq('id', existingOrderId);
+          .eq('id', existingOrderId)
+          .eq('restaurant_id', restaurant.id);
+        if (existingKitchenOrder.updatedAt) orderUpdate = orderUpdate.eq('updated_at', existingKitchenOrder.updatedAt);
+        const { data: confirmedOrder, error } = await orderUpdate.select('id').maybeSingle();
         if (error) throw error;
+        if (!confirmedOrder) throw new Error('The kitchen updated this order at the same time. Review the latest ticket and retry.');
 
         savedBillsSyncRef.current = true;
         const { error: billUpdateError } = await supabase
@@ -3122,8 +3230,7 @@ const PosOnlyView: React.FC<Props> = ({
 
         setSavedBillKitchenOrderIds(prev => ({ ...prev, [dispatchId]: existingOrderId }));
         setSavedBills(prev => prev.map(bill => bill.id === selectedSavedBillEntry.id ? { ...bill, items: updatedItems } : bill));
-        onUpdateOrderItems?.(existingOrderId, updatedItems, updatedTotal);
-        await Promise.resolve(onUpdateOrder(existingOrderId, nextStatus));
+        onUpdateOrderItems?.(existingOrderId, updatedItems, updatedTotal, undefined, undefined, nextStatus);
         toast(`Kitchen order #${existingOrderId} updated.`, 'success');
         returnToCounterAfterKitchenSend();
         return;
@@ -4230,9 +4337,13 @@ const PosOnlyView: React.FC<Props> = ({
   // Fetch latest settings from server on mount to ensure cross-device consistency
   useEffect(() => {
     setGroupMenuByCategory(getInitialGroupMenuByCategory(restaurant));
+    settingsHydratedRef.current = false;
+    const requestVersion = ++settingsFetchVersionRef.current;
+    let cancelled = false;
 
     const syncSettingsFromServer = async () => {
       const serverSettingsRaw = await fetchSettingsFromServer(restaurant.id);
+      if (cancelled || requestVersion !== settingsFetchVersionRef.current) return;
       if (!serverSettingsRaw) {
         // Server fetch failed — allow debounced sync to work with local state
         settingsHydratedRef.current = true;
@@ -4246,7 +4357,7 @@ const PosOnlyView: React.FC<Props> = ({
       if (serverSettings.features) {
         const serverFeatures = {
           ...serverSettings.features,
-          kitchenEnabled: restaurant.kitchenEnabled === true && serverSettings.features.kitchenEnabled === true,
+          kitchenEnabled: serverSettings.features.kitchenEnabled === true,
         };
         setFeatureSettings(prev => ({ ...prev, ...serverFeatures }));
         if (typeof serverSettings.features.groupMenuByCategory === 'boolean') {
@@ -4300,7 +4411,7 @@ const PosOnlyView: React.FC<Props> = ({
               ...serverSettings,
               features: {
                 ...serverSettings.features,
-                kitchenEnabled: restaurant.kitchenEnabled === true && serverSettings.features.kitchenEnabled === true,
+                kitchenEnabled: serverSettings.features.kitchenEnabled === true,
               },
             }
           : serverSettings;
@@ -4313,7 +4424,10 @@ const PosOnlyView: React.FC<Props> = ({
       // Mark hydration complete so the debounced sync can start writing user changes
       settingsHydratedRef.current = true;
     };
-    syncSettingsFromServer();
+    void syncSettingsFromServer();
+    return () => {
+      cancelled = true;
+    };
   }, [restaurant.id, restaurant.name]);
 
   // Setup periodic sync to database every 10 minutes
@@ -5056,10 +5170,11 @@ const PosOnlyView: React.FC<Props> = ({
   }, [addonDetailView]);
 
   const updateFeatureSetting = async <K extends keyof FeatureSettings>(key: K, value: FeatureSettings[K]): Promise<boolean> => {
-    const previousValue = featureSettings[key];
-    setFeatureSettings(prev => ({ ...prev, [key]: value }));
+    if (savingFeatureKeys.has(key)) return false;
+    ++settingsFetchVersionRef.current;
+    if (settingsSyncTimerRef.current) clearTimeout(settingsSyncTimerRef.current);
+    setSavingFeatureKeys(previous => new Set(previous).add(key));
 
-    // Sync to server immediately for cross-device consistency
     const updated = { ...featureSettings, [key]: value };
     const currentSettings = (() => {
       try {
@@ -5078,30 +5193,50 @@ const PosOnlyView: React.FC<Props> = ({
       },
     };
 
-    // Update localStorage caches immediately
-    localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(newSettings));
-    localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(newSettings.features));
+    try {
+      const saved = await updateFeatureOnServer(restaurant.id, String(key), value as boolean, newSettings);
+      if (!saved) {
+        toast(`Failed to save ${String(key)}. Please try again.`, 'error');
+        return false;
+      }
 
-    const saved = await updateFeatureOnServer(restaurant.id, String(key), value as boolean, newSettings);
-    if (!saved) {
-      setFeatureSettings(prev => ({ ...prev, [key]: previousValue }));
-      localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(currentSettings));
-      localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(currentSettings.features || {}));
-      toast(`Failed to save ${String(key)}. Please try again.`, 'error');
-      return false;
+      const confirmedRaw = await fetchSettingsFromServer(restaurant.id);
+      const confirmedSettings = confirmedRaw ? expandPosSettings(confirmedRaw, restaurant.name) : newSettings;
+      const confirmedFeatures = {
+        ...featureSettings,
+        ...(confirmedSettings.features || {}),
+      } as FeatureSettings;
+      if (confirmedFeatures[key] !== value) {
+        setFeatureSettings(confirmedFeatures);
+        toast(`${String(key)} changed on another device. The latest database value was loaded.`, 'warning');
+        return false;
+      }
+
+      // Apply only the value read back from the database.
+      setFeatureSettings(confirmedFeatures);
+      localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(confirmedSettings));
+      localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(confirmedFeatures));
+      onFeatureSettingUpdated?.(restaurant.id, String(key), confirmedFeatures[key] as boolean);
+
+      if (key === 'autoPrintReceipt') {
+        setReceiptConfig(prev => ({ ...prev, autoPrintAfterSale: value as boolean }));
+      } else if (key === 'autoOpenDrawer') {
+        setReceiptConfig(prev => ({ ...prev, openCashDrawerOnPayment: value as boolean }));
+      } else if (key === 'printReceiptForRefund') {
+        setReceiptConfig(prev => ({ ...prev, printReceiptForRefund: value as boolean }));
+      }
+      if (key === 'kitchenEnabled') {
+        toast(value ? 'Kitchen Display installed.' : 'Kitchen Display uninstalled.', 'success');
+      }
+      return true;
+    } finally {
+      settingsHydratedRef.current = true;
+      setSavingFeatureKeys(previous => {
+        const next = new Set(previous);
+        next.delete(key);
+        return next;
+      });
     }
-
-    onFeatureSettingUpdated?.(restaurant.id, String(key), value as boolean);
-
-    // Sync feature toggles to receiptConfig so checkout flow picks them up
-    if (key === 'autoPrintReceipt') {
-      setReceiptConfig(prev => ({ ...prev, autoPrintAfterSale: value as boolean }));
-    } else if (key === 'autoOpenDrawer') {
-      setReceiptConfig(prev => ({ ...prev, openCashDrawerOnPayment: value as boolean }));
-    } else if (key === 'printReceiptForRefund') {
-      setReceiptConfig(prev => ({ ...prev, printReceiptForRefund: value as boolean }));
-    }
-    return true;
   };
 
   const handleToggleGroupMenuByCategory = async () => {
@@ -6889,7 +7024,7 @@ const PosOnlyView: React.FC<Props> = ({
     });
   };
 
-  const handleSaveDepartment = () => {
+  const handleSaveDepartment = async () => {
     const name = departmentDraftName.trim();
     if (!name) {
       toast('Please enter a department name.', 'warning');
@@ -6912,17 +7047,69 @@ const PosOnlyView: React.FC<Props> = ({
     const updated = departmentEditorMode === 'edit' && editingDepartmentName
       ? kitchenDivisions.map(dep => dep.name === editingDepartmentName ? savedDepartment : dep)
       : [...kitchenDivisions, savedDepartment];
-    setKitchenDivisions(updated);
-    resetDepartmentEditor();
-    onSaveKitchenDivisions?.(updated);
+    setIsSavingDepartment(true);
+    try {
+      const renamedDepartment = departmentEditorMode === 'edit'
+        && editingDepartmentName
+        && editingDepartmentName !== name
+        ? { oldName: editingDepartmentName, newName: name }
+        : undefined;
+      const saved = await Promise.resolve(onSaveKitchenDivisions?.(updated, renamedDepartment) ?? false);
+      if (!saved) {
+        toast('Unable to save kitchen departments. No changes were applied.', 'error');
+        return;
+      }
+      setKitchenDivisions(updated);
+      if (renamedDepartment) {
+        setStaffList(previous => {
+          const next = previous.map(staff => ({
+            ...staff,
+            kitchen_categories: Array.isArray(staff.kitchen_categories)
+              ? staff.kitchen_categories.map((department: string) => (
+                  department === renamedDepartment.oldName ? renamedDepartment.newName : department
+                ))
+              : staff.kitchen_categories,
+          }));
+          localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(next));
+          return next;
+        });
+      }
+      resetDepartmentEditor();
+      toast('Kitchen departments saved.', 'success');
+    } catch (error: any) {
+      toast(`Unable to save kitchen departments: ${error?.message || 'Unknown error'}`, 'error');
+    } finally {
+      setIsSavingDepartment(false);
+    }
   };
 
-  const handleRemoveDivision = (name: string) => {
+  const handleRemoveDivision = async (name: string) => {
     setDepartmentActionMenuName(null);
+    const assignedStaff = staffList.filter(staff => (
+      staff.role === 'KITCHEN'
+      && Array.isArray(staff.kitchen_categories)
+      && staff.kitchen_categories.includes(name)
+    ));
+    if (assignedStaff.length > 0) {
+      toast(`Reassign ${assignedStaff.length} kitchen staff member${assignedStaff.length === 1 ? '' : 's'} before deleting this department.`, 'warning');
+      return;
+    }
     const updated = kitchenDivisions.filter(d => d.name !== name);
-    setKitchenDivisions(updated);
-    if (editingDepartmentName === name) resetDepartmentEditor();
-    onSaveKitchenDivisions?.(updated);
+    setIsSavingDepartment(true);
+    try {
+      const saved = await Promise.resolve(onSaveKitchenDivisions?.(updated) ?? false);
+      if (!saved) {
+        toast('Unable to delete the kitchen department.', 'error');
+        return;
+      }
+      setKitchenDivisions(updated);
+      if (editingDepartmentName === name) resetDepartmentEditor();
+      toast('Kitchen department deleted.', 'success');
+    } catch (error: any) {
+      toast(`Unable to delete the kitchen department: ${error?.message || 'Unknown error'}`, 'error');
+    } finally {
+      setIsSavingDepartment(false);
+    }
   };
 
   // QR order auto-approve + auto-print
@@ -7178,7 +7365,7 @@ const PosOnlyView: React.FC<Props> = ({
                           <Edit3 size={15} />
                         </button>
                         <button
-                          onClick={() => handleRemoveStaff(staff, idx)}
+                          onClick={() => handleRemoveStaff(staff)}
                           className="p-2 text-slate-400 hover:text-red-500 transition-colors rounded-lg hover:bg-slate-100 dark:text-gray-400 dark:hover:bg-gray-700/50"
                           title="Remove staff"
                         >
@@ -7606,9 +7793,10 @@ const PosOnlyView: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={handleSaveDepartment}
-                          className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-orange-600"
+                          disabled={isSavingDepartment}
+                          className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-orange-600 disabled:cursor-wait disabled:opacity-60"
                         >
-                          Save Changes
+                          {isSavingDepartment ? 'Saving...' : 'Save Changes'}
                         </button>
                       </div>
                     </div>
@@ -7635,8 +7823,8 @@ const PosOnlyView: React.FC<Props> = ({
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Staff assigned to kitchen role can access the Kitchen Display.</p>
               {kitchenStaff.length > 0 ? (
                 <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700 mb-4">
-                  {kitchenStaff.map((staff: any, idx: number) => (
-                    <div key={idx} className="flex items-center justify-between py-3">
+                  {kitchenStaff.map((staff: any) => (
+                    <div key={staff.id || staff.username} className="flex items-center justify-between gap-3 py-3">
                       <div>
                         <p className="text-sm font-medium text-gray-900 dark:text-white">{staff.username}</p>
                         <div className="flex items-center gap-2 mt-1">
@@ -7646,12 +7834,23 @@ const PosOnlyView: React.FC<Props> = ({
                           </span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleRemoveStaff(staff, staffList.indexOf(staff))}
-                        className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleEditStaff(staff, staffList.indexOf(staff))}
+                          className="p-2 text-gray-400 hover:text-orange-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                          title="Edit kitchen staff department"
+                        >
+                          <Edit3 size={15} />
+                        </button>
+                        <button
+                          onClick={() => handleRemoveStaff(staff)}
+                          disabled={deletingStaffIds.has(staff.id)}
+                          className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 disabled:cursor-wait disabled:opacity-50 dark:hover:bg-gray-700/50"
+                          title="Delete kitchen staff"
+                        >
+                          {deletingStaffIds.has(staff.id) ? <RotateCw size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -10159,9 +10358,10 @@ const PosOnlyView: React.FC<Props> = ({
                                     else if (m.addonId === 'online-shop') updateFeatureSetting('onlineShopEnabled', false);
                                     else if (m.addonId === 'shift') updateFeatureSetting('shiftEnabled', false);
                                   }}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-red-600 transition-all hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
+                                  disabled={addonPanelMeta[activeSettingsPanel].addonId === 'kitchen' && savingFeatureKeys.has('kitchenEnabled')}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-red-600 transition-all hover:bg-red-100 disabled:cursor-wait disabled:opacity-60 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
                                 >
-                                  <X size={12} /> Uninstall
+                                  {addonPanelMeta[activeSettingsPanel].addonId === 'kitchen' && savingFeatureKeys.has('kitchenEnabled') ? <RotateCw size={12} className="animate-spin" /> : <X size={12} />} Uninstall
                                 </button>
                               ) : (
                                 <button
@@ -10175,10 +10375,10 @@ const PosOnlyView: React.FC<Props> = ({
                                     else if (m.addonId === 'online-shop') updateFeatureSetting('onlineShopEnabled', true);
                                     else if (m.addonId === 'shift') updateFeatureSetting('shiftEnabled', true);
                                   }}
-                                  disabled={(['qr','tableside','online-shop'].includes(addonPanelMeta[activeSettingsPanel].addonId) && !canUseQr) || (addonPanelMeta[activeSettingsPanel].addonId === 'kitchen' && !canUseKitchen)}
+                                  disabled={(['qr','tableside','online-shop'].includes(addonPanelMeta[activeSettingsPanel].addonId) && !canUseQr) || (addonPanelMeta[activeSettingsPanel].addonId === 'kitchen' && (!canUseKitchen || savingFeatureKeys.has('kitchenEnabled')))}
                                   className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-green-600 transition-all hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20"
                                 >
-                                  <Download size={12} /> Install
+                                  {addonPanelMeta[activeSettingsPanel].addonId === 'kitchen' && savingFeatureKeys.has('kitchenEnabled') ? <RotateCw size={12} className="animate-spin" /> : <Download size={12} />} Install
                                 </button>
                               )}
                               <button
@@ -10692,7 +10892,7 @@ const PosOnlyView: React.FC<Props> = ({
                 <div>
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Role</label>
                   {/* Show auto-MANAGER hint only when adding first staff */}
-                  {!isEditingStaff && staffList.length === 0 && (
+                  {!isEditingStaff && staffList.length === 0 && newStaffRole === 'CASHIER' && (
                     <p className="text-[9px] text-purple-500 font-bold mb-2 ml-1">
                       This is the first staff account — they will automatically be assigned as <span className="uppercase">Manager</span>.
                     </p>

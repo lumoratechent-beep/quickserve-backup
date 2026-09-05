@@ -4,6 +4,14 @@ import { CartItem, KitchenDepartment, Order, OrderStatus, Restaurant, Subscripti
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
 import printerService, { DEFAULT_KITCHEN_TICKET_CONFIG, KitchenTicketConfig, SavedPrinter } from '../services/printerService';
+import {
+  areAllKdsItemsCooked,
+  areAllKdsItemsServed,
+  findCurrentKdsItemIndex,
+  getAggregateKdsOrderStatus,
+  getKdsItemStatus,
+  markKdsScopeServed,
+} from '../lib/kdsOrderState';
 
 interface Props {
   restaurant: Restaurant;
@@ -13,7 +21,7 @@ interface Props {
   lastSyncTime?: Date;
   subscription?: Subscription | null;
   onUpdateOrder: (orderId: string, status: OrderStatus) => void | Promise<void>;
-  onUpdateOrderItems?: (orderId: string, items: CartItem[], total: number) => void;
+  onUpdateOrderItems?: (orderId: string, items: CartItem[], total: number, remark?: string, updateNote?: string, status?: OrderStatus) => void;
   onLogout?: () => void;
   networkMeta?: {
     label: string;
@@ -70,28 +78,9 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
 
 const getKitchenCategoryKey = (value: any): string => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
 
-const getItemKitchenStatus = (item: CartItem, fallbackStatus: OrderStatus): OrderStatus => item.status || fallbackStatus;
-
-const getAggregateStatusFromItems = (items: CartItem[], fallbackStatus: OrderStatus): OrderStatus => {
-  const activeItems = items.filter(item => getItemKitchenStatus(item, fallbackStatus) !== OrderStatus.CANCELLED);
-  if (items.length > 0 && activeItems.length === 0) return OrderStatus.CANCELLED;
-  if (activeItems.some(item => {
-    const status = getItemKitchenStatus(item, fallbackStatus);
-    return status === OrderStatus.PREPARING || status === OrderStatus.SERVED || status === OrderStatus.COMPLETED;
-  })) return OrderStatus.PREPARING;
-  if (fallbackStatus === OrderStatus.PREPARING) return OrderStatus.PREPARING;
-  if (activeItems.some(item => getItemKitchenStatus(item, fallbackStatus) === OrderStatus.ONGOING)) return OrderStatus.ONGOING;
-  if (activeItems.some(item => getItemKitchenStatus(item, fallbackStatus) === OrderStatus.PENDING)) return OrderStatus.PENDING;
-  return fallbackStatus;
-};
-
-const areAllKitchenItemsCooked = (items: CartItem[], fallbackStatus: OrderStatus): boolean => {
-  const activeItems = items.filter(item => getItemKitchenStatus(item, fallbackStatus) !== OrderStatus.CANCELLED);
-  return activeItems.length > 0 && activeItems.every(item => {
-    const status = getItemKitchenStatus(item, fallbackStatus);
-    return status === OrderStatus.SERVED || status === OrderStatus.COMPLETED;
-  });
-};
+const getItemKitchenStatus = getKdsItemStatus;
+const getAggregateStatusFromItems = getAggregateKdsOrderStatus;
+const areAllKitchenItemsCooked = areAllKdsItemsCooked;
 
 const getKitchenStatusText = (status: OrderStatus) => {
   if (status === OrderStatus.PENDING) return 'Pending';
@@ -172,7 +161,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
   const autoPrintSeenOrderIds = useRef<Set<string> | null>(null);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  const kitchenEnabled = subscription?.plan_id === 'pro_plus' && restaurant.settings?.features?.kitchenEnabled === true;
+  const kitchenEnabled = subscription?.plan_id === 'pro_plus' && restaurant.kitchenEnabled === true;
   const kitchenDivisions = useMemo(() => normalizeKitchenDepartments(restaurant.kitchenDivisions), [restaurant.kitchenDivisions]);
   const kitchenAssignedScopes = useMemo(() => (
     Array.isArray(userKitchenCategories)
@@ -282,7 +271,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
         return isActiveOrder && !areAllKitchenItemsCooked(scopedItems, order.status);
       }
       if (kitchenOrderFilter === 'COOKED') return isActiveOrder && areAllKitchenItemsCooked(scopedItems, order.status);
-      if (kitchenOrderFilter === OrderStatus.SERVED) return order.status === OrderStatus.SERVED;
+      if (kitchenOrderFilter === OrderStatus.SERVED) return areAllKdsItemsServed(scopedItems, order.status);
       return scopedItems.some(item => getItemKitchenStatus(item, order.status) === kitchenOrderFilter);
     }).sort((a, b) => a.timestamp - b.timestamp)
   ), [kitchenFilteredOrders, kitchenOrderFilter, kitchenHasAssignedScope, kitchenScopeCategories]);
@@ -297,7 +286,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
     ? getSortedOrderItems(serveOrderCandidate, kitchenHasAssignedScope ? kitchenScopeCategories : [])
     : [];
   const serveOrder = serveOrderCandidate
-    && serveOrderCandidate.status !== OrderStatus.SERVED
+    && !areAllKdsItemsServed(serveOrderItems, serveOrderCandidate.status)
     && areAllKitchenItemsCooked(serveOrderItems, serveOrderCandidate.status)
       ? serveOrderCandidate
       : null;
@@ -541,7 +530,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
 
     const { data: savedBillRows, error: fetchError } = await supabase
       .from('saved_bills')
-      .select('id,items')
+      .select('id,items,updated_at')
       .eq('restaurant_id', restaurant.id);
     if (fetchError) {
       console.error('Failed to find linked saved bill for kitchen status sync:', fetchError);
@@ -558,23 +547,107 @@ const KitchenDisplayPage: React.FC<Props> = ({
     });
     if (!linkedBill) return;
 
-    const savedItems: CartItem[] = Array.isArray(linkedBill.items) ? linkedBill.items : JSON.parse(linkedBill.items || '[]');
-    const syncedItems = savedItems.map((savedItem, index) => {
-      const kitchenItem = orderItems[index];
-      if (!kitchenItem || kitchenItem.savedBillId !== dispatchId) return savedItem;
+    const kitchenItems = orderItems.filter(item => item.savedBillId === dispatchId);
+    const kitchenById = new Map(kitchenItems.filter(item => item.kdsItemId).map(item => [item.kdsItemId!, item]));
+    const kitchenByLineId = new Map(kitchenItems.filter(item => item.savedBillLineId).map(item => [item.savedBillLineId!, item]));
+    let currentBill = linkedBill;
+
+    // Saved bills are an editable POS mirror of the canonical order. Merge
+    // only KDS state fields and retry if the POS edits the bill concurrently.
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      if (attempt > 0) {
+        const { data: refreshed, error } = await supabase
+          .from('saved_bills')
+          .select('id,items,updated_at')
+          .eq('id', linkedBill.id)
+          .eq('restaurant_id', restaurant.id)
+          .maybeSingle();
+        if (error || !refreshed) {
+          console.error('Failed to refresh linked saved bill for kitchen status sync:', error);
+          return;
+        }
+        currentBill = refreshed;
+      }
+
+      const savedItems: CartItem[] = Array.isArray(currentBill.items)
+        ? currentBill.items
+        : JSON.parse(currentBill.items || '[]');
+      const syncedItems = savedItems.map((savedItem, index) => {
+        const kitchenItem = (savedItem.kdsItemId ? kitchenById.get(savedItem.kdsItemId) : undefined)
+          || (savedItem.savedBillLineId ? kitchenByLineId.get(savedItem.savedBillLineId) : undefined)
+          || kitchenItems[index];
+        if (!kitchenItem || kitchenItem.savedBillId !== dispatchId) return savedItem;
+        return {
+          ...savedItem,
+          kdsItemId: kitchenItem.kdsItemId || savedItem.kdsItemId,
+          kdsRouted: kitchenItem.kdsRouted,
+          status: kitchenItem.status,
+          kitchenStartedAt: kitchenItem.kitchenStartedAt,
+          kitchenCookedAt: kitchenItem.kitchenCookedAt,
+          kitchenCancelReason: kitchenItem.kitchenCancelReason,
+        };
+      });
+      const { data: confirmed, error: updateError } = await supabase
+        .from('saved_bills')
+        .update({ items: syncedItems, updated_at: new Date().toISOString() })
+        .eq('id', currentBill.id)
+        .eq('restaurant_id', restaurant.id)
+        .eq('updated_at', currentBill.updated_at)
+        .select('id')
+        .maybeSingle();
+      if (updateError) {
+        console.error('Failed to sync kitchen item status to saved bill:', updateError);
+        return;
+      }
+      if (confirmed) return;
+    }
+    console.error('Failed to sync kitchen item status to saved bill after concurrent POS edits.');
+  };
+
+  type KdsOrderMutationResult = { items: CartItem[]; total: number; status: OrderStatus };
+
+  const persistKdsOrderMutation = async (
+    orderId: string,
+    mutate: (items: CartItem[], total: number, status: OrderStatus) => { items: CartItem[]; total?: number } | null,
+  ): Promise<KdsOrderMutationResult> => {
+    // Compare-and-swap on updated_at prevents two department screens from
+    // replacing one another's JSON item changes. Conflicts refetch and retry.
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const { data: current, error: fetchError } = await supabase
+        .from('orders')
+        .select('items,total,status,updated_at')
+        .eq('id', orderId)
+        .eq('restaurant_id', restaurant.id)
+        .single();
+      if (fetchError || !current) throw fetchError || new Error('Order not found');
+
+      const currentItems: CartItem[] = Array.isArray(current.items)
+        ? current.items
+        : JSON.parse(current.items || '[]');
+      const currentStatus = current.status as OrderStatus;
+      const mutation = mutate(currentItems, Number(current.total || 0), currentStatus);
+      if (!mutation) throw new Error('This order changed. Review its latest status and try again.');
+
+      const aggregateStatus = getAggregateStatusFromItems(mutation.items, currentStatus);
+      const nextTotal = mutation.total ?? Number(current.total || 0);
+      const { data: confirmed, error: updateError } = await supabase
+        .from('orders')
+        .update({ items: mutation.items, status: aggregateStatus, total: nextTotal })
+        .eq('id', orderId)
+        .eq('restaurant_id', restaurant.id)
+        .eq('updated_at', current.updated_at)
+        .select('items,total,status')
+        .maybeSingle();
+      if (updateError) throw updateError;
+      if (!confirmed) continue;
+
       return {
-        ...savedItem,
-        status: kitchenItem.status,
-        kitchenStartedAt: kitchenItem.kitchenStartedAt,
-        kitchenCookedAt: kitchenItem.kitchenCookedAt,
-        kitchenCancelReason: kitchenItem.kitchenCancelReason,
+        items: Array.isArray(confirmed.items) ? confirmed.items : JSON.parse(confirmed.items || '[]'),
+        total: Number(confirmed.total || 0),
+        status: confirmed.status as OrderStatus,
       };
-    });
-    const { error: updateError } = await supabase
-      .from('saved_bills')
-      .update({ items: syncedItems, updated_at: new Date().toISOString() })
-      .eq('id', linkedBill.id);
-    if (updateError) console.error('Failed to sync kitchen item status to saved bill:', updateError);
+    }
+    throw new Error('Another kitchen screen kept updating this order. Please retry.');
   };
 
   const updateKitchenSingleItemStatus = async (
@@ -591,40 +664,38 @@ const KitchenDisplayPage: React.FC<Props> = ({
     setOpenItemMenuKey(null);
     try {
       const transitionAt = Date.now();
-      const updatedItems = order.items.map((item, index) => {
-        if (index !== targetIndex) return item;
+      const confirmed = await persistKdsOrderMutation(order.id, (currentItems, currentTotal, currentStatus) => {
+        const currentTargetIndex = findCurrentKdsItemIndex(currentItems, targetItem, targetIndex);
+        if (currentTargetIndex < 0) return null;
+        const previousCancelledValue = currentItems.reduce((sum, item) => (
+          getItemKitchenStatus(item, currentStatus) === OrderStatus.CANCELLED
+            ? sum + (Number(item.price || 0) * Number(item.quantity || 0))
+            : sum
+        ), 0);
+        const updatedItems = currentItems.map((item, index) => {
+          if (index !== currentTargetIndex) return item;
+          return {
+            ...item,
+            status: nextStatus,
+            ...(nextStatus === OrderStatus.CANCELLED ? { kitchenCancelReason: cancellationReason || 'Other' } : {}),
+            ...(nextStatus === OrderStatus.PREPARING
+              ? { kitchenStartedAt: item.kitchenStartedAt || transitionAt, kitchenCookedAt: undefined }
+              : {}),
+            ...(nextStatus === OrderStatus.COMPLETED ? { kitchenCookedAt: transitionAt } : {}),
+          };
+        });
+        const updatedCancelledValue = updatedItems.reduce((sum, item) => (
+          getItemKitchenStatus(item, currentStatus) === OrderStatus.CANCELLED
+            ? sum + (Number(item.price || 0) * Number(item.quantity || 0))
+            : sum
+        ), 0);
         return {
-          ...item,
-          status: nextStatus,
-          ...(nextStatus === OrderStatus.CANCELLED ? { kitchenCancelReason: cancellationReason || 'Other' } : {}),
-          ...(nextStatus === OrderStatus.PREPARING
-            ? { kitchenStartedAt: item.kitchenStartedAt || transitionAt, kitchenCookedAt: undefined }
-            : {}),
-          ...(nextStatus === OrderStatus.COMPLETED ? { kitchenCookedAt: transitionAt } : {}),
+          items: updatedItems,
+          total: Math.max(0, currentTotal + previousCancelledValue - updatedCancelledValue),
         };
       });
-      const aggregateStatus = getAggregateStatusFromItems(updatedItems, order.status);
-      const previousCancelledValue = order.items.reduce((sum, item) => (
-        getItemKitchenStatus(item, order.status) === OrderStatus.CANCELLED
-          ? sum + (Number(item.price || 0) * Number(item.quantity || 0))
-          : sum
-      ), 0);
-      const updatedCancelledValue = updatedItems.reduce((sum, item) => (
-        getItemKitchenStatus(item, aggregateStatus) === OrderStatus.CANCELLED
-          ? sum + (Number(item.price || 0) * Number(item.quantity || 0))
-          : sum
-      ), 0);
-      const updatedTotal = Math.max(0, order.total + previousCancelledValue - updatedCancelledValue);
-      const { error } = await supabase
-        .from('orders')
-        .update({ items: updatedItems, status: aggregateStatus, total: updatedTotal })
-        .eq('id', order.id);
-
-      if (error) throw error;
-      await syncKitchenItemsToSavedBill(updatedItems);
-
-      onUpdateOrderItems?.(order.id, updatedItems, updatedTotal);
-      await onUpdateOrder(order.id, aggregateStatus);
+      await syncKitchenItemsToSavedBill(confirmed.items);
+      onUpdateOrderItems?.(order.id, confirmed.items, confirmed.total, undefined, undefined, confirmed.status);
     } catch (error) {
       console.error('Kitchen item status update error:', error);
       toast('Unable to update this food item.', 'error');
@@ -660,25 +731,24 @@ const KitchenDisplayPage: React.FC<Props> = ({
 
   const serveKitchenOrder = async (order: Order) => {
     const scopedItems = getSortedOrderItems(order, kitchenHasAssignedScope ? kitchenScopeCategories : []);
-    if (isServingOrder || order.status === OrderStatus.SERVED || !areAllKitchenItemsCooked(scopedItems, order.status)) return;
+    if (isServingOrder || areAllKdsItemsServed(scopedItems, order.status) || !areAllKitchenItemsCooked(scopedItems, order.status)) return;
     setIsServingOrder(true);
     try {
-      const servedItems = order.items.map(item => (
-        getItemKitchenStatus(item, order.status) === OrderStatus.CANCELLED
-          ? item
-          : { ...item, status: OrderStatus.SERVED }
-      ));
-      const { error } = await supabase
-        .from('orders')
-        .update({ items: servedItems, status: OrderStatus.SERVED })
-        .eq('id', order.id);
-      if (error) throw error;
+      const scopeCategories = kitchenHasAssignedScope ? kitchenScopeCategories : [];
+      const confirmed = await persistKdsOrderMutation(order.id, (currentItems, currentTotal, currentStatus) => {
+        const scopeKeys = new Set(scopeCategories.map(getKitchenCategoryKey));
+        const currentScopedItems = currentItems.filter(item => (
+          scopeCategories.length === 0
+          || scopeKeys.has(getKitchenCategoryKey(item.category))
+        ));
+        if (!areAllKitchenItemsCooked(currentScopedItems, currentStatus)) return null;
+        return { items: markKdsScopeServed(currentItems, currentStatus, scopeCategories), total: currentTotal };
+      });
 
-      await syncKitchenItemsToSavedBill(servedItems);
-      onUpdateOrderItems?.(order.id, servedItems, order.total);
-      await onUpdateOrder(order.id, OrderStatus.SERVED);
+      await syncKitchenItemsToSavedBill(confirmed.items);
+      onUpdateOrderItems?.(order.id, confirmed.items, confirmed.total, undefined, undefined, confirmed.status);
       setServeOrderId(null);
-      toast(`Order #${order.id} served.`, 'success');
+      toast(`Order #${order.id} served for this kitchen department.`, 'success');
     } catch (error) {
       console.error('Serve kitchen order error:', error);
       toast('Unable to serve this order. Please try again.', 'error');
@@ -903,7 +973,8 @@ const KitchenDisplayPage: React.FC<Props> = ({
               const visibleKitchenItems = getSortedOrderItems(order, kitchenHasAssignedScope ? kitchenScopeCategories : []);
               const isExpanded = expandedOrderId === order.id;
               const allItemsCooked = areAllKitchenItemsCooked(visibleKitchenItems, order.status);
-              const canServeOrder = allItemsCooked && (
+              const allItemsServed = areAllKdsItemsServed(visibleKitchenItems, order.status);
+              const canServeOrder = allItemsCooked && !allItemsServed && (
                 order.status === OrderStatus.PENDING
                 || order.status === OrderStatus.ONGOING
                 || order.status === OrderStatus.PREPARING
@@ -1002,7 +1073,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
                             ) : (
                               <span className="h-4 w-4 rounded-full border border-gray-400" title="Waiting" />
                             )}
-                            {order.status !== OrderStatus.SERVED && (
+                            {!isServedItem && (
                               <button
                                 type="button"
                                 onClick={event => {

@@ -30,7 +30,8 @@ function getItemDisplayPrice(item: MenuItem): number {
 }
 
 const getInitialOnlineOrderStatus = (restaurant: Restaurant): OrderStatus => {
-  const kitchenEnabled = restaurant.kitchenEnabled === true || (restaurant as any).kitchen_enabled === true || restaurant.settings?.features?.kitchenEnabled === true;
+  // The dedicated restaurant column is the authoritative KDS installation flag.
+  const kitchenEnabled = restaurant.kitchenEnabled === true;
   if (!kitchenEnabled) return OrderStatus.SERVED;
   return OrderStatus.PENDING;
 };

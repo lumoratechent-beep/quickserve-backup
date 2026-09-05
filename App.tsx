@@ -14,6 +14,7 @@ import { isSubscriptionAccessLocked } from './lib/subscriptionService';
 import { getDefaultPromotionDiscount, normalizeMenuPromotionDiscount } from './lib/menuPricing';
 import { fetchIngredientItemsFromDb } from './lib/ingredientItems';
 import { fetchStockItemsFromDb, saveStockItemsToDb, saveStockMovementsToDb } from './lib/stockItems';
+import { ensureKdsItemIdentities, getAggregateKdsOrderStatus } from './lib/kdsOrderState';
 
 // Keep unrelated screens out of the Back Office startup module graph.
 const CustomerView = React.lazy(() => import('./pages/CustomerView'));
@@ -67,7 +68,7 @@ const LIVE_ORDER_POLL_INTERVAL_MS = 15 * 1000;
 const LIVE_ORDER_POLLING_ROLES: Role[] = ['VENDOR', 'CASHIER', 'KITCHEN', 'ORDER_TAKER'];
 const RESTAURANT_COLUMNS = 'id,name,logo,vendor_id,location_name,created_at,is_online,slug,kitchen_divisions,kitchen_enabled,settings,categories,modifiers,add_on_items';
 const MENU_ITEM_COLUMNS = 'id,restaurant_id,name,description,price,image,category,is_archived,sizes,temp_options,other_variants,add_ons';
-const ORDER_COLUMNS = 'id,items,total,status,timestamp,customer_id,restaurant_id,table_number,dining_type,location_name,remark,rejection_reason,rejection_note,payment_method,cashier_name,amount_received,change_amount,order_source,e_receipt_id';
+const ORDER_COLUMNS = 'id,items,total,status,timestamp,customer_id,restaurant_id,table_number,dining_type,location_name,remark,rejection_reason,rejection_note,payment_method,cashier_name,amount_received,change_amount,order_source,e_receipt_id,updated_at';
 const SUBSCRIPTION_COLUMNS = 'id,restaurant_id,plan_id,pending_plan_id,status,stripe_customer_id,stripe_subscription_id,billing_interval,pending_billing_interval,pending_change_effective_at,trial_start,trial_end,current_period_start,current_period_end,cancel_at_period_end,duitnow_enabled,access_locked,access_lock_at,access_locked_at,created_at,updated_at';
 
 const QuickServeLoader = ({ label = 'Syncing Hub' }: { label?: string }) => (
@@ -196,7 +197,7 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
 const getKitchenCategoryKey = (value: any): string => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
 
 const isKitchenEnabledForRouting = (restaurant: Restaurant | undefined): boolean => (
-  restaurant?.kitchenEnabled === true && restaurant?.settings?.features?.kitchenEnabled === true
+  restaurant?.kitchenEnabled === true
 );
 
 const hasInstalledLiveOrderFeature = (restaurant: Restaurant | undefined): boolean => {
@@ -207,22 +208,28 @@ const hasInstalledLiveOrderFeature = (restaurant: Restaurant | undefined): boole
     || isKitchenEnabledForRouting(restaurant);
 };
 
-const getInitialKitchenItemStatus = (restaurant: Restaurant | undefined): OrderStatus => {
-  if (!isKitchenEnabledForRouting(restaurant)) return OrderStatus.ONGOING;
-  return OrderStatus.PENDING;
+const withInitialKitchenItemStatuses = (restaurant: Restaurant | undefined, items: CartItem[]): CartItem[] => {
+  const kitchenEnabled = isKitchenEnabledForRouting(restaurant);
+  const departments = normalizeKitchenDepartments(restaurant?.kitchenDivisions);
+  const routedCategoryKeys = new Set(
+    departments.flatMap(department => department.categories.map(getKitchenCategoryKey)).filter(Boolean),
+  );
+
+  return ensureKdsItemIdentities(items.map(item => {
+    const kdsRouted = kitchenEnabled
+      && (departments.length === 0 || routedCategoryKeys.has(getKitchenCategoryKey(item.category)));
+    return {
+      ...item,
+      kdsRouted,
+      status: !kitchenEnabled
+        ? OrderStatus.ONGOING
+        : kdsRouted ? OrderStatus.PENDING : OrderStatus.SERVED,
+    };
+  }));
 };
 
-const withInitialKitchenItemStatuses = (restaurant: Restaurant | undefined, items: CartItem[]): CartItem[] => (
-  items.map(item => ({ ...item, status: getInitialKitchenItemStatus(restaurant) }))
-);
-
-const getAggregateKitchenOrderStatus = (items: CartItem[]): OrderStatus => {
-  if (items.some(item => item.status === OrderStatus.PENDING)) return OrderStatus.PENDING;
-  if (items.some(item => item.status === OrderStatus.ONGOING)) return OrderStatus.ONGOING;
-  if (items.some(item => item.status === OrderStatus.PREPARING)) return OrderStatus.PREPARING;
-  if (items.some(item => item.status === OrderStatus.SERVED)) return OrderStatus.SERVED;
-  return OrderStatus.SERVED;
-};
+const getAggregateKitchenOrderStatus = (items: CartItem[]): OrderStatus =>
+  getAggregateKdsOrderStatus(items, OrderStatus.ONGOING);
 
 const getInitialKitchenOrderStatus = (items: CartItem[]): OrderStatus => getAggregateKitchenOrderStatus(items);
 
@@ -1383,7 +1390,8 @@ const App: React.FC = () => {
               amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
               changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
               orderSource: o.order_source || undefined,
-              eReceiptId: o.e_receipt_id || undefined
+              eReceiptId: o.e_receipt_id || undefined,
+              updatedAt: o.updated_at || undefined,
             };
             const localOrder = prev.find(p => p.id === o.id);
             if (localOrder) {
@@ -1814,6 +1822,7 @@ const App: React.FC = () => {
                 changeAmount: o.change_amount != null ? Number(o.change_amount) : existing.changeAmount,
                 orderSource: o.order_source ?? existing.orderSource,
                 eReceiptId: o.e_receipt_id ?? existing.eReceiptId,
+                updatedAt: o.updated_at ?? existing.updatedAt,
               };
             }
             return existing;
@@ -1840,7 +1849,8 @@ const App: React.FC = () => {
               amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
               changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
               orderSource: o.order_source || undefined,
-              eReceiptId: o.e_receipt_id || undefined
+              eReceiptId: o.e_receipt_id || undefined,
+              updatedAt: o.updated_at || undefined,
             };
             const prepended = [mappedOrder, ...updated].slice(0, 200);
             rememberKnownOrderId(mappedOrder.restaurantId, mappedOrder.id);
@@ -1881,6 +1891,8 @@ const App: React.FC = () => {
             ...r,
             isOnline: res.is_online === true || res.is_online === null,
             ...(expandedSettings !== undefined ? { settings: expandedSettings } : {}),
+            kitchenEnabled: res.kitchen_enabled === true,
+            kitchenDivisions: normalizeKitchenDepartments(res.kitchen_divisions),
           } : r);
           persistCache('qs_cache_restaurants', updated);
           return updated;
@@ -1941,6 +1953,7 @@ const App: React.FC = () => {
       changeAmount: row.change_amount != null ? Number(row.change_amount) : undefined,
       orderSource: row.order_source || undefined,
       eReceiptId: row.e_receipt_id || undefined,
+      updatedAt: row.updated_at || undefined,
     });
 
     const mergeKitchenOrders = (incomingOrders: Order[]) => {
@@ -2047,6 +2060,48 @@ const App: React.FC = () => {
     }, 60000);
     return () => window.clearInterval(interval);
   }, [currentUser?.restaurantId, currentRole, fetchAnnouncements]);
+
+  // Keep an active kitchen session's department assignment authoritative. A
+  // manager's staff edit takes effect on the other device without stale login
+  // data surviving in localStorage.
+  useEffect(() => {
+    if (currentUser?.role !== 'KITCHEN' || !currentUser.id) return;
+    const userId = currentUser.id;
+    const applyKitchenUser = (row: any) => {
+      if (!row || row.id !== userId) return;
+      setCurrentUser(previous => {
+        if (!previous || previous.id !== userId) return previous;
+        const updated: User = {
+          ...previous,
+          username: row.username ?? previous.username,
+          isActive: row.is_active ?? previous.isActive,
+          kitchenCategories: Array.isArray(row.kitchen_categories) ? row.kitchen_categories : undefined,
+        };
+        localStorage.setItem('qs_user', JSON.stringify(updated));
+        return updated;
+      });
+    };
+
+    const refreshKitchenUser = async () => {
+      const { data } = await supabase
+        .from('users')
+        .select('id,username,is_active,kitchen_categories')
+        .eq('id', userId)
+        .maybeSingle();
+      applyKitchenUser(data);
+    };
+    void refreshKitchenUser();
+
+    const channel = supabase
+      .channel(`qs-kitchen-user-${userId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${userId}` }, payload => {
+        applyKitchenUser(payload.new);
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [currentUser?.id, currentUser?.role]);
 
   const handleScanSimulation = (locationName: string, tableNo: string) => {
     setSessionLocation(locationName);
@@ -2273,7 +2328,7 @@ const App: React.FC = () => {
       toast('Kitchen Display System has been disabled. You have been logged out.', 'warning');
       handleLogout();
     }
-  }, [currentUser?.role, activeVendorRes?.kitchenEnabled, activeVendorRes?.settings?.features?.kitchenEnabled]);
+  }, [currentUser?.role, activeVendorRes?.kitchenEnabled]);
 
   // Block ORDER_TAKER users at runtime if tableside ordering is disabled
   useEffect(() => {
@@ -2586,8 +2641,19 @@ const App: React.FC = () => {
     }
   };
 
-  const updateOrderItems = (orderId: string, items: CartItem[], total: number, remark?: string, updateNote?: string) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, items, total, ...(remark !== undefined ? { remark } : {}), ...(updateNote !== undefined ? { rejectionNote: updateNote } : {}) } : o));
+  const updateOrderItems = (orderId: string, items: CartItem[], total: number, remark?: string, updateNote?: string, status?: OrderStatus) => {
+    setOrders(prev => {
+      const updated = prev.map(o => o.id === orderId ? {
+        ...o,
+        items,
+        total,
+        ...(status !== undefined ? { status } : {}),
+        ...(remark !== undefined ? { remark } : {}),
+        ...(updateNote !== undefined ? { rejectionNote: updateNote } : {}),
+      } : o);
+      persistCache('qs_cache_orders', updated);
+      return updated;
+    });
   };
 
   const toggleVendorOnline = async (restaurantId: string, currentStatus: boolean) => {
@@ -3720,18 +3786,63 @@ const App: React.FC = () => {
     toast('Your store is ready!', 'success');
   };
 
-  const saveKitchenDivisions = async (restaurantId: string, divisions: KitchenDepartment[]) => {
-    const { error } = await supabase
-      .from('restaurants')
-      .update({ kitchen_divisions: divisions })
-      .eq('id', restaurantId);
+  const saveKitchenDivisions = async (
+    restaurantId: string,
+    divisions: KitchenDepartment[],
+    renamedDepartment?: { oldName: string; newName: string },
+  ): Promise<boolean> => {
+    const { error: rpcError } = await supabase.rpc('save_kds_departments', {
+      p_restaurant_id: restaurantId,
+      p_divisions: divisions,
+      p_old_name: renamedDepartment?.oldName || null,
+      p_new_name: renamedDepartment?.newName || null,
+    });
+    let error = rpcError;
+
+    // Backward-compatible rollout path until the RPC migration is installed.
+    if (rpcError) {
+      const fallback = await supabase
+        .from('restaurants')
+        .update({ kitchen_divisions: divisions })
+        .eq('id', restaurantId);
+      error = fallback.error;
+      if (!error && renamedDepartment) {
+        const { data: kitchenUsers, error: usersError } = await supabase
+          .from('users')
+          .select('id,kitchen_categories')
+          .eq('restaurant_id', restaurantId)
+          .eq('role', 'KITCHEN');
+        if (usersError) error = usersError;
+        for (const kitchenUser of kitchenUsers || []) {
+          if (!Array.isArray(kitchenUser.kitchen_categories) || !kitchenUser.kitchen_categories.includes(renamedDepartment.oldName)) continue;
+          const updateResult = await supabase
+            .from('users')
+            .update({
+              kitchen_categories: kitchenUser.kitchen_categories.map((name: string) => (
+                name === renamedDepartment.oldName ? renamedDepartment.newName : name
+              )),
+            })
+            .eq('id', kitchenUser.id);
+          if (updateResult.error) {
+            error = updateResult.error;
+            break;
+          }
+        }
+      }
+    }
     
     if (error) {
       console.warn('Failed to save kitchen divisions:', error.message);
+      return false;
     }
     
     localStorage.setItem(`qs_kitchen_divisions_${restaurantId}`, JSON.stringify(divisions));
-    setRestaurants(prev => prev.map(r => r.id === restaurantId ? { ...r, kitchenDivisions: divisions } : r));
+    setRestaurants(prev => {
+      const updated = prev.map(r => r.id === restaurantId ? { ...r, kitchenDivisions: divisions } : r);
+      persistCache('qs_cache_restaurants', updated);
+      return updated;
+    });
+    return true;
   };
 
   if (isLoading) {
@@ -4269,7 +4380,7 @@ const App: React.FC = () => {
                 onKitchenUpdateOrder={updateOrderStatus}
                 onToggleOnline={() => toggleVendorOnline(activeVendorRes.id, activeVendorRes.isOnline ?? true)}
                 userRole="VENDOR"
-                onSaveKitchenDivisions={(divisions) => saveKitchenDivisions(activeVendorRes.id, divisions)}
+                onSaveKitchenDivisions={(divisions, renamedDepartment) => saveKitchenDivisions(activeVendorRes.id, divisions, renamedDepartment)}
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
                 onSubscriptionUpdated={async () => { await Promise.all([fetchSubscriptions(), fetchRestaurants()]); }}
                 onFeatureSettingUpdated={handleFeatureSettingUpdated}

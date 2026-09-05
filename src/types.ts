@@ -177,6 +177,10 @@ export interface SelectedAddOn {
 export interface CartItem extends MenuItem {
   quantity: number;
   restaurantId: string;
+  /** Stable identity for conflict-safe, item-level KDS mutations. */
+  kdsItemId?: string;
+  /** False when the item is intentionally outside every configured KDS route. */
+  kdsRouted?: boolean;
   originalPrice?: number;
   savedBillId?: string;
   savedBillLineId?: string;

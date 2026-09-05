@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Fetch current restaurant settings
       const { data, error } = await supabase
         .from('restaurants')
-        .select('settings, name, id')
+        .select('settings, name, id, kitchen_enabled')
         .eq('id', restaurantId)
         .single();
 
@@ -29,10 +29,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(404).json({ error: 'Restaurant not found' });
       }
 
+      const settings = data.settings && typeof data.settings === 'object' ? data.settings : {};
       return res.status(200).json({
         id: data.id,
         name: data.name,
-        settings: data.settings || {},
+        settings: {
+          ...settings,
+          features: {
+            ...(settings.features && typeof settings.features === 'object' ? settings.features : {}),
+            kitchenEnabled: data.kitchen_enabled === true,
+          },
+        },
       });
     } else if (req.method === 'POST') {
       // Update restaurant settings
@@ -47,17 +54,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         updatePayload.kitchen_enabled = settings.features.kitchenEnabled;
       }
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('restaurants')
         .update(updatePayload)
-        .eq('id', restaurantId);
+        .eq('id', restaurantId)
+        .select('settings,kitchen_enabled')
+        .maybeSingle();
 
-      if (error) {
+      if (error || !data) {
         console.error('Settings update error:', error);
         return res.status(500).json({ error: 'Failed to update settings' });
       }
 
-      return res.status(200).json({ success: true, settings });
+      const confirmedSettings = data.settings && typeof data.settings === 'object' ? data.settings : {};
+      return res.status(200).json({
+        success: true,
+        settings: {
+          ...confirmedSettings,
+          features: {
+            ...(confirmedSettings.features && typeof confirmedSettings.features === 'object' ? confirmedSettings.features : {}),
+            kitchenEnabled: data.kitchen_enabled === true,
+          },
+        },
+      });
     } else {
       return res.status(405).json({ error: 'Method not allowed' });
     }
