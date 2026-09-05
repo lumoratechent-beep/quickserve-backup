@@ -148,8 +148,12 @@ const KitchenDisplayPage: React.FC<Props> = ({
   const [printingKitchenOrderId, setPrintingKitchenOrderId] = useState<string | null>(null);
   const [showMailPanel, setShowMailPanel] = useState(false);
   const [openItemMenuKey, setOpenItemMenuKey] = useState<string | null>(null);
+  const [cancelItemTarget, setCancelItemTarget] = useState<{ order: Order; item: CartItem; itemKey: string } | null>(null);
+  const [cancelReason, setCancelReason] = useState('Out of stock');
+  const [customCancelReason, setCustomCancelReason] = useState('');
   const [updatingItemKeys, setUpdatingItemKeys] = useState<Set<string>>(new Set());
   const [currentKitchenPage, setCurrentKitchenPage] = useState(1);
+  const [pageSlideDirection, setPageSlideDirection] = useState<'NEXT' | 'PREVIOUS'>('NEXT');
   const [ticketColumns, setTicketColumns] = useState<3 | 4 | 5>(() => {
     const saved = Number(localStorage.getItem(`kds_tickets_per_page_${restaurant.id}`));
     return saved === 3 || saved === 5 ? saved : 4;
@@ -531,11 +535,54 @@ const KitchenDisplayPage: React.FC<Props> = ({
     };
   }, [activeKitchenPrinter, restaurant.id]);
 
+  const syncKitchenItemsToSavedBill = async (orderItems: CartItem[]) => {
+    const dispatchId = orderItems.find(item => item.savedBillId)?.savedBillId;
+    if (!dispatchId) return;
+
+    const { data: savedBillRows, error: fetchError } = await supabase
+      .from('saved_bills')
+      .select('id,items')
+      .eq('restaurant_id', restaurant.id);
+    if (fetchError) {
+      console.error('Failed to find linked saved bill for kitchen status sync:', fetchError);
+      return;
+    }
+
+    const linkedBill = savedBillRows?.find((row: any) => {
+      try {
+        const items = Array.isArray(row.items) ? row.items : JSON.parse(row.items || '[]');
+        return items.some((item: CartItem) => item.savedBillId === dispatchId);
+      } catch {
+        return false;
+      }
+    });
+    if (!linkedBill) return;
+
+    const savedItems: CartItem[] = Array.isArray(linkedBill.items) ? linkedBill.items : JSON.parse(linkedBill.items || '[]');
+    const syncedItems = savedItems.map((savedItem, index) => {
+      const kitchenItem = orderItems[index];
+      if (!kitchenItem || kitchenItem.savedBillId !== dispatchId) return savedItem;
+      return {
+        ...savedItem,
+        status: kitchenItem.status,
+        kitchenStartedAt: kitchenItem.kitchenStartedAt,
+        kitchenCookedAt: kitchenItem.kitchenCookedAt,
+        kitchenCancelReason: kitchenItem.kitchenCancelReason,
+      };
+    });
+    const { error: updateError } = await supabase
+      .from('saved_bills')
+      .update({ items: syncedItems, updated_at: new Date().toISOString() })
+      .eq('id', linkedBill.id);
+    if (updateError) console.error('Failed to sync kitchen item status to saved bill:', updateError);
+  };
+
   const updateKitchenSingleItemStatus = async (
     order: Order,
     targetItem: CartItem,
     itemKey: string,
     nextStatus: OrderStatus,
+    cancellationReason?: string,
   ) => {
     const targetIndex = order.items.indexOf(targetItem);
     if (targetIndex < 0 || updatingItemKeys.has(itemKey)) return;
@@ -549,6 +596,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
         return {
           ...item,
           status: nextStatus,
+          ...(nextStatus === OrderStatus.CANCELLED ? { kitchenCancelReason: cancellationReason || 'Other' } : {}),
           ...(nextStatus === OrderStatus.PREPARING
             ? { kitchenStartedAt: item.kitchenStartedAt || transitionAt, kitchenCookedAt: undefined }
             : {}),
@@ -573,6 +621,8 @@ const KitchenDisplayPage: React.FC<Props> = ({
         .eq('id', order.id);
 
       if (error) throw error;
+      await syncKitchenItemsToSavedBill(updatedItems);
+
       onUpdateOrderItems?.(order.id, updatedItems, updatedTotal);
       await onUpdateOrder(order.id, aggregateStatus);
     } catch (error) {
@@ -592,6 +642,22 @@ const KitchenDisplayPage: React.FC<Props> = ({
     if (nextStatus) void updateKitchenSingleItemStatus(order, item, itemKey, nextStatus);
   };
 
+  const openCancelItemReasons = (order: Order, item: CartItem, itemKey: string) => {
+    setOpenItemMenuKey(null);
+    setCancelReason('Out of stock');
+    setCustomCancelReason('');
+    setCancelItemTarget({ order, item, itemKey });
+  };
+
+  const confirmCancelItem = () => {
+    if (!cancelItemTarget) return;
+    const reason = cancelReason === 'Other' ? customCancelReason.trim() : cancelReason;
+    if (!reason) return;
+    const { order, item, itemKey } = cancelItemTarget;
+    setCancelItemTarget(null);
+    void updateKitchenSingleItemStatus(order, item, itemKey, OrderStatus.CANCELLED, reason);
+  };
+
   const serveKitchenOrder = async (order: Order) => {
     const scopedItems = getSortedOrderItems(order, kitchenHasAssignedScope ? kitchenScopeCategories : []);
     if (isServingOrder || order.status === OrderStatus.SERVED || !areAllKitchenItemsCooked(scopedItems, order.status)) return;
@@ -608,6 +674,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
         .eq('id', order.id);
       if (error) throw error;
 
+      await syncKitchenItemsToSavedBill(servedItems);
       onUpdateOrderItems?.(order.id, servedItems, order.total);
       await onUpdateOrder(order.id, OrderStatus.SERVED);
       setServeOrderId(null);
@@ -672,6 +739,13 @@ const KitchenDisplayPage: React.FC<Props> = ({
     localStorage.setItem(`kds_font_size_${restaurant.id}`, ticketFontSize);
   }, [restaurant.id, ticketFontSize]);
 
+  const goToKitchenPage = (requestedPage: number) => {
+    const nextPage = Math.min(kitchenPageCount, Math.max(1, requestedPage));
+    if (nextPage === currentKitchenPage) return;
+    setPageSlideDirection(nextPage > currentKitchenPage ? 'NEXT' : 'PREVIOUS');
+    setCurrentKitchenPage(nextPage);
+  };
+
   const handleKitchenTouchStart = (event: React.TouchEvent<HTMLElement>) => {
     const touch = event.touches[0];
     swipeStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
@@ -686,9 +760,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
     const deltaX = touch.clientX - start.x;
     const deltaY = touch.clientY - start.y;
     if (Math.abs(deltaX) < 60 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.25) return;
-    setCurrentKitchenPage(page => deltaX < 0
-      ? Math.min(kitchenPageCount, page + 1)
-      : Math.max(1, page - 1));
+    goToKitchenPage(deltaX < 0 ? currentKitchenPage + 1 : currentKitchenPage - 1);
   };
 
   if (!kitchenEnabled) {
@@ -819,7 +891,10 @@ const KitchenDisplayPage: React.FC<Props> = ({
             <p className="mt-1 text-[10px] text-gray-400">Waiting for incoming orders</p>
           </div>
         ) : (
-          <div className={`grid h-full grid-cols-1 gap-1.5 sm:grid-cols-2 ${ticketGridClass}`}>
+          <div
+            key={`${kitchenOrderFilter}-${currentKitchenPage}`}
+            className={`grid h-full grid-cols-1 gap-1.5 sm:grid-cols-2 ${ticketGridClass} ${pageSlideDirection === 'NEXT' ? 'animate-kds-page-next' : 'animate-kds-page-previous'}`}
+          >
             {pagedKitchenOrders.map(order => {
               const visibleKitchenItems = getSortedOrderItems(order, kitchenHasAssignedScope ? kitchenScopeCategories : []);
               const isExpanded = expandedOrderId === order.id;
@@ -891,7 +966,10 @@ const KitchenDisplayPage: React.FC<Props> = ({
                         >
                           <span className="w-4 shrink-0 pt-0.5 text-[10px] font-semibold text-gray-500">{item.quantity}</span>
                           <div className="min-w-0 flex-1">
-                            <p className={`truncate font-bold ${ticketItemNameClass} ${itemStatus === OrderStatus.CANCELLED ? 'line-through text-red-500' : ''}`}>{item.name}</p>
+                            <p className={`whitespace-normal break-words font-bold ${ticketItemNameClass} ${itemStatus === OrderStatus.CANCELLED ? 'line-through text-red-500' : ''}`}>{item.name}</p>
+                            {itemStatus === OrderStatus.CANCELLED && item.kitchenCancelReason && (
+                              <p className={`mt-0.5 whitespace-normal break-words font-semibold text-red-500 ${ticketItemDetailClass}`}>{item.kitchenCancelReason}</p>
+                            )}
                             {(item.selectedSize || item.selectedTemp || item.selectedOtherVariant || item.selectedMixMatch?.some(mix => mix.choice)) && (
                               <p className={`truncate font-semibold leading-4 text-red-400 ${ticketItemDetailClass}`}>
                                 {[item.selectedSize, item.selectedTemp, item.selectedOtherVariant, ...(item.selectedMixMatch || []).map(mix => mix.choice)].filter(Boolean).join(' / ')}
@@ -940,7 +1018,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
                             <div className="absolute right-1 top-8 z-30 w-32 rounded-md border border-gray-200 bg-white p-1 shadow-xl" onClick={event => event.stopPropagation()}>
                               <button
                                 type="button"
-                                onClick={() => void updateKitchenSingleItemStatus(order, item, itemKey, OrderStatus.CANCELLED)}
+                                onClick={() => openCancelItemReasons(order, item, itemKey)}
                                 disabled={itemStatus === OrderStatus.CANCELLED || isUpdatingItem}
                                 className="flex h-8 w-full items-center gap-2 rounded px-2 text-left text-[10px] font-bold text-red-600 hover:bg-red-50 disabled:opacity-40"
                               >
@@ -998,7 +1076,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
 
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setCurrentKitchenPage(page => Math.max(1, page - 1))}
+            onClick={() => goToKitchenPage(currentKitchenPage - 1)}
             disabled={currentKitchenPage === 1}
             className="flex h-8 w-8 items-center justify-center rounded-md bg-white/10 text-gray-300 disabled:opacity-30"
             title="Previous page"
@@ -1010,14 +1088,14 @@ const KitchenDisplayPage: React.FC<Props> = ({
             .map(page => (
               <button
                 key={page}
-                onClick={() => setCurrentKitchenPage(page)}
+                onClick={() => goToKitchenPage(page)}
                 className={`h-8 min-w-8 rounded-md px-2 text-[10px] font-bold ${currentKitchenPage === page ? 'bg-blue-500 text-white' : 'bg-white/20 text-gray-200'}`}
               >
                 {page}
               </button>
             ))}
           <button
-            onClick={() => setCurrentKitchenPage(page => Math.min(kitchenPageCount, page + 1))}
+            onClick={() => goToKitchenPage(currentKitchenPage + 1)}
             disabled={currentKitchenPage === kitchenPageCount}
             className="flex h-8 w-8 items-center justify-center rounded-md bg-white/10 text-gray-300 disabled:opacity-30"
             title="Next page"

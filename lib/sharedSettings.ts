@@ -36,6 +36,7 @@ export const POS_DEFAULTS = {
     showChange: true,
     autoPrintAfterSale: false,
     printReceiptForRefund: false,
+    autoSendCounterOrdersToKitchen: false,
     openCashDrawerOnPayment: false,
     eReceiptEnabled: true,
     documentSize: 1,

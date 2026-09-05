@@ -102,7 +102,7 @@ interface Props {
   userId?: string;
   onUpdateOrder: (orderId: string, status: OrderStatus, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number; eReceipt?: EReceiptIssue }) => void | Promise<void>;
   onKitchenUpdateOrder?: (orderId: string, status: OrderStatus, rejectionReason?: string, rejectionNote?: string) => void;
-  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string, diningType?: string, paymentMethod?: string, cashierName?: string, amountReceived?: number, eReceipt?: EReceiptIssue) => Promise<string>;
+  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string, diningType?: string, paymentMethod?: string, cashierName?: string, amountReceived?: number, eReceipt?: EReceiptIssue, sendToKitchen?: boolean) => Promise<string>;
   onUpdateMenu?: (restaurantId: string, updatedItem: MenuItem) => void | Promise<void>;
   onAddMenuItem?: (restaurantId: string, newItem: MenuItem) => void | Promise<void>;
   onPermanentDeleteMenuItem?: (restaurantId: string, itemId: string) => void | Promise<void>;
@@ -194,6 +194,7 @@ interface FeatureSettings {
   autoPrintOrderList: boolean;
   autoOpenDrawer: boolean;
   printReceiptForRefund: boolean;
+  autoSendCounterOrdersToKitchen: boolean;
   dineInEnabled: boolean;
   takeawayEnabled: boolean;
   deliveryEnabled: boolean;
@@ -221,6 +222,7 @@ const getDefaultFeatureSettings = (): FeatureSettings => ({
   autoPrintOrderList: false,
   autoOpenDrawer: false,
   printReceiptForRefund: false,
+  autoSendCounterOrdersToKitchen: false,
   dineInEnabled: true,
   takeawayEnabled: true,
   deliveryEnabled: false,
@@ -2451,7 +2453,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   const selectedSavedBillKitchenOrder = useMemo(() => {
     if (!selectedSavedBillDispatchId) return null;
-    return orders.find(order => order.items.some(item => item.savedBillId === selectedSavedBillDispatchId)) || null;
+    return orders.find(order => order.status !== OrderStatus.CANCELLED && order.items.some(item => item.savedBillId === selectedSavedBillDispatchId)) || null;
   }, [orders, selectedSavedBillDispatchId]);
 
   const selectedSavedBillKitchenOrderId = selectedSavedBillDispatchId
@@ -2777,6 +2779,9 @@ const PosOnlyView: React.FC<Props> = ({
         selectedSavedBillEntry.diningType || preferredDiningOption,
         undefined,
         cashierName,
+        undefined,
+        undefined,
+        true,
       );
       if (!orderId) throw new Error('The kitchen order was not created.');
 
@@ -3114,6 +3119,7 @@ const PosOnlyView: React.FC<Props> = ({
           cashierName,
           selectedCashAmount ?? undefined,
           eReceipt,
+          featureSettings.autoSendCounterOrdersToKitchen && showKitchenFeature,
         );
       } catch (error: any) {
         console.error('Order placement error:', error);
@@ -6857,6 +6863,25 @@ const PosOnlyView: React.FC<Props> = ({
         <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-2 md:gap-4 py-5 first:pt-0">
             <div>
+              <p className="text-sm font-medium text-gray-900 dark:text-white">Auto Send Orders to Kitchen via Counter</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Send counter orders to KDS after payment confirmation</p>
+            </div>
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => updateFeatureSetting('autoSendCounterOrdersToKitchen', !featureSettings.autoSendCounterOrdersToKitchen)}
+                disabled={!showKitchenFeature}
+                className={`w-11 h-6 rounded-full transition-all relative disabled:cursor-not-allowed disabled:opacity-40 ${featureSettings.autoSendCounterOrdersToKitchen && showKitchenFeature ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                title={showKitchenFeature ? 'Auto send counter orders to kitchen' : 'Kitchen Display must be enabled'}
+                aria-label="Auto send counter orders to kitchen"
+                aria-pressed={featureSettings.autoSendCounterOrdersToKitchen && showKitchenFeature}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.autoSendCounterOrdersToKitchen && showKitchenFeature ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-2 md:gap-4 py-5 first:pt-0">
+            <div>
               <p className="text-sm font-medium text-gray-900 dark:text-white">Auto-Print Receipt</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Print automatically after checkout</p>
             </div>
@@ -8405,6 +8430,9 @@ const PosOnlyView: React.FC<Props> = ({
                             <div className="min-w-0">
                               <p className="text-[9px] font-black uppercase tracking-widest text-orange-500">Selected Bill</p>
                               <p className="mt-0.5 truncate text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">{selectedSavedBillEntry.tableNumber}</p>
+                              <p className={`mt-1 text-[9px] font-black uppercase tracking-wider ${selectedSavedBillKitchenOrderId ? 'text-green-600 dark:text-green-400' : 'text-orange-500'}`}>
+                                {selectedSavedBillKitchenOrderId ? 'Sent to kitchen' : 'Not sent'}
+                              </p>
                             </div>
                             <div className="text-right">
                               <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">{selectedSavedBillEntry.items.length} items</p>
@@ -12864,6 +12892,9 @@ const PosOnlyView: React.FC<Props> = ({
                     <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
                       <Receipt size={14} className="text-orange-500 shrink-0" />
                       <span className="text-[10px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">{selectedSavedBillEntry.tableNumber}</span>
+                      <span className={`ml-auto text-[9px] font-black uppercase tracking-wider ${selectedSavedBillKitchenOrderId ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
+                        {selectedSavedBillKitchenOrderId ? 'Sent to kitchen' : 'Not sent'}
+                      </span>
                     </div>
                     {selectedSavedBillEntry.items.map((item, idx) => (
                       <div key={`saved-${item.id}-${idx}`} className="flex items-center gap-4">

@@ -3396,13 +3396,15 @@ const App: React.FC = () => {
     }
   };
 
-  const placePosOrder = async (items: CartItem[], remark: string, tableNumber: string, diningType?: string, paymentMethod?: string, cashierName?: string, amountReceived?: number, eReceipt?: EReceiptIssue): Promise<string> => {
+  const placePosOrder = async (items: CartItem[], remark: string, tableNumber: string, diningType?: string, paymentMethod?: string, cashierName?: string, amountReceived?: number, eReceipt?: EReceiptIssue, sendToKitchen = true): Promise<string> => {
     if (items.length === 0 || !currentUser?.restaurantId) return '';
     
     const res = restaurants.find(r => r.id === currentUser.restaurantId);
     const routingRestaurant = await getFreshRestaurantForOrderRouting(currentUser.restaurantId, res);
-    const kitchenItems = withInitialKitchenItemStatuses(routingRestaurant, items);
-    const kitchenOrderStatus = getInitialKitchenOrderStatus(kitchenItems);
+    const kitchenItems = sendToKitchen
+      ? withInitialKitchenItemStatuses(routingRestaurant, items)
+      : items.map(item => ({ ...item, status: OrderStatus.COMPLETED, kitchenStartedAt: undefined, kitchenCookedAt: undefined }));
+    const kitchenOrderStatus = sendToKitchen ? getInitialKitchenOrderStatus(kitchenItems) : OrderStatus.COMPLETED;
     const code = resolveOrderCode(res, locations);
    
      console.log(`[ORDER] Placing order - Restaurant: ${res?.name}, Location: ${res?.location}, Code: ${code}, Online: ${offlineQueue.isOnline()}`);

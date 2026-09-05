@@ -483,3 +483,29 @@
   .qs-setup-page-back { animation: none; }
   .qs-setup-error-shake { animation: none; }
 }
+@keyframes kdsPageEnterFromRight {
+  from { opacity: 0.55; transform: translate3d(5%, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes kdsPageEnterFromLeft {
+  from { opacity: 0.55; transform: translate3d(-5%, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.animate-kds-page-next {
+  animation: kdsPageEnterFromRight 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
+}
+
+.animate-kds-page-previous {
+  animation: kdsPageEnterFromLeft 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-kds-page-next,
+  .animate-kds-page-previous {
+    animation: none;
+  }
+}
