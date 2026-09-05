@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCheck, CheckCircle, ChevronLeft, ChevronRight, Clock, Coffee, Loader2, LogOut, Mail, Maximize2, MessageSquare, Minimize2, Moon, MoreHorizontal, Printer, RefreshCw, Settings, ShoppingBag, Sun, Trash2, X } from 'lucide-react';
+import { Check, CheckCheck, CheckCircle, ChevronLeft, ChevronRight, Clock, Coffee, Loader2, LogOut, Mail, Maximize2, MessageSquare, Minimize2, Moon, MoreHorizontal, Printer, RefreshCw, Settings, ShoppingBag, Sun, Trash2, X } from 'lucide-react';
 import { CartItem, KitchenDepartment, Order, OrderStatus, Restaurant, Subscription } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
@@ -79,6 +79,7 @@ const getAggregateStatusFromItems = (items: CartItem[], fallbackStatus: OrderSta
     const status = getItemKitchenStatus(item, fallbackStatus);
     return status === OrderStatus.PREPARING || status === OrderStatus.SERVED || status === OrderStatus.COMPLETED;
   })) return OrderStatus.PREPARING;
+  if (fallbackStatus === OrderStatus.PREPARING) return OrderStatus.PREPARING;
   if (activeItems.some(item => getItemKitchenStatus(item, fallbackStatus) === OrderStatus.ONGOING)) return OrderStatus.ONGOING;
   if (activeItems.some(item => getItemKitchenStatus(item, fallbackStatus) === OrderStatus.PENDING)) return OrderStatus.PENDING;
   return fallbackStatus;
@@ -95,15 +96,15 @@ const areAllKitchenItemsCooked = (items: CartItem[], fallbackStatus: OrderStatus
 const getKitchenStatusText = (status: OrderStatus) => {
   if (status === OrderStatus.PENDING) return 'Pending';
   if (status === OrderStatus.ONGOING) return 'Ongoing';
-  if (status === OrderStatus.PREPARING) return 'Preparing';
+  if (status === OrderStatus.PREPARING) return 'Cooking';
   if (status === OrderStatus.SERVED) return 'Served';
-  if (status === OrderStatus.COMPLETED) return 'Paid';
+  if (status === OrderStatus.COMPLETED) return 'Cooked';
   return 'Cancelled';
 };
 
 const getNextKitchenItemStatus = (status: OrderStatus): OrderStatus | null => {
   if (status === OrderStatus.PENDING || status === OrderStatus.ONGOING) return OrderStatus.PREPARING;
-  if (status === OrderStatus.PREPARING) return OrderStatus.SERVED;
+  if (status === OrderStatus.PREPARING) return OrderStatus.COMPLETED;
   return null;
 };
 
@@ -281,9 +282,12 @@ const KitchenDisplayPage: React.FC<Props> = ({
       if (scopedItems.length === 0) return false;
       if (kitchenOrderFilter === 'ALL') return true;
       if (kitchenOrderFilter === 'ONGOING_ALL') {
-        return order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING || order.status === OrderStatus.PREPARING;
+        const isActiveOrder = order.status === OrderStatus.PENDING
+          || order.status === OrderStatus.ONGOING
+          || order.status === OrderStatus.PREPARING;
+        return isActiveOrder && !areAllKitchenItemsCooked(order.items, order.status);
       }
-      if (kitchenOrderFilter === 'COOKED') return order.status !== OrderStatus.SERVED && areAllKitchenItemsCooked(scopedItems, order.status);
+      if (kitchenOrderFilter === 'COOKED') return order.status !== OrderStatus.SERVED && areAllKitchenItemsCooked(order.items, order.status);
       if (kitchenOrderFilter === OrderStatus.SERVED) return order.status === OrderStatus.SERVED;
       return scopedItems.some(item => getItemKitchenStatus(item, order.status) === kitchenOrderFilter);
     })
@@ -294,7 +298,13 @@ const KitchenDisplayPage: React.FC<Props> = ({
     (currentKitchenPage - 1) * ticketColumns,
     currentKitchenPage * ticketColumns,
   );
-  const serveOrder = serveOrderId ? orders.find(order => order.id === serveOrderId) || null : null;
+  const serveOrder = serveOrderId
+    ? orders.find(order => (
+        order.id === serveOrderId
+        && order.status !== OrderStatus.SERVED
+        && areAllKitchenItemsCooked(order.items, order.status)
+      )) || null
+    : null;
   const ticketGridClass = ticketColumns === 3
     ? 'md:grid-cols-3'
     : ticketColumns === 5
@@ -521,13 +531,24 @@ const KitchenDisplayPage: React.FC<Props> = ({
         index === targetIndex ? { ...item, status: nextStatus } : item
       ));
       const aggregateStatus = getAggregateStatusFromItems(updatedItems, order.status);
+      const previousCancelledValue = order.items.reduce((sum, item) => (
+        getItemKitchenStatus(item, order.status) === OrderStatus.CANCELLED
+          ? sum + (Number(item.price || 0) * Number(item.quantity || 0))
+          : sum
+      ), 0);
+      const updatedCancelledValue = updatedItems.reduce((sum, item) => (
+        getItemKitchenStatus(item, aggregateStatus) === OrderStatus.CANCELLED
+          ? sum + (Number(item.price || 0) * Number(item.quantity || 0))
+          : sum
+      ), 0);
+      const updatedTotal = Math.max(0, order.total + previousCancelledValue - updatedCancelledValue);
       const { error } = await supabase
         .from('orders')
-        .update({ items: updatedItems, status: aggregateStatus })
+        .update({ items: updatedItems, status: aggregateStatus, total: updatedTotal })
         .eq('id', order.id);
 
       if (error) throw error;
-      onUpdateOrderItems?.(order.id, updatedItems, order.total);
+      onUpdateOrderItems?.(order.id, updatedItems, updatedTotal);
       await onUpdateOrder(order.id, aggregateStatus);
     } catch (error) {
       console.error('Kitchen item status update error:', error);
@@ -547,9 +568,21 @@ const KitchenDisplayPage: React.FC<Props> = ({
   };
 
   const serveKitchenOrder = async (order: Order) => {
-    if (isServingOrder || !areAllKitchenItemsCooked(order.items, order.status)) return;
+    if (isServingOrder || order.status === OrderStatus.SERVED || !areAllKitchenItemsCooked(order.items, order.status)) return;
     setIsServingOrder(true);
     try {
+      const servedItems = order.items.map(item => (
+        getItemKitchenStatus(item, order.status) === OrderStatus.CANCELLED
+          ? item
+          : { ...item, status: OrderStatus.SERVED }
+      ));
+      const { error } = await supabase
+        .from('orders')
+        .update({ items: servedItems, status: OrderStatus.SERVED })
+        .eq('id', order.id);
+      if (error) throw error;
+
+      onUpdateOrderItems?.(order.id, servedItems, order.total);
       await onUpdateOrder(order.id, OrderStatus.SERVED);
       setServeOrderId(null);
       toast(`Order #${order.id} served.`, 'success');
@@ -756,13 +789,14 @@ const KitchenDisplayPage: React.FC<Props> = ({
             {pagedKitchenOrders.map(order => {
               const visibleKitchenItems = getSortedOrderItems(order, kitchenHasAssignedScope ? kitchenScopeCategories : []);
               const isExpanded = expandedOrderId === order.id;
-              const allItemsCooked = areAllKitchenItemsCooked(visibleKitchenItems, order.status);
+              const allItemsCooked = areAllKitchenItemsCooked(order.items, order.status);
+              const canServeOrder = allItemsCooked && order.status !== OrderStatus.SERVED;
 
               return (
                 <article
                   key={order.id}
-                  onClick={() => allItemsCooked && setServeOrderId(order.id)}
-                  className={`flex min-h-0 flex-col overflow-hidden rounded-lg bg-white text-gray-900 shadow-sm dark:bg-white ${allItemsCooked ? 'cursor-pointer ring-2 ring-inset ring-green-500 hover:ring-green-400' : ''} ${isExpanded ? 'fixed inset-3 z-[90]' : 'h-full'}`}
+                  onClick={() => canServeOrder && setServeOrderId(order.id)}
+                  className={`flex min-h-0 flex-col overflow-hidden rounded-lg bg-white text-gray-900 shadow-sm dark:bg-white ${canServeOrder ? 'cursor-pointer ring-2 ring-inset ring-green-500 hover:ring-green-400' : ''} ${isExpanded ? 'fixed inset-3 z-[90]' : 'h-full'}`}
                 >
                   <div className="shrink-0 border-b border-gray-300 px-3 py-2.5">
                     <div className="flex items-center justify-between gap-2">
@@ -790,9 +824,13 @@ const KitchenDisplayPage: React.FC<Props> = ({
                       const nextItemStatus = getNextKitchenItemStatus(itemStatus);
                       const isUpdatingItem = updatingItemKeys.has(itemKey);
                       const isItemMenuOpen = openItemMenuKey === itemKey;
+                      const isServedItem = itemStatus === OrderStatus.SERVED && order.status === OrderStatus.SERVED;
+                      const isCookedItem = itemStatus === OrderStatus.COMPLETED || (itemStatus === OrderStatus.SERVED && order.status !== OrderStatus.SERVED);
                       const rowStateClass = itemStatus === OrderStatus.PREPARING
                         ? 'bg-blue-50'
-                        : itemStatus === OrderStatus.SERVED
+                        : isServedItem
+                          ? 'bg-green-50 text-green-700'
+                          : isCookedItem
                           ? 'bg-gray-200 text-gray-400'
                           : itemStatus === OrderStatus.CANCELLED
                             ? 'bg-red-50 opacity-55'
@@ -825,27 +863,39 @@ const KitchenDisplayPage: React.FC<Props> = ({
                           <div className="flex shrink-0 items-center gap-0.5 pt-0.5">
                             {isUpdatingItem ? (
                               <Loader2 className="animate-spin text-blue-500" size={12} />
-                            ) : itemStatus === OrderStatus.SERVED ? (
-                              <CheckCircle className="text-gray-400" fill="currentColor" size={12} />
+                            ) : isServedItem ? (
+                              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-white" title="Served">
+                                <Check strokeWidth={3} size={11} />
+                              </span>
+                            ) : isCookedItem ? (
+                              <span className="flex h-4 w-4 items-center justify-center rounded-full border border-gray-400 text-gray-500" title="Cooked">
+                                <Check strokeWidth={3} size={11} />
+                              </span>
                             ) : itemStatus === OrderStatus.PREPARING ? (
-                              <Clock className="text-blue-500" size={12} />
+                              <span className="flex h-4 w-4 items-center justify-center rounded-full border border-blue-400 text-blue-500" title="Cooking">
+                                <Clock size={11} />
+                              </span>
                             ) : itemStatus === OrderStatus.CANCELLED ? (
-                              <X className="text-red-500" size={12} />
+                              <span className="flex h-4 w-4 items-center justify-center rounded-full border border-red-400 text-red-500" title="Cancelled">
+                                <X size={11} />
+                              </span>
                             ) : (
-                              <span className="h-3 w-3 rounded-full border border-gray-400" />
+                              <span className="h-4 w-4 rounded-full border border-gray-400" title="Waiting" />
                             )}
-                            <button
-                              type="button"
-                              onClick={event => {
-                                event.stopPropagation();
-                                setOpenItemMenuKey(current => current === itemKey ? null : itemKey);
-                              }}
-                              className="flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-white hover:text-gray-700"
-                              title="Item options"
-                              aria-label={`Options for ${item.name}`}
-                            >
-                              <MoreHorizontal size={14} />
-                            </button>
+                            {order.status !== OrderStatus.SERVED && (
+                              <button
+                                type="button"
+                                onClick={event => {
+                                  event.stopPropagation();
+                                  setOpenItemMenuKey(current => current === itemKey ? null : itemKey);
+                                }}
+                                className="flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-white hover:text-gray-700"
+                                title="Item options"
+                                aria-label={`Options for ${item.name}`}
+                              >
+                                <MoreHorizontal size={14} />
+                              </button>
+                            )}
                           </div>
 
                           {isItemMenuOpen && (

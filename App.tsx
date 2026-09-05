@@ -1509,7 +1509,7 @@ const App: React.FC = () => {
         setLastSyncTime(new Date());
       }
       
-      // Additionally poll for orders that were UPDATED since last sync time
+      // Refresh recent orders so missed realtime status changes are recovered.
       try {
         const lastSync = lastSyncTimeRef.current;
         if (lastSync) {
@@ -1517,8 +1517,9 @@ const App: React.FC = () => {
             supabase.from('orders')
               .select(ORDER_COLUMNS)
               .eq('restaurant_id', user.restaurantId)
-              .gte('timestamp', lastSync.getTime())
-              .order('timestamp', { ascending: false }),
+              .gte('timestamp', Date.now() - (24 * 60 * 60 * 1000))
+              .order('timestamp', { ascending: false })
+              .limit(200),
             5000
           );
 
@@ -1799,28 +1800,31 @@ const App: React.FC = () => {
             if (existing.id === o.id) {
               found = true;
               const incomingStatus = o.status as OrderStatus;
+              const existingPriority = STATUS_PRIORITY[existing.status] ?? 0;
+              const incomingPriority = STATUS_PRIORITY[incomingStatus] ?? 0;
 
               // If locked, only accept updates that match or advance the status
               if (lockedOrderIds.current.has(o.id)) {
-                if (existing.status === incomingStatus) {
-                  // Confirmed — clear lock and accept update
+                if (incomingPriority >= existingPriority) {
+                  // Confirmed or advanced by another screen — clear lock and accept update
                   lockedOrderIds.current.delete(o.id);
                 } else {
-                  // Still locked and status doesn't match — keep local state
+                  // Still locked and the incoming event is older — keep local state
                   return existing;
                 }
               }
 
               // Prevent stale realtime events from regressing order status
-              const existingPriority = STATUS_PRIORITY[existing.status] ?? 0;
-              const incomingPriority = STATUS_PRIORITY[incomingStatus] ?? 0;
               if (incomingPriority < existingPriority) {
                 return existing; // Never go backwards
               }
 
               return {
                 ...existing,
+                items: Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? JSON.parse(o.items) : existing.items),
+                total: o.total != null ? Number(o.total) : existing.total,
                 status: incomingStatus,
+                remark: o.remark ?? existing.remark,
                 rejectionReason: o.rejection_reason,
                 rejectionNote: o.rejection_note,
                 diningType: o.dining_type ?? existing.diningType,

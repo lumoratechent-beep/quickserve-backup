@@ -494,6 +494,15 @@ const PosOnlyView: React.FC<Props> = ({
     }
   });
   const posViewPreferencesChangedRef = useRef(false);
+
+  useEffect(() => {
+    setSelectedQrOrderForPayment(current => (
+      current ? orders.find(order => order.id === current.id) || current : null
+    ));
+    setViewingQrOrderDetail(current => (
+      current ? orders.find(order => order.id === current.id) || current : null
+    ));
+  }, [orders]);
   const [qrSearchQuery, setQrSearchQuery] = useState('');
   const [editingQrOrderId, setEditingQrOrderId] = useState<string | null>(null);
   const [qrRejectionReason, setQrRejectionReason] = useState('Item out of stock');
@@ -2114,6 +2123,8 @@ const PosOnlyView: React.FC<Props> = ({
     `${currencySymbol}${Number(value || 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   );
 
+  const isCancelledOrderItem = (item: CartItem): boolean => item.status === OrderStatus.CANCELLED;
+
   const getCartOriginalPrice = (item: CartItem): number | null => {
     const originalPrice = Number(item.originalPrice || 0);
     const currentPrice = Number(item.price || 0);
@@ -2121,6 +2132,9 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const renderCartItemPrice = (item: CartItem, compact = false) => {
+    if (isCancelledOrderItem(item)) {
+      return <p className={`${compact ? 'text-[11px]' : 'text-xs'} font-black text-red-500 line-through`}>{formatCartPrice(0)}</p>;
+    }
     const originalPrice = getCartOriginalPrice(item);
     if (!originalPrice) {
       return <p className={`${compact ? 'text-[11px]' : 'text-xs'} text-orange-500 font-black`}>{formatCartPrice(item.price)}</p>;
@@ -2300,11 +2314,14 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const getItemsSubtotal = (items: CartItem[]): number => {
-    return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    return items.reduce((sum, item) => (
+      isCancelledOrderItem(item) ? sum : sum + item.price * item.quantity
+    ), 0);
   };
 
   const getItemsDiscount = (items: CartItem[]): number => {
     return items.reduce((sum, item) => {
+      if (isCancelledOrderItem(item)) return sum;
       const originalPrice = Number(item.originalPrice || 0);
       const currentPrice = Number(item.price || 0);
       const quantity = Number(item.quantity || 0);
@@ -2842,8 +2859,9 @@ const PosOnlyView: React.FC<Props> = ({
     orderSource?: string;
   }): EReceiptIssue | undefined => {
     if (!receiptConfig.eReceiptEnabled) return undefined;
-    const discountedSubtotal = data.items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
+    const discountedSubtotal = getItemsSubtotal(data.items);
     const discountAmount = data.items.reduce((sum, item) => {
+      if (isCancelledOrderItem(item)) return sum;
       const original = Number(item.originalPrice || 0);
       const current = Number(item.price || 0);
       return sum + (original > current ? (original - current) * Number(item.quantity || 0) : 0);
@@ -8361,7 +8379,9 @@ const PosOnlyView: React.FC<Props> = ({
                             </div>
                             <div className="space-y-0.5">
                               {order.items.map((item, idx) => (
-                                <p key={idx} className="text-[10px] text-gray-500 dark:text-gray-400">x{item.quantity} {item.name}</p>
+                                <p key={idx} className={`text-[10px] ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-500 dark:text-gray-400'}`}>
+                                  x{item.quantity} {item.name}{isCancelledOrderItem(item) ? ` · ${formatCartPrice(0)}` : ''}
+                                </p>
                               ))}
                             </div>
                             {selectedQrOrderForPayment?.id === order.id && (
@@ -11464,13 +11484,13 @@ const PosOnlyView: React.FC<Props> = ({
                             {/* Items list */}
                             <div className="overflow-y-auto flex-1 px-5 py-3 divide-y divide-gray-100 dark:divide-gray-700/50">
                               {getSortedOrderItems(o).map((item, idx) => (
-                                <div key={`modal-${o.id}-${idx}`} className="flex items-start gap-3 py-2.5">
-                                  <span className="text-xs font-black text-gray-500 dark:text-gray-400 shrink-0 w-5 pt-0.5">×{item.quantity}</span>
+                                <div key={`modal-${o.id}-${idx}`} className={`flex items-start gap-3 py-2.5 ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : ''}`}>
+                                  <span className={`text-xs font-black shrink-0 w-5 pt-0.5 ${isCancelledOrderItem(item) ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>×{item.quantity}</span>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-gray-800 dark:text-white">{item.name}</p>
+                                    <p className={`text-sm font-bold ${isCancelledOrderItem(item) ? 'text-red-500' : 'text-gray-800 dark:text-white'}`}>{item.name}</p>
                                     {modLine(item) && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{modLine(item)}</p>}
                                   </div>
-                                  <span className="text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap shrink-0">{currencySymbol}{(item.price * item.quantity).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                  <span className={`text-sm font-bold whitespace-nowrap shrink-0 ${isCancelledOrderItem(item) ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : formatCartPrice(item.price * item.quantity)}</span>
                                 </div>
                               ))}
                             </div>
@@ -11820,8 +11840,8 @@ const PosOnlyView: React.FC<Props> = ({
                               <div className="space-y-1 mb-3">
                                 {order.items.map((item, idx) => (
                                   <div key={idx} className="flex items-center justify-between text-xs">
-                                    <span className="text-gray-600 dark:text-gray-300">{item.quantity}x {item.name}</span>
-                                    <span className="font-bold dark:text-white">{currencySymbol}{(item.price * item.quantity).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    <span className={isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-600 dark:text-gray-300'}>{item.quantity}x {item.name}</span>
+                                    <span className={`font-bold ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'dark:text-white'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : formatCartPrice(item.price * item.quantity)}</span>
                                   </div>
                                 ))}
                               </div>
@@ -12795,9 +12815,9 @@ const PosOnlyView: React.FC<Props> = ({
                         <span className="text-[10px] font-black text-purple-700 dark:text-purple-400 uppercase tracking-widest">{selectedQrOrderForPayment.tableNumber}</span>
                       </div>
                       {selectedQrOrderForPayment.items.map((item, idx) => (
-                        <div key={`qr-${item.id}-${idx}`} className="flex items-center gap-4">
+                        <div key={`qr-${item.id}-${idx}`} className={`flex items-center gap-4 ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : ''}`}>
                           <div className="flex-1">
-                            <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                            <h4 className={`font-black text-sm uppercase tracking-tighter line-clamp-1 ${isCancelledOrderItem(item) ? 'text-red-500' : 'dark:text-white'}`}>{item.name}</h4>
                             {renderCartItemPrice(item)}
                             <div className="mt-1 space-y-0.5">
                               {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
@@ -12805,7 +12825,7 @@ const PosOnlyView: React.FC<Props> = ({
                               {item.selectedOtherVariant && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.selectedOtherVariant}</p>}
                             </div>
                           </div>
-                          <span className="text-xs font-black dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-lg">x{item.quantity}</span>
+                          <span className={`text-xs font-black px-2 py-1 rounded-lg ${isCancelledOrderItem(item) ? 'bg-red-50 text-red-500 line-through dark:bg-red-900/20' : 'bg-gray-100 dark:bg-gray-700 dark:text-white'}`}>x{item.quantity}</span>
                         </div>
                       ))}
                       {selectedQrOrderForPayment.remark && (
@@ -14028,9 +14048,9 @@ const PosOnlyView: React.FC<Props> = ({
                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Items</p>
                 <div className="space-y-2">
                   {selectedReportOrder.items.map((item, idx) => (
-                    <div key={idx} className="flex items-start justify-between">
+                    <div key={idx} className={`flex items-start justify-between ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : ''}`}>
                       <div>
-                        <p className="text-xs font-bold dark:text-white">{item.quantity}x {item.name}</p>
+                        <p className={`text-xs font-bold ${isCancelledOrderItem(item) ? 'text-red-500' : 'dark:text-white'}`}>{item.quantity}x {item.name}</p>
                         {item.selectedSize && <p className="text-[9px] text-gray-400 ml-3">-Size: {item.selectedSize}</p>}
                         {item.selectedTemp && <p className="text-[9px] text-gray-400 ml-3">-Temperature: {item.selectedTemp}</p>}
                         {item.selectedVariantOption && <p className="text-[9px] text-gray-400 ml-3">-Variant: {item.selectedVariantOption}</p>}
@@ -14042,7 +14062,7 @@ const PosOnlyView: React.FC<Props> = ({
                           <p key={aIdx} className="text-[9px] text-gray-400 ml-3">-{addon.name}{addon.quantity > 1 ? ` x${addon.quantity}` : ''}</p>
                         ))}
                       </div>
-                      <span className="text-xs font-bold dark:text-white shrink-0 ml-2">{currencySymbol}{(item.price * item.quantity).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className={`text-xs font-bold shrink-0 ml-2 ${isCancelledOrderItem(item) ? 'text-red-500' : 'dark:text-white'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : formatCartPrice(item.price * item.quantity)}</span>
                     </div>
                   ))}
                 </div>
@@ -14057,7 +14077,7 @@ const PosOnlyView: React.FC<Props> = ({
 
               <div className="border-t dark:border-gray-700 pt-3 space-y-1.5">
                 {(() => {
-                  const subtotal = selectedReportOrder.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+                  const subtotal = getItemsSubtotal(selectedReportOrder.items as CartItem[]);
                   const discount = getItemsDiscount(selectedReportOrder.items as CartItem[]);
                   const preDiscountSubtotal = subtotal + discount;
                   const taxLines = activeTaxEntries.map(tax => ({
