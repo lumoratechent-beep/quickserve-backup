@@ -19,6 +19,7 @@ import { fetchStockItemsFromDb, saveStockItemsToDb, saveStockMovementsToDb } fro
 const CustomerView = React.lazy(() => import('./pages/CustomerView'));
 const AdminView = React.lazy(() => import('./pages/AdminView'));
 const PosOnlyView = React.lazy(() => import('./pages/PosOnlyView'));
+const KitchenDisplayPage = React.lazy(() => import('./pages/KitchenDisplayPage'));
 const BackOfficePage = React.lazy(() => import('./pages/BackOfficePage'));
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
 const MarketingPage = React.lazy(() => import('./pages/MarketingPage'));
@@ -1937,7 +1938,7 @@ const App: React.FC = () => {
       && !!currentRole
       && LIVE_ORDER_POLLING_ROLES.includes(currentRole)
       && hydratedRestaurantSettingsId === currentUser?.restaurantId
-      && hasInstalledLiveOrderFeature(restaurant);
+      && (currentRole === 'KITCHEN' || hasInstalledLiveOrderFeature(restaurant));
     
     if (shouldPoll) {
       const pollIfVisible = () => {
@@ -1957,15 +1958,15 @@ const App: React.FC = () => {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
-  // Fetch announcements when vendor/cashier logs in
+  // Fetch announcements for restaurant staff with an in-app mail tool.
   useEffect(() => {
-    if (currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER')) {
+    if (currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER' || currentRole === 'KITCHEN')) {
       fetchAnnouncements(currentUser.restaurantId);
     }
   }, [currentUser?.restaurantId, currentRole, fetchAnnouncements]);
 
   useEffect(() => {
-    if (!currentUser?.restaurantId || (currentRole !== 'VENDOR' && currentRole !== 'CASHIER')) return;
+    if (!currentUser?.restaurantId || (currentRole !== 'VENDOR' && currentRole !== 'CASHIER' && currentRole !== 'KITCHEN')) return;
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') fetchAnnouncements(currentUser.restaurantId);
     }, 60000);
@@ -3324,6 +3325,9 @@ const App: React.FC = () => {
     if (items.length === 0 || !currentUser?.restaurantId) return '';
     
     const res = restaurants.find(r => r.id === currentUser.restaurantId);
+    const routingRestaurant = await getFreshRestaurantForOrderRouting(currentUser.restaurantId, res);
+    const kitchenItems = withInitialKitchenItemStatuses(routingRestaurant, items);
+    const kitchenOrderStatus = getInitialKitchenOrderStatus(kitchenItems);
     const code = resolveOrderCode(res, locations);
    
      console.log(`[ORDER] Placing order - Restaurant: ${res?.name}, Location: ${res?.location}, Code: ${code}, Online: ${offlineQueue.isOnline()}`);
@@ -3334,9 +3338,9 @@ const App: React.FC = () => {
     const queuePosOrderForSync = (orderId: string, reason: string): string => {
       const offlineOrder: offlineQueue.OfflineOrder = {
         id: orderId,
-        items,
+        items: kitchenItems,
         total,
-        status: OrderStatus.COMPLETED,
+        status: kitchenOrderStatus,
         timestamp: Date.now(),
         customer_id: 'pos_user',
         restaurant_id: currentUser.restaurantId!,
@@ -3427,9 +3431,9 @@ const App: React.FC = () => {
 
     const orderToInsert = {
       id: orderId,
-      items: items,
+      items: kitchenItems,
       total: total,
-      status: OrderStatus.COMPLETED,
+      status: kitchenOrderStatus,
       timestamp: Date.now(),
       customer_id: 'pos_user',
       restaurant_id: currentUser.restaurantId,
@@ -3459,7 +3463,7 @@ const App: React.FC = () => {
     } else {
       // Successfully inserted - update tracker to remember this number
       offlineQueue.rememberOrderId(code, orderId);
-      await applyPosStockDeduction(currentUser.restaurantId, { id: orderId, items });
+      await applyPosStockDeduction(currentUser.restaurantId, { id: orderId, items: kitchenItems });
       console.log(`Order ${orderId} successfully created online`);
     }
     
@@ -3897,7 +3901,7 @@ const App: React.FC = () => {
         </div>
       )}
       <div className={`${view === 'BACK_OFFICE' ? 'hidden ' : ''}flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors`} style={{ height: 'var(--app-height, 100dvh)' }}>
-      {currentRole !== 'ORDER_TAKER' && (
+      {currentRole !== 'ORDER_TAKER' && currentRole !== 'KITCHEN' && (
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-11 sm:h-12 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
         <div className="flex min-w-0 items-center gap-2 sm:gap-4">
           {view === 'COMPARE_PLANS' && (
@@ -4187,7 +4191,6 @@ const App: React.FC = () => {
                 cashierName={currentUser?.username}
                 onKitchenUpdateOrder={updateOrderStatus}
                 onToggleOnline={() => toggleVendorOnline(activeVendorRes.id, activeVendorRes.isOnline ?? true)}
-                lastSyncTime={lastSyncTime}
                 userRole="VENDOR"
                 onSaveKitchenDivisions={(divisions) => saveKitchenDivisions(activeVendorRes.id, divisions)}
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
@@ -4221,42 +4224,33 @@ const App: React.FC = () => {
 
         {currentRole === 'KITCHEN' && view === 'APP' && (
           activeVendorRes ? (
-              <PosOnlyView
+              <KitchenDisplayPage
                 restaurant={activeVendorRes}
                 orders={orders.filter(o => {
                   if (o.restaurantId !== currentUser?.restaurantId) return false;
                   const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
                   return o.timestamp > oneDayAgo;
                 })}
-                onUpdateOrder={updateOrderForPos}
-                onPlaceOrder={placePosOrder}
-                onFetchPaginatedOrders={onFetchPaginatedOrders}
-                onFetchAllFilteredOrders={onFetchAllFilteredOrders}
                 isOnline={isOnline}
-                pendingOfflineOrdersCount={0}
-                userId={currentUser!.id}
-                cashierName={currentUser?.username}
-                onKitchenUpdateOrder={updateOrderStatus}
+                onUpdateOrder={updateOrderStatus}
                 lastSyncTime={lastSyncTime}
-                userRole="KITCHEN"
                 userKitchenCategories={currentUser?.kitchenCategories}
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
-                onSubscriptionUpdated={async () => { await Promise.all([fetchSubscriptions(), fetchRestaurants()]); }}
-                onFeatureSettingUpdated={handleFeatureSettingUpdated}
+                onUpdateOrderItems={updateOrderItems}
+                onLogout={handleLogout}
+                networkMeta={networkMeta}
+                batteryMeta={batteryMeta}
+                batteryCharging={batteryStatus?.charging ?? false}
                 announcements={announcements}
                 announcementsLoading={announcementsLoading}
+                unreadMailCount={unreadMailCount}
+                onRefreshMail={() => fetchAnnouncements(currentUser?.restaurantId, true)}
                 onMarkAnnouncementRead={markAnnouncementRead}
                 onMarkAllAnnouncementsRead={markAllAnnouncementsRead}
                 onClearAnnouncements={clearAnnouncements}
                 onDeleteAnnouncement={deleteAnnouncement}
-                unreadMailCount={unreadMailCount}
-                openMailTab={openMailInPOS}
-                onMailTabOpened={() => setOpenMailInPOS(false)}
-                openBillingTab={openBillingInPOS}
-                onBillingTabOpened={() => setOpenBillingInPOS(false)}
-                onUpdateOrderItems={updateOrderItems}
-                activeShift={activeShift}
-                onOpenShiftModal={() => setShowShiftModal(true)}
+                isDarkMode={isDarkMode}
+                onToggleTheme={() => setIsDarkMode(!isDarkMode)}
               />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
