@@ -178,6 +178,7 @@ export interface CartItem extends MenuItem {
   quantity: number;
   restaurantId: string;
   originalPrice?: number;
+  savedBillId?: string;
   status?: OrderStatus;
   kitchenStartedAt?: number;
   kitchenCookedAt?: number;

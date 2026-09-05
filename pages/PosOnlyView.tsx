@@ -685,6 +685,8 @@ const PosOnlyView: React.FC<Props> = ({
     return saved ? JSON.parse(saved) : [];
   });
   const savedBillsSyncRef = useRef(false); // prevent echo from realtime after local write
+  const [sendingSavedBillId, setSendingSavedBillId] = useState<string | null>(null);
+  const [savedBillKitchenOrderIds, setSavedBillKitchenOrderIds] = useState<Record<string, string>>({});
   const [activeSavedBillTable, setActiveSavedBillTable] = useState<string | null>(null);
   const [showMobileSavedBillCart, setShowMobileSavedBillCart] = useState(false);
   const [showSaveBillTableModal, setShowSaveBillTableModal] = useState(false);
@@ -2442,6 +2444,20 @@ const PosOnlyView: React.FC<Props> = ({
     return savedBillsByTable.get(activeSavedBillTable) ?? null;
   }, [activeSavedBillTable, savedBillsByTable]);
 
+  const selectedSavedBillDispatchId = useMemo(() => {
+    if (!selectedSavedBillEntry) return '';
+    return selectedSavedBillEntry.items.find(item => item.savedBillId)?.savedBillId || selectedSavedBillEntry.id;
+  }, [selectedSavedBillEntry]);
+
+  const selectedSavedBillKitchenOrder = useMemo(() => {
+    if (!selectedSavedBillDispatchId) return null;
+    return orders.find(order => order.items.some(item => item.savedBillId === selectedSavedBillDispatchId)) || null;
+  }, [orders, selectedSavedBillDispatchId]);
+
+  const selectedSavedBillKitchenOrderId = selectedSavedBillDispatchId
+    ? savedBillKitchenOrderIds[selectedSavedBillDispatchId] || selectedSavedBillKitchenOrder?.id || ''
+    : '';
+
   const selectedSavedBillSubtotal = useMemo(() => {
     if (!selectedSavedBillEntry) return 0;
     return getItemsSubtotal(selectedSavedBillEntry.items);
@@ -2492,11 +2508,14 @@ const PosOnlyView: React.FC<Props> = ({
   const saveBillToTable = (source: 'COUNTER' | 'QR', tableNumber: string): boolean => {
     const targetTable = tableNumber.trim() || tableLabels[0] || 'Table 1';
     const now = Date.now();
+    const sourceItems = source === 'COUNTER' ? posCart : selectedQrOrderForPayment?.items;
+    const dispatchId = sourceItems?.find(item => item.savedBillId)?.savedBillId || crypto.randomUUID();
+    const savedItems = (sourceItems || []).map(item => ({ ...item, savedBillId: dispatchId }));
 
     const entry: SavedBillEntry | null = source === 'COUNTER'
       ? {
           id: `${now}`,
-          items: posCart,
+          items: savedItems,
           remark: posRemark,
           tableNumber: targetTable,
           diningType: posDiningType,
@@ -2505,7 +2524,7 @@ const PosOnlyView: React.FC<Props> = ({
       : (selectedQrOrderForPayment
           ? {
               id: `${now}`,
-              items: selectedQrOrderForPayment.items,
+              items: savedItems,
               remark: selectedQrOrderForPayment.remark ?? '',
               tableNumber: targetTable,
               diningType: selectedQrOrderForPayment.diningType,
@@ -2691,6 +2710,7 @@ const PosOnlyView: React.FC<Props> = ({
       total: selectedSavedBillGrandTotal,
       beforeRoundingTotal: selectedSavedBillBeforeRoundingTotal,
       roundingAdjustment: selectedSavedBillRoundingAdjustment,
+      kitchenOrderId: selectedSavedBillKitchenOrderId || undefined,
     });
     setSelectedCashAmount(selectedSavedBillGrandTotal);
     setCashAmountInput(selectedSavedBillGrandTotal.toFixed(2));
@@ -2701,6 +2721,74 @@ const PosOnlyView: React.FC<Props> = ({
     setPaymentPageExitDirection('left');
     setPaymentPageClosing(false);
     setShowPaymentModal(true);
+  };
+
+  const handleSendSavedBillToKitchen = async () => {
+    if (!selectedSavedBillEntry || sendingSavedBillId) return;
+    if (!isOnline) {
+      toast('Connect to the internet before sending this bill to the kitchen.', 'error');
+      return;
+    }
+
+    const dispatchId = selectedSavedBillDispatchId || crypto.randomUUID();
+    setSendingSavedBillId(dispatchId);
+
+    try {
+      let existingOrderId = selectedSavedBillKitchenOrderId;
+      if (!existingOrderId) {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('restaurant_id', restaurant.id)
+          .contains('items', [{ savedBillId: dispatchId }])
+          .neq('status', OrderStatus.CANCELLED)
+          .limit(1);
+        if (error) throw error;
+        existingOrderId = data?.[0]?.id || '';
+      }
+
+      if (existingOrderId) {
+        setSavedBillKitchenOrderIds(prev => ({ ...prev, [dispatchId]: existingOrderId }));
+        toast(`Bill already sent to kitchen as #${existingOrderId}.`, 'success');
+        return;
+      }
+
+      const kitchenItems = selectedSavedBillEntry.items.map(item => ({
+        ...item,
+        savedBillId: dispatchId,
+        status: undefined,
+        kitchenStartedAt: undefined,
+        kitchenCookedAt: undefined,
+      }));
+      const orderId = await onPlaceOrder(
+        kitchenItems,
+        selectedSavedBillEntry.remark,
+        selectedSavedBillEntry.tableNumber,
+        selectedSavedBillEntry.diningType || preferredDiningOption,
+        undefined,
+        cashierName,
+      );
+      if (!orderId) throw new Error('The kitchen order was not created.');
+
+      setSavedBillKitchenOrderIds(prev => ({ ...prev, [dispatchId]: orderId }));
+      if (selectedSavedBillEntry.items.some(item => item.savedBillId !== dispatchId)) {
+        setSavedBills(prev => prev.map(bill => bill.id === selectedSavedBillEntry.id ? { ...bill, items: kitchenItems } : bill));
+        savedBillsSyncRef.current = true;
+        const { error } = await supabase
+          .from('saved_bills')
+          .update({ items: kitchenItems, updated_at: new Date().toISOString() })
+          .eq('restaurant_id', restaurant.id)
+          .eq('table_number', selectedSavedBillEntry.tableNumber);
+        if (error) console.error('Failed to attach kitchen dispatch ID to saved bill:', error);
+      }
+
+      toast(`Order #${orderId} sent to kitchen.`, 'success');
+    } catch (error: any) {
+      console.error('Failed to send saved bill to kitchen:', error);
+      toast(`Could not send to kitchen: ${error?.message || 'Unknown error'}`, 'error');
+    } finally {
+      setSendingSavedBillId(null);
+    }
   };
 
   const handlePrintSavedBillOrderList = async () => {
@@ -2966,6 +3054,43 @@ const PosOnlyView: React.FC<Props> = ({
         amountReceived: selectedCashAmount ?? undefined,
         changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
         orderSource: selectedQrOrderForPayment.orderSource,
+      }]);
+    } else if (pendingOrderData.kitchenOrderId) {
+      // A saved bill that was sent to KDS already has an order row. Record payment
+      // on that row without changing the kitchen's current cooking status.
+      actualOrderId = pendingOrderData.kitchenOrderId;
+      const kitchenOrder = orders.find(order => order.id === actualOrderId);
+      try {
+        await Promise.resolve(onUpdateOrder(actualOrderId, kitchenOrder?.status || OrderStatus.PENDING, {
+          paymentMethod: paymentName,
+          cashierName: cashierName || '',
+          amountReceived: selectedCashAmount ?? undefined,
+          changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
+          eReceipt,
+        }));
+      } catch (error: any) {
+        console.error('Sent bill payment update error:', error);
+        toast(`Failed to complete order: ${error?.message || 'Unknown error'}`, 'error');
+        setIsCompletingPayment(false);
+        setShowPaymentModal(false);
+        return;
+      }
+      counterOrdersCache.mergeReportOrdersCache(restaurant.id, [{
+        id: actualOrderId,
+        items: pendingOrderData.items,
+        total: pendingOrderData.total,
+        status: OrderStatus.COMPLETED,
+        timestamp: kitchenOrder?.timestamp || nowTs,
+        restaurantId: restaurant.id,
+        tableNumber: pendingOrderData.tableNumber,
+        diningType: pendingOrderData.diningType,
+        remark: pendingOrderData.remark || '',
+        customerId: kitchenOrder?.customerId || 'pos_user',
+        paymentMethod: paymentName,
+        cashierName: cashierName || '',
+        amountReceived: selectedCashAmount ?? undefined,
+        changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
+        orderSource: kitchenOrder?.orderSource || 'counter',
       }]);
     } else {
       // Counter order — place a new order in DB
@@ -8296,7 +8421,7 @@ const PosOnlyView: React.FC<Props> = ({
                             </div>
                           )}
 
-                          <div className="mt-3 grid grid-cols-2 gap-2">
+                          <div className="mt-3 grid grid-cols-3 gap-2">
                             <button
                               type="button"
                               onClick={() => setShowMobileSavedBillCart(prev => !prev)}
@@ -8307,10 +8432,18 @@ const PosOnlyView: React.FC<Props> = ({
                             <button
                               type="button"
                               onClick={() => { if (activeSavedBillTable) loadSavedBill(activeSavedBillTable); }}
-                              disabled={isCompletingPayment}
+                              disabled={isCompletingPayment || Boolean(sendingSavedBillId)}
                               className="py-3 rounded-xl bg-orange-500 text-[10px] font-black uppercase tracking-[0.15em] text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 disabled:opacity-50 disabled:shadow-none"
                             >
                               Edit Bill
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSendSavedBillToKitchen}
+                              disabled={isCompletingPayment || Boolean(sendingSavedBillId) || !isOnline}
+                              className="py-3 rounded-xl bg-gray-900 text-[10px] font-black uppercase tracking-[0.15em] text-white transition-all hover:bg-black disabled:opacity-50 dark:bg-white dark:text-black"
+                            >
+                              {sendingSavedBillId ? 'Sending' : selectedSavedBillKitchenOrderId ? 'Sent' : 'Send'}
                             </button>
                           </div>
                         </div>
@@ -12785,10 +12918,17 @@ const PosOnlyView: React.FC<Props> = ({
                 <div className="flex gap-2">
                   <button
                     onClick={() => { if (activeSavedBillTable) loadSavedBill(activeSavedBillTable); }}
-                    disabled={!selectedSavedBillEntry || isCompletingPayment}
+                    disabled={!selectedSavedBillEntry || isCompletingPayment || Boolean(sendingSavedBillId)}
                     className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
                   >
                     Edit Bill
+                  </button>
+                  <button
+                    onClick={handleSendSavedBillToKitchen}
+                    disabled={!selectedSavedBillEntry || isCompletingPayment || Boolean(sendingSavedBillId) || !isOnline}
+                    className="flex-1 py-4 bg-gray-900 dark:bg-white text-white dark:text-black rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-black dark:hover:bg-gray-100 active:scale-[0.98] transition-all disabled:opacity-50"
+                  >
+                    {sendingSavedBillId ? 'Sending...' : selectedSavedBillKitchenOrderId ? 'Sent' : 'Send'}
                   </button>
                   <button
                     onClick={handleSavedBillCheckout}
