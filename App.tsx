@@ -1729,7 +1729,7 @@ const App: React.FC = () => {
     const channel = supabase.channel('qs-realtime-optimized');
     // Admin dashboards refresh compact aggregates; subscribing an admin to
     // every order event would recreate the same cross-platform data flood.
-    if (currentRole !== 'ADMIN') {
+    if (currentRole !== 'ADMIN' && currentRole !== 'KITCHEN') {
       const insertFilter: any = { event: 'INSERT', schema: 'public', table: 'orders' };
       if (orderFilter) insertFilter.filter = orderFilter;
       channel.on('postgres_changes', insertFilter, (payload) => {
@@ -1912,6 +1912,97 @@ const App: React.FC = () => {
       supabase.removeChannel(channel); 
     };
   }, [currentRole, sessionLocation, sessionRestaurantId, currentUser?.restaurantId, rememberKnownOrderId]);
+
+  // Dedicated kitchen order channel. Every order source writes to the same
+  // restaurant-scoped stream, so POS, QR, tableside, and future sources do not
+  // need separate KDS integrations.
+  useEffect(() => {
+    const restaurantId = currentUser?.restaurantId;
+    if (currentRole !== 'KITCHEN' || view !== 'APP' || !restaurantId) return;
+
+    let active = true;
+    const mapKitchenOrder = (row: any): Order => ({
+      id: row.id,
+      items: Array.isArray(row.items) ? row.items : (typeof row.items === 'string' ? JSON.parse(row.items) : []),
+      total: Number(row.total || 0),
+      status: row.status as OrderStatus,
+      timestamp: parseTimestamp(row.timestamp),
+      customerId: row.customer_id,
+      restaurantId: row.restaurant_id,
+      tableNumber: row.table_number,
+      diningType: row.dining_type || undefined,
+      locationName: row.location_name,
+      remark: row.remark,
+      rejectionReason: row.rejection_reason,
+      rejectionNote: row.rejection_note,
+      paymentMethod: row.payment_method,
+      cashierName: row.cashier_name,
+      amountReceived: row.amount_received != null ? Number(row.amount_received) : undefined,
+      changeAmount: row.change_amount != null ? Number(row.change_amount) : undefined,
+      orderSource: row.order_source || undefined,
+      eReceiptId: row.e_receipt_id || undefined,
+    });
+
+    const mergeKitchenOrders = (incomingOrders: Order[]) => {
+      if (!active || incomingOrders.length === 0) return;
+      setOrders(previous => {
+        const byId = new Map(previous.map(order => [order.id, order]));
+        incomingOrders.forEach(order => {
+          const existing = byId.get(order.id);
+          byId.set(order.id, existing ? { ...existing, ...order } : order);
+          rememberKnownOrderId(order.restaurantId, order.id);
+          if (order.timestamp > lastOrderTimestampRef.current) lastOrderTimestampRef.current = order.timestamp;
+        });
+        const merged = Array.from(byId.values())
+          .sort((a, b) => b.timestamp - a.timestamp)
+          .slice(0, 200);
+        persistCache('qs_cache_orders', merged);
+        return merged;
+      });
+      setLastSyncTime(new Date());
+    };
+
+    const receiveKitchenOrder = (payload: { new: Record<string, unknown> }) => {
+      const order = mapKitchenOrder(payload.new);
+      if (order.restaurantId === restaurantId) mergeKitchenOrders([order]);
+    };
+
+    const catchUpKitchenOrders = async () => {
+      const result = await withTimeout(
+        supabase
+          .from('orders')
+          .select(ORDER_COLUMNS)
+          .eq('restaurant_id', restaurantId)
+          .gte('timestamp', Date.now() - (24 * 60 * 60 * 1000))
+          .order('timestamp', { ascending: false })
+          .limit(200),
+        7000,
+      );
+      if (!active || !result) return;
+      if (result.error) {
+        console.warn('[KDS] Initial order catch-up failed:', result.error);
+        return;
+      }
+      mergeKitchenOrders((result.data || []).map(mapKitchenOrder));
+    };
+
+    const orderFilter = `restaurant_id=eq.${restaurantId}`;
+    const kitchenOrdersChannel = supabase
+      .channel(`qs-kitchen-orders-${restaurantId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders', filter: orderFilter }, receiveKitchenOrder)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: orderFilter }, receiveKitchenOrder)
+      .subscribe(status => {
+        if (status === 'SUBSCRIBED') void catchUpKitchenOrders();
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn(`[KDS] Kitchen order channel ${status.toLowerCase()}`);
+        }
+      });
+
+    return () => {
+      active = false;
+      void supabase.removeChannel(kitchenOrdersChannel);
+    };
+  }, [currentRole, currentUser?.restaurantId, view, rememberKnownOrderId]);
 
   // Live-order fallback for installed QR, tableside, online shop, or kitchen
   // features. Standard POS sessions rely on local writes and do not poll.
