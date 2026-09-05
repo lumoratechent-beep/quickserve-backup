@@ -880,7 +880,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
 
 
       <main
-        className="min-h-0 flex-1 touch-pan-y overflow-hidden bg-[#000000] p-1.5 dark:bg-[#000000]"
+        className="min-h-0 flex-1 touch-pan-y overflow-hidden bg-[#000000] px-1.5 pb-4 pt-4 dark:bg-[#000000]"
         onTouchStart={handleKitchenTouchStart}
         onTouchEnd={handleKitchenTouchEnd}
       >
@@ -911,14 +911,14 @@ const KitchenDisplayPage: React.FC<Props> = ({
                   onClick={() => canServeOrder && setServeOrderId(order.id)}
                   className={`flex min-h-0 flex-col overflow-hidden rounded-lg bg-white text-gray-900 shadow-sm dark:bg-white ${canServeOrder ? 'cursor-pointer ring-2 ring-inset ring-green-500 hover:ring-green-400' : ''} ${isExpanded ? 'fixed inset-3 z-[90]' : 'h-full'}`}
                 >
-                  <div className="shrink-0 border-b border-gray-300 px-3 py-2.5">
+                  <div className="shrink-0 border-b border-gray-300 px-2.5 py-2">
                     <div className="flex items-center justify-between gap-2">
                       <h2 className={`truncate font-black tracking-tight ${ticketTitleClass}`}>{order.tableNumber || 'Takeaway'}</h2>
                       <span className="shrink-0 rounded-lg bg-red-500 px-3 py-1 text-[10px] font-black tabular-nums text-white">
                         {formatCookingStopwatch(order, visibleKitchenItems)}
                       </span>
                     </div>
-                    <div className="mt-1.5 flex items-end justify-between gap-3">
+                    <div className="mt-1 flex items-end justify-between gap-3">
                       <div className={`min-w-0 font-semibold leading-tight ${ticketMetaClass}`}>
                         <p>{new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
                         <p className="truncate text-gray-500">#{order.id}</p>
@@ -930,7 +930,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
                     </div>
                   </div>
 
-                  <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
+                  <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-1.5">
                     {visibleKitchenItems.map((item, idx) => {
                       const itemKey = `${order.id}-${item.category || 'item'}-${item.id}-${idx}`;
                       const itemStatus = getItemKitchenStatus(item, order.status);
@@ -961,7 +961,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
                               advanceKitchenItemStatus(order, item, itemKey);
                             }
                           }}
-                          className={`relative flex min-h-9 items-start gap-2 rounded-md px-2 py-1.5 transition-colors ${nextItemStatus && !isUpdatingItem ? 'cursor-pointer' : 'cursor-default'} ${rowStateClass}`}
+                          className={`relative flex min-h-8 items-start gap-1.5 rounded-md px-1.5 py-1 transition-colors ${nextItemStatus && !isUpdatingItem ? 'cursor-pointer' : 'cursor-default'} ${rowStateClass}`}
                           aria-label={nextItemStatus ? `${item.name}: mark ${getKitchenStatusText(nextItemStatus)}` : `${item.name}: ${getKitchenStatusText(itemStatus)}`}
                         >
                           <span className="w-4 shrink-0 pt-0.5 text-[10px] font-semibold text-gray-500">{item.quantity}</span>
@@ -1045,7 +1045,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
                       event.stopPropagation();
                       setExpandedOrderId(isExpanded ? null : order.id);
                     }}
-                    className="flex h-11 shrink-0 items-center justify-center gap-2 border-t border-gray-200 text-xs font-bold text-blue-500 hover:bg-blue-50"
+                    className="flex h-9 shrink-0 items-center justify-center gap-1.5 border-t border-gray-200 text-[10px] font-bold text-blue-500 hover:bg-blue-50"
                   >
                     {isExpanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
                     {isExpanded ? 'collapse' : 'expand'}
@@ -1057,24 +1057,26 @@ const KitchenDisplayPage: React.FC<Props> = ({
         )}
       </main>
 
-      <footer className="relative grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 bg-[#2c2c2e] px-2 text-white sm:px-3">
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <span className="shrink-0 text-sm font-bold">{kitchenVisibleOrders.length} orders</span>
-          <button onClick={() => { setKitchenOrderFilter('ONGOING_ALL'); setCurrentKitchenPage(1); }} className={`hidden items-center gap-1 text-[9px] sm:flex ${kitchenOrderFilter === 'ONGOING_ALL' ? 'text-white' : 'text-gray-400'}`}>
-            <Clock size={11} />
+      <footer className="relative grid h-12 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] grid-rows-1 items-center gap-1 bg-[#2c2c2e] px-1.5 text-white sm:px-2">
+        <div className="flex h-full min-w-0 items-center gap-0.5 overflow-visible pl-1 sm:pl-2">
+          <span className="hidden shrink-0 self-center pr-1 text-xs font-bold sm:inline">{kitchenVisibleOrders.length} orders</span>
+          <button onClick={() => { setKitchenOrderFilter('ONGOING_ALL'); setCurrentKitchenPage(1); }} className={`relative flex shrink-0 self-center items-center gap-1 rounded-t-md border-t-2 px-1.5 text-[9px] font-semibold transition-colors sm:px-2 sm:text-[10px] ${kitchenOrderFilter === 'ONGOING_ALL' ? '-top-1 h-14 border-blue-400 bg-[#3a3a3c] text-white' : 'h-8 rounded-md border-transparent text-gray-400 hover:bg-white/5'}`}>
+            <Clock className="text-blue-400" size={14} />
             Cooking
           </button>
-          <button onClick={() => { setKitchenOrderFilter('COOKED'); setCurrentKitchenPage(1); }} className={`hidden items-center gap-1 text-[9px] sm:flex ${kitchenOrderFilter === 'COOKED' ? 'text-white' : 'text-gray-400'}`}>
-            <CheckCircle size={11} />
+          <button onClick={() => { setKitchenOrderFilter('COOKED'); setCurrentKitchenPage(1); }} className={`relative flex shrink-0 self-center items-center gap-1 rounded-t-md border-t-2 px-1.5 text-[9px] font-semibold transition-colors sm:px-2 sm:text-[10px] ${kitchenOrderFilter === 'COOKED' ? '-top-1 h-14 border-gray-300 bg-[#3a3a3c] text-white' : 'h-8 rounded-md border-transparent text-gray-400 hover:bg-white/5'}`}>
+            <CheckCircle className="text-gray-300" size={14} />
             Cooked
           </button>
-          <button onClick={() => { setKitchenOrderFilter(OrderStatus.SERVED); setCurrentKitchenPage(1); }} className={`hidden items-center gap-1 text-[9px] sm:flex ${kitchenOrderFilter === OrderStatus.SERVED ? 'text-white' : 'text-gray-400'}`}>
-            <CheckCircle className="text-green-500" fill="currentColor" size={11} />
+          <button onClick={() => { setKitchenOrderFilter(OrderStatus.SERVED); setCurrentKitchenPage(1); }} className={`relative flex shrink-0 self-center items-center gap-1 rounded-t-md border-t-2 px-1.5 text-[9px] font-semibold transition-colors sm:px-2 sm:text-[10px] ${kitchenOrderFilter === OrderStatus.SERVED ? '-top-1 h-14 border-green-500 bg-[#3a3a3c] text-white' : 'h-8 rounded-md border-transparent text-gray-400 hover:bg-white/5'}`}>
+            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-green-500 text-white">
+              <Check strokeWidth={3} size={10} />
+            </span>
             Served
           </button>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex h-8 self-center items-center gap-1">
           <button
             onClick={() => goToKitchenPage(currentKitchenPage - 1)}
             disabled={currentKitchenPage === 1}
@@ -1104,10 +1106,10 @@ const KitchenDisplayPage: React.FC<Props> = ({
           </button>
         </div>
 
-        <div className="relative flex items-center justify-end gap-2">
-          <time className="hidden whitespace-nowrap text-right text-[9px] font-semibold leading-tight text-gray-300 sm:block">
-            {new Date(clockNow).toLocaleDateString([], { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
-            <span className="ml-2 tabular-nums text-white">{new Date(clockNow).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+        <div className="relative flex h-8 self-center items-center justify-end gap-2">
+          <time className="hidden whitespace-nowrap text-right text-[10px] font-medium leading-tight text-gray-400 sm:block">
+            <span>{new Date(clockNow).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+            <span className="ml-2 tabular-nums text-[11px] font-bold text-white">{new Date(clockNow).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
           </time>
           <button onClick={() => { setDisplaySettingsSection('APPEARANCE'); setShowDisplaySettings(true); }} className="flex h-8 w-8 items-center justify-center rounded-md bg-white/10 text-gray-200 hover:bg-white/20" title="Display settings">
             <Settings size={15} />

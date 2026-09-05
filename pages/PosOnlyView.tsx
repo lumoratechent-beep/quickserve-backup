@@ -195,6 +195,83 @@ const getSavedBillItemSignature = (item: CartItem): string => JSON.stringify({
   selectedMixMatch: item.selectedMixMatch || [],
 });
 
+type ItemRemarkGroup = 'food' | 'drink' | 'other';
+
+interface ItemRemarkPreset {
+  label: string;
+  modifier: string;
+}
+
+const ITEM_REMARK_PRESETS: Record<ItemRemarkGroup, ItemRemarkPreset[]> = {
+  food: [
+    { label: 'No onion', modifier: 'onion' },
+    { label: 'Less onion', modifier: 'onion' },
+    { label: 'More onion', modifier: 'onion' },
+    { label: 'No garlic', modifier: 'garlic' },
+    { label: 'No spicy', modifier: 'spice' },
+    { label: 'Less spicy', modifier: 'spice' },
+    { label: 'More spicy', modifier: 'spice' },
+    { label: 'No sauce', modifier: 'sauce' },
+    { label: 'Less sauce', modifier: 'sauce' },
+    { label: 'More sauce', modifier: 'sauce' },
+    { label: 'Sauce separately', modifier: 'sauce' },
+    { label: 'No garnish', modifier: 'garnish' },
+    { label: 'No vegetables', modifier: 'vegetables' },
+    { label: 'More vegetables', modifier: 'vegetables' },
+    { label: 'No cheese', modifier: 'cheese' },
+    { label: 'Extra cheese', modifier: 'cheese' },
+    { label: 'Cut in half', modifier: 'preparation' },
+    { label: 'No salt', modifier: 'salt' },
+    { label: 'Less salt', modifier: 'salt' },
+    { label: 'More salt', modifier: 'salt' },
+  ],
+  drink: [
+    { label: 'No sugar', modifier: 'sugar' },
+    { label: 'Less sugar', modifier: 'sugar' },
+    { label: 'More sugar', modifier: 'sugar' },
+    { label: 'No ice', modifier: 'ice' },
+    { label: 'Less ice', modifier: 'ice' },
+    { label: 'More ice', modifier: 'ice' },
+    { label: 'Less sweet', modifier: 'sweetness' },
+    { label: 'More sweet', modifier: 'sweetness' },
+    { label: 'No milk', modifier: 'milk' },
+    { label: 'Less milk', modifier: 'milk' },
+    { label: 'More milk', modifier: 'milk' },
+    { label: 'Hot', modifier: 'temperature' },
+    { label: 'Warm', modifier: 'temperature' },
+    { label: 'Cold', modifier: 'temperature' },
+    { label: 'Room temperature', modifier: 'temperature' },
+    { label: 'No straw', modifier: 'straw' },
+    { label: 'Extra straw', modifier: 'straw' },
+    { label: 'No lemon', modifier: 'lemon' },
+    { label: 'Less lemon', modifier: 'lemon' },
+    { label: 'More lemon', modifier: 'lemon' },
+  ],
+  other: [
+    { label: 'Pack separately', modifier: 'packing' },
+    { label: 'Takeaway packing', modifier: 'packing' },
+    { label: 'Gift packing', modifier: 'packing' },
+    { label: 'Separate bag', modifier: 'bag' },
+    { label: 'No bag', modifier: 'bag' },
+    { label: 'No cutlery', modifier: 'cutlery' },
+    { label: 'Extra cutlery', modifier: 'cutlery' },
+    { label: 'Handle with care', modifier: 'handling' },
+    { label: 'Fragile', modifier: 'handling' },
+    { label: 'Urgent', modifier: 'priority' },
+    { label: 'No napkin', modifier: 'napkin' },
+    { label: 'Extra napkin', modifier: 'napkin' },
+  ],
+};
+
+const ALL_ITEM_REMARK_PRESETS = Object.values(ITEM_REMARK_PRESETS).flat();
+
+const inferItemRemarkGroup = (item?: CartItem): ItemRemarkGroup => {
+  const searchable = `${item?.category || ''} ${item?.name || ''}`.toLowerCase();
+  if (/drink|beverage|coffee|tea|juice|water|milo|soda|latte|shake/.test(searchable)) return 'drink';
+  if (/other|merchandise|packaging|service/.test(searchable)) return 'other';
+  return 'food';
+};
+
 type CounterQrOrderView = 'list' | 'grid';
 type QrTableOrderView = 'list' | 'grid';
 
@@ -705,7 +782,11 @@ const PosOnlyView: React.FC<Props> = ({
   const [cartItemActionIndex, setCartItemActionIndex] = useState<number | null>(null);
   const [cartItemActionPosition, setCartItemActionPosition] = useState<{ top: number; right: number } | null>(null);
   const [cartItemRemarkIndex, setCartItemRemarkIndex] = useState<number | null>(null);
+  const [savedBillItemActionIndex, setSavedBillItemActionIndex] = useState<number | null>(null);
+  const [savedBillItemActionPosition, setSavedBillItemActionPosition] = useState<{ top: number; right: number } | null>(null);
+  const [savedBillItemRemarkIndex, setSavedBillItemRemarkIndex] = useState<number | null>(null);
   const [cartItemRemarkDraft, setCartItemRemarkDraft] = useState('');
+  const [itemRemarkGroup, setItemRemarkGroup] = useState<ItemRemarkGroup>('food');
   const [removingCartItem, setRemovingCartItem] = useState<CartItem | null>(null);
   const [cartSwipe, setCartSwipe] = useState<{ item: CartItem; pointerId: number; startX: number; offsetX: number } | null>(null);
   const cartRemovalTimerRef = useRef<number | null>(null);
@@ -755,6 +836,35 @@ const PosOnlyView: React.FC<Props> = ({
       window.removeEventListener('scroll', closeCartItemActionsOnViewportChange, true);
     };
   }, [cartItemActionIndex]);
+
+  useEffect(() => {
+    if (savedBillItemActionIndex === null) return;
+
+    const closeSavedBillItemActions = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest('[data-saved-bill-item-actions]')) return;
+      setSavedBillItemActionIndex(null);
+      setSavedBillItemActionPosition(null);
+    };
+    const closeSavedBillItemActionsOnViewportChange = () => {
+      setSavedBillItemActionIndex(null);
+      setSavedBillItemActionPosition(null);
+    };
+
+    document.addEventListener('pointerdown', closeSavedBillItemActions);
+    window.addEventListener('resize', closeSavedBillItemActionsOnViewportChange);
+    window.addEventListener('scroll', closeSavedBillItemActionsOnViewportChange, true);
+    return () => {
+      document.removeEventListener('pointerdown', closeSavedBillItemActions);
+      window.removeEventListener('resize', closeSavedBillItemActionsOnViewportChange);
+      window.removeEventListener('scroll', closeSavedBillItemActionsOnViewportChange, true);
+    };
+  }, [savedBillItemActionIndex]);
+
+  useEffect(() => {
+    setSavedBillItemActionIndex(null);
+    setSavedBillItemActionPosition(null);
+    setSavedBillItemRemarkIndex(null);
+  }, [activeSavedBillTable]);
 
   useEffect(() => {
     if (!showLayoutPicker) return;
@@ -2339,26 +2449,96 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const openCartItemRemark = (cartIndex: number) => {
+    const item = posCart[cartIndex];
     setCartItemRemarkIndex(cartIndex);
-    setCartItemRemarkDraft(posCart[cartIndex]?.remark || '');
+    setSavedBillItemRemarkIndex(null);
+    setCartItemRemarkDraft(item?.remark || '');
+    setItemRemarkGroup(inferItemRemarkGroup(item));
     setCartItemActionIndex(null);
     setCartItemActionPosition(null);
   };
 
+  const toggleSavedBillItemActions = (event: React.MouseEvent<HTMLButtonElement>, itemIndex: number) => {
+    event.stopPropagation();
+    if (savedBillItemActionIndex === itemIndex) {
+      setSavedBillItemActionIndex(null);
+      setSavedBillItemActionPosition(null);
+      return;
+    }
+
+    const buttonRect = event.currentTarget.getBoundingClientRect();
+    const menuHeight = 44;
+    setSavedBillItemActionPosition({
+      top: Math.max(8, Math.min(buttonRect.bottom + 4, window.innerHeight - menuHeight - 8)),
+      right: Math.max(8, window.innerWidth - buttonRect.right),
+    });
+    setSavedBillItemActionIndex(itemIndex);
+  };
+
+  const openSavedBillItemRemark = (itemIndex: number) => {
+    const item = selectedSavedBillEntry?.items[itemIndex];
+    if (!item) return;
+    setCartItemRemarkIndex(null);
+    setSavedBillItemRemarkIndex(itemIndex);
+    setCartItemRemarkDraft(item.remark || '');
+    setItemRemarkGroup(inferItemRemarkGroup(item));
+    setSavedBillItemActionIndex(null);
+    setSavedBillItemActionPosition(null);
+  };
+
   const closeCartItemRemark = () => {
     setCartItemRemarkIndex(null);
+    setSavedBillItemRemarkIndex(null);
     setCartItemRemarkDraft('');
   };
 
-  const saveCartItemRemark = () => {
-    if (cartItemRemarkIndex === null) return;
+  const isItemRemarkPresetSelected = (label: string): boolean => (
+    cartItemRemarkDraft.split(',').some(part => part.trim().toLowerCase() === label.toLowerCase())
+  );
 
+  const toggleItemRemarkPreset = (preset: ItemRemarkPreset) => {
+    const currentParts = cartItemRemarkDraft.split(',').map(part => part.trim()).filter(Boolean);
+    const isSelected = currentParts.some(part => part.toLowerCase() === preset.label.toLowerCase());
+    const conflictingLabels = new Set(
+      ALL_ITEM_REMARK_PRESETS
+        .filter(option => option.modifier === preset.modifier)
+        .map(option => option.label.toLowerCase())
+    );
+    const nextParts = currentParts.filter(part => !conflictingLabels.has(part.toLowerCase()));
+    if (!isSelected) nextParts.push(preset.label);
+    setCartItemRemarkDraft(nextParts.join(', ').slice(0, 250));
+  };
+
+  const saveCartItemRemark = () => {
     const remark = cartItemRemarkDraft.trim();
-    setPosCart(prev => prev.map((item, idx) => (
-      idx === cartItemRemarkIndex
-        ? { ...item, remark: remark || undefined }
-        : item
-    )));
+
+    if (cartItemRemarkIndex !== null) {
+      setPosCart(prev => prev.map((item, idx) => (
+        idx === cartItemRemarkIndex
+          ? { ...item, remark: remark || undefined }
+          : item
+      )));
+    } else if (savedBillItemRemarkIndex !== null && selectedSavedBillEntry) {
+      const updatedItems = selectedSavedBillEntry.items.map((item, idx) => (
+        idx === savedBillItemRemarkIndex
+          ? { ...item, remark: remark || undefined }
+          : item
+      ));
+      setSavedBills(prev => prev.map(bill => (
+        bill.id === selectedSavedBillEntry.id ? { ...bill, items: updatedItems } : bill
+      )));
+      savedBillsSyncRef.current = true;
+      void supabase
+        .from('saved_bills')
+        .update({ items: updatedItems, updated_at: new Date().toISOString() })
+        .eq('restaurant_id', restaurant.id)
+        .eq('table_number', selectedSavedBillEntry.tableNumber)
+        .then(({ error }) => {
+          if (error) console.error('Failed to update saved bill item remark:', error);
+        });
+    } else {
+      return;
+    }
     closeCartItemRemark();
   };
 
@@ -2807,6 +2987,12 @@ const PosOnlyView: React.FC<Props> = ({
     setShowPaymentModal(true);
   };
 
+  const returnToCounterAfterKitchenSend = () => {
+    setActiveTab('COUNTER');
+    setCounterMode('COUNTER_ORDER');
+    setActiveSavedBillTable(null);
+  };
+
   const handleSendSavedBillToKitchen = async () => {
     if (!selectedSavedBillEntry || sendingSavedBillId) return;
     if (!showKitchenFeature) {
@@ -2939,12 +3125,14 @@ const PosOnlyView: React.FC<Props> = ({
         onUpdateOrderItems?.(existingOrderId, updatedItems, updatedTotal);
         await Promise.resolve(onUpdateOrder(existingOrderId, nextStatus));
         toast(`Kitchen order #${existingOrderId} updated.`, 'success');
+        returnToCounterAfterKitchenSend();
         return;
       }
 
       if (existingOrderId) {
         setSavedBillKitchenOrderIds(prev => ({ ...prev, [dispatchId]: existingOrderId }));
         toast(`Bill already sent to kitchen as #${existingOrderId}.`, 'success');
+        returnToCounterAfterKitchenSend();
         return;
       }
 
@@ -2980,6 +3168,7 @@ const PosOnlyView: React.FC<Props> = ({
       }
 
       toast(`Order #${orderId} sent to kitchen.`, 'success');
+      returnToCounterAfterKitchenSend();
     } catch (error: any) {
       console.error('Failed to send saved bill to kitchen:', error);
       toast(`Could not send to kitchen: ${error?.message || 'Unknown error'}`, 'error');
@@ -8582,7 +8771,7 @@ const PosOnlyView: React.FC<Props> = ({
                           else setTableColPage(p => Math.max(p - 1, 0));
                         }}
                       >
-                        <div className="grid grid-cols-[repeat(auto-fit,minmax(112px,1fr))] gap-2">
+                        <div className="table-arrangement-grid grid gap-2">
                             {tableLabelsForFloor.map((table) => {
                               const tableBill = savedBillsByTable.get(table);
                               const hasPending = !!tableBill;
@@ -8659,8 +8848,26 @@ const PosOnlyView: React.FC<Props> = ({
                                   <div className="min-w-0">
                                     <p className="truncate text-xs font-black uppercase tracking-tight text-gray-900 dark:text-white">{item.name}</p>
                                     <p className="text-[10px] font-bold text-gray-500 dark:text-gray-300">x{item.quantity}</p>
+                                    {item.remark && (
+                                      <p className="mt-0.5 flex items-start gap-1 text-[10px] font-bold italic text-orange-600 dark:text-orange-400">
+                                        <MessageSquare size={10} className="mt-0.5 shrink-0" /> {item.remark}
+                                      </p>
+                                    )}
                                   </div>
-                                  <p className="shrink-0 text-xs font-black text-orange-500">{currencySymbol}{(item.price * item.quantity).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                  <div className="flex shrink-0 items-center gap-1">
+                                    <p className="text-xs font-black text-orange-500">{currencySymbol}{(item.price * item.quantity).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                    <div data-saved-bill-item-actions>
+                                      <button
+                                        type="button"
+                                        onClick={event => toggleSavedBillItemActions(event, idx)}
+                                        className="rounded-lg p-1.5 text-gray-400 transition-all hover:bg-white hover:text-orange-500 dark:hover:bg-gray-700"
+                                        aria-label={`Actions for ${item.name}`}
+                                        aria-expanded={savedBillItemActionIndex === idx}
+                                      >
+                                        <MoreVertical size={15} />
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
                               ))}
                               {selectedSavedBillEntry.remark && (
@@ -8760,7 +8967,7 @@ const PosOnlyView: React.FC<Props> = ({
                       );
                     }
                     return (
-                      <div className="grid grid-cols-[repeat(auto-fit,minmax(112px,1fr))] gap-2">
+                      <div className="table-arrangement-grid grid gap-2">
                         {visibleQrTables.map(table => {
                           const order = openQrOrdersByTable.get(table);
                           const hasOpenOrder = !!order;
@@ -13189,9 +13396,27 @@ const PosOnlyView: React.FC<Props> = ({
                             {item.selectedMixMatch && item.selectedMixMatch.length > 0 && item.selectedMixMatch.map((m, mIdx) => (
                               m.choice && <p key={mIdx} className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {m.label}: {m.choice}</p>
                             ))}
+                            {item.remark && (
+                              <p className="flex items-start gap-1 text-xs font-bold italic text-orange-600 dark:text-orange-400">
+                                <MessageSquare size={12} className="mt-0.5 shrink-0" /> {item.remark}
+                              </p>
+                            )}
                           </div>
                         </div>
-                        <span className="text-xs font-black dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-lg">x{item.quantity}</span>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <span className="rounded-lg bg-gray-100 px-2 py-1 text-xs font-black dark:bg-gray-700 dark:text-white">x{item.quantity}</span>
+                          <div data-saved-bill-item-actions>
+                            <button
+                              type="button"
+                              onClick={event => toggleSavedBillItemActions(event, idx)}
+                              className="rounded-lg p-1.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-orange-500 dark:hover:bg-gray-700"
+                              aria-label={`Actions for ${item.name}`}
+                              aria-expanded={savedBillItemActionIndex === idx}
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     ))}
                     {selectedSavedBillEntry.remark && (
@@ -13730,30 +13955,88 @@ const PosOnlyView: React.FC<Props> = ({
         </div>
       )}
 
+      {savedBillItemActionIndex !== null && savedBillItemActionPosition && selectedSavedBillEntry?.items[savedBillItemActionIndex] && (
+        <div
+          data-saved-bill-item-actions
+          className="fixed z-[170] w-40 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-600 dark:bg-gray-800"
+          style={{ top: savedBillItemActionPosition.top, right: savedBillItemActionPosition.right }}
+        >
+          <button
+            type="button"
+            onClick={() => openSavedBillItemRemark(savedBillItemActionIndex)}
+            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-wider text-gray-700 hover:bg-orange-50 dark:text-gray-200 dark:hover:bg-orange-900/20"
+          >
+            <MessageSquare size={14} className="text-orange-500" /> {selectedSavedBillEntry.items[savedBillItemActionIndex].remark ? 'Edit remark' : 'Add remark'}
+          </button>
+        </div>
+      )}
+
 
       {/* Cart Item Remark Modal */}
-      {cartItemRemarkIndex !== null && posCart[cartItemRemarkIndex] && (
+      {((cartItemRemarkIndex !== null && posCart[cartItemRemarkIndex]) || (savedBillItemRemarkIndex !== null && selectedSavedBillEntry?.items[savedBillItemRemarkIndex])) && (
         <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4" onClick={closeCartItemRemark}>
-          <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-white dark:bg-gray-800 p-5 sm:p-6 shadow-2xl" onClick={event => event.stopPropagation()}>
+          <div className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl bg-white dark:bg-gray-800 p-5 sm:p-6 shadow-2xl" onClick={event => event.stopPropagation()}>
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-orange-500">Item remark</p>
-                <h3 className="mt-1 text-base font-black uppercase tracking-tight text-gray-900 dark:text-white">{posCart[cartItemRemarkIndex].name}</h3>
+                <h3 className="mt-1 text-base font-black uppercase tracking-tight text-gray-900 dark:text-white">
+                  {cartItemRemarkIndex !== null ? posCart[cartItemRemarkIndex]?.name : selectedSavedBillEntry?.items[savedBillItemRemarkIndex!]?.name}
+                </h3>
               </div>
               <button type="button" onClick={closeCartItemRemark} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Close remark editor">
                 <X size={18} />
               </button>
             </div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Quick remark</p>
+              <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500">Tap to toggle</span>
+            </div>
+            <div className="mb-3 grid grid-cols-3 rounded-xl bg-gray-100 p-1 dark:bg-gray-700">
+              {(['food', 'drink', 'other'] as ItemRemarkGroup[]).map(group => (
+                <button
+                  type="button"
+                  key={group}
+                  onClick={() => setItemRemarkGroup(group)}
+                  className={`rounded-lg px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                    itemRemarkGroup === group
+                      ? 'bg-white text-orange-600 shadow-sm dark:bg-gray-800 dark:text-orange-400'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {group}
+                </button>
+              ))}
+            </div>
+            <div className="mb-4 grid h-48 w-full content-start grid-cols-4 gap-1.5 overflow-hidden">
+              {ITEM_REMARK_PRESETS[itemRemarkGroup].map(preset => {
+                const selected = isItemRemarkPresetSelected(preset.label);
+                return (
+                  <button
+                    type="button"
+                    key={`${itemRemarkGroup}-${preset.label}`}
+                    onClick={() => toggleItemRemarkPreset(preset)}
+                    className={`min-h-8 w-full rounded-lg border px-1 py-1.5 text-center text-[9px] font-bold leading-tight transition-all ${
+                      selected
+                        ? 'border-orange-500 bg-orange-500 text-white'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-orange-300 hover:text-orange-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200'
+                    }`}
+                    aria-pressed={selected}
+                  >
+                    {selected && <Check size={11} className="mr-1 inline" />}{preset.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Custom remark:</p>
             <textarea
-              autoFocus
               value={cartItemRemarkDraft}
               onChange={event => setCartItemRemarkDraft(event.target.value)}
               onKeyDown={event => {
                 if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') saveCartItemRemark();
               }}
-              rows={4}
+              rows={3}
               maxLength={250}
-              placeholder="e.g. No onions, less spicy"
+              placeholder="Add a custom remark..."
               className="w-full resize-none rounded-xl border-2 border-gray-200 bg-white p-3 text-sm font-semibold text-gray-900 outline-none transition-colors focus:border-orange-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             />
             <div className="mt-4 flex gap-3">
@@ -15169,6 +15452,9 @@ const PosOnlyView: React.FC<Props> = ({
         }
         .saved-table-cell {
           min-width: 0;
+        }
+        .table-arrangement-grid {
+          grid-template-columns: repeat(auto-fit, minmax(max(112px, calc((100% - 2rem) / 5)), 1fr));
         }
         .saved-table-cell-empty {
           border: 1px dashed transparent;
