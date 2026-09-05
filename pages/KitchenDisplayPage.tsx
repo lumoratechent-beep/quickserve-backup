@@ -891,9 +891,13 @@ const KitchenDisplayPage: React.FC<Props> = ({
             <p className="mt-1 text-[10px] text-gray-400">Waiting for incoming orders</p>
           </div>
         ) : (
+          <>
+          {expandedOrderId && (
+            <div className="fixed inset-0 z-[80] bg-black/35 backdrop-blur-md" aria-hidden="true" />
+          )}
           <div
             key={`${kitchenOrderFilter}-${currentKitchenPage}`}
-            className={`grid h-full grid-cols-1 gap-1.5 sm:grid-cols-2 ${ticketGridClass} ${pageSlideDirection === 'NEXT' ? 'animate-kds-page-next' : 'animate-kds-page-previous'}`}
+            className={`grid h-full grid-cols-1 gap-1.5 sm:grid-cols-2 ${ticketGridClass} ${!expandedOrderId ? (pageSlideDirection === 'NEXT' ? 'animate-kds-page-next' : 'animate-kds-page-previous') : ''}`}
           >
             {pagedKitchenOrders.map(order => {
               const visibleKitchenItems = getSortedOrderItems(order, kitchenHasAssignedScope ? kitchenScopeCategories : []);
@@ -909,7 +913,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
                 <article
                   key={order.id}
                   onClick={() => canServeOrder && setServeOrderId(order.id)}
-                  className={`flex min-h-0 flex-col overflow-hidden rounded-lg bg-white text-gray-900 shadow-sm dark:bg-white ${canServeOrder ? 'cursor-pointer ring-2 ring-inset ring-green-500 hover:ring-green-400' : ''} ${isExpanded ? 'fixed inset-3 z-[90]' : 'h-full'}`}
+                  className={`flex min-h-0 flex-col overflow-hidden rounded-lg bg-white text-gray-900 shadow-sm dark:bg-white ${canServeOrder ? 'cursor-pointer ring-2 ring-inset ring-green-500 hover:ring-green-400' : ''} ${isExpanded ? 'fixed left-1/2 top-8 bottom-8 z-[90] w-[min(480px,calc(100vw-2rem))] -translate-x-1/2' : 'h-full'}`}
                 >
                   <div className="shrink-0 border-b border-gray-300 px-2.5 py-2">
                     <div className="flex items-center justify-between gap-2">
@@ -1054,6 +1058,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
               );
             })}
           </div>
+          </>
         )}
       </main>
 
