@@ -2535,6 +2535,13 @@ const PosOnlyView: React.FC<Props> = ({
     return 'text-gray-400';
   };
 
+  const isQrOrTablesideOrder = (order: Order): boolean => order.orderSource === 'qr_order' || order.orderSource === 'tableside';
+
+  const getQrActiveOrderCount = (): number => orders.filter(order => (
+    isQrOrTablesideOrder(order)
+    && (order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING || order.status === OrderStatus.PREPARING)
+  )).length;
+
   const selectedSavedBillSubtotal = useMemo(() => {
     if (!selectedSavedBillEntry) return 0;
     return getItemsSubtotal(selectedSavedBillEntry.items);
@@ -2802,6 +2809,10 @@ const PosOnlyView: React.FC<Props> = ({
 
   const handleSendSavedBillToKitchen = async () => {
     if (!selectedSavedBillEntry || sendingSavedBillId) return;
+    if (!showKitchenFeature) {
+      toast('Kitchen Display System on the Pro Plus plan is required to send orders.', 'warning');
+      return;
+    }
     if (!isOnline) {
       toast('Connect to the internet before sending this bill to the kitchen.', 'error');
       return;
@@ -7051,8 +7062,19 @@ const PosOnlyView: React.FC<Props> = ({
         <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-2 md:gap-4 py-5 first:pt-0">
             <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">Auto Send Orders to Kitchen via Counter</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">Auto Send Orders to Kitchen via Counter</p>
+                <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                  {!canUseKitchen && <Lock size={9} />}
+                  Pro Plus
+                </span>
+              </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Send counter orders to KDS after payment confirmation</p>
+              {!canUseKitchen ? (
+                <p className="mt-1 text-[10px] font-semibold text-purple-600 dark:text-purple-400">Upgrade to Pro Plus to use this setting.</p>
+              ) : !featureSettings.kitchenEnabled ? (
+                <p className="mt-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">Install Kitchen Display System to use this setting.</p>
+              ) : null}
             </div>
             <div className="flex items-center justify-end">
               <button
@@ -7060,7 +7082,7 @@ const PosOnlyView: React.FC<Props> = ({
                 onClick={() => updateFeatureSetting('autoSendCounterOrdersToKitchen', !featureSettings.autoSendCounterOrdersToKitchen)}
                 disabled={!showKitchenFeature}
                 className={`w-11 h-6 rounded-full transition-all relative disabled:cursor-not-allowed disabled:opacity-40 ${featureSettings.autoSendCounterOrdersToKitchen && showKitchenFeature ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                title={showKitchenFeature ? 'Auto send counter orders to kitchen' : 'Kitchen Display must be enabled'}
+                title={!canUseKitchen ? 'Requires the Pro Plus plan' : showKitchenFeature ? 'Auto send counter orders to kitchen' : 'Install Kitchen Display System to enable'}
                 aria-label="Auto send counter orders to kitchen"
                 aria-pressed={featureSettings.autoSendCounterOrdersToKitchen && showKitchenFeature}
               >
@@ -8192,13 +8214,13 @@ const PosOnlyView: React.FC<Props> = ({
                 {!isSidebarCollapsed && 'QR & Table Order'}
               </div>
               {!isSidebarCollapsed && (() => {
-                const pendingQr = orders.filter(o => (o.orderSource === 'qr_order' || o.orderSource === 'tableside') && o.status === OrderStatus.PENDING).length;
+                const pendingQr = getQrActiveOrderCount();
                 return pendingQr > 0 ? (
                   <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">{pendingQr}</span>
                 ) : null;
               })()}
               {isSidebarCollapsed && (() => {
-                const pendingQr = orders.filter(o => (o.orderSource === 'qr_order' || o.orderSource === 'tableside') && o.status === OrderStatus.PENDING).length;
+                const pendingQr = getQrActiveOrderCount();
                 return pendingQr > 0 ? (
                   <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-bounce">{pendingQr}</span>
                 ) : null;
@@ -8477,8 +8499,8 @@ const PosOnlyView: React.FC<Props> = ({
                           className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${counterMode === 'QR_ORDER' && !editingQrOrderId ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                         >
                           <span className="text-[10px] font-black uppercase tracking-widest">QR Order</span>
-                          {orders.filter(o => o.status === OrderStatus.SERVED).length > 0 && (
-                            <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[8px] font-black flex items-center justify-center">{orders.filter(o => o.status === OrderStatus.SERVED).length}</span>
+                          {getQrActiveOrderCount() > 0 && (
+                            <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[8px] font-black flex items-center justify-center">{getQrActiveOrderCount()}</span>
                           )}
                         </button>
                       )}
@@ -8560,7 +8582,7 @@ const PosOnlyView: React.FC<Props> = ({
                           else setTableColPage(p => Math.max(p - 1, 0));
                         }}
                       >
-                        <div className="grid grid-cols-3 gap-2 landscape:grid-cols-5 lg:grid-cols-5">
+                        <div className="grid grid-cols-[repeat(auto-fit,minmax(112px,1fr))] gap-2">
                             {tableLabelsForFloor.map((table) => {
                               const tableBill = savedBillsByTable.get(table);
                               const hasPending = !!tableBill;
@@ -8579,7 +8601,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     setActiveSavedBillTable(isActiveTable ? null : table);
                                     setShowMobileSavedBillCart(false);
                                   }}
-                                  className={`saved-table-cell h-[96px] rounded-xl border-2 p-3 text-center transition-all flex flex-col items-center justify-center gap-2 ${
+                                  className={`saved-table-cell h-[96px] rounded-xl border-2 px-3 py-2.5 text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
                                     isActiveTable
                                       ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-[0_0_0_2px_rgba(249,115,22,0.5)]'
                                       :
@@ -8588,13 +8610,13 @@ const PosOnlyView: React.FC<Props> = ({
                                       : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 opacity-70'
                                   }`}
                                 >
-                                  <p className="text-[10px] font-black uppercase tracking-widest dark:text-white line-clamp-1">{table}</p>
-                                  <p className={`text-[9px] font-black uppercase tracking-widest ${getSavedBillStatusClass(tableStatus)}`}>
+                                  <p className="min-h-4 max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-black uppercase leading-4 tracking-widest text-gray-900 dark:text-white">{table}</p>
+                                  <p className={`min-h-4 max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[9px] font-black uppercase leading-4 tracking-widest ${getSavedBillStatusClass(tableStatus)}`}>
                                     {getSavedBillStatusLabel(tableStatus)}
                                   </p>
-                                  <p className="text-[9px] leading-4 text-gray-500 dark:text-gray-300">
-                                    <span className="block">{hasPending ? `${tableItemCount} ${tableItemCount === 1 ? 'item' : 'items'}` : '0 item'}</span>
-                                    <span className="block">{hasPending ? `${currencySymbol}${tableGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `${currencySymbol}0.00`}</span>
+                                  <p className="max-w-full text-[9px] leading-4 text-gray-500 dark:text-gray-300">
+                                    <span className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap">{hasPending ? `${tableItemCount} ${tableItemCount === 1 ? 'item' : 'items'}` : '0 item'}</span>
+                                    <span className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap">{hasPending ? `${currencySymbol}${tableGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `${currencySymbol}0.00`}</span>
                                   </p>
                                 </button>
                               );
@@ -8649,7 +8671,7 @@ const PosOnlyView: React.FC<Props> = ({
                             </div>
                           )}
 
-                          <div className="mt-3 grid grid-cols-3 gap-2">
+                          <div className={`mt-3 grid gap-2 ${showKitchenFeature ? 'grid-cols-3' : 'grid-cols-2'}`}>
                             <button
                               type="button"
                               onClick={() => setShowMobileSavedBillCart(prev => !prev)}
@@ -8665,14 +8687,16 @@ const PosOnlyView: React.FC<Props> = ({
                             >
                               Edit Bill
                             </button>
-                            <button
-                              type="button"
-                              onClick={handleSendSavedBillToKitchen}
-                              disabled={isCompletingPayment || Boolean(sendingSavedBillId) || !isOnline}
-                              className="py-3 rounded-xl bg-gray-900 text-[10px] font-black uppercase tracking-[0.15em] text-white transition-all hover:bg-black disabled:opacity-50 dark:bg-white dark:text-black"
-                            >
-                              {sendingSavedBillId ? 'Sending' : selectedSavedBillKitchenOrderId ? 'Sent' : 'Send'}
-                            </button>
+                            {showKitchenFeature && (
+                              <button
+                                type="button"
+                                onClick={handleSendSavedBillToKitchen}
+                                disabled={isCompletingPayment || Boolean(sendingSavedBillId) || !isOnline}
+                                className="py-3 rounded-xl bg-gray-900 text-[10px] font-black uppercase tracking-[0.15em] text-white transition-all hover:bg-black disabled:opacity-50 dark:bg-white dark:text-black"
+                              >
+                                {sendingSavedBillId ? 'Sending' : selectedSavedBillKitchenOrderId ? 'Sent' : 'Send'}
+                              </button>
+                            )}
                           </div>
                         </div>
                       )}
@@ -8683,73 +8707,112 @@ const PosOnlyView: React.FC<Props> = ({
                   )}
                 </div>
               ) : showQrFeature && counterMode === 'QR_ORDER' ? (
-                <div className="flex-1 overflow-hidden flex flex-col">
-                  {/* QR Order toolbar */}
-                  <div className="px-4 py-4 border-b dark:border-gray-700 flex items-center gap-3 bg-white dark:bg-gray-800 shrink-0">
-                    <div className="relative flex-1">
+                <div className="flex-1 overflow-hidden flex flex-col p-4" onClick={() => setSelectedQrOrderForPayment(null)}>
+                  <div className="mb-3 flex items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">QR Table Arrangement</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Select an open QR or tableside order to view or collect payment.</p>
+                    </div>
+                    <div className="relative w-56 shrink-0">
                       <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input
                         type="text"
                         value={qrSearchQuery}
+                        onClick={event => event.stopPropagation()}
                         onChange={e => setQrSearchQuery(e.target.value)}
-                        placeholder="Search table or order..."
-                        className="w-full h-10 pl-9 pr-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                        placeholder="Search..."
+                        className="w-full h-9 pl-9 pr-3 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
                       />
                     </div>
-                    <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-0.5 border dark:border-gray-600 shrink-0 h-10 items-center">
-                      <button onClick={() => setCounterQrOrderViewPreference('list')} className={`p-2 rounded-md transition-all ${posViewPreferences.counterQrOrderView === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={14} /></button>
-                      <button onClick={() => setCounterQrOrderViewPreference('grid', 2)} className={`px-2.5 py-2 rounded-md transition-all text-[10px] font-black ${posViewPreferences.counterQrOrderView === 'grid' && posViewPreferences.counterQrGridColumns === 2 ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}>2</button>
-                      <button onClick={() => setCounterQrOrderViewPreference('grid', 3)} className={`px-2.5 py-2 rounded-md transition-all text-[10px] font-black ${posViewPreferences.counterQrOrderView === 'grid' && posViewPreferences.counterQrGridColumns === 3 ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}>3</button>
-                    </div>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-4">
+                  <div className="saved-bill-table-panel-scroll flex-1 overflow-y-auto overflow-x-hidden min-h-0 pr-3">
                   {(() => {
-                    const servedOrders = orders.filter(o => {
-                      if (o.status !== OrderStatus.SERVED) return false;
-                      if (!qrSearchQuery) return true;
-                      const q = qrSearchQuery.toLowerCase();
-                      return (o.tableNumber || '').toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || o.items.some(i => i.name.toLowerCase().includes(q));
+                    const openQrOrders = orders.filter(order => (
+                      isQrOrTablesideOrder(order)
+                      && order.status !== OrderStatus.COMPLETED
+                      && order.status !== OrderStatus.CANCELLED
+                    ));
+                    const openQrOrdersByTable = new Map<string, Order>();
+                    openQrOrders.forEach(order => {
+                      const tableKey = order.tableNumber || 'Takeaway';
+                      const existing = openQrOrdersByTable.get(tableKey);
+                      if (!existing || order.timestamp > existing.timestamp) openQrOrdersByTable.set(tableKey, order);
                     });
-                    if (servedOrders.length === 0) {
+                    const extraQrTables = openQrOrders
+                      .map(order => order.tableNumber || 'Takeaway')
+                      .filter(table => !tableLabelsForFloor.includes(table));
+                    const qrTableLabels = Array.from(new Set([...tableLabelsForFloor, ...extraQrTables]));
+                    const normalizedQuery = qrSearchQuery.trim().toLowerCase();
+                    const visibleQrTables = normalizedQuery
+                      ? qrTableLabels.filter(table => {
+                          const order = openQrOrdersByTable.get(table);
+                          return table.toLowerCase().includes(normalizedQuery)
+                            || Boolean(order?.id.toLowerCase().includes(normalizedQuery))
+                            || Boolean(order?.items.some(item => item.name.toLowerCase().includes(normalizedQuery)));
+                        })
+                      : qrTableLabels;
+                    if (visibleQrTables.length === 0 || (normalizedQuery && !visibleQrTables.some(table => openQrOrdersByTable.has(table)))) {
                       return (
                         <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
                           <QrCode size={48} className="mb-4" />
-                          <p className="text-[10px] font-black uppercase tracking-widest">{qrSearchQuery ? 'No matching orders' : 'No served orders waiting'}</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest">{qrSearchQuery ? 'No matching orders' : 'No open QR orders'}</p>
                         </div>
                       );
                     }
                     return (
-                      <div className={posViewPreferences.counterQrOrderView === 'grid' ? `grid ${posViewPreferences.counterQrGridColumns === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-3` : 'space-y-3'}>
-                        {servedOrders.map(order => (
+                      <div className="grid grid-cols-[repeat(auto-fit,minmax(112px,1fr))] gap-2">
+                        {visibleQrTables.map(table => {
+                          const order = openQrOrdersByTable.get(table);
+                          const hasOpenOrder = !!order;
+                          const isActiveOrder = Boolean(order && (
+                            order.status === OrderStatus.PENDING
+                            || order.status === OrderStatus.ONGOING
+                            || order.status === OrderStatus.PREPARING
+                          ));
+                          const isSelectedOrder = Boolean(order && selectedQrOrderForPayment?.id === order.id);
+                          const itemCount = order?.items.length ?? 0;
+                          const total = order?.total ?? 0;
+                          return (
                           <button
-                            key={order.id}
-                            onClick={() => setSelectedQrOrderForPayment(order)}
-                            className={`w-full text-left p-3 rounded-xl border-2 transition-all overflow-hidden ${
-                              selectedQrOrderForPayment?.id === order.id
-                                ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/10'
-                                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-orange-300'
+                            type="button"
+                            key={table}
+                            disabled={!hasOpenOrder}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              if (!order) return;
+                              setSelectedQrOrderForPayment(isSelectedOrder ? null : order);
+                            }}
+                            className={`saved-table-cell h-[96px] rounded-xl border-2 px-3 py-2.5 text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
+                              isSelectedOrder
+                                  ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-[0_0_0_2px_rgba(249,115,22,0.5)]'
+                                  : isActiveOrder
+                                    ? 'border-gray-200 dark:border-gray-700 bg-orange-50 dark:bg-orange-900/20 hover:border-orange-300 dark:hover:border-orange-700'
+                                    : hasOpenOrder
+                                    ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
+                                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 opacity-70 shadow-none'
                             }`}
                           >
-                            <div className="flex items-start justify-between mb-2 gap-1">
-                              <div className="flex items-center gap-1.5 min-w-0 flex-1 flex-wrap">
-                                <QrCode size={14} className="text-orange-500 shrink-0" />
-                                <span className="text-xs font-black dark:text-white uppercase truncate">{order.tableNumber}</span>
-                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest truncate">#{order.id.slice(-7)}</span>
-                              </div>
-                              <span className="text-xs font-black text-orange-500 shrink-0 whitespace-nowrap">{currencySymbol}{order.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                            <div className="space-y-0.5">
+                            <p className="min-h-4 max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-black uppercase leading-4 tracking-widest text-gray-900 dark:text-white">{table}</p>
+                            <p className={`min-h-4 max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[9px] font-black uppercase leading-4 tracking-widest ${order ? getSavedBillStatusClass(order.status) : 'text-gray-400'}`}>
+                              {order ? getSavedBillStatusLabel(order.status) : 'Available'}
+                            </p>
+                            <p className="max-w-full text-[9px] leading-4 text-gray-500 dark:text-gray-300">
+                              <span className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap">{hasOpenOrder ? `${itemCount} ${itemCount === 1 ? 'item' : 'items'}` : '0 item'}</span>
+                              <span className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap">{hasOpenOrder ? `${currencySymbol}${total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `${currencySymbol}0.00`}</span>
+                            </p>
+                            {order && <div className="hidden">
                               {order.items.map((item, idx) => (
                                 <p key={idx} className={`text-[10px] ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-500 dark:text-gray-400'}`}>
                                   x{item.quantity} {item.name}{isCancelledOrderItem(item) ? ` · ${formatCartPrice(0)}` : ''}
                                 </p>
                               ))}
-                            </div>
-                            {selectedQrOrderForPayment?.id === order.id && (
+                            </div>}
+                            {false && selectedQrOrderForPayment?.id === order?.id && (
                               <p className="mt-2 text-[9px] font-black text-orange-500 uppercase tracking-widest">Selected — see right panel to complete payment</p>
                             )}
                           </button>
-                        ))}
+                          );
+                        })}
                       </div>
                     );
                   })()}
@@ -13010,7 +13073,7 @@ const PosOnlyView: React.FC<Props> = ({
                         }`}
                       >Counter</button>
                       {showQrFeature && (() => {
-                        const servedQrCount = orders.filter(o => o.status === OrderStatus.SERVED).length;
+                        const servedQrCount = getQrActiveOrderCount();
                         return (
                         <button
                           onClick={() => switchCounterMode('QR_ORDER')}
@@ -13173,13 +13236,15 @@ const PosOnlyView: React.FC<Props> = ({
                   >
                     Edit Bill
                   </button>
-                  <button
-                    onClick={handleSendSavedBillToKitchen}
-                    disabled={!selectedSavedBillEntry || isCompletingPayment || Boolean(sendingSavedBillId) || !isOnline}
-                    className="flex-1 py-4 bg-gray-900 dark:bg-white text-white dark:text-black rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-black dark:hover:bg-gray-100 active:scale-[0.98] transition-all disabled:opacity-50"
-                  >
-                    {sendingSavedBillId ? 'Sending...' : selectedSavedBillKitchenOrderId ? 'Sent' : 'Send'}
-                  </button>
+                  {showKitchenFeature && (
+                    <button
+                      onClick={handleSendSavedBillToKitchen}
+                      disabled={!selectedSavedBillEntry || isCompletingPayment || Boolean(sendingSavedBillId) || !isOnline}
+                      className="flex-1 py-4 bg-gray-900 dark:bg-white text-white dark:text-black rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-black dark:hover:bg-gray-100 active:scale-[0.98] transition-all disabled:opacity-50"
+                    >
+                      {sendingSavedBillId ? 'Sending...' : selectedSavedBillKitchenOrderId ? 'Sent' : 'Send'}
+                    </button>
+                  )}
                   <button
                     onClick={handleSavedBillCheckout}
                     disabled={!selectedSavedBillEntry || isCompletingPayment}
@@ -13196,13 +13261,13 @@ const PosOnlyView: React.FC<Props> = ({
                   {!selectedQrOrderForPayment ? (
                     <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
                       <QrCode size={48} className="mb-4" />
-                      <p className="text-[10px] font-black uppercase tracking-widest">Select a served order from the left</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest">Select an open order from the left</p>
                     </div>
                   ) : (
                     <>
-                      <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
-                        <QrCode size={14} className="text-purple-500 shrink-0" />
-                        <span className="text-[10px] font-black text-purple-700 dark:text-purple-400 uppercase tracking-widest">{selectedQrOrderForPayment.tableNumber}</span>
+                      <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
+                        <QrCode size={14} className="text-orange-500 shrink-0" />
+                        <span className="text-[10px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">{selectedQrOrderForPayment.tableNumber}</span>
                       </div>
                       {selectedQrOrderForPayment.items.map((item, idx) => (
                         <div key={`qr-${item.id}-${idx}`} className={`flex items-center gap-4 ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : ''}`}>
