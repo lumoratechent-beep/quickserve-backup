@@ -2738,13 +2738,23 @@ const PosOnlyView: React.FC<Props> = ({
       if (!existingOrderId) {
         const { data, error } = await supabase
           .from('orders')
-          .select('id')
+          .select('id,items')
           .eq('restaurant_id', restaurant.id)
-          .contains('items', [{ savedBillId: dispatchId }])
+          .eq('table_number', selectedSavedBillEntry.tableNumber)
+          .gte('timestamp', selectedSavedBillEntry.createdAt - 5000)
           .neq('status', OrderStatus.CANCELLED)
-          .limit(1);
+          .order('timestamp', { ascending: false })
+          .limit(200);
         if (error) throw error;
-        existingOrderId = data?.[0]?.id || '';
+        const existingOrder = data?.find((row: any) => {
+          try {
+            const rowItems = Array.isArray(row.items) ? row.items : JSON.parse(row.items || '[]');
+            return rowItems.some((item: CartItem) => item.savedBillId === dispatchId);
+          } catch {
+            return false;
+          }
+        });
+        existingOrderId = existingOrder?.id || '';
       }
 
       if (existingOrderId) {
