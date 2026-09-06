@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Printer, Bluetooth, Plus, Trash2, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, X, Wifi, Usb, Settings, FileText, UtensilsCrossed, RotateCw, ListOrdered, Smartphone, Download, HelpCircle, Building2 } from 'lucide-react';
+import { Printer, Bluetooth, Plus, Trash2, CheckCircle2, AlertCircle, X, Wifi, Usb, Settings, FileText, UtensilsCrossed, RotateCw, ListOrdered, Smartphone, Download, HelpCircle, Building2 } from 'lucide-react';
 import printerService, { PrinterDevice, SavedPrinter, ReceiptConfig, OrderListConfig, KitchenTicketConfig, DEFAULT_RECEIPT_CONFIG, DEFAULT_ORDER_LIST_CONFIG, DEFAULT_KITCHEN_TICKET_CONFIG, createDefaultPrinter, PRINTER_MODELS, applyModelPreset } from '../services/printerService';
 import type { PaperSize, ConnectionType, PrintDensity, PrintJobType, PrintMode, TextSize, TextFont, TextAlignment } from '../services/printerService';
 import { KitchenDepartment } from '../src/types';
@@ -56,8 +56,6 @@ const PrinterSettings: React.FC<Props> = ({
   const [testPrintStatus, setTestPrintStatus] = useState<'idle' | 'printing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [sunmiStatus, setSunmiStatus] = useState(() => printerService.getSunmiIntegrationStatus());
-  const [showWifiGuide, setShowWifiGuide] = useState(true);
-  const [showAutoStartGuide, setShowAutoStartGuide] = useState(false);
 
   // Saved printers
   const [savedPrinters, setSavedPrinters] = useState<SavedPrinter[]>(() => {
@@ -1327,185 +1325,66 @@ const PrinterSettings: React.FC<Props> = ({
   // ─── Render: Help Tab ──────────────────────────────────────────
 
   const renderHelpTab = () => (
-    <div className="grid grid-cols-1 gap-6">
-      <div className="space-y-3">
-        <button
-          type="button"
-          onClick={() => setShowWifiGuide(value => !value)}
-          className="w-full flex items-center justify-between gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 text-left"
-          aria-expanded={showWifiGuide}
-        >
-          <span>
-            <span className="block text-xs font-black text-orange-500 uppercase tracking-widest">WiFi/LAN Printer Setup</span>
-            <span className="block text-[10px] text-gray-500 dark:text-gray-400 mt-1">How to print over your local network.</span>
-          </span>
-          {showWifiGuide ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-        </button>
-        {showWifiGuide && <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8">
-          <div>
-            <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Setup steps</p>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Follow these steps to connect a WiFi/LAN printer.</p>
-          </div>
-          <div className="min-w-0 space-y-4">
-          {/* Step 1 */}
-          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-[10px] font-black">1</div>
-              <p className="text-xs font-black dark:text-white">Download the print proxy script</p>
-            </div>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">
-              Download <strong>print-server.js</strong> and save it to the device on the same WiFi/LAN that will act as the print proxy.
-            </p>
-            <button
-              onClick={handleDownloadPrintServer}
-              className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
-            >
-              <Download size={14} /> Download print-server.js
-            </button>
-          </div>
-
-          {/* Step 2 */}
-          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-[10px] font-black">2</div>
-              <p className="text-xs font-black dark:text-white">Run it on a WiFi/LAN device</p>
-            </div>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">
-              On any PC, laptop, or Android tablet with <strong>Termux + Node.js</strong> installed. For Android, open Termux and type:
-            </p>
-            <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed">
-              <div>pkg update && pkg upgrade -y</div>
-              <div>pkg install nodejs -y</div>
-              <div>termux-setup-storage</div>
-              <div>cd ~/storage/downloads</div>
-              <div>node print-server.js</div>
-            </div>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">
-              Approve storage permission, save <strong>print-server.js</strong> in Downloads, and keep Termux running in the background.
-            </p>
-          </div>
-
-          {/* Step 3 */}
-          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-[10px] font-black">3</div>
-              <p className="text-xs font-black dark:text-white">Connect your printer by WiFi or Ethernet</p>
-            </div>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400">
-              Connect your thermal printer to the same router using WiFi or RJ45/LAN cable. Find its IP address from the printer's network settings menu or self-test page.
-              Most thermal printers use <strong>port 9100</strong> for raw ESC/POS data.
-            </p>
-          </div>
-
-          {/* Step 4 */}
-          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-[10px] font-black">4</div>
-              <p className="text-xs font-black dark:text-white">Add printer in QuickServe</p>
-            </div>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">
-              Go to the <strong>Printers</strong> tab, click <strong>Add Printer</strong>, and select <strong>WiFi/LAN</strong> interface. Fill in:
-            </p>
-            <ul className="text-[10px] text-gray-500 dark:text-gray-400 space-y-1 ml-4 list-disc">
-              <li><strong>Print Server URL</strong> — if QuickServe and Termux are on the same device, use <code>http://localhost:3001</code>; if Termux shows another port, replace <code>3001</code> with that port, such as <code>http://localhost:3000</code></li>
-              <li><strong>Print Server URL on another device</strong> — use the Termux device IP, for example <code>http://192.168.1.50:3001</code>, or replace <code>3001</code> with the port shown by Termux</li>
-              <li><strong>Printer IP</strong> — your printer's LAN IP</li>
-              <li><strong>Printer Port</strong> — usually 9100</li>
-            </ul>
-          </div>
-
-          {/* Step 5 */}
-          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-[10px] font-black">5</div>
-              <p className="text-xs font-black dark:text-white">Assign departments & print jobs</p>
-            </div>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400">
-              Each printer can be assigned to a <strong>Kitchen Department</strong> (e.g. Kitchen, Drinks, Grill) so tickets route to the right printer automatically.
-              You can also assign menu categories and select Receipt / Kitchen ticket jobs. Add as many printers as you need.
-            </p>
-          </div>
-
-          {/* Topology diagram */}
-          <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-200 dark:border-blue-800">
-            <p className="text-[10px] font-black text-blue-700 dark:text-blue-400 uppercase tracking-widest mb-2">Network Topology</p>
-            <div className="text-[10px] text-blue-600 dark:text-blue-400 font-mono leading-relaxed">
-              <div>┌──────────┐    WiFi/LAN    ┌────────────────┐    LAN Cable    ┌──────────┐</div>
-              <div>│  Tablet   │ ─────────────→ │ print-server.js │ ─────────────→ │ Printer  │</div>
-              <div>│ (browser) │                │ (any LAN device)│    Port 9100   │ (RJ45)   │</div>
-              <div>└──────────┘                └────────────────┘                └──────────┘</div>
-            </div>
-          </div>
-
-          {/* Termux instructions */}
-          <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-700">
-            <p className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">Android Tablet (Termux) Setup</p>
-            <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed">
-              <div># Install Termux from F-Droid, then open it</div>
-              <div>pkg update && pkg upgrade -y</div>
-              <div>pkg install nodejs -y</div>
-              <div>termux-setup-storage</div>
-              <div>cd ~/storage/downloads</div>
-              <div>node print-server.js</div>
-              <div># Find the Termux device IP (for other POS devices)</div>
-              <div>ip route get 8.8.8.8</div>
-            </div>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">
-              If QuickServe is running on this same Android device, use <code>http://localhost:3001</code>. If Termux shows port <code>3000</code>, use <code>http://localhost:3000</code> instead. If QuickServe is on another device, use <code>http://&lt;Termux-IP&gt;:&lt;port&gt;</code>.
-            </p>
-          </div>
-          </div>
-        </div>}
+    <div className="grid grid-cols-1 gap-5">
+      <div className="p-5 bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl text-white">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em]">WiFi/LAN Printer Setup</p>
+        <h3 className="text-lg font-black mt-1">Connect QuickServe to a network printer</h3>
+        <p className="text-[10px] text-orange-50 mt-2 max-w-2xl">Complete the steps in order. The print server is required only for WiFi/LAN printers; Bluetooth, USB, and SUNMI printers use their own connection.</p>
       </div>
 
-      <div className="space-y-3">
-        <button
-          type="button"
-          onClick={() => setShowAutoStartGuide(value => !value)}
-          className="w-full flex items-center justify-between gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 text-left"
-          aria-expanded={showAutoStartGuide}
-        >
-          <span>
-            <span className="block text-xs font-black text-orange-500 uppercase tracking-widest">Automatic Termux Startup</span>
-            <span className="block text-[10px] text-gray-500 dark:text-gray-400 mt-1">Start the print proxy automatically after the tablet restarts.</span>
-          </span>
-          {showAutoStartGuide ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-        </button>
-        {showAutoStartGuide && (
-          <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-700 space-y-4">
-            <div className="text-[10px] text-gray-500 dark:text-gray-400 space-y-2">
-              <p>Install both apps from F-Droid. Open Termux:Boot once after installing it.</p>
-              <div className="flex flex-col gap-1">
-                <a href="https://f-droid.org/packages/com.termux/" target="_blank" rel="noreferrer" className="text-orange-500 hover:underline">Termux on F-Droid</a>
-                <a href="https://f-droid.org/packages/com.termux.boot/" target="_blank" rel="noreferrer" className="text-orange-500 hover:underline">Termux:Boot on F-Droid</a>
-              </div>
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">One-time Termux setup</p>
-              <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed">
-                <div>pkg update &amp;&amp; pkg upgrade -y</div>
-                <div>pkg install nodejs -y</div>
-                <div>termux-setup-storage</div>
-                <div>mkdir -p ~/.termux/boot</div>
-                <div>nano ~/.termux/boot/start-print-server.sh</div>
-              </div>
-            </div>
-            <div className="text-[10px] text-gray-500 dark:text-gray-400 space-y-2">
-              <p>Paste the following into the file, save it, then make it executable:</p>
-              <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed">
-                <div>#!/data/data/com.termux/files/usr/bin/bash</div>
-                <div>termux-wake-lock</div>
-                <div>cd "$HOME/storage/downloads" || exit 1</div>
-                <div>node print-server.js &gt;&gt; "$HOME/print-server.log" 2&gt;&amp;1</div>
-              </div>
-              <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed">
-                <div>chmod +x ~/.termux/boot/start-print-server.sh</div>
-              </div>
-              <p>After a restart, Termux:Boot starts the proxy automatically. Keep battery optimization disabled for Termux and Termux:Boot.</p>
-              <p>Use <code>http://localhost:3001</code> when QuickServe is on the same tablet. From another device, use <code>http://&lt;Termux-IP&gt;:3001</code>.</p>
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="space-y-4">
+          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+            <div className="flex items-center gap-3 mb-2"><div className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-black">1</div><p className="text-xs font-black dark:text-white">Download the proxy</p></div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-3">Download <strong>print-server.js</strong> and save it in the Android device's Downloads folder.</p>
+            <button onClick={handleDownloadPrintServer} className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"><Download size={14} /> Download print-server.js</button>
           </div>
-        )}
+
+          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+            <div className="flex items-center gap-3 mb-2"><div className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-black">2</div><p className="text-xs font-black dark:text-white">Install Termux and Node.js</p></div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">Install Termux from F-Droid, open it, then type:</p>
+            <div className="flex flex-col gap-1 mb-3 text-[10px]"><a href="https://f-droid.org/packages/com.termux/" target="_blank" rel="noreferrer" className="text-orange-500 hover:underline">Termux on F-Droid</a><a href="https://f-droid.org/packages/com.termux.boot/" target="_blank" rel="noreferrer" className="text-orange-500 hover:underline">Termux:Boot on F-Droid (optional auto-start)</a></div>
+            <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed"><div>pkg update &amp;&amp; pkg upgrade -y</div><div>pkg install nodejs -y</div><div>termux-setup-storage</div></div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">Approve the Android storage permission when asked.</p>
+          </div>
+
+          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+            <div className="flex items-center gap-3 mb-2"><div className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-black">3</div><p className="text-xs font-black dark:text-white">Start and verify the proxy</p></div>
+            <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed"><div>cd ~/storage/downloads</div><div>node print-server.js</div><div>ip route get 8.8.8.8</div></div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">Keep this process running. The server normally uses port <strong>3001</strong>.</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+            <div className="flex items-center gap-3 mb-2"><div className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-black">4</div><p className="text-xs font-black dark:text-white">Test the server</p></div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">In Chrome on the POS or laptop, open the health URL:</p>
+            <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px]">http://&lt;Termux-IP&gt;:3001/health</div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">Expected response: <code>{'{"status":"ok","server":"print-server","port":3001}'}</code>. Do not use <code>0.0.0.0</code> in the browser or QuickServe.</p>
+          </div>
+
+          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+            <div className="flex items-center gap-3 mb-2"><div className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-black">5</div><p className="text-xs font-black dark:text-white">Configure QuickServe</p></div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">Go to <strong>Printers → Add Printer → WiFi/LAN</strong>, then enter:</p>
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-[10px] font-mono leading-relaxed dark:text-gray-200"><div>Same device: http://localhost:3001</div><div>Other device: http://&lt;Termux-IP&gt;:3001</div><div>Printer IP: &lt;thermal-printer-IP&gt;</div><div>Printer Port: 9100</div></div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">Use the Termux device IP only when QuickServe is on another device. Test the connection, then assign Receipt or Kitchen jobs.</p>
+          </div>
+
+          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+            <div className="flex items-center gap-3 mb-2"><div className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-black">6</div><p className="text-xs font-black dark:text-white">Optional: start automatically after reboot</p></div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">Install and open Termux:Boot once, then run:</p>
+            <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed"><div>mkdir -p ~/.termux/boot</div><div>nano ~/.termux/boot/start-print-server.sh</div></div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">Paste this file content, save it, then make it executable:</p>
+            <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed mt-2"><div>#!/data/data/com.termux/files/usr/bin/bash</div><div>termux-wake-lock</div><div>cd "$HOME/storage/downloads" || exit 1</div><div>node print-server.js &gt;&gt; "$HOME/print-server.log" 2&gt;&amp;1</div></div>
+            <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed mt-2"><div>chmod +x ~/.termux/boot/start-print-server.sh</div></div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">Disable battery optimization for Termux and Termux:Boot. After reboot, the proxy starts automatically.</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-200 dark:border-blue-800">
+        <p className="text-[10px] font-black text-blue-700 dark:text-blue-400 uppercase tracking-widest mb-2">Printer connection</p>
+        <p className="text-[10px] text-blue-600 dark:text-blue-400">The printer and Termux device must be on the same WiFi/LAN. Port <strong>3001</strong> is the print server port; port <strong>9100</strong> is the thermal printer port.</p>
       </div>
     </div>
   );
