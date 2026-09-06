@@ -1,19 +1,32 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, CheckCheck, CheckCircle, ChevronLeft, ChevronRight, Clock, Coffee, Loader2, LogOut, Mail, Maximize2, MessageSquare, Minimize2, Moon, MoreHorizontal, Printer, RefreshCw, Settings, ShoppingBag, Sun, Trash2, X } from 'lucide-react';
+import { Check, CheckCheck, CheckCircle, ChefHat, ChevronLeft, ChevronRight, Clock, Coffee, Loader2, LogOut, Mail, Maximize2, MessageSquare, Minimize2, Moon, MoreHorizontal, Printer, RefreshCw, Settings, ShoppingBag, Sun, Trash2, X } from 'lucide-react';
 import { CartItem, KitchenDepartment, Order, OrderStatus, Restaurant, Subscription } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
+import CancellationReasonQuickSelect from '../components/CancellationReasonQuickSelect';
 import printerService, { DEFAULT_KITCHEN_TICKET_CONFIG, KitchenTicketConfig, SavedPrinter } from '../services/printerService';
+import { getKdsPreparationDetails } from '../lib/kdsItemDetails';
+import {
+  areAllKdsItemsCooked,
+  areAllKdsItemsServed,
+  cancelKdsItem,
+  findCurrentKdsItemIndex,
+  getAggregateKdsOrderStatus,
+  getCurrentKdsTicketItems,
+  getKdsItemStatus,
+  markKdsScopeServed,
+} from '../lib/kdsOrderState';
 
 interface Props {
   restaurant: Restaurant;
   orders: Order[];
   userKitchenCategories?: string[];
+  kitchenUserName?: string;
   isOnline?: boolean;
   lastSyncTime?: Date;
   subscription?: Subscription | null;
   onUpdateOrder: (orderId: string, status: OrderStatus) => void | Promise<void>;
-  onUpdateOrderItems?: (orderId: string, items: CartItem[], total: number) => void;
+  onUpdateOrderItems?: (orderId: string, items: CartItem[], total: number, remark?: string, updateNote?: string, status?: OrderStatus) => void;
   onLogout?: () => void;
   networkMeta?: {
     label: string;
@@ -70,28 +83,9 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
 
 const getKitchenCategoryKey = (value: any): string => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
 
-const getItemKitchenStatus = (item: CartItem, fallbackStatus: OrderStatus): OrderStatus => item.status || fallbackStatus;
-
-const getAggregateStatusFromItems = (items: CartItem[], fallbackStatus: OrderStatus): OrderStatus => {
-  const activeItems = items.filter(item => getItemKitchenStatus(item, fallbackStatus) !== OrderStatus.CANCELLED);
-  if (items.length > 0 && activeItems.length === 0) return OrderStatus.CANCELLED;
-  if (activeItems.some(item => {
-    const status = getItemKitchenStatus(item, fallbackStatus);
-    return status === OrderStatus.PREPARING || status === OrderStatus.SERVED || status === OrderStatus.COMPLETED;
-  })) return OrderStatus.PREPARING;
-  if (fallbackStatus === OrderStatus.PREPARING) return OrderStatus.PREPARING;
-  if (activeItems.some(item => getItemKitchenStatus(item, fallbackStatus) === OrderStatus.ONGOING)) return OrderStatus.ONGOING;
-  if (activeItems.some(item => getItemKitchenStatus(item, fallbackStatus) === OrderStatus.PENDING)) return OrderStatus.PENDING;
-  return fallbackStatus;
-};
-
-const areAllKitchenItemsCooked = (items: CartItem[], fallbackStatus: OrderStatus): boolean => {
-  const activeItems = items.filter(item => getItemKitchenStatus(item, fallbackStatus) !== OrderStatus.CANCELLED);
-  return activeItems.length > 0 && activeItems.every(item => {
-    const status = getItemKitchenStatus(item, fallbackStatus);
-    return status === OrderStatus.SERVED || status === OrderStatus.COMPLETED;
-  });
-};
+const getItemKitchenStatus = getKdsItemStatus;
+const getAggregateStatusFromItems = getAggregateKdsOrderStatus;
+const areAllKitchenItemsCooked = areAllKdsItemsCooked;
 
 const getKitchenStatusText = (status: OrderStatus) => {
   if (status === OrderStatus.PENDING) return 'Pending';
@@ -117,10 +111,20 @@ const getKitchenStatusClass = (status: OrderStatus) => {
   return 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/60';
 };
 
+const DEFAULT_KDS_CANCELLATION_REASONS = [
+  'Sold Out',
+  'Ingredient Unavailable',
+  'Unable to Prepare',
+  'Kitchen Issue',
+  'Customer Request',
+  'Other',
+] as const;
+
 const KitchenDisplayPage: React.FC<Props> = ({
   restaurant,
   orders,
   userKitchenCategories,
+  kitchenUserName,
   isOnline = true,
   lastSyncTime,
   subscription,
@@ -143,14 +147,16 @@ const KitchenDisplayPage: React.FC<Props> = ({
 }) => {
   const [kitchenOrderFilter, setKitchenOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'COOKED' | 'ALL'>('ONGOING_ALL');
   const [showNewOrderAlert, setShowNewOrderAlert] = useState(false);
+  const [kitchenAlertLabel, setKitchenAlertLabel] = useState('New order!');
   const [printerConnected, setPrinterConnected] = useState(false);
   const [isConnectingPrinter, setIsConnectingPrinter] = useState(false);
   const [printingKitchenOrderId, setPrintingKitchenOrderId] = useState<string | null>(null);
   const [showMailPanel, setShowMailPanel] = useState(false);
   const [openItemMenuKey, setOpenItemMenuKey] = useState<string | null>(null);
   const [cancelItemTarget, setCancelItemTarget] = useState<{ order: Order; item: CartItem; itemKey: string } | null>(null);
-  const [cancelReason, setCancelReason] = useState('Out of stock');
+  const [cancelReason, setCancelReason] = useState<string | undefined>();
   const [customCancelReason, setCustomCancelReason] = useState('');
+  const [isCancellingItem, setIsCancellingItem] = useState(false);
   const [updatingItemKeys, setUpdatingItemKeys] = useState<Set<string>>(new Set());
   const [currentKitchenPage, setCurrentKitchenPage] = useState(1);
   const [pageSlideDirection, setPageSlideDirection] = useState<'NEXT' | 'PREVIOUS'>('NEXT');
@@ -168,11 +174,13 @@ const KitchenDisplayPage: React.FC<Props> = ({
   const [showDisplaySettings, setShowDisplaySettings] = useState(false);
   const [displaySettingsSection, setDisplaySettingsSection] = useState<'APPEARANCE' | 'VERSION'>('APPEARANCE');
   const [clockNow, setClockNow] = useState(() => Date.now());
+  const [viewportWidth, setViewportWidth] = useState(() => typeof window === 'undefined' ? 1280 : window.innerWidth);
   const kitchenPreviousPendingIds = useRef<Set<string> | null>(null);
+  const kitchenPreviousUpdateMarkers = useRef<Map<string, number> | null>(null);
   const autoPrintSeenOrderIds = useRef<Set<string> | null>(null);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  const kitchenEnabled = subscription?.plan_id === 'pro_plus' && restaurant.settings?.features?.kitchenEnabled === true;
+  const kitchenEnabled = subscription?.plan_id === 'pro_plus' && restaurant.kitchenEnabled === true;
   const kitchenDivisions = useMemo(() => normalizeKitchenDepartments(restaurant.kitchenDivisions), [restaurant.kitchenDivisions]);
   const kitchenAssignedScopes = useMemo(() => (
     Array.isArray(userKitchenCategories)
@@ -201,6 +209,14 @@ const KitchenDisplayPage: React.FC<Props> = ({
   const kitchenScopeCategoryKeys = useMemo(() => (
     kitchenScopeCategories.map(getKitchenCategoryKey).filter(Boolean)
   ), [kitchenScopeCategories]);
+
+  const visibleTicketColumns = viewportWidth < 640
+    ? 1
+    : viewportWidth < 900
+      ? Math.min(2, ticketColumns)
+      : viewportWidth < 1180
+        ? Math.min(3, ticketColumns)
+        : ticketColumns;
 
   const savedPrinters = useMemo<SavedPrinter[]>(() => {
     const databasePrinters = restaurant.settings?.printers;
@@ -253,7 +269,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
 
   const getSortedOrderItems = (order: Order, scopedCategories: string[] = []) => {
     const scopedCategoryKeys = scopedCategories.map(getKitchenCategoryKey).filter(Boolean);
-    return order.items
+    return getCurrentKdsTicketItems(order.items)
       .filter(item => scopedCategoryKeys.length === 0 || scopedCategoryKeys.includes(getKitchenCategoryKey(item.category)))
       .sort((a, b) => {
         const byCategory = (a.category || '').localeCompare(b.category || '');
@@ -282,30 +298,34 @@ const KitchenDisplayPage: React.FC<Props> = ({
         return isActiveOrder && !areAllKitchenItemsCooked(scopedItems, order.status);
       }
       if (kitchenOrderFilter === 'COOKED') return isActiveOrder && areAllKitchenItemsCooked(scopedItems, order.status);
-      if (kitchenOrderFilter === OrderStatus.SERVED) return order.status === OrderStatus.SERVED;
+      if (kitchenOrderFilter === OrderStatus.SERVED) return areAllKdsItemsServed(scopedItems, order.status);
       return scopedItems.some(item => getItemKitchenStatus(item, order.status) === kitchenOrderFilter);
     }).sort((a, b) => a.timestamp - b.timestamp)
   ), [kitchenFilteredOrders, kitchenOrderFilter, kitchenHasAssignedScope, kitchenScopeCategories]);
 
-  const kitchenPageCount = Math.max(1, Math.ceil(kitchenVisibleOrders.length / ticketColumns));
+  const kitchenPageCount = Math.max(1, Math.ceil(kitchenVisibleOrders.length / visibleTicketColumns));
   const pagedKitchenOrders = kitchenVisibleOrders.slice(
-    (currentKitchenPage - 1) * ticketColumns,
-    currentKitchenPage * ticketColumns,
+    (currentKitchenPage - 1) * visibleTicketColumns,
+    currentKitchenPage * visibleTicketColumns,
   );
   const serveOrderCandidate = serveOrderId ? orders.find(order => order.id === serveOrderId) || null : null;
   const serveOrderItems = serveOrderCandidate
     ? getSortedOrderItems(serveOrderCandidate, kitchenHasAssignedScope ? kitchenScopeCategories : [])
     : [];
   const serveOrder = serveOrderCandidate
-    && serveOrderCandidate.status !== OrderStatus.SERVED
+    && !areAllKdsItemsServed(serveOrderItems, serveOrderCandidate.status)
     && areAllKitchenItemsCooked(serveOrderItems, serveOrderCandidate.status)
       ? serveOrderCandidate
       : null;
-  const ticketGridClass = ticketColumns === 3
-    ? 'md:grid-cols-3'
-    : ticketColumns === 5
-      ? 'md:grid-cols-5'
-      : 'md:grid-cols-4';
+  const ticketGridClass = visibleTicketColumns === 1
+    ? 'grid-cols-1'
+    : visibleTicketColumns === 2
+      ? 'grid-cols-2'
+      : visibleTicketColumns === 3
+        ? 'grid-cols-3'
+        : visibleTicketColumns === 5
+          ? 'grid-cols-5'
+          : 'grid-cols-4';
   const ticketItemNameClass = ticketFontSize === 'SMALL'
     ? 'text-[10px] leading-4'
     : ticketFontSize === 'LARGE'
@@ -352,7 +372,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
     }, {});
   };
 
-  const triggerNewOrderAlert = () => {
+  const triggerNewOrderAlert = (label = 'New order!') => {
     try {
       const AudioCtor = window.AudioContext || (window as any).webkitAudioContext;
       const audioCtx = new AudioCtor();
@@ -370,6 +390,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
     } catch {
       console.warn('Audio Context failed');
     }
+    setKitchenAlertLabel(label);
     setShowNewOrderAlert(true);
     window.setTimeout(() => setShowNewOrderAlert(false), 5000);
   };
@@ -541,7 +562,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
 
     const { data: savedBillRows, error: fetchError } = await supabase
       .from('saved_bills')
-      .select('id,items')
+      .select('id,items,updated_at')
       .eq('restaurant_id', restaurant.id);
     if (fetchError) {
       console.error('Failed to find linked saved bill for kitchen status sync:', fetchError);
@@ -558,23 +579,110 @@ const KitchenDisplayPage: React.FC<Props> = ({
     });
     if (!linkedBill) return;
 
-    const savedItems: CartItem[] = Array.isArray(linkedBill.items) ? linkedBill.items : JSON.parse(linkedBill.items || '[]');
-    const syncedItems = savedItems.map((savedItem, index) => {
-      const kitchenItem = orderItems[index];
-      if (!kitchenItem || kitchenItem.savedBillId !== dispatchId) return savedItem;
+    const kitchenItems = orderItems.filter(item => item.savedBillId === dispatchId);
+    const kitchenById = new Map(kitchenItems.filter(item => item.kdsItemId).map(item => [item.kdsItemId!, item]));
+    const kitchenByLineId = new Map(kitchenItems.filter(item => item.savedBillLineId).map(item => [item.savedBillLineId!, item]));
+    let currentBill = linkedBill;
+
+    // Saved bills are an editable POS mirror of the canonical order. Merge
+    // only KDS state fields and retry if the POS edits the bill concurrently.
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      if (attempt > 0) {
+        const { data: refreshed, error } = await supabase
+          .from('saved_bills')
+          .select('id,items,updated_at')
+          .eq('id', linkedBill.id)
+          .eq('restaurant_id', restaurant.id)
+          .maybeSingle();
+        if (error || !refreshed) {
+          console.error('Failed to refresh linked saved bill for kitchen status sync:', error);
+          return;
+        }
+        currentBill = refreshed;
+      }
+
+      const savedItems: CartItem[] = Array.isArray(currentBill.items)
+        ? currentBill.items
+        : JSON.parse(currentBill.items || '[]');
+      const syncedItems = savedItems.map((savedItem, index) => {
+        const kitchenItem = (savedItem.kdsItemId ? kitchenById.get(savedItem.kdsItemId) : undefined)
+          || (savedItem.savedBillLineId ? kitchenByLineId.get(savedItem.savedBillLineId) : undefined)
+          || kitchenItems[index];
+        if (!kitchenItem || kitchenItem.savedBillId !== dispatchId) return savedItem;
+        return {
+          ...savedItem,
+          kdsItemId: kitchenItem.kdsItemId || savedItem.kdsItemId,
+          kdsRouted: kitchenItem.kdsRouted,
+          status: kitchenItem.status,
+          kitchenStartedAt: kitchenItem.kitchenStartedAt,
+          kitchenCookedAt: kitchenItem.kitchenCookedAt,
+          kitchenCancelReason: kitchenItem.kitchenCancelReason,
+          cancelledBy: kitchenItem.cancelledBy,
+          cancelledAt: kitchenItem.cancelledAt,
+          cancelSource: kitchenItem.cancelSource,
+        };
+      });
+      const { data: confirmed, error: updateError } = await supabase
+        .from('saved_bills')
+        .update({ items: syncedItems, updated_at: new Date().toISOString() })
+        .eq('id', currentBill.id)
+        .eq('restaurant_id', restaurant.id)
+        .eq('updated_at', currentBill.updated_at)
+        .select('id')
+        .maybeSingle();
+      if (updateError) {
+        console.error('Failed to sync kitchen item status to saved bill:', updateError);
+        return;
+      }
+      if (confirmed) return;
+    }
+    console.error('Failed to sync kitchen item status to saved bill after concurrent POS edits.');
+  };
+
+  type KdsOrderMutationResult = { items: CartItem[]; total: number; status: OrderStatus };
+
+  const persistKdsOrderMutation = async (
+    orderId: string,
+    mutate: (items: CartItem[], total: number, status: OrderStatus) => { items: CartItem[]; total?: number; status?: OrderStatus } | null,
+  ): Promise<KdsOrderMutationResult> => {
+    // Compare-and-swap on updated_at prevents two department screens from
+    // replacing one another's JSON item changes. Conflicts refetch and retry.
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const { data: current, error: fetchError } = await supabase
+        .from('orders')
+        .select('items,total,status,updated_at')
+        .eq('id', orderId)
+        .eq('restaurant_id', restaurant.id)
+        .single();
+      if (fetchError || !current) throw fetchError || new Error('Order not found');
+
+      const currentItems: CartItem[] = Array.isArray(current.items)
+        ? current.items
+        : JSON.parse(current.items || '[]');
+      const currentStatus = current.status as OrderStatus;
+      const mutation = mutate(currentItems, Number(current.total || 0), currentStatus);
+      if (!mutation) throw new Error('This order changed. Review its latest status and try again.');
+
+      const aggregateStatus = mutation.status ?? getAggregateStatusFromItems(mutation.items, currentStatus);
+      const nextTotal = mutation.total ?? Number(current.total || 0);
+      const { data: confirmed, error: updateError } = await supabase
+        .from('orders')
+        .update({ items: mutation.items, status: aggregateStatus, total: nextTotal })
+        .eq('id', orderId)
+        .eq('restaurant_id', restaurant.id)
+        .eq('updated_at', current.updated_at)
+        .select('items,total,status')
+        .maybeSingle();
+      if (updateError) throw updateError;
+      if (!confirmed) continue;
+
       return {
-        ...savedItem,
-        status: kitchenItem.status,
-        kitchenStartedAt: kitchenItem.kitchenStartedAt,
-        kitchenCookedAt: kitchenItem.kitchenCookedAt,
-        kitchenCancelReason: kitchenItem.kitchenCancelReason,
+        items: Array.isArray(confirmed.items) ? confirmed.items : JSON.parse(confirmed.items || '[]'),
+        total: Number(confirmed.total || 0),
+        status: confirmed.status as OrderStatus,
       };
-    });
-    const { error: updateError } = await supabase
-      .from('saved_bills')
-      .update({ items: syncedItems, updated_at: new Date().toISOString() })
-      .eq('id', linkedBill.id);
-    if (updateError) console.error('Failed to sync kitchen item status to saved bill:', updateError);
+    }
+    throw new Error('Another kitchen screen kept updating this order. Please retry.');
   };
 
   const updateKitchenSingleItemStatus = async (
@@ -583,51 +691,57 @@ const KitchenDisplayPage: React.FC<Props> = ({
     itemKey: string,
     nextStatus: OrderStatus,
     cancellationReason?: string,
-  ) => {
+  ): Promise<boolean> => {
     const targetIndex = order.items.indexOf(targetItem);
-    if (targetIndex < 0 || updatingItemKeys.has(itemKey)) return;
+    if (targetIndex < 0 || updatingItemKeys.has(itemKey)) return false;
 
     setUpdatingItemKeys(previous => new Set(previous).add(itemKey));
     setOpenItemMenuKey(null);
     try {
       const transitionAt = Date.now();
-      const updatedItems = order.items.map((item, index) => {
-        if (index !== targetIndex) return item;
+      const confirmed = await persistKdsOrderMutation(order.id, (currentItems, currentTotal, currentStatus) => {
+        const currentTargetIndex = findCurrentKdsItemIndex(currentItems, targetItem, targetIndex);
+        if (currentTargetIndex < 0) return null;
+        if (!isKitchenItemInActionScope(currentItems[currentTargetIndex])) return null;
+        const cancellation = nextStatus === OrderStatus.CANCELLED
+          ? cancelKdsItem(currentItems, currentStatus, targetItem, targetIndex, {
+              reason: cancellationReason,
+              cancelledBy: kitchenUserName,
+              now: transitionAt,
+              isInScope: isKitchenItemInActionScope,
+            })
+          : null;
+        if (nextStatus === OrderStatus.CANCELLED && !cancellation) return null;
+        const updatedItems = cancellation?.items || currentItems.map((item, index) => {
+          if (index !== currentTargetIndex) return item;
+          return {
+            ...item,
+            status: nextStatus,
+            ...(nextStatus === OrderStatus.PREPARING
+              ? { kitchenStartedAt: item.kitchenStartedAt || transitionAt, kitchenCookedAt: undefined }
+              : {}),
+            ...(nextStatus === OrderStatus.COMPLETED ? { kitchenCookedAt: transitionAt } : {}),
+          };
+        });
+        const aggregateStatus = getAggregateStatusFromItems(updatedItems, currentStatus);
         return {
-          ...item,
-          status: nextStatus,
-          ...(nextStatus === OrderStatus.CANCELLED ? { kitchenCancelReason: cancellationReason || 'Other' } : {}),
-          ...(nextStatus === OrderStatus.PREPARING
-            ? { kitchenStartedAt: item.kitchenStartedAt || transitionAt, kitchenCookedAt: undefined }
-            : {}),
-          ...(nextStatus === OrderStatus.COMPLETED ? { kitchenCookedAt: transitionAt } : {}),
+          items: updatedItems,
+          total: Math.max(0, currentTotal - (cancellation?.cancelledValue || 0)),
+          // Cancelling one line must not move the whole ticket backwards (for
+          // example ONGOING -> PENDING). Only an all-cancelled ticket changes
+          // the aggregate order status to CANCELLED.
+          ...(nextStatus === OrderStatus.CANCELLED ? {
+            status: aggregateStatus === OrderStatus.CANCELLED ? OrderStatus.CANCELLED : currentStatus,
+          } : {}),
         };
       });
-      const aggregateStatus = getAggregateStatusFromItems(updatedItems, order.status);
-      const previousCancelledValue = order.items.reduce((sum, item) => (
-        getItemKitchenStatus(item, order.status) === OrderStatus.CANCELLED
-          ? sum + (Number(item.price || 0) * Number(item.quantity || 0))
-          : sum
-      ), 0);
-      const updatedCancelledValue = updatedItems.reduce((sum, item) => (
-        getItemKitchenStatus(item, aggregateStatus) === OrderStatus.CANCELLED
-          ? sum + (Number(item.price || 0) * Number(item.quantity || 0))
-          : sum
-      ), 0);
-      const updatedTotal = Math.max(0, order.total + previousCancelledValue - updatedCancelledValue);
-      const { error } = await supabase
-        .from('orders')
-        .update({ items: updatedItems, status: aggregateStatus, total: updatedTotal })
-        .eq('id', order.id);
-
-      if (error) throw error;
-      await syncKitchenItemsToSavedBill(updatedItems);
-
-      onUpdateOrderItems?.(order.id, updatedItems, updatedTotal);
-      await onUpdateOrder(order.id, aggregateStatus);
+      onUpdateOrderItems?.(order.id, confirmed.items, confirmed.total, undefined, undefined, confirmed.status);
+      await syncKitchenItemsToSavedBill(confirmed.items);
+      return true;
     } catch (error) {
       console.error('Kitchen item status update error:', error);
       toast('Unable to update this food item.', 'error');
+      return false;
     } finally {
       setUpdatingItemKeys(previous => {
         const next = new Set(previous);
@@ -644,41 +758,43 @@ const KitchenDisplayPage: React.FC<Props> = ({
 
   const openCancelItemReasons = (order: Order, item: CartItem, itemKey: string) => {
     setOpenItemMenuKey(null);
-    setCancelReason('Out of stock');
+    setCancelReason(undefined);
     setCustomCancelReason('');
     setCancelItemTarget({ order, item, itemKey });
   };
 
-  const confirmCancelItem = () => {
-    if (!cancelItemTarget) return;
-    const reason = cancelReason === 'Other' ? customCancelReason.trim() : cancelReason;
-    if (!reason) return;
+  const confirmCancelItem = async () => {
+    if (!cancelItemTarget || isCancellingItem) return;
+    const reason = customCancelReason.trim() || cancelReason;
     const { order, item, itemKey } = cancelItemTarget;
+    setIsCancellingItem(true);
+    const updated = await updateKitchenSingleItemStatus(order, item, itemKey, OrderStatus.CANCELLED, reason);
+    setIsCancellingItem(false);
+    if (!updated) return;
     setCancelItemTarget(null);
-    void updateKitchenSingleItemStatus(order, item, itemKey, OrderStatus.CANCELLED, reason);
+    toast(`${item.name} cancelled.`, 'success');
   };
 
   const serveKitchenOrder = async (order: Order) => {
     const scopedItems = getSortedOrderItems(order, kitchenHasAssignedScope ? kitchenScopeCategories : []);
-    if (isServingOrder || order.status === OrderStatus.SERVED || !areAllKitchenItemsCooked(scopedItems, order.status)) return;
+    if (isServingOrder || areAllKdsItemsServed(scopedItems, order.status) || !areAllKitchenItemsCooked(scopedItems, order.status)) return;
     setIsServingOrder(true);
     try {
-      const servedItems = order.items.map(item => (
-        getItemKitchenStatus(item, order.status) === OrderStatus.CANCELLED
-          ? item
-          : { ...item, status: OrderStatus.SERVED }
-      ));
-      const { error } = await supabase
-        .from('orders')
-        .update({ items: servedItems, status: OrderStatus.SERVED })
-        .eq('id', order.id);
-      if (error) throw error;
+      const scopeCategories = kitchenHasAssignedScope ? kitchenScopeCategories : [];
+      const confirmed = await persistKdsOrderMutation(order.id, (currentItems, currentTotal, currentStatus) => {
+        const scopeKeys = new Set(scopeCategories.map(getKitchenCategoryKey));
+        const currentScopedItems = currentItems.filter(item => (
+          scopeCategories.length === 0
+          || scopeKeys.has(getKitchenCategoryKey(item.category))
+        ));
+        if (!areAllKitchenItemsCooked(currentScopedItems, currentStatus)) return null;
+        return { items: markKdsScopeServed(currentItems, currentStatus, scopeCategories), total: currentTotal };
+      });
 
-      await syncKitchenItemsToSavedBill(servedItems);
-      onUpdateOrderItems?.(order.id, servedItems, order.total);
-      await onUpdateOrder(order.id, OrderStatus.SERVED);
+      await syncKitchenItemsToSavedBill(confirmed.items);
+      onUpdateOrderItems?.(order.id, confirmed.items, confirmed.total, undefined, undefined, confirmed.status);
       setServeOrderId(null);
-      toast(`Order #${order.id} served.`, 'success');
+      toast(`Order #${order.id} served for this kitchen department.`, 'success');
     } catch (error) {
       console.error('Serve kitchen order error:', error);
       toast('Unable to serve this order. Please try again.', 'error');
@@ -696,6 +812,24 @@ const KitchenDisplayPage: React.FC<Props> = ({
     }
     kitchenPreviousPendingIds.current = nextPendingIds;
   }, [kitchenPendingOrders, kitchenEnabled]);
+
+  // POS revisions carry an item-level timestamp. Comparing only scoped items
+  // means a Drinks edit alerts Drinks screens without disturbing Food screens.
+  useEffect(() => {
+    const markers = new Map<string, number>();
+    kitchenFilteredOrders.forEach(order => {
+      const scopedItems = getSortedOrderItems(order, kitchenHasAssignedScope ? kitchenScopeCategories : []);
+      markers.set(order.id, scopedItems.reduce(
+        (latest, item) => Math.max(latest, Number(item.kdsChangedAt || 0)),
+        0,
+      ));
+    });
+    const previous = kitchenPreviousUpdateMarkers.current;
+    if (previous && Array.from(markers).some(([orderId, marker]) => marker > (previous.get(orderId) || 0))) {
+      triggerNewOrderAlert('Order updated!');
+    }
+    kitchenPreviousUpdateMarkers.current = markers;
+  }, [kitchenFilteredOrders, kitchenHasAssignedScope, kitchenScopeCategories]);
 
   useEffect(() => {
     const pendingOrderIds = new Set(kitchenPendingOrders.map(order => order.id));
@@ -725,6 +859,13 @@ const KitchenDisplayPage: React.FC<Props> = ({
   useEffect(() => {
     const clockTimer = window.setInterval(() => setClockNow(Date.now()), 1000);
     return () => window.clearInterval(clockTimer);
+  }, []);
+
+  useEffect(() => {
+    const updateViewportWidth = () => setViewportWidth(window.innerWidth);
+    updateViewportWidth();
+    window.addEventListener('resize', updateViewportWidth);
+    return () => window.removeEventListener('resize', updateViewportWidth);
   }, []);
 
   useEffect(() => {
@@ -781,11 +922,43 @@ const KitchenDisplayPage: React.FC<Props> = ({
     );
   }
 
+  if (!kitchenHasAssignedScope) {
+    return (
+      <div className="flex h-[100dvh] items-center justify-center bg-slate-950 p-5 text-center">
+        <div className="w-full max-w-lg rounded-3xl border border-orange-400/20 bg-white p-7 shadow-2xl sm:p-10 dark:bg-gray-900">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
+            <ChefHat size={32} />
+          </div>
+          <p className="mt-6 text-[11px] font-black uppercase tracking-[0.2em] text-orange-600 dark:text-orange-400">Setup needed</p>
+          <h1 className="mt-2 text-2xl font-black tracking-tight text-gray-950 dark:text-white">No KDS department assigned</h1>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-gray-500 dark:text-gray-400">Ask a manager to open Back Office → Staff → User Access and assign this account to at least one KDS department.</p>
+          <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-left dark:border-gray-700 dark:bg-gray-800">
+            <p className="text-xs font-bold text-gray-800 dark:text-gray-100">Why the screen is paused</p>
+            <p className="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">A department determines which food categories this screen is allowed to receive. No orders are shown until routing is configured.</p>
+          </div>
+          {onLogout && (
+            <button onClick={onLogout} className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 text-xs font-black uppercase tracking-wider text-white transition hover:bg-orange-600">
+              <LogOut size={15} />
+              Logout
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-[100dvh] w-full min-h-0 flex-col bg-[#000000] text-gray-900 dark:bg-[#000000] dark:text-white">
-      <header className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-3 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:px-5">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-gray-200 bg-white px-2.5 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
-          <img src={isDarkMode ? '/LOGO/9-dark.png' : '/LOGO/9.png'} alt="QuickServe" className="h-7 w-auto shrink-0" />
+          <img src={isDarkMode ? '/LOGO/9-dark.png' : '/LOGO/9.png'} alt="QuickServe" className="hidden h-7 w-auto shrink-0 sm:block" />
+          <div className="flex min-w-0 items-center gap-2 sm:border-l sm:border-gray-200 sm:pl-3 dark:sm:border-gray-700">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400"><ChefHat size={17} /></span>
+            <div className="min-w-0">
+              <p className="hidden text-[9px] font-black uppercase tracking-wider text-gray-400 sm:block">Your station</p>
+              <p className="max-w-20 truncate text-[10px] font-black text-gray-900 dark:text-white sm:max-w-52 sm:text-xs">{kitchenAssignedScopes.join(', ')}</p>
+            </div>
+          </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
@@ -793,7 +966,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
             <button
               onClick={() => void connectKitchenPrinter()}
               disabled={isConnectingPrinter}
-              className={`flex h-6 w-7 items-center justify-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-70 ${printerConnected ? 'text-green-600 hover:bg-white dark:text-green-400 dark:hover:bg-gray-600' : 'text-red-600 hover:bg-white dark:text-red-400 dark:hover:bg-gray-600'}`}
+              className={`hidden h-6 w-7 items-center justify-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-70 sm:flex ${printerConnected ? 'text-green-600 hover:bg-white dark:text-green-400 dark:hover:bg-gray-600' : 'text-red-600 hover:bg-white dark:text-red-400 dark:hover:bg-gray-600'}`}
               title={activeKitchenPrinter ? `${activeKitchenPrinter.name}: ${printerConnected ? 'ready' : 'connect'}` : 'Set up a kitchen printer in POS Settings'}
               aria-label={printerConnected ? 'Printer ready' : 'Printer disconnected'}
             >
@@ -815,7 +988,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
               </div>
             </div>
             {batteryMeta && (
-              <div className={`flex h-7 w-8 items-center justify-center rounded-full ${batteryMeta.color}`} title={batteryMeta.label} aria-label={batteryMeta.label}>
+              <div className={`hidden h-7 w-8 items-center justify-center rounded-full sm:flex ${batteryMeta.color}`} title={batteryMeta.label} aria-label={batteryMeta.label}>
                 <div className="flex h-[18px] w-[18px] items-center justify-center" aria-hidden="true">
                   <div className="relative h-3 w-5 rounded-[3px] border-2 border-current p-0.5">
                     <span className="block h-full rounded-[1px] bg-current" style={{ width: batteryMeta.percent > 0 ? `${Math.max(batteryMeta.percent, 8)}%` : '0%' }} />
@@ -880,7 +1053,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
 
 
       <main
-        className="min-h-0 flex-1 touch-pan-y overflow-hidden bg-[#000000] px-1.5 pb-4 pt-4 dark:bg-[#000000]"
+        className="min-h-0 flex-1 touch-pan-y overflow-hidden bg-[#08090b] p-2 sm:p-3 dark:bg-[#08090b]"
         onTouchStart={handleKitchenTouchStart}
         onTouchEnd={handleKitchenTouchEnd}
       >
@@ -897,13 +1070,18 @@ const KitchenDisplayPage: React.FC<Props> = ({
           )}
           <div
             key={`${kitchenOrderFilter}-${currentKitchenPage}`}
-            className={`grid h-full grid-cols-1 gap-1.5 sm:grid-cols-2 ${ticketGridClass} ${!expandedOrderId ? (pageSlideDirection === 'NEXT' ? 'animate-kds-page-next' : 'animate-kds-page-previous') : ''}`}
+            className={`grid h-full min-h-0 gap-2.5 ${ticketGridClass} ${!expandedOrderId ? (pageSlideDirection === 'NEXT' ? 'animate-kds-page-next' : 'animate-kds-page-previous') : ''}`}
           >
             {pagedKitchenOrders.map(order => {
               const visibleKitchenItems = getSortedOrderItems(order, kitchenHasAssignedScope ? kitchenScopeCategories : []);
+              const isPostServedUpdate = visibleKitchenItems.some(item => item.kdsTicketKind === 'POST_SERVED');
+              const postServedUpdateLabel = visibleKitchenItems.every(item => getItemKitchenStatus(item, order.status) === OrderStatus.CANCELLED)
+                ? 'Cancelled items'
+                : 'New items';
               const isExpanded = expandedOrderId === order.id;
               const allItemsCooked = areAllKitchenItemsCooked(visibleKitchenItems, order.status);
-              const canServeOrder = allItemsCooked && (
+              const allItemsServed = areAllKdsItemsServed(visibleKitchenItems, order.status);
+              const canServeOrder = allItemsCooked && !allItemsServed && (
                 order.status === OrderStatus.PENDING
                 || order.status === OrderStatus.ONGOING
                 || order.status === OrderStatus.PREPARING
@@ -913,9 +1091,9 @@ const KitchenDisplayPage: React.FC<Props> = ({
                 <article
                   key={order.id}
                   onClick={() => canServeOrder && setServeOrderId(order.id)}
-                  className={`flex min-h-0 flex-col overflow-hidden rounded-lg bg-white text-gray-900 shadow-sm dark:bg-white ${canServeOrder ? 'cursor-pointer ring-2 ring-inset ring-green-500 hover:ring-green-400' : ''} ${isExpanded ? 'fixed left-1/2 top-8 bottom-8 z-[90] w-[min(480px,calc(100vw-2rem))] -translate-x-1/2' : 'h-full'}`}
+                  className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-white/10 bg-white text-gray-900 shadow-xl dark:bg-white ${canServeOrder ? 'cursor-pointer ring-2 ring-inset ring-green-500 hover:ring-green-400' : ''} ${isExpanded ? 'fixed bottom-4 left-1/2 top-4 z-[90] w-[min(520px,calc(100vw-1rem))] -translate-x-1/2' : 'h-full'}`}
                 >
-                  <div className="shrink-0 border-b border-gray-300 px-2.5 py-2">
+                  <div className="shrink-0 border-b border-gray-200 bg-slate-50 px-3 py-2.5">
                     <div className="flex items-center justify-between gap-2">
                       <h2 className={`truncate font-black tracking-tight ${ticketTitleClass}`}>{order.tableNumber || 'Takeaway'}</h2>
                       <span className="shrink-0 rounded-lg bg-red-500 px-3 py-1 text-[10px] font-black tabular-nums text-white">
@@ -932,9 +1110,14 @@ const KitchenDisplayPage: React.FC<Props> = ({
                         <p>{visibleKitchenItems.length} item{visibleKitchenItems.length === 1 ? '' : 's'}</p>
                       </div>
                     </div>
+                    {isPostServedUpdate && (
+                      <div className="mt-2 rounded-md bg-blue-600 px-2 py-1 text-center text-[10px] font-black uppercase tracking-widest text-white">
+                        {postServedUpdateLabel}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-1.5">
+                  <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
                     {visibleKitchenItems.map((item, idx) => {
                       const itemKey = `${order.id}-${item.category || 'item'}-${item.id}-${idx}`;
                       const itemStatus = getItemKitchenStatus(item, order.status);
@@ -943,6 +1126,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
                       const isItemMenuOpen = openItemMenuKey === itemKey;
                       const isServedItem = itemStatus === OrderStatus.SERVED;
                       const isCookedItem = itemStatus === OrderStatus.COMPLETED;
+                      const preparationDetails = getKdsPreparationDetails(item);
                       const rowStateClass = itemStatus === OrderStatus.PREPARING
                         ? 'bg-blue-50'
                         : isServedItem
@@ -950,7 +1134,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
                           : isCookedItem
                           ? 'bg-gray-200 text-gray-400'
                           : itemStatus === OrderStatus.CANCELLED
-                            ? 'bg-red-50 opacity-55'
+                            ? 'bg-red-50'
                             : 'bg-gray-100 hover:bg-gray-200';
 
                       return (
@@ -965,20 +1149,34 @@ const KitchenDisplayPage: React.FC<Props> = ({
                               advanceKitchenItemStatus(order, item, itemKey);
                             }
                           }}
-                          className={`relative flex min-h-8 items-start gap-1.5 rounded-md px-1.5 py-1 transition-colors ${nextItemStatus && !isUpdatingItem ? 'cursor-pointer' : 'cursor-default'} ${rowStateClass}`}
+                          className={`relative flex min-h-10 items-start gap-2 rounded-lg px-2 py-1.5 transition-colors ${nextItemStatus && !isUpdatingItem ? 'cursor-pointer' : 'cursor-default'} ${rowStateClass}`}
                           aria-label={nextItemStatus ? `${item.name}: mark ${getKitchenStatusText(nextItemStatus)}` : `${item.name}: ${getKitchenStatusText(itemStatus)}`}
                         >
-                          <span className="w-4 shrink-0 pt-0.5 text-[10px] font-semibold text-gray-500">{item.quantity}</span>
+                          <span className={`w-7 shrink-0 pt-0.5 text-[10px] font-bold ${itemStatus === OrderStatus.CANCELLED ? 'text-red-600 line-through decoration-2' : 'text-gray-500'}`}>x{item.quantity}</span>
                           <div className="min-w-0 flex-1">
-                            <p className={`whitespace-normal break-words font-bold ${ticketItemNameClass} ${itemStatus === OrderStatus.CANCELLED ? 'line-through text-red-500' : ''}`}>{item.name}</p>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className={`whitespace-normal break-words font-bold ${ticketItemNameClass} ${itemStatus === OrderStatus.CANCELLED ? 'line-through text-red-600 decoration-2' : ''}`}>{item.name}</p>
+                              {item.kdsChangeType === 'ADDED' && itemStatus !== OrderStatus.CANCELLED && (
+                                <span className="rounded bg-blue-600 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-white">New</span>
+                              )}
+                              {item.kdsChangeType === 'CORRECTED' && itemStatus !== OrderStatus.CANCELLED && (
+                                <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-white">Updated</span>
+                              )}
+                              {itemStatus === OrderStatus.CANCELLED && (
+                                <span className="rounded bg-red-600 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-white">Cancelled</span>
+                              )}
+                            </div>
                             {itemStatus === OrderStatus.CANCELLED && item.kitchenCancelReason && (
                               <p className={`mt-0.5 whitespace-normal break-words font-semibold text-red-500 ${ticketItemDetailClass}`}>{item.kitchenCancelReason}</p>
                             )}
-                            {(item.selectedSize || item.selectedTemp || item.selectedOtherVariant || item.selectedMixMatch?.some(mix => mix.choice)) && (
-                              <p className={`truncate font-semibold leading-4 text-red-400 ${ticketItemDetailClass}`}>
-                                {[item.selectedSize, item.selectedTemp, item.selectedOtherVariant, ...(item.selectedMixMatch || []).map(mix => mix.choice)].filter(Boolean).join(' / ')}
+                            {preparationDetails.map(detail => (
+                              <p
+                                key={detail.key}
+                                className={`mt-0.5 whitespace-normal break-words font-semibold leading-4 ${ticketItemDetailClass} ${itemStatus === OrderStatus.CANCELLED ? 'text-red-500 line-through decoration-2' : 'text-gray-600'}`}
+                              >
+                                <span className="font-black text-current">{detail.label}:</span> {detail.value}
                               </p>
-                            )}
+                            ))}
                           </div>
                           <div className="flex shrink-0 items-center gap-0.5 pt-0.5">
                             {isUpdatingItem ? (
@@ -1002,14 +1200,14 @@ const KitchenDisplayPage: React.FC<Props> = ({
                             ) : (
                               <span className="h-4 w-4 rounded-full border border-gray-400" title="Waiting" />
                             )}
-                            {order.status !== OrderStatus.SERVED && (
+                            {!isServedItem && (
                               <button
                                 type="button"
                                 onClick={event => {
                                   event.stopPropagation();
                                   setOpenItemMenuKey(current => current === itemKey ? null : itemKey);
                                 }}
-                                className="flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-white hover:text-gray-700"
+                                className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-white hover:text-gray-700"
                                 title="Item options"
                                 aria-label={`Options for ${item.name}`}
                               >
@@ -1049,7 +1247,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
                       event.stopPropagation();
                       setExpandedOrderId(isExpanded ? null : order.id);
                     }}
-                    className="flex h-9 shrink-0 items-center justify-center gap-1.5 border-t border-gray-200 text-[10px] font-bold text-blue-500 hover:bg-blue-50"
+                    className="flex h-11 shrink-0 items-center justify-center gap-1.5 border-t border-gray-200 text-[11px] font-bold text-blue-600 hover:bg-blue-50"
                   >
                     {isExpanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
                     {isExpanded ? 'collapse' : 'expand'}
@@ -1062,7 +1260,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
         )}
       </main>
 
-      <footer className="relative grid h-12 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] grid-rows-1 items-center gap-1 bg-[#2c2c2e] px-1.5 text-white sm:px-2">
+      <footer className="relative grid h-24 shrink-0 grid-cols-[minmax(0,1fr)_auto] grid-rows-[3.5rem_2.5rem] items-center gap-x-1 bg-[#202124] px-1.5 text-white sm:h-14 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:grid-rows-1 sm:px-2">
         <div className="flex h-full min-w-0 items-center gap-0.5 overflow-visible pl-1 sm:pl-2">
           <span className="hidden shrink-0 self-center pr-1 text-xs font-bold sm:inline">{kitchenVisibleOrders.length} orders</span>
           <button onClick={() => { setKitchenOrderFilter('ONGOING_ALL'); setCurrentKitchenPage(1); }} className={`relative flex shrink-0 self-center items-center gap-1 rounded-t-md border-t-2 px-1.5 text-[9px] font-semibold transition-colors sm:px-2 sm:text-[10px] ${kitchenOrderFilter === 'ONGOING_ALL' ? '-top-1 h-14 border-blue-400 bg-[#3a3a3c] text-white' : 'h-8 rounded-md border-transparent text-gray-400 hover:bg-white/5'}`}>
@@ -1079,9 +1277,13 @@ const KitchenDisplayPage: React.FC<Props> = ({
             </span>
             Served
           </button>
+          <button onClick={() => { setKitchenOrderFilter(OrderStatus.CANCELLED); setCurrentKitchenPage(1); }} className={`relative flex shrink-0 self-center items-center gap-1 rounded-t-md border-t-2 px-1.5 text-[9px] font-semibold transition-colors sm:px-2 sm:text-[10px] ${kitchenOrderFilter === OrderStatus.CANCELLED ? '-top-1 h-14 border-red-500 bg-[#3a3a3c] text-white' : 'h-8 rounded-md border-transparent text-gray-400 hover:bg-white/5'}`}>
+            <X className="text-red-400" size={14} />
+            Cancelled
+          </button>
         </div>
 
-        <div className="flex h-8 self-center items-center gap-1">
+        <div className="col-span-2 row-start-2 flex h-8 items-center justify-center gap-1 self-center sm:col-span-1 sm:col-start-2 sm:row-start-1">
           <button
             onClick={() => goToKitchenPage(currentKitchenPage - 1)}
             disabled={currentKitchenPage === 1}
@@ -1111,7 +1313,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
           </button>
         </div>
 
-        <div className="relative flex h-8 self-center items-center justify-end gap-2">
+        <div className="relative col-start-2 row-start-1 flex h-8 items-center justify-end gap-2 self-center sm:col-start-3">
           <time className="hidden whitespace-nowrap text-right text-[10px] font-medium leading-tight text-gray-400 sm:block">
             <span>{new Date(clockNow).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })}</span>
             <span className="ml-2 tabular-nums text-[11px] font-bold text-white">{new Date(clockNow).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
@@ -1162,7 +1364,8 @@ const KitchenDisplayPage: React.FC<Props> = ({
                 <h2 className="text-2xl font-semibold">Appearance</h2>
 
                 <div className="mt-8 border-b border-white/20 pb-8">
-                  <p className="text-base font-medium">Tickets per page</p>
+                  <p className="text-base font-medium">Maximum tickets per page</p>
+                  <p className="mt-1 text-sm text-gray-400">The display automatically uses fewer columns on smaller screens so tickets are never cut off.</p>
                   <div className="mt-4 inline-grid grid-cols-3 overflow-hidden rounded-md border border-white/40">
                     {([3, 4, 5] as const).map(columns => (
                       <button
@@ -1322,6 +1525,98 @@ const KitchenDisplayPage: React.FC<Props> = ({
         </div>
       )}
 
+      {cancelItemTarget && (
+        <div
+          className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          role="presentation"
+          onMouseDown={() => {
+            if (!isCancellingItem) setCancelItemTarget(null);
+          }}
+        >
+          <form
+            className="w-full max-w-lg rounded-t-2xl bg-white p-5 shadow-2xl dark:bg-gray-900 sm:rounded-2xl sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-kds-item-title"
+            onMouseDown={event => event.stopPropagation()}
+            onSubmit={event => {
+              event.preventDefault();
+              void confirmCancelItem();
+            }}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-500">Cancel item</p>
+                <h2 id="cancel-kds-item-title" className="mt-1 text-xl font-black text-gray-950 dark:text-white">
+                  {cancelItemTarget.item.name} <span className="text-gray-400">x{cancelItemTarget.item.quantity}</span>
+                </h2>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">The item will remain visible and update the POS immediately.</p>
+              </div>
+              <button
+                type="button"
+                disabled={isCancellingItem}
+                onClick={() => setCancelItemTarget(null)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                aria-label="Close cancellation dialog"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-6">
+              <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Quick reason (optional)</label>
+              <CancellationReasonQuickSelect
+                reasons={DEFAULT_KDS_CANCELLATION_REASONS}
+                selectedReason={cancelReason}
+                onChange={reason => {
+                  setCancelReason(reason);
+                  if (reason) setCustomCancelReason('');
+                }}
+                disabled={isCancellingItem}
+              />
+            </div>
+
+            <div className="mt-5">
+              <label htmlFor="kds-custom-cancel-reason" className="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Custom reason (optional)</label>
+              <textarea
+                id="kds-custom-cancel-reason"
+                value={customCancelReason}
+                onChange={event => {
+                  const nextReason = event.target.value.slice(0, 250);
+                  setCustomCancelReason(nextReason);
+                  if (nextReason.trim()) setCancelReason(undefined);
+                }}
+                disabled={isCancellingItem}
+                rows={3}
+                maxLength={250}
+                placeholder="Add a note for POS staff..."
+                className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-red-600 dark:focus:ring-red-900/30"
+              />
+              <p className="mt-1 text-right text-[9px] font-bold text-gray-400">{customCancelReason.length}/250</p>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                disabled={isCancellingItem}
+                onClick={() => setCancelItemTarget(null)}
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-xs font-black uppercase tracking-wider text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                Keep item
+              </button>
+              <button
+                type="submit"
+                disabled={isCancellingItem}
+                className="flex flex-[1.5] items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-red-700 disabled:cursor-wait disabled:opacity-60"
+              >
+                {isCancellingItem ? <Loader2 className="animate-spin" size={16} /> : <X size={16} />}
+                {isCancellingItem ? 'Cancelling...' : 'Cancel item'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
 
       {showNewOrderAlert && (
         <div className="fixed right-4 top-4 z-50">
@@ -1330,8 +1625,8 @@ const KitchenDisplayPage: React.FC<Props> = ({
               <Coffee size={20} />
             </div>
             <div>
-              <p className="text-sm font-black uppercase tracking-tight">New Order!</p>
-              <p className="text-[10px] font-bold opacity-80">A new order has arrived in the kitchen</p>
+              <p className="text-sm font-black uppercase tracking-tight">{kitchenAlertLabel}</p>
+              <p className="text-[10px] font-bold opacity-80">Check the latest kitchen instructions</p>
             </div>
           </div>
         </div>

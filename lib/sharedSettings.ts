@@ -221,6 +221,16 @@ export function compressPosSettings(
     if (Object.keys(delta).length > 0) result.features = delta;
   }
 
+  // kitchenTicket — only store fields that differ. This key is POS-owned, so
+  // it must be handled explicitly or compression would silently discard it.
+  if (settings.kitchenTicket && typeof settings.kitchenTicket === 'object') {
+    const delta: Record<string, any> = {};
+    for (const [k, v] of Object.entries(settings.kitchenTicket as Record<string, any>)) {
+      if (v !== POS_DEFAULTS.kitchenTicket[k]) delta[k] = v;
+    }
+    if (Object.keys(delta).length > 0) result.kitchenTicket = delta;
+  }
+
   // paymentTypes — store only if different from default.
   if (Array.isArray(settings.paymentTypes)) {
     if (JSON.stringify(settings.paymentTypes) !== JSON.stringify(POS_DEFAULTS.paymentTypes)) {
@@ -537,13 +547,24 @@ export function loadSharedSetting<T>(
  */
 export async function fetchSettingsFromServer(restaurantId: string): Promise<Record<string, any> | null> {
   try {
-    const response = await fetch(`/api/settings?restaurantId=${restaurantId}`);
-    if (!response.ok) {
-      console.warn(`Failed to fetch settings: ${response.statusText}`);
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('settings,kitchen_enabled')
+      .eq('id', restaurantId)
+      .single();
+    if (error || !data) {
+      console.warn(`Failed to fetch settings: ${error?.message || 'Restaurant not found'}`);
       return null;
     }
-    const data = await response.json();
-    return data.settings || {};
+    const settings = data.settings && typeof data.settings === 'object' ? data.settings : {};
+    return {
+      ...settings,
+      features: {
+        ...(settings.features && typeof settings.features === 'object' ? settings.features : {}),
+        // kitchen_enabled is the single authoritative installation flag.
+        kitchenEnabled: data.kitchen_enabled === true,
+      },
+    };
   } catch (error) {
     console.warn('Failed to fetch settings from server:', error);
     return null;
@@ -561,28 +582,58 @@ export async function updateFeatureOnServer(
   currentSettings: Record<string, any>
 ): Promise<boolean> {
   try {
-    const updated = {
-      ...currentSettings,
-      features: {
-        ...currentSettings.features,
-        [featureName]: enabled,
-      },
-    };
-
-    const response = await fetch(`/api/settings?restaurantId=${restaurantId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ settings: updated }),
+    // The RPC patches one JSON path instead of replacing the whole settings
+    // document. It also mirrors kitchenEnabled to kitchen_enabled atomically.
+    const { data, error } = await supabase.rpc('set_restaurant_feature', {
+      p_restaurant_id: restaurantId,
+      p_feature_name: featureName,
+      p_value: enabled,
     });
 
-    if (!response.ok) {
-      console.warn(`Failed to update feature: ${response.statusText}`);
-      return false;
+    if (error) {
+      // Backward-compatible fallback while the migration rolls out. Fetch the
+      // latest DB document immediately before writing to minimize stale merges.
+      const { data: restaurantRow, error: fetchError } = await supabase
+        .from('restaurants')
+        .select('settings')
+        .eq('id', restaurantId)
+        .single();
+      if (fetchError || !restaurantRow) {
+        console.warn(`Failed to update feature: ${error.message}`);
+        return false;
+      }
+      const latestSettings = restaurantRow.settings && typeof restaurantRow.settings === 'object'
+        ? restaurantRow.settings
+        : {};
+      const updated = {
+        ...latestSettings,
+        features: {
+          ...(latestSettings.features && typeof latestSettings.features === 'object' ? latestSettings.features : {}),
+          [featureName]: enabled,
+        },
+      };
+      const payload: Record<string, unknown> = { settings: updated };
+      if (featureName === 'kitchenEnabled') payload.kitchen_enabled = enabled;
+      const { error: updateError } = await supabase.from('restaurants').update(payload).eq('id', restaurantId);
+      if (updateError) {
+        console.warn(`Failed to update feature: ${updateError.message}`);
+        return false;
+      }
+      localStorage.setItem(`qs_settings_${restaurantId}`, JSON.stringify({ ...currentSettings, ...updated }));
+      return true;
     }
 
-    // Update localStorage cache
-    localStorage.setItem(`qs_settings_${restaurantId}`, JSON.stringify(updated));
-    return true;
+    const confirmed = Array.isArray(data) ? data[0] : data;
+    const confirmedSettings = confirmed?.settings && typeof confirmed.settings === 'object'
+      ? confirmed.settings
+      : {
+          ...currentSettings,
+          features: { ...(currentSettings.features || {}), [featureName]: enabled },
+        };
+    localStorage.setItem(`qs_settings_${restaurantId}`, JSON.stringify(confirmedSettings));
+    return confirmed?.kitchen_enabled === undefined
+      || featureName !== 'kitchenEnabled'
+      || confirmed.kitchen_enabled === enabled;
   } catch (error) {
     console.warn(`Failed to update feature on server:`, error);
     return false;

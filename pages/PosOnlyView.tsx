@@ -22,6 +22,7 @@ import ImageCropModal from '../components/ImageCropModal';
 import WalletBillingPage from './WalletBillingPage';
 import { getMenuItemEffectivePrice, isMenuPromotionActive } from '../lib/menuPricing';
 import { getCalendarReportDateRange } from '../lib/reportDateRanges';
+import { getCurrentPosItems, reconcilePosKdsItems } from '../lib/kdsOrderState';
 import {
   ShoppingBag, Search, Download, Calendar,
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid,
@@ -114,7 +115,10 @@ interface Props {
   showQrOrders?: boolean;
   onToggleOnline?: () => void;
   userRole?: string;
-  onSaveKitchenDivisions?: (divisions: KitchenDepartment[]) => void;
+  onSaveKitchenDivisions?: (
+    divisions: KitchenDepartment[],
+    renamedDepartment?: { oldName: string; newName: string },
+  ) => boolean | Promise<boolean>;
   subscription?: Subscription | null;
   onSubscriptionUpdated?: () => void | Promise<void>;
   onFeatureSettingUpdated?: (restaurantId: string, key: string, value: boolean) => void;
@@ -130,7 +134,7 @@ interface Props {
   onMailTabOpened?: () => void;
   openBillingTab?: boolean;
   onBillingTabOpened?: () => void;
-  onUpdateOrderItems?: (orderId: string, items: CartItem[], total: number) => void;
+  onUpdateOrderItems?: (orderId: string, items: CartItem[], total: number, remark?: string, updateNote?: string, status?: OrderStatus) => void;
   onComparePlans?: () => void;
   activeShift?: CashierShift | null;
   onOpenShiftModal?: () => void;
@@ -163,37 +167,27 @@ const getKitchenCategoryKey = (value: any): string => String(value || '').trim()
 
 const DISABLED_KITCHEN_ORDER_SETTINGS: Record<string, never> = {};
 
-const getCartItemKitchenStatus = (item: CartItem, fallbackStatus: OrderStatus): OrderStatus => item.status || fallbackStatus;
-
-const getAggregateStatusForKitchenItems = (items: CartItem[], fallbackStatus: OrderStatus): OrderStatus => {
-  const activeItems = items.filter(item => getCartItemKitchenStatus(item, fallbackStatus) !== OrderStatus.CANCELLED);
-  if (items.length > 0 && activeItems.length === 0) return OrderStatus.CANCELLED;
-  if (activeItems.some(item => getCartItemKitchenStatus(item, fallbackStatus) === OrderStatus.PENDING)) return OrderStatus.PENDING;
-  if (activeItems.some(item => getCartItemKitchenStatus(item, fallbackStatus) === OrderStatus.ONGOING)) return OrderStatus.ONGOING;
-  if (activeItems.some(item => getCartItemKitchenStatus(item, fallbackStatus) === OrderStatus.PREPARING)) return OrderStatus.PREPARING;
-  if (activeItems.some(item => getCartItemKitchenStatus(item, fallbackStatus) === OrderStatus.COMPLETED)) return OrderStatus.PREPARING;
-  if (activeItems.some(item => getCartItemKitchenStatus(item, fallbackStatus) === OrderStatus.SERVED)) return OrderStatus.SERVED;
-  return fallbackStatus;
+const ensureSavedBillItemIdentity = (item: CartItem, dispatchId: string): CartItem => {
+  const savedBillLineId = item.savedBillLineId || crypto.randomUUID();
+  return {
+    ...item,
+    savedBillId: dispatchId,
+    savedBillLineId,
+    kdsItemId: item.kdsItemId || savedBillLineId,
+  };
 };
 
-const ensureSavedBillItemIdentity = (item: CartItem, dispatchId: string): CartItem => ({
-  ...item,
-  savedBillId: dispatchId,
-  savedBillLineId: item.savedBillLineId || crypto.randomUUID(),
-});
-
-const getSavedBillItemSignature = (item: CartItem): string => JSON.stringify({
-  id: item.id,
-  name: item.name,
-  price: Number(item.price || 0),
-  selectedSize: item.selectedSize || '',
-  selectedTemp: item.selectedTemp || '',
-  selectedOtherVariant: item.selectedOtherVariant || '',
-  selectedVariantOption: item.selectedVariantOption || '',
-  selectedModifiers: item.selectedModifiers || {},
-  selectedAddOns: item.selectedAddOns || [],
-  selectedMixMatch: item.selectedMixMatch || [],
-});
+const CancelledItemNotice: React.FC<{ item: CartItem; className?: string }> = ({ item, className = '' }) => {
+  if (item.status !== OrderStatus.CANCELLED) return null;
+  const sourceLabel = item.cancelSource === 'KDS' ? 'Kitchen cancelled' : 'Cancelled';
+  const actorLabel = item.cancelSource === 'KDS' && item.cancelledBy ? ` by ${item.cancelledBy}` : '';
+  const reasonLabel = item.kitchenCancelReason ? `: ${item.kitchenCancelReason}` : '';
+  return (
+    <p className={`mt-1 text-[10px] font-bold leading-4 text-red-600 no-underline dark:text-red-400 ${className}`}>
+      {sourceLabel}{actorLabel}{reasonLabel}
+    </p>
+  );
+};
 
 type ItemRemarkGroup = 'food' | 'drink' | 'other';
 
@@ -735,6 +729,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [departmentDraftName, setDepartmentDraftName] = useState('');
   const [departmentDraftCategories, setDepartmentDraftCategories] = useState<string[]>([]);
   const [departmentActionMenuName, setDepartmentActionMenuName] = useState<string | null>(null);
+  const [isSavingDepartment, setIsSavingDepartment] = useState(false);
   const [newStaffRole, setNewStaffRole] = useState<'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' | 'MANAGER'>('CASHIER');
   const [showLockedRoleAlert, setShowLockedRoleAlert] = useState<string | null>(null);
   const [newStaffKitchenCategories, setNewStaffKitchenCategories] = useState<string[]>([]);
@@ -1145,12 +1140,14 @@ const PosOnlyView: React.FC<Props> = ({
     const saved = localStorage.getItem(`staff_${restaurant.id}`);
     return saved ? JSON.parse(saved) : [];
   });
+  const staffMutationVersionRef = useRef(0);
   const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState(false);
   const [newStaffUsername, setNewStaffUsername] = useState('');
   const [newStaffPassword, setNewStaffPassword] = useState('');
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffPhone, setNewStaffPhone] = useState('');
   const [isAddingStaff, setIsAddingStaff] = useState(false);
+  const [deletingStaffIds, setDeletingStaffIds] = useState<Set<string>>(new Set());
   const [editingStaffIndex, setEditingStaffIndex] = useState<number | null>(null);
   const isEditingStaff = editingStaffIndex !== null;
   const [expandedCashierAccessSettings, setExpandedCashierAccessSettings] = useState<Record<CashierAccessPermissionKey, boolean>>({
@@ -1169,19 +1166,51 @@ const PosOnlyView: React.FC<Props> = ({
 
   // Fetch staff from database on mount (localStorage is only a cache)
   useEffect(() => {
+    let active = true;
+    const requestVersion = staffMutationVersionRef.current;
     const fetchStaff = async () => {
       const { data, error } = await supabase
         .from('users')
         .select('id, username, role, restaurant_id, is_active, email, phone, kitchen_categories, access_permissions')
         .eq('restaurant_id', restaurant.id)
         .in('role', ['CASHIER', 'KITCHEN', 'ORDER_TAKER', 'MANAGER']);
-      if (!error && data) {
+      if (active && requestVersion === staffMutationVersionRef.current && !error && data) {
         const accessUsers = data.filter((user: any) => user.access_permissions?.staffProfileOnly !== true);
         setStaffList(accessUsers);
         localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(accessUsers));
       }
     };
-    fetchStaff();
+    void fetchStaff();
+
+    const channel = supabase
+      .channel(`qs-pos-staff-${restaurant.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `restaurant_id=eq.${restaurant.id}` }, payload => {
+        ++staffMutationVersionRef.current;
+        const row = payload.new as any;
+        const oldRow = payload.old as any;
+        setStaffList(previous => {
+          let next = previous;
+          if (payload.eventType === 'DELETE') {
+            next = previous.filter(staff => staff.id !== oldRow?.id);
+          } else if (row && ['CASHIER', 'KITCHEN', 'ORDER_TAKER', 'MANAGER'].includes(row.role)) {
+            if (row.access_permissions?.staffProfileOnly === true) {
+              next = previous.filter(staff => staff.id !== row.id);
+            } else {
+              const exists = previous.some(staff => staff.id === row.id);
+              next = exists
+                ? previous.map(staff => staff.id === row.id ? row : staff)
+                : [...previous, row];
+            }
+          }
+          localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(next));
+          return next;
+        });
+      })
+      .subscribe();
+    return () => {
+      active = false;
+      void supabase.removeChannel(channel);
+    };
   }, [restaurant.id]);
 
   // User Experience settings
@@ -1225,13 +1254,12 @@ const PosOnlyView: React.FC<Props> = ({
   // Feature settings
   const [featureSettings, setFeatureSettings] = useState<FeatureSettings>(() => {
     const defaults = getDefaultFeatureSettings();
-    // Apply kitchenEnabled from dedicated DB column as the base default only
-    if (restaurant.kitchenEnabled) defaults.kitchenEnabled = true;
+    defaults.kitchenEnabled = restaurant.kitchenEnabled === true;
     // Priority 1: DB settings.features (cross-device authoritative — always prefer DB over localStorage)
     const dbSaved = restaurant.settings?.features;
     if (dbSaved && typeof dbSaved === 'object') {
       const merged = { ...defaults, ...dbSaved };
-      return { ...merged, kitchenEnabled: restaurant.kitchenEnabled === true && merged.kitchenEnabled === true };
+      return { ...merged, kitchenEnabled: restaurant.kitchenEnabled === true };
     }
     // Priority 2: localStorage (same-device offline cache)
     const saved = localStorage.getItem(`features_${restaurant.id}`);
@@ -1239,11 +1267,22 @@ const PosOnlyView: React.FC<Props> = ({
       try {
         const parsed = JSON.parse(saved);
         const merged = { ...defaults, ...parsed };
-        return { ...merged, kitchenEnabled: restaurant.kitchenEnabled === true && merged.kitchenEnabled === true };
+        return { ...merged, kitchenEnabled: restaurant.kitchenEnabled === true };
       } catch {}
     }
     return defaults;
   });
+  const settingsFetchVersionRef = useRef(0);
+  const [savingFeatureKeys, setSavingFeatureKeys] = useState<Set<keyof FeatureSettings>>(new Set());
+
+  useEffect(() => {
+    if (savingFeatureKeys.has('kitchenEnabled')) return;
+    setFeatureSettings(previous => (
+      previous.kitchenEnabled === (restaurant.kitchenEnabled === true)
+        ? previous
+        : { ...previous, kitchenEnabled: restaurant.kitchenEnabled === true }
+    ));
+  }, [restaurant.kitchenEnabled, savingFeatureKeys]);
 
   // Shift guard: if shift feature is enabled but cashier has no active shift
   const shiftRequired = featureSettings.shiftEnabled && !activeShift;
@@ -1508,26 +1547,42 @@ const PosOnlyView: React.FC<Props> = ({
     }
   }, [showCollectPaymentSidebar]);
 
-  const handleRemoveStaff = async (staff: any, index: number) => {
-    const updated = staffList.filter((_: any, idx: number) => idx !== index);
-
+  const handleRemoveStaff = async (staff: any) => {
+    if (!staff?.id) {
+      toast('This staff record is not synchronized with the database. Refresh and try again.', 'error');
+      return;
+    }
+    if (deletingStaffIds.has(staff.id)) return;
+    ++staffMutationVersionRef.current;
+    setDeletingStaffIds(previous => new Set(previous).add(staff.id));
     try {
-      if (staff?.id) {
-        const { error } = await supabase
-          .from('users')
-          .delete()
-          .eq('id', staff.id);
+      const { data, error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', staff.id)
+        .eq('restaurant_id', restaurant.id)
+        .select('id')
+        .maybeSingle();
 
-        if (error) {
-          toast('Error removing staff: ' + error.message, 'error');
-          return;
-        }
+      if (error) throw error;
+      if (!data) {
+        throw new Error('The database did not delete this staff record. Refresh and try again.');
       }
 
-      setStaffList(updated);
-      localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+      setStaffList(previous => {
+        const updated = previous.filter(existing => existing.id !== staff.id);
+        localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+        return updated;
+      });
+      toast('Staff member removed.', 'success');
     } catch (error: any) {
       toast('Error removing staff: ' + error.message, 'error');
+    } finally {
+      setDeletingStaffIds(previous => {
+        const next = new Set(previous);
+        next.delete(staff.id);
+        return next;
+      });
     }
   };
 
@@ -1667,11 +1722,17 @@ const PosOnlyView: React.FC<Props> = ({
       toast(isEditingStaff ? 'Please fill in username, email and phone' : 'Please fill in all fields', 'warning');
       return;
     }
+    if (newStaffRole === 'KITCHEN' && newStaffKitchenCategories.length === 0) {
+      toast('Select at least one KDS department for this Kitchen user', 'warning');
+      return;
+    }
 
     setIsAddingStaff(true);
+    ++staffMutationVersionRef.current;
     try {
-      // Auto-assign MANAGER to the first staff member added
-      const isFirstStaff = !isEditingStaff && staffList.length === 0;
+      // Preserve the explicitly selected Kitchen role. The first-user manager
+      // shortcut applies only to the default Cashier creation flow.
+      const isFirstStaff = !isEditingStaff && staffList.length === 0 && newStaffRole === 'CASHIER';
       const assignedRole = isFirstStaff ? 'MANAGER' : newStaffRole;
       const basePayload: Record<string, any> = {
         username,
@@ -1680,7 +1741,7 @@ const PosOnlyView: React.FC<Props> = ({
         restaurant_id: restaurant.id,
         role: assignedRole,
         is_active: true,
-        kitchen_categories: assignedRole === 'KITCHEN' && newStaffKitchenCategories.length > 0 ? newStaffKitchenCategories : null,
+        kitchen_categories: assignedRole === 'KITCHEN' ? newStaffKitchenCategories : null,
       };
 
       if (isEditingStaff) {
@@ -1693,6 +1754,7 @@ const PosOnlyView: React.FC<Props> = ({
             .from('users')
             .update(payload)
             .eq('id', currentStaff.id)
+            .eq('restaurant_id', restaurant.id)
             .select()
             .single();
 
@@ -1702,19 +1764,15 @@ const PosOnlyView: React.FC<Props> = ({
             return;
           }
 
-          const updated = [...staffList];
-          updated[editingStaffIndex!] = data;
-          setStaffList(updated);
-          localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+          setStaffList(previous => {
+            const updated = previous.map(existing => existing.id === currentStaff.id ? data : existing);
+            localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+            return updated;
+          });
         } else {
-          const updated = [...staffList];
-          updated[editingStaffIndex!] = {
-            ...updated[editingStaffIndex!],
-            ...payload,
-            kitchen_categories: payload.kitchen_categories,
-          };
-          setStaffList(updated);
-          localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+          toast('This staff record is not synchronized with the database. Refresh and try again.', 'error');
+          setIsAddingStaff(false);
+          return;
         }
 
         toast('User updated successfully!', 'success');
@@ -1727,7 +1785,8 @@ const PosOnlyView: React.FC<Props> = ({
         const { data, error } = await supabase
           .from('users')
           .insert([newStaff])
-          .select();
+          .select()
+          .single();
 
         if (error) {
           toast('Error saving to database: ' + error.message, 'error');
@@ -1735,10 +1794,16 @@ const PosOnlyView: React.FC<Props> = ({
           return;
         }
 
-        const staffFromDb = data && data.length > 0 ? data[0] : newStaff;
-        const updated = [...staffList, staffFromDb];
-        setStaffList(updated);
-        localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+        if (!data?.id) {
+          toast('The database did not confirm the new staff record.', 'error');
+          setIsAddingStaff(false);
+          return;
+        }
+        setStaffList(previous => {
+          const updated = [...previous, data];
+          localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+          return updated;
+        });
         toast('Staff member added successfully!', 'success');
       }
 
@@ -2283,6 +2348,9 @@ const PosOnlyView: React.FC<Props> = ({
   );
 
   const isCancelledOrderItem = (item: CartItem): boolean => item.status === OrderStatus.CANCELLED;
+  const getBillablePosItems = (items: CartItem[]): CartItem[] => (
+    getCurrentPosItems(items).filter(item => !isCancelledOrderItem(item))
+  );
 
   const getCartOriginalPrice = (item: CartItem): number | null => {
     const originalPrice = Number(item.originalPrice || 0);
@@ -2967,7 +3035,7 @@ const PosOnlyView: React.FC<Props> = ({
     if (!selectedSavedBillEntry || isCompletingPayment) return;
 
     setPendingOrderData({
-      items: selectedSavedBillEntry.items,
+      items: getBillablePosItems(selectedSavedBillEntry.items),
       remark: selectedSavedBillEntry.remark,
       tableNumber: selectedSavedBillEntry.tableNumber,
       diningType: selectedSavedBillEntry.diningType || preferredDiningOption,
@@ -3013,7 +3081,7 @@ const PosOnlyView: React.FC<Props> = ({
       if (!existingOrderId) {
         const { data, error } = await supabase
           .from('orders')
-          .select('id,items,remark,table_number,dining_type,timestamp,total,status,payment_method,cashier_name,order_source,customer_id')
+          .select('id,items,remark,table_number,dining_type,timestamp,total,status,payment_method,cashier_name,order_source,customer_id,updated_at')
           .eq('restaurant_id', restaurant.id)
           .eq('table_number', selectedSavedBillEntry.tableNumber)
           .gte('timestamp', selectedSavedBillEntry.createdAt - 5000)
@@ -3045,6 +3113,37 @@ const PosOnlyView: React.FC<Props> = ({
             cashierName: existingOrder.cashier_name || '',
             orderSource: existingOrder.order_source || 'counter',
             customerId: existingOrder.customer_id || 'pos_user',
+            updatedAt: existingOrder.updated_at || undefined,
+          } as Order;
+        }
+      }
+
+      // Always refresh an existing kitchen order before merging bill edits.
+      // This preserves item status changes made moments earlier on another KDS.
+      if (existingOrderId) {
+        const { data: latestOrder, error: latestOrderError } = await supabase
+          .from('orders')
+          .select('id,items,remark,table_number,dining_type,timestamp,total,status,payment_method,cashier_name,order_source,customer_id,updated_at')
+          .eq('id', existingOrderId)
+          .eq('restaurant_id', restaurant.id)
+          .maybeSingle();
+        if (latestOrderError) throw latestOrderError;
+        if (latestOrder) {
+          existingKitchenOrder = {
+            id: latestOrder.id,
+            items: Array.isArray(latestOrder.items) ? latestOrder.items : JSON.parse(latestOrder.items || '[]'),
+            remark: latestOrder.remark || '',
+            tableNumber: latestOrder.table_number || selectedSavedBillEntry.tableNumber,
+            diningType: latestOrder.dining_type || selectedSavedBillEntry.diningType || preferredDiningOption,
+            timestamp: latestOrder.timestamp,
+            total: Number(latestOrder.total || 0),
+            status: latestOrder.status,
+            paymentMethod: latestOrder.payment_method || '',
+            cashierName: latestOrder.cashier_name || '',
+            orderSource: latestOrder.order_source || 'counter',
+            customerId: latestOrder.customer_id || 'pos_user',
+            restaurantId: restaurant.id,
+            updatedAt: latestOrder.updated_at || undefined,
           } as Order;
         }
       }
@@ -3052,55 +3151,18 @@ const PosOnlyView: React.FC<Props> = ({
       const kitchenItems = selectedSavedBillEntry.items.map(item => ensureSavedBillItemIdentity(item, dispatchId));
 
       if (existingOrderId && existingKitchenOrder) {
-        const currentLineIds = new Set(kitchenItems.map(item => item.savedBillLineId).filter(Boolean));
-        const existingByLineId = new Map<string, CartItem>();
-        const existingBySignature = new Map<string, CartItem[]>();
-        existingKitchenOrder.items.forEach(item => {
-          if (item.savedBillLineId) existingByLineId.set(item.savedBillLineId, item);
-          const signature = getSavedBillItemSignature(item);
-          existingBySignature.set(signature, [...(existingBySignature.get(signature) || []), item]);
+        const routedCategoryKeys = new Set(
+          kitchenDivisions.flatMap(department => department.categories.map(getKitchenCategoryKey)).filter(Boolean),
+        );
+        const reconciled = reconcilePosKdsItems(existingKitchenOrder.items, kitchenItems, existingKitchenOrder.status, {
+          isRouted: item => kitchenDivisions.length === 0
+            || routedCategoryKeys.has(getKitchenCategoryKey(item.category)),
         });
-        const consumedExistingItems = new Set<CartItem>();
-
-        const updatedItems: CartItem[] = kitchenItems.map(item => {
-          const signature = getSavedBillItemSignature(item);
-          const existingItem = (item.savedBillLineId ? existingByLineId.get(item.savedBillLineId) : undefined)
-            || existingBySignature.get(signature)?.shift();
-          if (!existingItem) {
-            return {
-              ...item,
-              status: existingKitchenOrder.status === OrderStatus.SERVED ? OrderStatus.PREPARING : undefined,
-              kitchenStartedAt: existingKitchenOrder.status === OrderStatus.SERVED ? Date.now() : undefined,
-              kitchenCookedAt: undefined,
-              kitchenCancelReason: undefined,
-            };
-          }
-          consumedExistingItems.add(existingItem);
-
-          return {
-            ...item,
-            status: existingItem.status,
-            kitchenStartedAt: existingItem.kitchenStartedAt,
-            kitchenCookedAt: existingItem.kitchenCookedAt,
-            kitchenCancelReason: existingItem.kitchenCancelReason,
-          };
-        });
-
-        existingKitchenOrder.items.forEach(item => {
-          if (consumedExistingItems.has(item) || (item.savedBillLineId && currentLineIds.has(item.savedBillLineId))) return;
-          const itemStatus = getCartItemKitchenStatus(item, existingKitchenOrder.status);
-          if (itemStatus === OrderStatus.SERVED || itemStatus === OrderStatus.COMPLETED) {
-            updatedItems.push({
-              ...item,
-              status: OrderStatus.CANCELLED,
-              kitchenCancelReason: 'Cancelled via POS',
-            });
-          }
-        });
-
-        const updatedTotal = getItemsGrandTotal(updatedItems);
-        const nextStatus = getAggregateStatusForKitchenItems(updatedItems, existingKitchenOrder.status);
-        const { error } = await supabase
+        const updatedItems = reconciled.items;
+        const updatedCurrentItems = reconciled.currentItems;
+        const updatedTotal = getItemsGrandTotal(updatedCurrentItems);
+        const nextStatus = reconciled.status;
+        let orderUpdate = supabase
           .from('orders')
           .update({
             items: updatedItems,
@@ -3109,21 +3171,24 @@ const PosOnlyView: React.FC<Props> = ({
             total: updatedTotal,
             status: nextStatus,
           })
-          .eq('id', existingOrderId);
+          .eq('id', existingOrderId)
+          .eq('restaurant_id', restaurant.id);
+        if (existingKitchenOrder.updatedAt) orderUpdate = orderUpdate.eq('updated_at', existingKitchenOrder.updatedAt);
+        const { data: confirmedOrder, error } = await orderUpdate.select('id').maybeSingle();
         if (error) throw error;
+        if (!confirmedOrder) throw new Error('The kitchen updated this order at the same time. Review the latest ticket and retry.');
 
         savedBillsSyncRef.current = true;
         const { error: billUpdateError } = await supabase
           .from('saved_bills')
-          .update({ items: updatedItems, updated_at: new Date().toISOString() })
+          .update({ items: updatedCurrentItems, updated_at: new Date().toISOString() })
           .eq('restaurant_id', restaurant.id)
           .eq('table_number', selectedSavedBillEntry.tableNumber);
         if (billUpdateError) console.error('Failed to sync edited saved bill after kitchen update:', billUpdateError);
 
         setSavedBillKitchenOrderIds(prev => ({ ...prev, [dispatchId]: existingOrderId }));
-        setSavedBills(prev => prev.map(bill => bill.id === selectedSavedBillEntry.id ? { ...bill, items: updatedItems } : bill));
-        onUpdateOrderItems?.(existingOrderId, updatedItems, updatedTotal);
-        await Promise.resolve(onUpdateOrder(existingOrderId, nextStatus));
+        setSavedBills(prev => prev.map(bill => bill.id === selectedSavedBillEntry.id ? { ...bill, items: updatedCurrentItems } : bill));
+        onUpdateOrderItems?.(existingOrderId, updatedItems, updatedTotal, undefined, undefined, nextStatus);
         toast(`Kitchen order #${existingOrderId} updated.`, 'success');
         returnToCounterAfterKitchenSend();
         return;
@@ -3221,7 +3286,7 @@ const PosOnlyView: React.FC<Props> = ({
 
     setSavedBillActionMenuOpen(false);
     const orderToCancel = selectedSavedBillKitchenOrder;
-    if (orderToCancel && orderToCancel.status !== OrderStatus.SERVED && orderToCancel.status !== OrderStatus.COMPLETED) {
+    if (orderToCancel && orderToCancel.status !== OrderStatus.CANCELLED) {
       await Promise.resolve(onUpdateOrder(orderToCancel.id, OrderStatus.CANCELLED));
     }
     clearSavedBillByTable(selectedSavedBillEntry.tableNumber);
@@ -3278,7 +3343,7 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const handleEditQrOrder = (order: Order) => {
-    setPosCart(order.items as CartItem[]);
+    setPosCart(getCurrentPosItems(order.items as CartItem[]));
     setPosTableNo(order.tableNumber || 'Counter');
     setPosRemark(order.remark || '');
     setPosDiningType(order.diningType || preferredDiningOption);
@@ -3291,13 +3356,54 @@ const PosOnlyView: React.FC<Props> = ({
   const handleSaveQrOrderEdit = async () => {
     if (!editingQrOrderId) return;
     const savedOrderId = editingQrOrderId;
-    const savedItems = [...posCart];
+    const nextPosItems = [...posCart];
     const savedTotal = cartGrandTotal;
     try {
-      await supabase.from('orders').update({ items: savedItems, total: savedTotal }).eq('id', savedOrderId);
+      const routedCategoryKeys = new Set(
+        kitchenDivisions.flatMap(department => department.categories.map(getKitchenCategoryKey)).filter(Boolean),
+      );
+      let savedItems: CartItem[] | undefined;
+      let savedStatus: OrderStatus | undefined;
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const { data: current, error: fetchError } = await supabase
+          .from('orders')
+          .select('items,status,updated_at')
+          .eq('id', savedOrderId)
+          .eq('restaurant_id', restaurant.id)
+          .maybeSingle();
+        if (fetchError || !current) throw fetchError || new Error('Order not found');
+        const currentItems: CartItem[] = Array.isArray(current.items)
+          ? current.items
+          : JSON.parse(current.items || '[]');
+        const reconciled = reconcilePosKdsItems(currentItems, nextPosItems, current.status as OrderStatus, {
+          isRouted: item => showKitchenFeature && (
+            kitchenDivisions.length === 0 || routedCategoryKeys.has(getKitchenCategoryKey(item.category))
+          ),
+        });
+        const { data: confirmed, error: updateError } = await supabase
+          .from('orders')
+          .update({
+            items: reconciled.items,
+            total: savedTotal,
+            remark: posRemark,
+            dining_type: posDiningType,
+            status: reconciled.status,
+          })
+          .eq('id', savedOrderId)
+          .eq('restaurant_id', restaurant.id)
+          .eq('updated_at', current.updated_at)
+          .select('items,status')
+          .maybeSingle();
+        if (updateError) throw updateError;
+        if (!confirmed) continue;
+        savedItems = Array.isArray(confirmed.items) ? confirmed.items : JSON.parse(confirmed.items || '[]');
+        savedStatus = confirmed.status as OrderStatus;
+        break;
+      }
+      if (!savedItems || !savedStatus) throw new Error('The kitchen updated this order at the same time. Review and retry.');
       // Update local orders state immediately so all lists reflect the change
       if (onUpdateOrderItems) {
-        onUpdateOrderItems(savedOrderId, savedItems, savedTotal);
+        onUpdateOrderItems(savedOrderId, savedItems, savedTotal, posRemark, undefined, savedStatus);
       }
       setPosCart([]);
       setPosRemark('');
@@ -3307,20 +3413,21 @@ const PosOnlyView: React.FC<Props> = ({
       // Stay in counter, load updated order into QR_ORDER mode for edit/payment
       const updatedOrder = orders.find(o => o.id === savedOrderId);
       if (updatedOrder) {
-        setSelectedQrOrderForPayment({ ...updatedOrder, items: savedItems, total: savedTotal });
+        setSelectedQrOrderForPayment({ ...updatedOrder, items: savedItems, total: savedTotal, status: savedStatus, remark: posRemark });
         setCounterMode('QR_ORDER');
       } else {
         setActiveTab('QR_ORDERS');
       }
     } catch (e) {
       console.error('Failed to update order items:', e);
+      toast(e instanceof Error ? e.message : 'Failed to update the order.', 'error');
     }
   };
 
   const handleQrOrderCheckout = () => {
     if (!selectedQrOrderForPayment || isCompletingPayment) return;
     setPendingOrderData({
-      items: selectedQrOrderForPayment.items,
+      items: getBillablePosItems(selectedQrOrderForPayment.items),
       remark: selectedQrOrderForPayment.remark,
       tableNumber: selectedQrOrderForPayment.tableNumber,
       diningType: selectedQrOrderForPayment.diningType,
@@ -4230,9 +4337,13 @@ const PosOnlyView: React.FC<Props> = ({
   // Fetch latest settings from server on mount to ensure cross-device consistency
   useEffect(() => {
     setGroupMenuByCategory(getInitialGroupMenuByCategory(restaurant));
+    settingsHydratedRef.current = false;
+    const requestVersion = ++settingsFetchVersionRef.current;
+    let cancelled = false;
 
     const syncSettingsFromServer = async () => {
       const serverSettingsRaw = await fetchSettingsFromServer(restaurant.id);
+      if (cancelled || requestVersion !== settingsFetchVersionRef.current) return;
       if (!serverSettingsRaw) {
         // Server fetch failed — allow debounced sync to work with local state
         settingsHydratedRef.current = true;
@@ -4246,7 +4357,7 @@ const PosOnlyView: React.FC<Props> = ({
       if (serverSettings.features) {
         const serverFeatures = {
           ...serverSettings.features,
-          kitchenEnabled: restaurant.kitchenEnabled === true && serverSettings.features.kitchenEnabled === true,
+          kitchenEnabled: serverSettings.features.kitchenEnabled === true,
         };
         setFeatureSettings(prev => ({ ...prev, ...serverFeatures }));
         if (typeof serverSettings.features.groupMenuByCategory === 'boolean') {
@@ -4300,7 +4411,7 @@ const PosOnlyView: React.FC<Props> = ({
               ...serverSettings,
               features: {
                 ...serverSettings.features,
-                kitchenEnabled: restaurant.kitchenEnabled === true && serverSettings.features.kitchenEnabled === true,
+                kitchenEnabled: serverSettings.features.kitchenEnabled === true,
               },
             }
           : serverSettings;
@@ -4313,7 +4424,10 @@ const PosOnlyView: React.FC<Props> = ({
       // Mark hydration complete so the debounced sync can start writing user changes
       settingsHydratedRef.current = true;
     };
-    syncSettingsFromServer();
+    void syncSettingsFromServer();
+    return () => {
+      cancelled = true;
+    };
   }, [restaurant.id, restaurant.name]);
 
   // Setup periodic sync to database every 10 minutes
@@ -4322,7 +4436,8 @@ const PosOnlyView: React.FC<Props> = ({
       if (cachedCounterOrders.length === 0) return;
       
       try {
-        // Sync all cached orders to the database
+        // Cached counter rows are an offline insert fallback only. Never let a
+        // stale cache overwrite item revisions or KDS statuses from realtime.
         for (const order of cachedCounterOrders) {
           const { error } = await supabase
             .from('orders')
@@ -4340,7 +4455,7 @@ const PosOnlyView: React.FC<Props> = ({
                 customer_id: order.customerId || '',
                 remark: order.remark || '',
               },
-              { onConflict: 'id' }
+              { onConflict: 'id', ignoreDuplicates: true }
             );
 
           if (error) {
@@ -5056,10 +5171,11 @@ const PosOnlyView: React.FC<Props> = ({
   }, [addonDetailView]);
 
   const updateFeatureSetting = async <K extends keyof FeatureSettings>(key: K, value: FeatureSettings[K]): Promise<boolean> => {
-    const previousValue = featureSettings[key];
-    setFeatureSettings(prev => ({ ...prev, [key]: value }));
+    if (savingFeatureKeys.has(key)) return false;
+    ++settingsFetchVersionRef.current;
+    if (settingsSyncTimerRef.current) clearTimeout(settingsSyncTimerRef.current);
+    setSavingFeatureKeys(previous => new Set(previous).add(key));
 
-    // Sync to server immediately for cross-device consistency
     const updated = { ...featureSettings, [key]: value };
     const currentSettings = (() => {
       try {
@@ -5078,30 +5194,50 @@ const PosOnlyView: React.FC<Props> = ({
       },
     };
 
-    // Update localStorage caches immediately
-    localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(newSettings));
-    localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(newSettings.features));
+    try {
+      const saved = await updateFeatureOnServer(restaurant.id, String(key), value as boolean, newSettings);
+      if (!saved) {
+        toast(`Failed to save ${String(key)}. Please try again.`, 'error');
+        return false;
+      }
 
-    const saved = await updateFeatureOnServer(restaurant.id, String(key), value as boolean, newSettings);
-    if (!saved) {
-      setFeatureSettings(prev => ({ ...prev, [key]: previousValue }));
-      localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(currentSettings));
-      localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(currentSettings.features || {}));
-      toast(`Failed to save ${String(key)}. Please try again.`, 'error');
-      return false;
+      const confirmedRaw = await fetchSettingsFromServer(restaurant.id);
+      const confirmedSettings = confirmedRaw ? expandPosSettings(confirmedRaw, restaurant.name) : newSettings;
+      const confirmedFeatures = {
+        ...featureSettings,
+        ...(confirmedSettings.features || {}),
+      } as FeatureSettings;
+      if (confirmedFeatures[key] !== value) {
+        setFeatureSettings(confirmedFeatures);
+        toast(`${String(key)} changed on another device. The latest database value was loaded.`, 'warning');
+        return false;
+      }
+
+      // Apply only the value read back from the database.
+      setFeatureSettings(confirmedFeatures);
+      localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(confirmedSettings));
+      localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(confirmedFeatures));
+      onFeatureSettingUpdated?.(restaurant.id, String(key), confirmedFeatures[key] as boolean);
+
+      if (key === 'autoPrintReceipt') {
+        setReceiptConfig(prev => ({ ...prev, autoPrintAfterSale: value as boolean }));
+      } else if (key === 'autoOpenDrawer') {
+        setReceiptConfig(prev => ({ ...prev, openCashDrawerOnPayment: value as boolean }));
+      } else if (key === 'printReceiptForRefund') {
+        setReceiptConfig(prev => ({ ...prev, printReceiptForRefund: value as boolean }));
+      }
+      if (key === 'kitchenEnabled') {
+        toast(value ? 'Kitchen Display installed.' : 'Kitchen Display uninstalled.', 'success');
+      }
+      return true;
+    } finally {
+      settingsHydratedRef.current = true;
+      setSavingFeatureKeys(previous => {
+        const next = new Set(previous);
+        next.delete(key);
+        return next;
+      });
     }
-
-    onFeatureSettingUpdated?.(restaurant.id, String(key), value as boolean);
-
-    // Sync feature toggles to receiptConfig so checkout flow picks them up
-    if (key === 'autoPrintReceipt') {
-      setReceiptConfig(prev => ({ ...prev, autoPrintAfterSale: value as boolean }));
-    } else if (key === 'autoOpenDrawer') {
-      setReceiptConfig(prev => ({ ...prev, openCashDrawerOnPayment: value as boolean }));
-    } else if (key === 'printReceiptForRefund') {
-      setReceiptConfig(prev => ({ ...prev, printReceiptForRefund: value as boolean }));
-    }
-    return true;
   };
 
   const handleToggleGroupMenuByCategory = async () => {
@@ -5782,7 +5918,7 @@ const PosOnlyView: React.FC<Props> = ({
 
     // Sales by Item (all items)
     const itemMap: Record<string, { qty: number; revenue: number }> = {};
-    completed.forEach(o => o.items.forEach(i => {
+    completed.forEach(o => getBillablePosItems(o.items).forEach(i => {
       if (!itemMap[i.name]) itemMap[i.name] = { qty: 0, revenue: 0 };
       itemMap[i.name].qty += i.quantity; itemMap[i.name].revenue += i.price * i.quantity;
     }));
@@ -5808,7 +5944,7 @@ const PosOnlyView: React.FC<Props> = ({
     const catMap: Record<string, { items: number; revenue: number; orders: number }> = {};
     completed.forEach(o => {
       const seen = new Set<string>();
-      o.items.forEach(i => {
+      getBillablePosItems(o.items).forEach(i => {
         const cat = i.category || 'Uncategorized';
         if (!catMap[cat]) catMap[cat] = { items: 0, revenue: 0, orders: 0 };
         catMap[cat].items += i.quantity; catMap[cat].revenue += i.price * i.quantity; seen.add(cat);
@@ -6106,7 +6242,7 @@ const PosOnlyView: React.FC<Props> = ({
 
     if (includeSection('byItem')) {
       const itemMap = new Map<string, { qty: number; revenue: number }>();
-      completed.forEach((order) => order.items.forEach((item) => {
+      completed.forEach((order) => getBillablePosItems(order.items).forEach((item) => {
         const row = itemMap.get(item.name) || { qty: 0, revenue: 0 };
         row.qty += item.quantity;
         row.revenue += item.price * item.quantity;
@@ -6124,7 +6260,7 @@ const PosOnlyView: React.FC<Props> = ({
       const catMap = new Map<string, { qty: number; orders: number; revenue: number }>();
       completed.forEach((order) => {
         const seen = new Set<string>();
-        order.items.forEach((item) => {
+        getBillablePosItems(order.items).forEach((item) => {
           const category = item.category || 'Uncategorized';
           const row = catMap.get(category) || { qty: 0, orders: 0, revenue: 0 };
           row.qty += item.quantity;
@@ -6550,7 +6686,7 @@ const PosOnlyView: React.FC<Props> = ({
 
     if (includeSection('byItem')) {
       const itemMap = new Map<string, { qty: number; revenue: number }>();
-      completed.forEach((order) => order.items.forEach((item) => {
+      completed.forEach((order) => getBillablePosItems(order.items).forEach((item) => {
         const row = itemMap.get(item.name) || { qty: 0, revenue: 0 };
         row.qty += item.quantity;
         row.revenue += item.price * item.quantity;
@@ -6580,7 +6716,7 @@ const PosOnlyView: React.FC<Props> = ({
       const catMap = new Map<string, { qty: number; orders: number; revenue: number }>();
       completed.forEach((order) => {
         const seen = new Set<string>();
-        order.items.forEach((item) => {
+        getBillablePosItems(order.items).forEach((item) => {
           const category = item.category || 'Uncategorized';
           const row = catMap.get(category) || { qty: 0, orders: 0, revenue: 0 };
           row.qty += item.quantity;
@@ -6889,7 +7025,7 @@ const PosOnlyView: React.FC<Props> = ({
     });
   };
 
-  const handleSaveDepartment = () => {
+  const handleSaveDepartment = async () => {
     const name = departmentDraftName.trim();
     if (!name) {
       toast('Please enter a department name.', 'warning');
@@ -6912,17 +7048,69 @@ const PosOnlyView: React.FC<Props> = ({
     const updated = departmentEditorMode === 'edit' && editingDepartmentName
       ? kitchenDivisions.map(dep => dep.name === editingDepartmentName ? savedDepartment : dep)
       : [...kitchenDivisions, savedDepartment];
-    setKitchenDivisions(updated);
-    resetDepartmentEditor();
-    onSaveKitchenDivisions?.(updated);
+    setIsSavingDepartment(true);
+    try {
+      const renamedDepartment = departmentEditorMode === 'edit'
+        && editingDepartmentName
+        && editingDepartmentName !== name
+        ? { oldName: editingDepartmentName, newName: name }
+        : undefined;
+      const saved = await Promise.resolve(onSaveKitchenDivisions?.(updated, renamedDepartment) ?? false);
+      if (!saved) {
+        toast('Unable to save kitchen departments. No changes were applied.', 'error');
+        return;
+      }
+      setKitchenDivisions(updated);
+      if (renamedDepartment) {
+        setStaffList(previous => {
+          const next = previous.map(staff => ({
+            ...staff,
+            kitchen_categories: Array.isArray(staff.kitchen_categories)
+              ? staff.kitchen_categories.map((department: string) => (
+                  department === renamedDepartment.oldName ? renamedDepartment.newName : department
+                ))
+              : staff.kitchen_categories,
+          }));
+          localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(next));
+          return next;
+        });
+      }
+      resetDepartmentEditor();
+      toast('Kitchen departments saved.', 'success');
+    } catch (error: any) {
+      toast(`Unable to save kitchen departments: ${error?.message || 'Unknown error'}`, 'error');
+    } finally {
+      setIsSavingDepartment(false);
+    }
   };
 
-  const handleRemoveDivision = (name: string) => {
+  const handleRemoveDivision = async (name: string) => {
     setDepartmentActionMenuName(null);
+    const assignedStaff = staffList.filter(staff => (
+      staff.role === 'KITCHEN'
+      && Array.isArray(staff.kitchen_categories)
+      && staff.kitchen_categories.includes(name)
+    ));
+    if (assignedStaff.length > 0) {
+      toast(`Reassign ${assignedStaff.length} kitchen staff member${assignedStaff.length === 1 ? '' : 's'} before deleting this department.`, 'warning');
+      return;
+    }
     const updated = kitchenDivisions.filter(d => d.name !== name);
-    setKitchenDivisions(updated);
-    if (editingDepartmentName === name) resetDepartmentEditor();
-    onSaveKitchenDivisions?.(updated);
+    setIsSavingDepartment(true);
+    try {
+      const saved = await Promise.resolve(onSaveKitchenDivisions?.(updated) ?? false);
+      if (!saved) {
+        toast('Unable to delete the kitchen department.', 'error');
+        return;
+      }
+      setKitchenDivisions(updated);
+      if (editingDepartmentName === name) resetDepartmentEditor();
+      toast('Kitchen department deleted.', 'success');
+    } catch (error: any) {
+      toast(`Unable to delete the kitchen department: ${error?.message || 'Unknown error'}`, 'error');
+    } finally {
+      setIsSavingDepartment(false);
+    }
   };
 
   // QR order auto-approve + auto-print
@@ -7158,7 +7346,7 @@ const PosOnlyView: React.FC<Props> = ({
                             {isManager ? 'Manager' : staff.role === 'KITCHEN' ? 'Kitchen' : staff.role === 'ORDER_TAKER' ? 'Order Taker' : 'Cashier'}
                           </span>
                           {staff.role === 'KITCHEN' && (
-                            <span className="text-[9px] font-semibold text-slate-400 dark:text-gray-500">{staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'General Kitchen'}</span>
+                            <span className={`text-[9px] font-semibold ${staff.kitchen_categories && staff.kitchen_categories.length > 0 ? 'text-slate-400 dark:text-gray-500' : 'text-red-500 dark:text-red-400'}`}>{staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'Department required'}</span>
                           )}
                           {!isManager && staff.role === 'CASHIER' && perms.viewOwnSalesOnly === false && (
                             <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Sales Report Off</span>
@@ -7178,7 +7366,7 @@ const PosOnlyView: React.FC<Props> = ({
                           <Edit3 size={15} />
                         </button>
                         <button
-                          onClick={() => handleRemoveStaff(staff, idx)}
+                          onClick={() => handleRemoveStaff(staff)}
                           className="p-2 text-slate-400 hover:text-red-500 transition-colors rounded-lg hover:bg-slate-100 dark:text-gray-400 dark:hover:bg-gray-700/50"
                           title="Remove staff"
                         >
@@ -7606,9 +7794,10 @@ const PosOnlyView: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={handleSaveDepartment}
-                          className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-orange-600"
+                          disabled={isSavingDepartment}
+                          className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-orange-600 disabled:cursor-wait disabled:opacity-60"
                         >
-                          Save Changes
+                          {isSavingDepartment ? 'Saving...' : 'Save Changes'}
                         </button>
                       </div>
                     </div>
@@ -7635,23 +7824,34 @@ const PosOnlyView: React.FC<Props> = ({
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Staff assigned to kitchen role can access the Kitchen Display.</p>
               {kitchenStaff.length > 0 ? (
                 <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700 mb-4">
-                  {kitchenStaff.map((staff: any, idx: number) => (
-                    <div key={idx} className="flex items-center justify-between py-3">
+                  {kitchenStaff.map((staff: any) => (
+                    <div key={staff.id || staff.username} className="flex items-center justify-between gap-3 py-3">
                       <div>
                         <p className="text-sm font-medium text-gray-900 dark:text-white">{staff.username}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">Kitchen</span>
-                          <span className="text-xs text-gray-400 dark:text-gray-500">
-                            {staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'General Kitchen'}
+                          <span className={`text-xs ${staff.kitchen_categories && staff.kitchen_categories.length > 0 ? 'text-gray-400 dark:text-gray-500' : 'font-semibold text-red-500 dark:text-red-400'}`}>
+                            {staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'Department required'}
                           </span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleRemoveStaff(staff, staffList.indexOf(staff))}
-                        className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleEditStaff(staff, staffList.indexOf(staff))}
+                          className="p-2 text-gray-400 hover:text-orange-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                          title="Edit kitchen staff department"
+                        >
+                          <Edit3 size={15} />
+                        </button>
+                        <button
+                          onClick={() => handleRemoveStaff(staff)}
+                          disabled={deletingStaffIds.has(staff.id)}
+                          className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 disabled:cursor-wait disabled:opacity-50 dark:hover:bg-gray-700/50"
+                          title="Delete kitchen staff"
+                        >
+                          {deletingStaffIds.has(staff.id) ? <RotateCw size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -8846,8 +9046,9 @@ const PosOnlyView: React.FC<Props> = ({
                               {selectedSavedBillEntry.items.map((item, idx) => (
                                 <div key={`mobile-saved-${item.id}-${idx}`} className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
-                                    <p className="truncate text-xs font-black uppercase tracking-tight text-gray-900 dark:text-white">{item.name}</p>
-                                    <p className="text-[10px] font-bold text-gray-500 dark:text-gray-300">x{item.quantity}</p>
+                                    <p className={`truncate text-xs font-black uppercase tracking-tight ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-900 dark:text-white'}`}>{item.name}</p>
+                                    <p className={`text-[10px] font-bold ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-500 dark:text-gray-300'}`}>x{item.quantity}</p>
+                                    <CancelledItemNotice item={item} />
                                     {item.remark && (
                                       <p className="mt-0.5 flex items-start gap-1 text-[10px] font-bold italic text-orange-600 dark:text-orange-400">
                                         <MessageSquare size={10} className="mt-0.5 shrink-0" /> {item.remark}
@@ -8855,7 +9056,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     )}
                                   </div>
                                   <div className="flex shrink-0 items-center gap-1">
-                                    <p className="text-xs font-black text-orange-500">{currencySymbol}{(item.price * item.quantity).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                    <p className={`text-xs font-black ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-orange-500'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : `${currencySymbol}${(item.price * item.quantity).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</p>
                                     <div data-saved-bill-item-actions>
                                       <button
                                         type="button"
@@ -10159,9 +10360,10 @@ const PosOnlyView: React.FC<Props> = ({
                                     else if (m.addonId === 'online-shop') updateFeatureSetting('onlineShopEnabled', false);
                                     else if (m.addonId === 'shift') updateFeatureSetting('shiftEnabled', false);
                                   }}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-red-600 transition-all hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
+                                  disabled={addonPanelMeta[activeSettingsPanel].addonId === 'kitchen' && savingFeatureKeys.has('kitchenEnabled')}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-red-600 transition-all hover:bg-red-100 disabled:cursor-wait disabled:opacity-60 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
                                 >
-                                  <X size={12} /> Uninstall
+                                  {addonPanelMeta[activeSettingsPanel].addonId === 'kitchen' && savingFeatureKeys.has('kitchenEnabled') ? <RotateCw size={12} className="animate-spin" /> : <X size={12} />} Uninstall
                                 </button>
                               ) : (
                                 <button
@@ -10175,10 +10377,10 @@ const PosOnlyView: React.FC<Props> = ({
                                     else if (m.addonId === 'online-shop') updateFeatureSetting('onlineShopEnabled', true);
                                     else if (m.addonId === 'shift') updateFeatureSetting('shiftEnabled', true);
                                   }}
-                                  disabled={(['qr','tableside','online-shop'].includes(addonPanelMeta[activeSettingsPanel].addonId) && !canUseQr) || (addonPanelMeta[activeSettingsPanel].addonId === 'kitchen' && !canUseKitchen)}
+                                  disabled={(['qr','tableside','online-shop'].includes(addonPanelMeta[activeSettingsPanel].addonId) && !canUseQr) || (addonPanelMeta[activeSettingsPanel].addonId === 'kitchen' && (!canUseKitchen || savingFeatureKeys.has('kitchenEnabled')))}
                                   className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-green-600 transition-all hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20"
                                 >
-                                  <Download size={12} /> Install
+                                  {addonPanelMeta[activeSettingsPanel].addonId === 'kitchen' && savingFeatureKeys.has('kitchenEnabled') ? <RotateCw size={12} className="animate-spin" /> : <Download size={12} />} Install
                                 </button>
                               )}
                               <button
@@ -10692,7 +10894,7 @@ const PosOnlyView: React.FC<Props> = ({
                 <div>
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Role</label>
                   {/* Show auto-MANAGER hint only when adding first staff */}
-                  {!isEditingStaff && staffList.length === 0 && (
+                  {!isEditingStaff && staffList.length === 0 && newStaffRole === 'CASHIER' && (
                     <p className="text-[9px] text-purple-500 font-bold mb-2 ml-1">
                       This is the first staff account — they will automatically be assigned as <span className="uppercase">Manager</span>.
                     </p>
@@ -10772,30 +10974,51 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
                 )}
 
-                {/* Kitchen Category Assignment (only for Kitchen role + when divisions exist) */}
-                {newStaffRole === 'KITCHEN' && kitchenDivisions.length > 0 && (
+                {/* KDS department assignment is mandatory for Kitchen users. */}
+                {newStaffRole === 'KITCHEN' && (
                   <div>
                     <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Kitchen Departments</label>
-                    <p className="text-[9px] text-gray-400 mb-2 ml-1">Select which departments this user handles. Leave empty for all.</p>
-                    <div className="flex flex-wrap gap-2">
-                      {kitchenDivisions.map(dep => (
+                    <p className="text-[9px] text-gray-400 mb-2 ml-1">Select at least one department. Its food categories control which orders appear on this user&apos;s KDS.</p>
+                    {kitchenDivisions.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {kitchenDivisions.map(dep => (
+                          <button
+                            type="button"
+                            key={dep.name}
+                            onClick={() => {
+                              setNewStaffKitchenCategories(prev =>
+                                prev.includes(dep.name) ? prev.filter(c => c !== dep.name) : [...prev, dep.name]
+                              );
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${
+                              newStaffKitchenCategories.includes(dep.name)
+                                ? 'bg-orange-500 text-white border-orange-500'
+                                : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-orange-400'
+                            }`}
+                          >
+                            {dep.name}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-orange-300 bg-orange-50 p-3 dark:border-orange-800 dark:bg-orange-950/20">
+                        <p className="text-[10px] font-bold text-orange-700 dark:text-orange-300">No KDS department has been set up yet.</p>
                         <button
-                          key={dep.name}
+                          type="button"
                           onClick={() => {
-                            setNewStaffKitchenCategories(prev => 
-                              prev.includes(dep.name) ? prev.filter(c => c !== dep.name) : [...prev, dep.name]
-                            );
+                            setIsAddStaffModalOpen(false);
+                            setSettingsPanel('addon-kitchen');
+                            openCreateDepartmentEditor();
                           }}
-                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${
-                            newStaffKitchenCategories.includes(dep.name)
-                              ? 'bg-orange-500 text-white border-orange-500'
-                              : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-orange-400'
-                          }`}
+                          className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 text-[9px] font-black uppercase tracking-wider text-white hover:bg-orange-600"
                         >
-                          {dep.name}
+                          <Plus size={12} /> Set Up Department & Categories
                         </button>
-                      ))}
-                    </div>
+                      </div>
+                    )}
+                    {kitchenDivisions.length > 0 && newStaffKitchenCategories.length === 0 && (
+                      <p className="mt-2 text-[9px] font-bold text-red-500">A KDS department is required.</p>
+                    )}
                   </div>
                 )}
 
@@ -11957,7 +12180,7 @@ const PosOnlyView: React.FC<Props> = ({
                           {posViewPreferences.qrTableOrderView === 'grid' ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                               {filteredQrOrders.map(order => {
-                                const totalQty = order.items.reduce((s, i) => s + i.quantity, 0);
+                                const totalQty = getCurrentPosItems(order.items).reduce((s, i) => s + i.quantity, 0);
                                 const orderId = typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : String(order.id).slice(-6).toUpperCase();
                                 const orderTime = new Date(order.timestamp).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' · ' + new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                                 const borderColor = order.status === OrderStatus.PENDING ? 'border-l-amber-400' : order.status === OrderStatus.ONGOING ? 'border-l-orange-400' : order.status === OrderStatus.PREPARING ? 'border-l-blue-500' : order.status === OrderStatus.SERVED ? 'border-l-purple-500' : order.status === OrderStatus.COMPLETED ? 'border-l-green-500' : 'border-l-red-400';
@@ -12018,7 +12241,7 @@ const PosOnlyView: React.FC<Props> = ({
                                   </thead>
                                   <tbody className="whitespace-nowrap divide-y divide-gray-100 dark:divide-gray-700">
                                     {filteredQrOrders.map(order => {
-                                      const totalQty = order.items.reduce((s, i) => s + i.quantity, 0);
+                                      const totalQty = getCurrentPosItems(order.items).reduce((s, i) => s + i.quantity, 0);
                                       const orderId = typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : String(order.id).slice(-6).toUpperCase();
                                       const orderDate = new Date(order.timestamp).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' });
                                       const orderTimeStr = new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -12115,13 +12338,14 @@ const PosOnlyView: React.FC<Props> = ({
                             {/* Items list */}
                             <div className="overflow-y-auto flex-1 px-5 py-3 divide-y divide-gray-100 dark:divide-gray-700/50">
                               {getSortedOrderItems(o).map((item, idx) => (
-                                <div key={`modal-${o.id}-${idx}`} className={`flex items-start gap-3 py-2.5 ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : ''}`}>
-                                  <span className={`text-xs font-black shrink-0 w-5 pt-0.5 ${isCancelledOrderItem(item) ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>×{item.quantity}</span>
+                                <div key={`modal-${o.id}-${idx}`} className={`flex items-start gap-3 py-2.5 ${isCancelledOrderItem(item) ? 'text-red-500' : ''}`}>
+                                  <span className={`text-xs font-black shrink-0 w-5 pt-0.5 ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-500 dark:text-gray-400'}`}>×{item.quantity}</span>
                                   <div className="flex-1 min-w-0">
-                                    <p className={`text-sm font-bold ${isCancelledOrderItem(item) ? 'text-red-500' : 'text-gray-800 dark:text-white'}`}>{item.name}</p>
-                                    {modLine(item) && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{modLine(item)}</p>}
+                                    <p className={`text-sm font-bold ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-800 dark:text-white'}`}>{item.name}</p>
+                                    {modLine(item) && <p className={`mt-0.5 text-[11px] ${isCancelledOrderItem(item) ? 'text-red-400 line-through' : 'text-gray-500 dark:text-gray-400'}`}>{modLine(item)}</p>}
+                                    <CancelledItemNotice item={item} />
                                   </div>
-                                  <span className={`text-sm font-bold whitespace-nowrap shrink-0 ${isCancelledOrderItem(item) ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : formatCartPrice(item.price * item.quantity)}</span>
+                                  <span className={`text-sm font-bold whitespace-nowrap shrink-0 ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-700 dark:text-gray-300'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : formatCartPrice(item.price * item.quantity)}</span>
                                 </div>
                               ))}
                             </div>
@@ -12470,9 +12694,12 @@ const PosOnlyView: React.FC<Props> = ({
                               )}
                               <div className="space-y-1 mb-3">
                                 {order.items.map((item, idx) => (
-                                  <div key={idx} className="flex items-center justify-between text-xs">
-                                    <span className={isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-600 dark:text-gray-300'}>{item.quantity}x {item.name}</span>
-                                    <span className={`font-bold ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'dark:text-white'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : formatCartPrice(item.price * item.quantity)}</span>
+                                  <div key={idx} className="text-xs">
+                                    <div className="flex items-center justify-between">
+                                      <span className={isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-600 dark:text-gray-300'}>{item.quantity}x {item.name}</span>
+                                      <span className={`font-bold ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'dark:text-white'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : formatCartPrice(item.price * item.quantity)}</span>
+                                    </div>
+                                    <CancelledItemNotice item={item} />
                                   </div>
                                 ))}
                               </div>
@@ -13378,8 +13605,9 @@ const PosOnlyView: React.FC<Props> = ({
                     {selectedSavedBillEntry.items.map((item, idx) => (
                       <div key={`saved-${item.id}-${idx}`} className="flex items-center gap-4">
                         <div className="flex-1">
-                          <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                          <h4 className={`line-clamp-1 text-sm font-black uppercase tracking-tighter ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'dark:text-white'}`}>{item.name}</h4>
                           {renderCartItemPrice(item)}
+                          <CancelledItemNotice item={item} />
                           <div className="mt-1 space-y-0.5">
                             {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
                             {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temperature: {item.selectedTemp}</p>}
@@ -13404,7 +13632,7 @@ const PosOnlyView: React.FC<Props> = ({
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-1">
-                          <span className="rounded-lg bg-gray-100 px-2 py-1 text-xs font-black dark:bg-gray-700 dark:text-white">x{item.quantity}</span>
+                          <span className={`rounded-lg px-2 py-1 text-xs font-black ${isCancelledOrderItem(item) ? 'bg-red-50 text-red-500 line-through dark:bg-red-900/20' : 'bg-gray-100 dark:bg-gray-700 dark:text-white'}`}>x{item.quantity}</span>
                           <div data-saved-bill-item-actions>
                             <button
                               type="button"
@@ -13495,10 +13723,11 @@ const PosOnlyView: React.FC<Props> = ({
                         <span className="text-[10px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">{selectedQrOrderForPayment.tableNumber}</span>
                       </div>
                       {selectedQrOrderForPayment.items.map((item, idx) => (
-                        <div key={`qr-${item.id}-${idx}`} className={`flex items-center gap-4 ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : ''}`}>
+                        <div key={`qr-${item.id}-${idx}`} className={`flex items-center gap-4 ${isCancelledOrderItem(item) ? 'text-red-500' : ''}`}>
                           <div className="flex-1">
-                            <h4 className={`font-black text-sm uppercase tracking-tighter line-clamp-1 ${isCancelledOrderItem(item) ? 'text-red-500' : 'dark:text-white'}`}>{item.name}</h4>
+                            <h4 className={`font-black text-sm uppercase tracking-tighter line-clamp-1 ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'dark:text-white'}`}>{item.name}</h4>
                             {renderCartItemPrice(item)}
+                            <CancelledItemNotice item={item} />
                             <div className="mt-1 space-y-0.5">
                               {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
                               {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temp: {item.selectedTemp}</p>}
@@ -14786,9 +15015,10 @@ const PosOnlyView: React.FC<Props> = ({
                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Items</p>
                 <div className="space-y-2">
                   {selectedReportOrder.items.map((item, idx) => (
-                    <div key={idx} className={`flex items-start justify-between ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : ''}`}>
+                    <div key={idx} className={`flex items-start justify-between ${isCancelledOrderItem(item) ? 'text-red-500' : ''}`}>
                       <div>
-                        <p className={`text-xs font-bold ${isCancelledOrderItem(item) ? 'text-red-500' : 'dark:text-white'}`}>{item.quantity}x {item.name}</p>
+                        <p className={`text-xs font-bold ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'dark:text-white'}`}>{item.quantity}x {item.name}</p>
+                        <CancelledItemNotice item={item} />
                         {item.selectedSize && <p className="text-[9px] text-gray-400 ml-3">-Size: {item.selectedSize}</p>}
                         {item.selectedTemp && <p className="text-[9px] text-gray-400 ml-3">-Temperature: {item.selectedTemp}</p>}
                         {item.selectedVariantOption && <p className="text-[9px] text-gray-400 ml-3">-Variant: {item.selectedVariantOption}</p>}
@@ -14800,7 +15030,7 @@ const PosOnlyView: React.FC<Props> = ({
                           <p key={aIdx} className="text-[9px] text-gray-400 ml-3">-{addon.name}{addon.quantity > 1 ? ` x${addon.quantity}` : ''}</p>
                         ))}
                       </div>
-                      <span className={`text-xs font-bold shrink-0 ml-2 ${isCancelledOrderItem(item) ? 'text-red-500' : 'dark:text-white'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : formatCartPrice(item.price * item.quantity)}</span>
+                      <span className={`text-xs font-bold shrink-0 ml-2 ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'dark:text-white'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : formatCartPrice(item.price * item.quantity)}</span>
                     </div>
                   ))}
                 </div>

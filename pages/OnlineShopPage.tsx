@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Restaurant, MenuItem, CartItem, ModifierData, SelectedAddOn, OrderStatus, OrderSource } from '../src/types';
 import { supabase } from '../lib/supabase';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
+import { ensureKdsItemIdentities, getAggregateKdsOrderStatus } from '../lib/kdsOrderState';
+import { getKdsItemConfigurationKey } from '../lib/kdsItemDetails';
 import {
   ShoppingCart, X, Plus, Minus, ChevronLeft, ChevronRight,
   MapPin, Phone, Loader2, CheckCircle, Package,
@@ -29,19 +31,23 @@ function getItemDisplayPrice(item: MenuItem): number {
   return item.onlinePrice ?? item.price;
 }
 
-const getInitialOnlineOrderStatus = (restaurant: Restaurant): OrderStatus => {
-  const kitchenEnabled = restaurant.kitchenEnabled === true || (restaurant as any).kitchen_enabled === true || restaurant.settings?.features?.kitchenEnabled === true;
-  if (!kitchenEnabled) return OrderStatus.SERVED;
-  return OrderStatus.PENDING;
+const normalizeKey = (value: unknown): string => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+const withInitialOnlineItemStatuses = (restaurant: Restaurant, items: CartItem[]): CartItem[] => {
+  const kitchenEnabled = restaurant.kitchenEnabled === true;
+  const departments = Array.isArray(restaurant.kitchenDivisions) ? restaurant.kitchenDivisions : [];
+  const routedCategories = new Set(departments.flatMap(department => (
+    Array.isArray(department?.categories) ? department.categories.map(normalizeKey) : []
+  )));
+  return ensureKdsItemIdentities(items.map(item => {
+    const kdsRouted = kitchenEnabled && (departments.length === 0 || routedCategories.has(normalizeKey(item.category)));
+    return {
+      ...item,
+      kdsRouted,
+      status: kdsRouted ? OrderStatus.PENDING : OrderStatus.SERVED,
+    };
+  }));
 };
-
-const withInitialOnlineItemStatuses = <T extends { category?: string }>(restaurant: Restaurant, items: T[]): Array<T & { status: OrderStatus }> => (
-  items.map(item => ({ ...item, status: getInitialOnlineOrderStatus(restaurant) }))
-);
-
-const getAggregateOnlineOrderStatus = (items: Array<{ status?: OrderStatus }>): OrderStatus => (
-  items.some(item => item.status === OrderStatus.PENDING) ? OrderStatus.PENDING : OrderStatus.SERVED
-);
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
@@ -93,7 +99,12 @@ const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
           .single();
 
         if (error || !data) { setError('Shop not found.'); return; }
-        setRestaurant(data as Restaurant);
+        setRestaurant({
+          ...data,
+          kitchenEnabled: data.kitchen_enabled === true || data.kitchenEnabled === true,
+          kitchenDivisions: data.kitchen_divisions || data.kitchenDivisions || [],
+          location: data.location_name || data.location || '',
+        } as Restaurant);
         // Pre-select defaults for delivery and payment
         const deliveryOpts: DeliveryOption[] = data.settings?.onlineDeliveryOptions || [];
         const first = deliveryOpts.find((o: DeliveryOption) => o.enabled);
@@ -166,10 +177,8 @@ const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
   // ── Cart helpers ──────────────────────────────────────────────────────────
   const addToCart = (item: CartItem) => {
     setCart(prev => {
-      const key = `${item.id}-${item.selectedSize}-${item.selectedTemp}-${item.selectedOtherVariant}`;
-      const existing = prev.findIndex(c =>
-        `${c.id}-${c.selectedSize}-${c.selectedTemp}-${c.selectedOtherVariant}` === key
-      );
+      const key = getKdsItemConfigurationKey(item);
+      const existing = prev.findIndex(cartItem => getKdsItemConfigurationKey(cartItem) === key);
       if (existing >= 0) {
         const updated = [...prev];
         updated[existing] = { ...updated[existing], quantity: updated[existing].quantity + item.quantity };
@@ -253,18 +262,11 @@ const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
     if (!restaurant || !selectedDelivery || !selectedPayment) return;
     setIsPlacingOrder(true);
     try {
+      // Preserve the complete CartItem payload. Rebuilding this object from a
+      // partial whitelist previously dropped variant and mix-and-match data.
       const orderItems = withInitialOnlineItemStatuses(restaurant, cart.map(item => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        category: item.category,
-        image: item.image,
-        selectedSize: item.selectedSize,
-        selectedTemp: item.selectedTemp,
-        selectedOtherVariant: item.selectedOtherVariant,
-        selectedModifiers: item.selectedModifiers,
-        selectedAddOns: item.selectedAddOns,
+        ...item,
+        restaurantId: restaurant.id,
       })));
 
       const orderId = `ONL-${Date.now()}`;
@@ -278,21 +280,18 @@ const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
 
       const { error } = await supabase.from('orders').insert({
         id: orderId,
-        restaurantId: restaurant.id,
+        restaurant_id: restaurant.id,
         items: orderItems,
         total: totalWithDelivery,
-        status: getAggregateOnlineOrderStatus(orderItems),
+        status: getAggregateKdsOrderStatus(orderItems, OrderStatus.ONGOING),
         timestamp: Date.now(),
-        tableNumber: 'Online',
-        locationName: restaurant.name,
+        customer_id: currentUser?.id || currentUser?.email || 'online_guest',
+        table_number: 'Online',
+        dining_type: selectedDelivery.type === 'pickup' ? 'Pickup' : 'Delivery',
+        location_name: restaurant.location || null,
         remark,
-        orderSource: 'online' as OrderSource,
-        customerName: customerInfo.name,
-        customerPhone: customerInfo.phone,
-        deliveryAddress: `${customerInfo.address}, ${customerInfo.city} ${customerInfo.postcode}`,
-        deliveryOption: selectedDelivery.label,
-        paymentMethod: selectedPayment.label,
-        deliveryFee,
+        order_source: 'online' as OrderSource,
+        payment_method: selectedPayment.label,
       });
 
       if (error) throw error;

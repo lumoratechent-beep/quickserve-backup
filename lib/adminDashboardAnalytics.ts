@@ -106,7 +106,7 @@ export async function buildAdminDashboardAnalyticsFallback(
     paymentRow.orders += 1;
     payments.set(method, paymentRow);
 
-    for (const item of parseOrderItems(row.items)) {
+    for (const item of parseOrderItems(row.items).filter(item => item?.status !== 'CANCELLED')) {
       const key = String(item?.id || item?.name || 'Unknown item');
       const quantity = Number(item?.quantity || 0);
       const price = Number(item?.price || 0);

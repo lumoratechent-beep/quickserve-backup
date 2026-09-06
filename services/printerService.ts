@@ -1,4 +1,5 @@
 // services/printerService.ts
+import { getKdsPreparationDetails } from '../lib/kdsItemDetails';
 // Raw ESC/POS printer service — Loyverse-style, no encoder library.
 // Uses direct ESC/POS binary commands for reliable alignment, sizing, and formatting.
 
@@ -1470,6 +1471,8 @@ class PrinterService {
       // ── Items ──
       if (showItems && Array.isArray(order.items) && order.items.length > 0) {
         for (const item of order.items) {
+          // Cancelled KDS revision rows are kitchen audit history, not sale lines.
+          if (item.status === 'CANCELLED') continue;
           const name = this.sanitize(item.name) || 'Item';
           const qty  = item.quantity || 1;
           const lineLabel = `${qty}x ${name}`;
@@ -1763,30 +1766,8 @@ class PrinterService {
           r.line(`${qty}x ${name}`);
           r.normalSize().bold(false);
 
-          if (item.selectedSize)
-            r.line(`  Size: ${this.sanitize(item.selectedSize)}`);
-          if (item.selectedTemp)
-            r.line(`  Temp: ${this.sanitize(item.selectedTemp)}`);
-          if (item.selectedOtherVariant) {
-            const label = this.sanitize(item.otherVariantName) || 'Option';
-            r.line(`  ${label}: ${this.sanitize(item.selectedOtherVariant)}`);
-          }
-          if (item.selectedVariantOption)
-            r.line(`  Variant: ${this.sanitize(item.selectedVariantOption)}`);
-          if (Array.isArray(item.selectedMixMatch)) {
-            for (const mm of item.selectedMixMatch) {
-              if (mm.choice) {
-                const label = this.sanitize(mm.label) || 'Selection';
-                r.line(`  ${label}: ${this.sanitize(mm.choice)}`);
-              }
-            }
-          }
-          if (Array.isArray(item.selectedAddOns)) {
-            for (const addon of item.selectedAddOns) {
-              const n = this.sanitize(addon.name) || 'Add-on';
-              const q = addon.quantity || 1;
-              r.line(q > 1 ? `  + ${n} x${q}` : `  + ${n}`);
-            }
+          for (const detail of getKdsPreparationDetails(item)) {
+            r.line(`  ${this.sanitize(detail.label)}: ${this.sanitize(detail.value)}`);
           }
           r.feed(1);
         }

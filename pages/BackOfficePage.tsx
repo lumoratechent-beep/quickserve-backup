@@ -1,5 +1,5 @@
 ﻿import React, { useState, useMemo, useEffect } from 'react';
-import { Order, OrderStatus, MenuItem, Restaurant, Subscription, IngredientItem, Role } from '../src/types';
+import { KitchenDepartment, Order, OrderStatus, MenuItem, Restaurant, Subscription, IngredientItem, Role } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
 import { fetchSettingsFromServer, loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
@@ -71,6 +71,7 @@ interface Props {
   onOpenMail?: () => void;
   onDownloadSalesReport?: (options: ReportDownloadOptions) => Promise<void>;
   userRole?: Role | null;
+  onSaveKitchenDivisions?: (divisions: KitchenDepartment[]) => boolean | Promise<boolean>;
 }
 
 type BackOfficeTab = 'DASHBOARD' | 'ITEMS' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS' | 'CONTACTS' | 'FINANCE' | 'EXPENSES' | 'SHIFTS';
@@ -216,7 +217,7 @@ const UNIT_LABELS: Record<string, string> = {
 const getUnitLabel = (unit?: string) => UNIT_LABELS[(unit || 'pcs').toLowerCase()] || unit || 'pcs';
 const formatStockNumber = (value: number) => Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 3 });
 
-const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, isActive = true, onFetchAllFilteredOrders, onFetchBackOfficeOrders, onFetchBackOfficeSummary, onFetchBackOfficeComparison, onFetchOrderChanges, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, networkMeta, batteryMeta, batteryCharging = false, unreadMailCount = 0, onOpenMail, onDownloadSalesReport, userRole = 'VENDOR' }) => {
+const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, isActive = true, onFetchAllFilteredOrders, onFetchBackOfficeOrders, onFetchBackOfficeSummary, onFetchBackOfficeComparison, onFetchOrderChanges, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, networkMeta, batteryMeta, batteryCharging = false, unreadMailCount = 0, onOpenMail, onDownloadSalesReport, userRole = 'VENDOR', onSaveKitchenDivisions }) => {
   const [isInitialLoading, setIsInitialLoading] = useState(() => getBackOfficeCacheEntries(restaurant.id).length === 0);
   const [activeTab, setActiveTab] = useState<BackOfficeTab>('DASHBOARD');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -3175,7 +3176,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
           </div>
         )}>
         {activeTab === 'STAFF' && (
-          <StaffManagementView restaurant={restaurant} currencySymbol={currencySymbol} initialSubTab={staffSubTab as any} onSubTabChange={setStaffSubTab} />
+          <StaffManagementView restaurant={restaurant} currencySymbol={currencySymbol} initialSubTab={staffSubTab as any} onSubTabChange={setStaffSubTab} onSaveKitchenDivisions={onSaveKitchenDivisions} />
         )}
         {activeTab === 'INVENTORY' && (
           <InventoryManagement

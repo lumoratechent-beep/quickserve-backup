@@ -85,6 +85,17 @@ async function startServer() {
         return res.status(403).json({ error: 'Account deactivated' });
       }
 
+      if (data.role === 'KITCHEN' && data.restaurant_id) {
+        const { data: restaurantData, error: restaurantError } = await supabase
+          .from('restaurants')
+          .select('kitchen_enabled')
+          .eq('id', data.restaurant_id)
+          .single();
+        if (restaurantError || restaurantData?.kitchen_enabled !== true) {
+          return res.status(403).json({ error: 'Kitchen Display System is disabled for this restaurant. Contact your manager.' });
+        }
+      }
+
       // Map to camelCase to match frontend User interface
       const userResponse = {
         id: data.id,

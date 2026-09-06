@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Building2, CalendarDays, CalendarPlus, Copy, CreditCard, Download, Edit3, Eye, FileText, KeyRound, MoreVertical, Plus, Receipt, Search, Settings2, Trash2, UserPlus, Users, X } from 'lucide-react';
-import { Restaurant } from '../src/types';
+import { Building2, CalendarDays, CalendarPlus, Check, ChefHat, Copy, CreditCard, Download, Edit3, Eye, FileText, KeyRound, MoreVertical, Plus, Receipt, Search, Settings2, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { KitchenDepartment, Restaurant } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from './Toast';
 
@@ -86,6 +86,7 @@ interface UserAccessForm {
   role: StaffRole;
   isActive: boolean;
   accessPermissions: Record<string, any>;
+  kitchenDepartments: string[];
 }
 
 interface PayrollPayslip {
@@ -261,6 +262,7 @@ interface Props {
   currencySymbol: string;
   initialSubTab?: StaffSubTab;
   onSubTabChange?: (subTab: StaffSubTab) => void;
+  onSaveKitchenDivisions?: (divisions: KitchenDepartment[]) => boolean | Promise<boolean>;
 }
 
 type StaffSubTab = 'directory' | 'access' | 'leave' | 'payroll' | 'claims' | 'departments';
@@ -298,7 +300,26 @@ const blankUserAccessForm = (): UserAccessForm => ({
   role: 'CASHIER',
   isActive: true,
   accessPermissions: {},
+  kitchenDepartments: [],
 });
+
+const normalizeKitchenDepartments = (raw: unknown): KitchenDepartment[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap(entry => {
+    if (typeof entry === 'string') {
+      const name = entry.trim();
+      return name ? [{ name, categories: [] }] : [];
+    }
+    if (!entry || typeof entry !== 'object') return [];
+    const candidate = entry as Partial<KitchenDepartment>;
+    const name = String(candidate.name || '').trim();
+    if (!name) return [];
+    const categories = Array.isArray(candidate.categories)
+      ? candidate.categories.map(category => String(category || '').trim()).filter(Boolean)
+      : [];
+    return [{ name, categories }];
+  });
+};
 const periodMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const currentYear = new Date().getFullYear();
 const periodYears = Array.from({ length: 9 }, (_, index) => currentYear - 4 + index);
@@ -479,7 +500,7 @@ const blankClaimForm = (): ClaimForm => ({
   items: [blankClaimLine()],
 });
 
-const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, initialSubTab = 'directory', onSubTabChange }) => {
+const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, initialSubTab = 'directory', onSubTabChange, onSaveKitchenDivisions }) => {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [departments, setDepartments] = useState<StaffDepartment[]>([]);
   const [payslips, setPayslips] = useState<PayrollPayslip[]>([]);
@@ -496,6 +517,11 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
   const [selectedAccessUserId, setSelectedAccessUserId] = useState('');
   const [accessForm, setAccessForm] = useState<UserAccessForm>(() => blankUserAccessForm());
   const [isSavingAccess, setIsSavingAccess] = useState(false);
+  const [kdsDepartments, setKdsDepartments] = useState<KitchenDepartment[]>(() => normalizeKitchenDepartments(restaurant.kitchenDivisions));
+  const [isKdsDepartmentFormOpen, setIsKdsDepartmentFormOpen] = useState(false);
+  const [kdsDepartmentName, setKdsDepartmentName] = useState('');
+  const [kdsDepartmentCategories, setKdsDepartmentCategories] = useState<string[]>([]);
+  const [isSavingKdsDepartment, setIsSavingKdsDepartment] = useState(false);
   const [staffModalOpen, setStaffModalOpen] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [staffForm, setStaffForm] = useState<StaffForm>(() => blankStaffForm());
@@ -544,9 +570,17 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
   useEffect(() => {
     onSubTabChange?.(subTab);
   }, [onSubTabChange, subTab]);
+
+  useEffect(() => {
+    setKdsDepartments(normalizeKitchenDepartments(restaurant.kitchenDivisions));
+  }, [restaurant.kitchenDivisions]);
   const [staffDetailDrag, setStaffDetailDrag] = useState<{ startX: number; deltaX: number } | null>(null);
 
   const fmt = (value: number) => `${currencySymbol}${n(value).toFixed(2)}`;
+  const foodCategories = useMemo(() => Array.from(new Set([
+    ...(restaurant.categories || []).map(category => category.name),
+    ...restaurant.menu.filter(item => !item.isArchived).map(item => item.category),
+  ].map(category => String(category || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [restaurant.categories, restaurant.menu]);
   const statusOptionClass = 'bg-white text-gray-900';
   const getPayFrequencyLabel = (frequency?: string | null) => (frequency === 'Monthly' || !frequency ? 'mo' : frequency);
   const formatDate = (value?: string | null) => {
@@ -929,6 +963,9 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
     setIsAccessSettingsMode(false);
     setSelectedAccessUserId('');
     setAccessForm(blankUserAccessForm());
+    setIsKdsDepartmentFormOpen(false);
+    setKdsDepartmentName('');
+    setKdsDepartmentCategories([]);
     setIsAccessFormOpen(true);
   };
 
@@ -943,7 +980,11 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
       role: item.role,
       isActive: item.is_active !== false,
       accessPermissions: item.access_permissions || {},
+      kitchenDepartments: Array.isArray(item.kitchen_categories) ? item.kitchen_categories : [],
     });
+    setIsKdsDepartmentFormOpen(false);
+    setKdsDepartmentName('');
+    setKdsDepartmentCategories([]);
     setIsAccessFormOpen(true);
   };
 
@@ -966,18 +1007,95 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
       role: item.role,
       isActive: isProfileOnly ? true : item.is_active !== false,
       accessPermissions: { ...(item.access_permissions || {}), staffProfileOnly: false },
+      kitchenDepartments: Array.isArray(item.kitchen_categories) ? item.kitchen_categories : [],
     } : blankUserAccessForm());
+  };
+
+  const toggleAccessKdsDepartment = (departmentName: string) => {
+    setAccessForm(form => ({
+      ...form,
+      kitchenDepartments: form.kitchenDepartments.includes(departmentName)
+        ? form.kitchenDepartments.filter(name => name !== departmentName)
+        : [...form.kitchenDepartments, departmentName],
+    }));
+  };
+
+  const toggleNewKdsDepartmentCategory = (categoryName: string) => {
+    setKdsDepartmentCategories(current => current.includes(categoryName)
+      ? current.filter(name => name !== categoryName)
+      : [...current, categoryName].sort((a, b) => a.localeCompare(b)));
+  };
+
+  const saveKdsDepartment = async () => {
+    const name = kdsDepartmentName.trim();
+    if (!name) {
+      toast('KDS department name is required', 'warning');
+      return;
+    }
+    if (kdsDepartmentCategories.length === 0) {
+      toast('Select at least one food category', 'warning');
+      return;
+    }
+    if (kdsDepartments.some(department => department.name.toLowerCase() === name.toLowerCase())) {
+      toast('KDS department already exists', 'warning');
+      return;
+    }
+
+    const created: KitchenDepartment = { name, categories: [...kdsDepartmentCategories] };
+    const updated = [...kdsDepartments, created].sort((a, b) => a.name.localeCompare(b.name));
+    setIsSavingKdsDepartment(true);
+    try {
+      if (onSaveKitchenDivisions) {
+        const saved = await Promise.resolve(onSaveKitchenDivisions(updated));
+        if (!saved) throw new Error('Unable to save the KDS department');
+      } else {
+        const { error: rpcError } = await supabase.rpc('save_kds_departments', {
+          p_restaurant_id: restaurant.id,
+          p_divisions: updated,
+          p_old_name: null,
+          p_new_name: null,
+        });
+        let saveError = rpcError;
+        if (rpcError) {
+          const fallback = await supabase
+            .from('restaurants')
+            .update({ kitchen_divisions: updated })
+            .eq('id', restaurant.id);
+          saveError = fallback.error;
+        }
+        if (saveError) throw saveError;
+      }
+
+      setKdsDepartments(updated);
+      localStorage.setItem(`qs_kitchen_divisions_${restaurant.id}`, JSON.stringify(updated));
+      setAccessForm(form => ({ ...form, kitchenDepartments: [...form.kitchenDepartments, name] }));
+      setKdsDepartmentName('');
+      setKdsDepartmentCategories([]);
+      setIsKdsDepartmentFormOpen(false);
+      toast('KDS department created and selected', 'success');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to create KDS department', 'error');
+    } finally {
+      setIsSavingKdsDepartment(false);
+    }
   };
 
   const saveUserAccess = async () => {
     const username = accessForm.username.trim();
     const password = accessForm.password.trim();
+    const validKitchenDepartments = accessForm.kitchenDepartments.filter(selectedName => (
+      kdsDepartments.some(department => department.name === selectedName)
+    ));
     if (!selectedAccessUserId) {
       toast('Select a staff member', 'warning');
       return;
     }
     if (!username || (!isAccessSettingsMode && !password)) {
       toast(isAccessSettingsMode ? 'Username is required' : 'Username and password are required', 'warning');
+      return;
+    }
+    if (accessForm.role === 'KITCHEN' && validKitchenDepartments.length === 0) {
+      toast('Select at least one KDS department for this Kitchen user', 'warning');
       return;
     }
 
@@ -997,6 +1115,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
         phone: accessForm.phone.trim() || null,
         is_active: accessForm.isActive,
         access_permissions: accessForm.accessPermissions,
+        kitchen_categories: accessForm.role === 'KITCHEN' ? validKitchenDepartments : null,
       };
       if (password) userPayload.password = password;
 
@@ -2207,7 +2326,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
                   </div>
                 </div>
                 {visibleAccessUsers.length > 0 ? (
-                  <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left"><thead className="bg-gray-50 dark:bg-gray-900/50"><tr><th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Full Name</th><th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Username</th><th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Access Type</th><th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Contact</th></tr></thead><tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">{visibleAccessUsers.map(item => <tr key={item.id} onClick={() => openAccessSettings(item)} className="cursor-pointer transition hover:bg-amber-50/40 dark:hover:bg-amber-900/10" title="Open user settings"><td className="px-5 py-4 text-sm font-black text-gray-900 dark:text-white">{item.profile?.full_name || item.username}</td><td className="px-5 py-4 text-xs font-bold text-gray-600 dark:text-gray-300">{item.username}</td><td className="px-5 py-4"><span className="rounded-lg bg-violet-50 px-2.5 py-1 text-[10px] font-black text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">{item.role.replace('_', ' ')}</span></td><td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p>{item.email || '-'}</p><p>{item.phone || '-'}</p></td></tr>)}</tbody></table></div>
+                  <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left"><thead className="bg-gray-50 dark:bg-gray-900/50"><tr><th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Full Name</th><th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Username</th><th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Access Type</th><th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Contact</th></tr></thead><tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">{visibleAccessUsers.map(item => <tr key={item.id} onClick={() => openAccessSettings(item)} className="cursor-pointer transition hover:bg-amber-50/40 dark:hover:bg-amber-900/10" title="Open user settings"><td className="px-5 py-4 text-sm font-black text-gray-900 dark:text-white">{item.profile?.full_name || item.username}</td><td className="px-5 py-4 text-xs font-bold text-gray-600 dark:text-gray-300">{item.username}</td><td className="px-5 py-4"><span className="rounded-lg bg-violet-50 px-2.5 py-1 text-[10px] font-black text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">{item.role.replace('_', ' ')}</span>{item.role === 'KITCHEN' && <p className={`mt-2 max-w-56 text-[10px] font-bold ${item.kitchen_categories?.length ? 'text-orange-600 dark:text-orange-400' : 'text-rose-600 dark:text-rose-400'}`}>{item.kitchen_categories?.length ? item.kitchen_categories.join(', ') : 'Department required'}</p>}</td><td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p>{item.email || '-'}</p><p>{item.phone || '-'}</p></td></tr>)}</tbody></table></div>
                 ) : <div className="flex h-52 flex-col items-center justify-center text-gray-400"><KeyRound size={36} className="mb-3 opacity-30" /><p className="text-sm font-bold">No users found</p></div>}
               </div>
             )}
@@ -3086,11 +3205,110 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
                 </select>
               </div>
 
+              {accessForm.role === 'KITCHEN' && (
+                <div className="md:col-span-2 rounded-2xl border border-orange-200 bg-orange-50/60 p-4 dark:border-orange-900/50 dark:bg-orange-950/20">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <ChefHat size={16} className="text-orange-600 dark:text-orange-400" />
+                        <label className="text-xs font-black text-gray-900 dark:text-white">KDS Department *</label>
+                      </div>
+                      <p className="mt-1 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">This controls which food categories and orders appear on this user&apos;s Kitchen Display.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsKdsDepartmentFormOpen(open => !open)}
+                      className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-orange-200 bg-white px-3 text-[10px] font-black uppercase tracking-wider text-orange-700 transition hover:border-orange-400 dark:border-orange-800 dark:bg-gray-800 dark:text-orange-300"
+                    >
+                      {isKdsDepartmentFormOpen ? <X size={13} /> : <Plus size={13} />}
+                      {isKdsDepartmentFormOpen ? 'Close' : 'Add Department'}
+                    </button>
+                  </div>
+
+                  {kdsDepartments.length > 0 ? (
+                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {kdsDepartments.map(department => {
+                        const selected = accessForm.kitchenDepartments.includes(department.name);
+                        return (
+                          <button
+                            key={department.name}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => toggleAccessKdsDepartment(department.name)}
+                            className={`flex min-h-14 items-center gap-3 rounded-xl border p-3 text-left transition ${selected ? 'border-orange-400 bg-white shadow-sm ring-2 ring-orange-200 dark:bg-gray-800 dark:ring-orange-900/50' : 'border-gray-200 bg-white/70 hover:border-orange-300 dark:border-gray-700 dark:bg-gray-800/60'}`}
+                          >
+                            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${selected ? 'border-orange-500 bg-orange-500 text-white' : 'border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-900'}`}>
+                              {selected && <Check size={13} strokeWidth={3} />}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-xs font-black text-gray-900 dark:text-white">{department.name}</span>
+                              <span className="mt-0.5 block truncate text-[10px] text-gray-500 dark:text-gray-400">{department.categories.join(', ') || 'No food categories'}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-xl border border-dashed border-orange-300 bg-white/70 px-4 py-5 text-center dark:border-orange-800 dark:bg-gray-800/50">
+                      <p className="text-xs font-black text-gray-800 dark:text-gray-100">No KDS departments yet</p>
+                      <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Add one below and connect it to at least one food category.</p>
+                    </div>
+                  )}
+
+                  {accessForm.kitchenDepartments.length === 0 && !isKdsDepartmentFormOpen && (
+                    <p className="mt-3 text-[11px] font-bold text-rose-600 dark:text-rose-400">Choose a department before saving this Kitchen user.</p>
+                  )}
+
+                  {isKdsDepartmentFormOpen && (
+                    <div className="mt-4 rounded-xl border border-orange-200 bg-white p-4 dark:border-orange-900/60 dark:bg-gray-800">
+                      <p className="text-xs font-black text-gray-900 dark:text-white">New KDS Department</p>
+                      <div className="mt-3">
+                        <label className={labelClass}>Department Name *</label>
+                        <input
+                          autoFocus
+                          value={kdsDepartmentName}
+                          onChange={event => setKdsDepartmentName(event.target.value)}
+                          placeholder="e.g. Hot Kitchen, Drinks, Dessert"
+                          className={fieldClass}
+                        />
+                      </div>
+                      <div className="mt-3">
+                        <label className={labelClass}>Food Categories *</label>
+                        {foodCategories.length > 0 ? (
+                          <div className="flex max-h-36 flex-wrap gap-2 overflow-y-auto rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
+                            {foodCategories.map(category => {
+                              const selected = kdsDepartmentCategories.includes(category);
+                              return (
+                                <button
+                                  key={category}
+                                  type="button"
+                                  aria-pressed={selected}
+                                  onClick={() => toggleNewKdsDepartmentCategory(category)}
+                                  className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition ${selected ? 'border-orange-500 bg-orange-500 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-orange-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}
+                                >
+                                  {selected && <Check size={11} className="mr-1 inline" strokeWidth={3} />}{category}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="rounded-xl border border-dashed border-gray-300 p-3 text-[11px] text-gray-500 dark:border-gray-700 dark:text-gray-400">Create a food category in Menu Editor first.</p>
+                        )}
+                      </div>
+                      <div className="mt-4 flex justify-end gap-2">
+                        <button type="button" onClick={() => { setIsKdsDepartmentFormOpen(false); setKdsDepartmentName(''); setKdsDepartmentCategories([]); }} className="rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+                        <button type="button" onClick={() => void saveKdsDepartment()} disabled={isSavingKdsDepartment || foodCategories.length === 0} className="rounded-xl bg-orange-500 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50">{isSavingKdsDepartment ? 'Saving...' : 'Create & Select'}</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
               <button type="button" onClick={() => setIsAccessFormOpen(false)} className="rounded-xl border border-gray-200 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-gray-500 transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700">Cancel</button>
-              <button type="button" onClick={() => void saveUserAccess()} disabled={isSavingAccess || !selectedAccessUserId} className="rounded-xl bg-amber-600 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50">{isSavingAccess ? 'Saving...' : isAccessSettingsMode ? 'Save Changes' : 'Save User'}</button>
+              <button type="button" onClick={() => void saveUserAccess()} disabled={isSavingAccess || !selectedAccessUserId || (accessForm.role === 'KITCHEN' && accessForm.kitchenDepartments.length === 0)} className="rounded-xl bg-amber-600 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50">{isSavingAccess ? 'Saving...' : isAccessSettingsMode ? 'Save Changes' : 'Save User'}</button>
             </div>
           </div>
         </div>

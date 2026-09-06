@@ -177,10 +177,26 @@ export interface SelectedAddOn {
 export interface CartItem extends MenuItem {
   quantity: number;
   restaurantId: string;
+  /** Stable identity for conflict-safe, item-level KDS mutations. */
+  kdsItemId?: string;
+  /** False when the item is intentionally outside every configured KDS route. */
+  kdsRouted?: boolean;
+  /** Durable POS-to-KDS revision marker stored inside orders.items. */
+  kdsChangeType?: 'ADDED' | 'CORRECTED' | 'SUPERSEDED' | 'REMOVED';
+  /** Timestamp used by every KDS screen to detect a relevant department update. */
+  kdsChangedAt?: number;
+  /** Groups items that must appear as a separate KDS ticket after a served ticket. */
+  kdsTicketId?: string;
+  /** Prevents served items from being mixed back into a later active ticket. */
+  kdsTicketKind?: 'POST_SERVED';
   originalPrice?: number;
   savedBillId?: string;
   savedBillLineId?: string;
   kitchenCancelReason?: string;
+  /** User-facing audit metadata for an item cancellation. */
+  cancelledBy?: string;
+  cancelledAt?: number;
+  cancelSource?: 'KDS' | 'POS';
   status?: OrderStatus;
   kitchenStartedAt?: number;
   kitchenCookedAt?: number;

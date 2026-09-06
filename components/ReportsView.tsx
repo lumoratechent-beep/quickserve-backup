@@ -25,6 +25,7 @@ type DateRange = 'today' | 'week' | 'month';
 type SalesPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly';
 
 const COLORS = ['#D97706', '#F59E0B', '#92400E', '#B45309', '#78350F', '#FBBF24', '#FCD34D', '#3B82F6', '#8B5CF6', '#22C55E', '#EF4444', '#EC4899'];
+const getSaleItems = (order: Order) => order.items.filter(item => item.status !== OrderStatus.CANCELLED);
 
 const ReportsView: React.FC<Props> = ({ orders, restaurantId, onFetchOrders, currencySymbol, taxes, initialSubTab }) => {
   const [subTab, setSubTab] = useState<ReportSubTab>(initialSubTab || 'sales_summary');
@@ -457,7 +458,7 @@ const ReportsView: React.FC<Props> = ({ orders, restaurantId, onFetchOrders, cur
   const salesByItem = useMemo(() => {
     const map: Record<string, { name: string; quantity: number; revenue: number; avgPrice: number }> = {};
     completedOrders.forEach(o => {
-      o.items.forEach(item => {
+      getSaleItems(o).forEach(item => {
         if (!map[item.name]) map[item.name] = { name: item.name, quantity: 0, revenue: 0, avgPrice: 0 };
         map[item.name].quantity += item.quantity;
         map[item.name].revenue += item.price * item.quantity;
@@ -473,7 +474,7 @@ const ReportsView: React.FC<Props> = ({ orders, restaurantId, onFetchOrders, cur
     const map: Record<string, { name: string; itemsSold: number; revenue: number; orderCount: number }> = {};
     completedOrders.forEach(o => {
       const seenCategories = new Set<string>();
-      o.items.forEach(item => {
+      getSaleItems(o).forEach(item => {
         const cat = item.category || 'Uncategorized';
         if (!map[cat]) map[cat] = { name: cat, itemsSold: 0, revenue: 0, orderCount: 0 };
         map[cat].itemsSold += item.quantity;
@@ -496,7 +497,7 @@ const ReportsView: React.FC<Props> = ({ orders, restaurantId, onFetchOrders, cur
       } else {
         map[name].orders += 1;
         map[name].revenue += o.total;
-        map[name].itemsSold += o.items.reduce((s, i) => s + i.quantity, 0);
+        map[name].itemsSold += getSaleItems(o).reduce((s, i) => s + i.quantity, 0);
       }
     });
     return Object.values(map)
@@ -523,7 +524,7 @@ const ReportsView: React.FC<Props> = ({ orders, restaurantId, onFetchOrders, cur
   const salesByModifier = useMemo(() => {
     const map: Record<string, { name: string; timesUsed: number; revenue: number; items: string[] }> = {};
     completedOrders.forEach(o => {
-      o.items.forEach(item => {
+      getSaleItems(o).forEach(item => {
         // Size modifier
         if (item.selectedSize) {
           const key = `Size: ${item.selectedSize}`;

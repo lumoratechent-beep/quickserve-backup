@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import { toast } from '../components/Toast';
 import { expandPosSettings, fetchSettingsFromServer, POS_DEFAULTS, saveAllSettingsToDb } from '../lib/sharedSettings';
+import { getKdsItemConfigurationKey } from '../lib/kdsItemDetails';
 
 interface Props {
   restaurant: Restaurant;
@@ -135,15 +136,7 @@ const getInitialTablesideGroupMenuByCategory = (restaurantId: string): boolean =
   }
 };
 
-const getItemKey = (item: CartItem) => [
-  item.id,
-  item.selectedSize,
-  item.selectedTemp,
-  item.selectedOtherVariant,
-  item.selectedVariantOption,
-  JSON.stringify(item.selectedAddOns || []),
-  JSON.stringify(item.selectedModifiers || {}),
-].join('|');
+const getItemKey = getKdsItemConfigurationKey;
 
 const getCartItemDetailLines = (item: CartItem) => {
   const lines: string[] = [];
