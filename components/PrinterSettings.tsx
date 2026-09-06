@@ -832,8 +832,38 @@ const PrinterSettings: React.FC<Props> = ({
               </SettingRow>
             </div>
 
+            {/* Print Jobs */}
+            <div>
+              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Jobs</label>
+              <p className="text-[9px] text-gray-400 mb-2">Choose what this printer should print.</p>
+              <div className="flex gap-2">
+                {([
+                  { type: 'receipt' as PrintJobType, label: 'Receipt', activeClass: 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600' },
+                  { type: 'kitchen' as PrintJobType, label: 'Kitchen', activeClass: 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700 text-orange-600' },
+                ]).map(({ type, label, activeClass }) => {
+                  const selected = printerForm.printJobs.includes(type);
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => setPrinterForm(f => {
+                        if (f.printJobs.includes(type)) return f;
+                        return type === 'kitchen'
+                          ? { ...f, printJobs: [type] }
+                          : { ...f, printJobs: [type], departmentId: undefined, kitchenCategories: [] };
+                      })}
+                      className={`flex-1 py-2.5 rounded-lg text-[10px] font-black border transition-all ${
+                        selected ? activeClass : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* ── Department Assignment ── */}
-            {departments && departments.length > 0 && (
+            {printerForm.printJobs.includes('kitchen') && departments && departments.length > 0 && (
               <div>
                 <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">
                   <Building2 size={12} className="inline mr-1" />
@@ -1326,13 +1356,17 @@ const PrinterSettings: React.FC<Props> = ({
               <p className="text-xs font-black dark:text-white">Run it on a WiFi/LAN device</p>
             </div>
             <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">
-              On any PC, laptop, or Android tablet with <strong>Termux + Node.js</strong> installed:
+              On any PC, laptop, or Android tablet with <strong>Termux + Node.js</strong> installed. For Android, open Termux and type:
             </p>
             <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed">
+              <div>pkg update && pkg upgrade -y</div>
+              <div>pkg install nodejs -y</div>
+              <div>termux-setup-storage</div>
+              <div>cd ~/storage/downloads</div>
               <div>node print-server.js</div>
             </div>
             <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">
-              Keep it running in the background. Takes note of the IP shown (e.g. <code>192.168.1.50</code>).
+              Approve storage permission, save <strong>print-server.js</strong> in Downloads, and keep Termux running in the background.
             </p>
           </div>
 
@@ -1358,7 +1392,8 @@ const PrinterSettings: React.FC<Props> = ({
               Go to the <strong>Printers</strong> tab, click <strong>Add Printer</strong>, and select <strong>WiFi/LAN</strong> interface. Fill in:
             </p>
             <ul className="text-[10px] text-gray-500 dark:text-gray-400 space-y-1 ml-4 list-disc">
-              <li><strong>Print Server URL</strong> — e.g. <code>http://192.168.1.50:3001</code></li>
+              <li><strong>Print Server URL</strong> — if QuickServe and Termux are on the same device, use <code>http://localhost:3001</code>; if Termux shows another port, replace <code>3001</code> with that port, such as <code>http://localhost:3000</code></li>
+              <li><strong>Print Server URL on another device</strong> — use the Termux device IP, for example <code>http://192.168.1.50:3001</code>, or replace <code>3001</code> with the port shown by Termux</li>
               <li><strong>Printer IP</strong> — your printer's LAN IP</li>
               <li><strong>Printer Port</strong> — usually 9100</li>
             </ul>
@@ -1391,13 +1426,18 @@ const PrinterSettings: React.FC<Props> = ({
           <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-700">
             <p className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">Android Tablet (Termux) Setup</p>
             <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed">
-              <div># 1. Install Termux from F-Droid (not Google Play)</div>
-              <div># 2. Install Node.js:</div>
+              <div># Install Termux from F-Droid, then open it</div>
+              <div>pkg update && pkg upgrade -y</div>
               <div>pkg install nodejs -y</div>
-              <div># 3. Copy print-server.js to your tablet</div>
-              <div># 4. Run the proxy:</div>
-              <div>node ~/storage/downloads/print-server.js</div>
+              <div>termux-setup-storage</div>
+              <div>cd ~/storage/downloads</div>
+              <div>node print-server.js</div>
+              <div># Find the Termux device IP (for other POS devices)</div>
+              <div>ip route get 8.8.8.8</div>
             </div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">
+              If QuickServe is running on this same Android device, use <code>http://localhost:3001</code>. If Termux shows port <code>3000</code>, use <code>http://localhost:3000</code> instead. If QuickServe is on another device, use <code>http://&lt;Termux-IP&gt;:&lt;port&gt;</code>.
+            </p>
           </div>
         </div>
       </div>

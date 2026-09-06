@@ -181,6 +181,14 @@ Printer IP Address: <wifi-printer-ip>
 Printer Port: 9100
 ```
 
+If QuickServe and Termux are running on the same Android device, use `localhost` for the Print Server URL instead:
+
+```text
+Print Server URL: http://localhost:3001
+```
+
+Use the port shown when Termux starts the server. For example, if Termux says it is listening on port `3000`, use `http://localhost:3000` on the same device, or `http://<termux-device-ip>:3000` from another device. Do not use `http://0.0.0.0:<port>` in QuickServe.
+
 Example:
 
 ```text
