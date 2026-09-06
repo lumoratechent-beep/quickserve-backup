@@ -14,7 +14,7 @@ import { isSubscriptionAccessLocked } from './lib/subscriptionService';
 import { getDefaultPromotionDiscount, normalizeMenuPromotionDiscount } from './lib/menuPricing';
 import { fetchIngredientItemsFromDb } from './lib/ingredientItems';
 import { fetchStockItemsFromDb, saveStockItemsToDb, saveStockMovementsToDb } from './lib/stockItems';
-import { ensureKdsItemIdentities, getAggregateKdsOrderStatus } from './lib/kdsOrderState';
+import { cancelOrderItemsForKds, ensureKdsItemIdentities, getAggregateKdsOrderStatus } from './lib/kdsOrderState';
 
 // Keep unrelated screens out of the Back Office startup module graph.
 const CustomerView = React.lazy(() => import('./pages/CustomerView'));
@@ -1981,13 +1981,14 @@ const App: React.FC = () => {
     };
 
     const catchUpKitchenOrders = async () => {
+      const catchUpSince = Date.now() - (24 * 60 * 60 * 1000);
       const result = await withTimeout(
         supabase
           .from('orders')
           .select(ORDER_COLUMNS)
           .eq('restaurant_id', restaurantId)
-          .gte('timestamp', Date.now() - (24 * 60 * 60 * 1000))
-          .order('timestamp', { ascending: false })
+          .or(`timestamp.gte.${catchUpSince},updated_at.gte.${new Date(catchUpSince).toISOString()}`)
+          .order('updated_at', { ascending: false })
           .limit(200),
         7000,
       );
@@ -2599,10 +2600,21 @@ const App: React.FC = () => {
       lockedOrderIds.current.add(orderId);
     }
     
+    const cancellationAt = Date.now();
+    const optimisticCancelledItems = status === OrderStatus.CANCELLED && existingOrderForStock
+      ? cancelOrderItemsForKds(
+          existingOrderForStock.items,
+          existingOrderForStock.status,
+          reason || 'Order cancelled via POS',
+          cancellationAt,
+        )
+      : undefined;
+
     // Update local state immediately
     setOrders(prev => prev.map(o => o.id === orderId ? { 
       ...o, 
       status, 
+      ...(optimisticCancelledItems ? { items: optimisticCancelledItems } : {}),
       rejectionReason: reason, 
       rejectionNote: note,
       ...(paymentDetails ? {
@@ -2614,7 +2626,7 @@ const App: React.FC = () => {
     } : o));
     
     // Update database
-    const updatePayload = {
+    const updatePayload: Record<string, unknown> = {
       status, 
       rejection_reason: reason, 
       rejection_note: note,
@@ -2629,10 +2641,54 @@ const App: React.FC = () => {
         e_receipt_snapshot: paymentDetails.eReceipt.snapshot,
       } : {}),
     };
-    const { error: updateError } = await supabase.from('orders').update(updatePayload).eq('id', orderId);
-    if (updateError && paymentDetails?.eReceipt && (updateError.code === 'PGRST204' || /e_receipt/i.test(updateError.message || ''))) {
-      const { e_receipt_id, e_receipt_snapshot, ...withoutEReceipt } = updatePayload as typeof updatePayload & { e_receipt_id?: string; e_receipt_snapshot?: Record<string, unknown> };
-      await supabase.from('orders').update(withoutEReceipt).eq('id', orderId);
+
+    try {
+      if (status === OrderStatus.CANCELLED) {
+        let confirmedItems: CartItem[] | undefined;
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+          const { data: current, error: fetchError } = await supabase
+            .from('orders')
+            .select('items,status,updated_at')
+            .eq('id', orderId)
+            .maybeSingle();
+          if (fetchError || !current) throw fetchError || new Error('Order not found');
+          const currentItems: CartItem[] = Array.isArray(current.items)
+            ? current.items
+            : JSON.parse(current.items || '[]');
+          const cancelledItems = cancelOrderItemsForKds(
+            currentItems,
+            current.status as OrderStatus,
+            reason || 'Order cancelled via POS',
+            cancellationAt,
+          );
+          const { data: confirmed, error: updateError } = await supabase
+            .from('orders')
+            .update({ ...updatePayload, items: cancelledItems })
+            .eq('id', orderId)
+            .eq('updated_at', current.updated_at)
+            .select('items')
+            .maybeSingle();
+          if (updateError) throw updateError;
+          if (!confirmed) continue;
+          confirmedItems = Array.isArray(confirmed.items) ? confirmed.items : JSON.parse(confirmed.items || '[]');
+          break;
+        }
+        if (!confirmedItems) throw new Error('The order kept changing while it was being cancelled. Please retry.');
+        setOrders(prev => prev.map(order => order.id === orderId ? { ...order, status, items: confirmedItems! } : order));
+      } else {
+        const { error: updateError } = await supabase.from('orders').update(updatePayload).eq('id', orderId);
+        if (updateError && paymentDetails?.eReceipt && (updateError.code === 'PGRST204' || /e_receipt/i.test(updateError.message || ''))) {
+          const { e_receipt_id, e_receipt_snapshot, ...withoutEReceipt } = updatePayload;
+          const { error: retryError } = await supabase.from('orders').update(withoutEReceipt).eq('id', orderId);
+          if (retryError) throw retryError;
+        } else if (updateError) {
+          throw updateError;
+        }
+      }
+    } catch (error) {
+      console.error('Order status update failed:', error);
+      toast('Unable to update this order. Please try again.', 'error');
+      void fetchOrders();
     }
     
     // Safety fallback: clear lock after 15s in case the realtime confirmation never arrives

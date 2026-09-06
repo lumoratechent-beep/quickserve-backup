@@ -1470,6 +1470,8 @@ class PrinterService {
       // ── Items ──
       if (showItems && Array.isArray(order.items) && order.items.length > 0) {
         for (const item of order.items) {
+          // Cancelled KDS revision rows are kitchen audit history, not sale lines.
+          if (item.status === 'CANCELLED') continue;
           const name = this.sanitize(item.name) || 'Item';
           const qty  = item.quantity || 1;
           const lineLabel = `${qty}x ${name}`;

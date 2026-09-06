@@ -22,7 +22,7 @@ import ImageCropModal from '../components/ImageCropModal';
 import WalletBillingPage from './WalletBillingPage';
 import { getMenuItemEffectivePrice, isMenuPromotionActive } from '../lib/menuPricing';
 import { getCalendarReportDateRange } from '../lib/reportDateRanges';
-import { ensureKdsItemIdentities, getAggregateKdsOrderStatus, getKdsItemStatus } from '../lib/kdsOrderState';
+import { getCurrentPosItems, reconcilePosKdsItems } from '../lib/kdsOrderState';
 import {
   ShoppingBag, Search, Download, Calendar,
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid,
@@ -167,9 +167,6 @@ const getKitchenCategoryKey = (value: any): string => String(value || '').trim()
 
 const DISABLED_KITCHEN_ORDER_SETTINGS: Record<string, never> = {};
 
-const getCartItemKitchenStatus = getKdsItemStatus;
-const getAggregateStatusForKitchenItems = getAggregateKdsOrderStatus;
-
 const ensureSavedBillItemIdentity = (item: CartItem, dispatchId: string): CartItem => {
   const savedBillLineId = item.savedBillLineId || crypto.randomUUID();
   return {
@@ -179,19 +176,6 @@ const ensureSavedBillItemIdentity = (item: CartItem, dispatchId: string): CartIt
     kdsItemId: item.kdsItemId || savedBillLineId,
   };
 };
-
-const getSavedBillItemSignature = (item: CartItem): string => JSON.stringify({
-  id: item.id,
-  name: item.name,
-  price: Number(item.price || 0),
-  selectedSize: item.selectedSize || '',
-  selectedTemp: item.selectedTemp || '',
-  selectedOtherVariant: item.selectedOtherVariant || '',
-  selectedVariantOption: item.selectedVariantOption || '',
-  selectedModifiers: item.selectedModifiers || {},
-  selectedAddOns: item.selectedAddOns || [],
-  selectedMixMatch: item.selectedMixMatch || [],
-});
 
 type ItemRemarkGroup = 'food' | 'drink' | 'other';
 
@@ -2352,6 +2336,9 @@ const PosOnlyView: React.FC<Props> = ({
   );
 
   const isCancelledOrderItem = (item: CartItem): boolean => item.status === OrderStatus.CANCELLED;
+  const getBillablePosItems = (items: CartItem[]): CartItem[] => (
+    getCurrentPosItems(items).filter(item => !isCancelledOrderItem(item))
+  );
 
   const getCartOriginalPrice = (item: CartItem): number | null => {
     const originalPrice = Number(item.originalPrice || 0);
@@ -3036,7 +3023,7 @@ const PosOnlyView: React.FC<Props> = ({
     if (!selectedSavedBillEntry || isCompletingPayment) return;
 
     setPendingOrderData({
-      items: selectedSavedBillEntry.items,
+      items: getBillablePosItems(selectedSavedBillEntry.items),
       remark: selectedSavedBillEntry.remark,
       tableNumber: selectedSavedBillEntry.tableNumber,
       diningType: selectedSavedBillEntry.diningType || preferredDiningOption,
@@ -3152,62 +3139,17 @@ const PosOnlyView: React.FC<Props> = ({
       const kitchenItems = selectedSavedBillEntry.items.map(item => ensureSavedBillItemIdentity(item, dispatchId));
 
       if (existingOrderId && existingKitchenOrder) {
-        const currentLineIds = new Set(kitchenItems.map(item => item.savedBillLineId).filter(Boolean));
         const routedCategoryKeys = new Set(
           kitchenDivisions.flatMap(department => department.categories.map(getKitchenCategoryKey)).filter(Boolean),
         );
-        const existingByLineId = new Map<string, CartItem>();
-        const existingBySignature = new Map<string, CartItem[]>();
-        existingKitchenOrder.items.forEach(item => {
-          if (item.savedBillLineId) existingByLineId.set(item.savedBillLineId, item);
-          const signature = getSavedBillItemSignature(item);
-          existingBySignature.set(signature, [...(existingBySignature.get(signature) || []), item]);
+        const reconciled = reconcilePosKdsItems(existingKitchenOrder.items, kitchenItems, existingKitchenOrder.status, {
+          isRouted: item => kitchenDivisions.length === 0
+            || routedCategoryKeys.has(getKitchenCategoryKey(item.category)),
         });
-        const consumedExistingItems = new Set<CartItem>();
-
-        const updatedItems: CartItem[] = ensureKdsItemIdentities(kitchenItems.map(item => {
-          const signature = getSavedBillItemSignature(item);
-          const existingItem = (item.savedBillLineId ? existingByLineId.get(item.savedBillLineId) : undefined)
-            || existingBySignature.get(signature)?.shift();
-          if (!existingItem) {
-            const kdsRouted = kitchenDivisions.length === 0
-              || routedCategoryKeys.has(getKitchenCategoryKey(item.category));
-            return {
-              ...item,
-              kdsRouted,
-              status: kdsRouted ? OrderStatus.PENDING : OrderStatus.SERVED,
-              kitchenStartedAt: undefined,
-              kitchenCookedAt: undefined,
-              kitchenCancelReason: undefined,
-            };
-          }
-          consumedExistingItems.add(existingItem);
-
-          return {
-            ...item,
-            kdsItemId: existingItem.kdsItemId || item.kdsItemId,
-            kdsRouted: existingItem.kdsRouted,
-            status: existingItem.status,
-            kitchenStartedAt: existingItem.kitchenStartedAt,
-            kitchenCookedAt: existingItem.kitchenCookedAt,
-            kitchenCancelReason: existingItem.kitchenCancelReason,
-          };
-        }));
-
-        existingKitchenOrder.items.forEach(item => {
-          if (consumedExistingItems.has(item) || (item.savedBillLineId && currentLineIds.has(item.savedBillLineId))) return;
-          const itemStatus = getCartItemKitchenStatus(item, existingKitchenOrder.status);
-          if (itemStatus === OrderStatus.SERVED || itemStatus === OrderStatus.COMPLETED) {
-            updatedItems.push({
-              ...item,
-              status: OrderStatus.CANCELLED,
-              kitchenCancelReason: 'Cancelled via POS',
-            });
-          }
-        });
-
-        const updatedTotal = getItemsGrandTotal(updatedItems);
-        const nextStatus = getAggregateStatusForKitchenItems(updatedItems, existingKitchenOrder.status);
+        const updatedItems = reconciled.items;
+        const updatedCurrentItems = reconciled.currentItems;
+        const updatedTotal = getItemsGrandTotal(updatedCurrentItems);
+        const nextStatus = reconciled.status;
         let orderUpdate = supabase
           .from('orders')
           .update({
@@ -3227,13 +3169,13 @@ const PosOnlyView: React.FC<Props> = ({
         savedBillsSyncRef.current = true;
         const { error: billUpdateError } = await supabase
           .from('saved_bills')
-          .update({ items: updatedItems, updated_at: new Date().toISOString() })
+          .update({ items: updatedCurrentItems, updated_at: new Date().toISOString() })
           .eq('restaurant_id', restaurant.id)
           .eq('table_number', selectedSavedBillEntry.tableNumber);
         if (billUpdateError) console.error('Failed to sync edited saved bill after kitchen update:', billUpdateError);
 
         setSavedBillKitchenOrderIds(prev => ({ ...prev, [dispatchId]: existingOrderId }));
-        setSavedBills(prev => prev.map(bill => bill.id === selectedSavedBillEntry.id ? { ...bill, items: updatedItems } : bill));
+        setSavedBills(prev => prev.map(bill => bill.id === selectedSavedBillEntry.id ? { ...bill, items: updatedCurrentItems } : bill));
         onUpdateOrderItems?.(existingOrderId, updatedItems, updatedTotal, undefined, undefined, nextStatus);
         toast(`Kitchen order #${existingOrderId} updated.`, 'success');
         returnToCounterAfterKitchenSend();
@@ -3332,7 +3274,7 @@ const PosOnlyView: React.FC<Props> = ({
 
     setSavedBillActionMenuOpen(false);
     const orderToCancel = selectedSavedBillKitchenOrder;
-    if (orderToCancel && orderToCancel.status !== OrderStatus.SERVED && orderToCancel.status !== OrderStatus.COMPLETED) {
+    if (orderToCancel && orderToCancel.status !== OrderStatus.CANCELLED) {
       await Promise.resolve(onUpdateOrder(orderToCancel.id, OrderStatus.CANCELLED));
     }
     clearSavedBillByTable(selectedSavedBillEntry.tableNumber);
@@ -3389,7 +3331,7 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const handleEditQrOrder = (order: Order) => {
-    setPosCart(order.items as CartItem[]);
+    setPosCart(getCurrentPosItems(order.items as CartItem[]));
     setPosTableNo(order.tableNumber || 'Counter');
     setPosRemark(order.remark || '');
     setPosDiningType(order.diningType || preferredDiningOption);
@@ -3402,13 +3344,54 @@ const PosOnlyView: React.FC<Props> = ({
   const handleSaveQrOrderEdit = async () => {
     if (!editingQrOrderId) return;
     const savedOrderId = editingQrOrderId;
-    const savedItems = [...posCart];
+    const nextPosItems = [...posCart];
     const savedTotal = cartGrandTotal;
     try {
-      await supabase.from('orders').update({ items: savedItems, total: savedTotal }).eq('id', savedOrderId);
+      const routedCategoryKeys = new Set(
+        kitchenDivisions.flatMap(department => department.categories.map(getKitchenCategoryKey)).filter(Boolean),
+      );
+      let savedItems: CartItem[] | undefined;
+      let savedStatus: OrderStatus | undefined;
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const { data: current, error: fetchError } = await supabase
+          .from('orders')
+          .select('items,status,updated_at')
+          .eq('id', savedOrderId)
+          .eq('restaurant_id', restaurant.id)
+          .maybeSingle();
+        if (fetchError || !current) throw fetchError || new Error('Order not found');
+        const currentItems: CartItem[] = Array.isArray(current.items)
+          ? current.items
+          : JSON.parse(current.items || '[]');
+        const reconciled = reconcilePosKdsItems(currentItems, nextPosItems, current.status as OrderStatus, {
+          isRouted: item => showKitchenFeature && (
+            kitchenDivisions.length === 0 || routedCategoryKeys.has(getKitchenCategoryKey(item.category))
+          ),
+        });
+        const { data: confirmed, error: updateError } = await supabase
+          .from('orders')
+          .update({
+            items: reconciled.items,
+            total: savedTotal,
+            remark: posRemark,
+            dining_type: posDiningType,
+            status: reconciled.status,
+          })
+          .eq('id', savedOrderId)
+          .eq('restaurant_id', restaurant.id)
+          .eq('updated_at', current.updated_at)
+          .select('items,status')
+          .maybeSingle();
+        if (updateError) throw updateError;
+        if (!confirmed) continue;
+        savedItems = Array.isArray(confirmed.items) ? confirmed.items : JSON.parse(confirmed.items || '[]');
+        savedStatus = confirmed.status as OrderStatus;
+        break;
+      }
+      if (!savedItems || !savedStatus) throw new Error('The kitchen updated this order at the same time. Review and retry.');
       // Update local orders state immediately so all lists reflect the change
       if (onUpdateOrderItems) {
-        onUpdateOrderItems(savedOrderId, savedItems, savedTotal);
+        onUpdateOrderItems(savedOrderId, savedItems, savedTotal, posRemark, undefined, savedStatus);
       }
       setPosCart([]);
       setPosRemark('');
@@ -3418,20 +3401,21 @@ const PosOnlyView: React.FC<Props> = ({
       // Stay in counter, load updated order into QR_ORDER mode for edit/payment
       const updatedOrder = orders.find(o => o.id === savedOrderId);
       if (updatedOrder) {
-        setSelectedQrOrderForPayment({ ...updatedOrder, items: savedItems, total: savedTotal });
+        setSelectedQrOrderForPayment({ ...updatedOrder, items: savedItems, total: savedTotal, status: savedStatus, remark: posRemark });
         setCounterMode('QR_ORDER');
       } else {
         setActiveTab('QR_ORDERS');
       }
     } catch (e) {
       console.error('Failed to update order items:', e);
+      toast(e instanceof Error ? e.message : 'Failed to update the order.', 'error');
     }
   };
 
   const handleQrOrderCheckout = () => {
     if (!selectedQrOrderForPayment || isCompletingPayment) return;
     setPendingOrderData({
-      items: selectedQrOrderForPayment.items,
+      items: getBillablePosItems(selectedQrOrderForPayment.items),
       remark: selectedQrOrderForPayment.remark,
       tableNumber: selectedQrOrderForPayment.tableNumber,
       diningType: selectedQrOrderForPayment.diningType,
@@ -4440,7 +4424,8 @@ const PosOnlyView: React.FC<Props> = ({
       if (cachedCounterOrders.length === 0) return;
       
       try {
-        // Sync all cached orders to the database
+        // Cached counter rows are an offline insert fallback only. Never let a
+        // stale cache overwrite item revisions or KDS statuses from realtime.
         for (const order of cachedCounterOrders) {
           const { error } = await supabase
             .from('orders')
@@ -4458,7 +4443,7 @@ const PosOnlyView: React.FC<Props> = ({
                 customer_id: order.customerId || '',
                 remark: order.remark || '',
               },
-              { onConflict: 'id' }
+              { onConflict: 'id', ignoreDuplicates: true }
             );
 
           if (error) {
@@ -5921,7 +5906,7 @@ const PosOnlyView: React.FC<Props> = ({
 
     // Sales by Item (all items)
     const itemMap: Record<string, { qty: number; revenue: number }> = {};
-    completed.forEach(o => o.items.forEach(i => {
+    completed.forEach(o => getBillablePosItems(o.items).forEach(i => {
       if (!itemMap[i.name]) itemMap[i.name] = { qty: 0, revenue: 0 };
       itemMap[i.name].qty += i.quantity; itemMap[i.name].revenue += i.price * i.quantity;
     }));
@@ -5947,7 +5932,7 @@ const PosOnlyView: React.FC<Props> = ({
     const catMap: Record<string, { items: number; revenue: number; orders: number }> = {};
     completed.forEach(o => {
       const seen = new Set<string>();
-      o.items.forEach(i => {
+      getBillablePosItems(o.items).forEach(i => {
         const cat = i.category || 'Uncategorized';
         if (!catMap[cat]) catMap[cat] = { items: 0, revenue: 0, orders: 0 };
         catMap[cat].items += i.quantity; catMap[cat].revenue += i.price * i.quantity; seen.add(cat);
@@ -6245,7 +6230,7 @@ const PosOnlyView: React.FC<Props> = ({
 
     if (includeSection('byItem')) {
       const itemMap = new Map<string, { qty: number; revenue: number }>();
-      completed.forEach((order) => order.items.forEach((item) => {
+      completed.forEach((order) => getBillablePosItems(order.items).forEach((item) => {
         const row = itemMap.get(item.name) || { qty: 0, revenue: 0 };
         row.qty += item.quantity;
         row.revenue += item.price * item.quantity;
@@ -6263,7 +6248,7 @@ const PosOnlyView: React.FC<Props> = ({
       const catMap = new Map<string, { qty: number; orders: number; revenue: number }>();
       completed.forEach((order) => {
         const seen = new Set<string>();
-        order.items.forEach((item) => {
+        getBillablePosItems(order.items).forEach((item) => {
           const category = item.category || 'Uncategorized';
           const row = catMap.get(category) || { qty: 0, orders: 0, revenue: 0 };
           row.qty += item.quantity;
@@ -6689,7 +6674,7 @@ const PosOnlyView: React.FC<Props> = ({
 
     if (includeSection('byItem')) {
       const itemMap = new Map<string, { qty: number; revenue: number }>();
-      completed.forEach((order) => order.items.forEach((item) => {
+      completed.forEach((order) => getBillablePosItems(order.items).forEach((item) => {
         const row = itemMap.get(item.name) || { qty: 0, revenue: 0 };
         row.qty += item.quantity;
         row.revenue += item.price * item.quantity;
@@ -6719,7 +6704,7 @@ const PosOnlyView: React.FC<Props> = ({
       const catMap = new Map<string, { qty: number; orders: number; revenue: number }>();
       completed.forEach((order) => {
         const seen = new Set<string>();
-        order.items.forEach((item) => {
+        getBillablePosItems(order.items).forEach((item) => {
           const category = item.category || 'Uncategorized';
           const row = catMap.get(category) || { qty: 0, orders: 0, revenue: 0 };
           row.qty += item.quantity;
@@ -12182,7 +12167,7 @@ const PosOnlyView: React.FC<Props> = ({
                           {posViewPreferences.qrTableOrderView === 'grid' ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                               {filteredQrOrders.map(order => {
-                                const totalQty = order.items.reduce((s, i) => s + i.quantity, 0);
+                                const totalQty = getCurrentPosItems(order.items).reduce((s, i) => s + i.quantity, 0);
                                 const orderId = typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : String(order.id).slice(-6).toUpperCase();
                                 const orderTime = new Date(order.timestamp).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' · ' + new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                                 const borderColor = order.status === OrderStatus.PENDING ? 'border-l-amber-400' : order.status === OrderStatus.ONGOING ? 'border-l-orange-400' : order.status === OrderStatus.PREPARING ? 'border-l-blue-500' : order.status === OrderStatus.SERVED ? 'border-l-purple-500' : order.status === OrderStatus.COMPLETED ? 'border-l-green-500' : 'border-l-red-400';
@@ -12243,7 +12228,7 @@ const PosOnlyView: React.FC<Props> = ({
                                   </thead>
                                   <tbody className="whitespace-nowrap divide-y divide-gray-100 dark:divide-gray-700">
                                     {filteredQrOrders.map(order => {
-                                      const totalQty = order.items.reduce((s, i) => s + i.quantity, 0);
+                                      const totalQty = getCurrentPosItems(order.items).reduce((s, i) => s + i.quantity, 0);
                                       const orderId = typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : String(order.id).slice(-6).toUpperCase();
                                       const orderDate = new Date(order.timestamp).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' });
                                       const orderTimeStr = new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

@@ -3,8 +3,11 @@ import test from 'node:test';
 import { CartItem, OrderStatus } from '../src/types';
 import {
   areAllKdsItemsServed,
+  cancelOrderItemsForKds,
   getAggregateKdsOrderStatus,
+  getCurrentKdsTicketItems,
   markKdsScopeServed,
+  reconcilePosKdsItems,
 } from './kdsOrderState';
 import { compressPosSettings, expandPosSettings } from './sharedSettings';
 
@@ -87,6 +90,123 @@ test('already-served unrouted items do not complete an order while routed work i
 test('an order containing only unrouted auto-served items is served', () => {
   const items = [{ ...item('Retail Bag', 'Retail', OrderStatus.SERVED), kdsRouted: false }];
   assert.equal(getAggregateKdsOrderStatus(items, OrderStatus.ONGOING), OrderStatus.SERVED);
+});
+
+test('a POS quantity reduction preserves the old instruction as cancelled', () => {
+  const original = [{ ...item('TEH O AIS', 'Drinks', OrderStatus.PREPARING), quantity: 3, kdsItemId: 'drink-1' }];
+  const result = reconcilePosKdsItems(
+    original,
+    [{ ...original[0], quantity: 1 }],
+    OrderStatus.PREPARING,
+    { now: 100, createId: () => 'revision-1' },
+  );
+
+  assert.equal(result.items.length, 2);
+  assert.deepEqual(result.items.map(entry => entry.quantity), [3, 1]);
+  assert.deepEqual(result.items.map(entry => entry.status), [OrderStatus.CANCELLED, OrderStatus.PREPARING]);
+  assert.equal(result.items[0].kdsChangeType, 'SUPERSEDED');
+  assert.equal(result.items[0].kitchenCancelReason, 'Quantity changed from x3 to x1');
+  assert.equal(result.items[1].kdsChangeType, 'CORRECTED');
+});
+
+test('removing a POS item keeps a durable cancelled kitchen line', () => {
+  const original = [{ ...item('TEH O AIS', 'Drinks', OrderStatus.PENDING), kdsItemId: 'drink-1' }];
+  const result = reconcilePosKdsItems(original, [], OrderStatus.PENDING, { now: 200 });
+
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0].status, OrderStatus.CANCELLED);
+  assert.equal(result.items[0].kdsChangeType, 'REMOVED');
+  assert.equal(result.status, OrderStatus.CANCELLED);
+});
+
+test('adding an item to an active order appends it to the existing ticket', () => {
+  const burger = { ...item('Burger', 'Food', OrderStatus.PREPARING), kdsItemId: 'burger-1' };
+  const fries = { ...item('Fries', 'Food', OrderStatus.PENDING), status: undefined };
+  const result = reconcilePosKdsItems(
+    [burger],
+    [burger, fries],
+    OrderStatus.PREPARING,
+    { now: 300, createId: () => 'fries-1' },
+  );
+
+  assert.equal(result.createdPostServedTicket, false);
+  assert.equal(result.items[1].kdsChangeType, 'ADDED');
+  assert.equal(result.items[1].kdsTicketKind, undefined);
+  assert.equal(result.items[1].status, OrderStatus.PENDING);
+});
+
+test('adding after served creates a current KDS ticket containing only new items', () => {
+  const burger = { ...item('Burger', 'Food', OrderStatus.SERVED), kdsItemId: 'burger-1' };
+  const coke = { ...item('Coke', 'Drinks', OrderStatus.SERVED), kdsItemId: 'coke-1' };
+  const fries = { ...item('Fries', 'Food', OrderStatus.PENDING), status: undefined };
+  let id = 0;
+  const result = reconcilePosKdsItems(
+    [burger, coke],
+    [burger, coke, fries],
+    OrderStatus.SERVED,
+    { now: 400, createId: () => `new-${++id}` },
+  );
+  const currentTicket = getCurrentKdsTicketItems(result.items);
+
+  assert.equal(result.createdPostServedTicket, true);
+  assert.deepEqual(currentTicket.map(entry => entry.name), ['Fries']);
+  assert.equal(currentTicket[0].kdsTicketKind, 'POST_SERVED');
+  assert.equal(result.status, OrderStatus.PENDING);
+});
+
+test('another addition stays in the active post-served update ticket', () => {
+  const served = { ...item('Burger', 'Food', OrderStatus.SERVED), kdsItemId: 'burger-1' };
+  const firstUpdate = {
+    ...item('Fries', 'Food', OrderStatus.PREPARING),
+    kdsItemId: 'fries-1',
+    kdsChangeType: 'ADDED' as const,
+    kdsChangedAt: 400,
+    kdsTicketId: 'update-400',
+    kdsTicketKind: 'POST_SERVED' as const,
+  };
+  const dessert = { ...item('Cake', 'Food', OrderStatus.PENDING), status: undefined };
+  const result = reconcilePosKdsItems(
+    [served, firstUpdate],
+    [served, firstUpdate, dessert],
+    OrderStatus.PREPARING,
+    { now: 450, createId: () => 'cake-1' },
+  );
+
+  assert.deepEqual(getCurrentKdsTicketItems(result.items).map(entry => entry.name), ['Fries', 'Cake']);
+  assert.equal(result.currentItems[2].kdsTicketId, 'update-400');
+  assert.equal(result.createdPostServedTicket, false);
+});
+
+test('cancelling an item after served creates a cancellation-only update ticket', () => {
+  const burger = { ...item('Burger', 'Food', OrderStatus.SERVED), kdsItemId: 'burger-1' };
+  const coke = { ...item('Coke', 'Drinks', OrderStatus.SERVED), kdsItemId: 'coke-1' };
+  const result = reconcilePosKdsItems(
+    [burger, coke],
+    [coke],
+    OrderStatus.SERVED,
+    { now: 475, createId: () => 'cancel-ticket' },
+  );
+  const currentTicket = getCurrentKdsTicketItems(result.items);
+
+  assert.deepEqual(currentTicket.map(entry => entry.name), ['Burger']);
+  assert.equal(currentTicket[0].status, OrderStatus.CANCELLED);
+  assert.equal(result.status, OrderStatus.CANCELLED);
+});
+
+test('whole-order cancellation marks every routed department item but not unrouted retail', () => {
+  const original = [
+    { ...item('Burger', 'Food', OrderStatus.PREPARING), kdsRouted: true },
+    { ...item('Coke', 'Drinks', OrderStatus.PENDING), kdsRouted: true },
+    { ...item('Bag', 'Retail', OrderStatus.SERVED), kdsRouted: false },
+  ];
+  const cancelled = cancelOrderItemsForKds(original, OrderStatus.PREPARING, 'Order cancelled via POS', 500);
+
+  assert.deepEqual(cancelled.map(entry => entry.status), [
+    OrderStatus.CANCELLED,
+    OrderStatus.CANCELLED,
+    OrderStatus.SERVED,
+  ]);
+  assert.deepEqual(cancelled.slice(0, 2).map(entry => entry.kdsChangedAt), [500, 500]);
 });
 
 test('non-default kitchen ticket settings survive database compression', () => {

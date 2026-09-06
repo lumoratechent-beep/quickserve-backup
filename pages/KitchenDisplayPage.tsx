@@ -9,6 +9,7 @@ import {
   areAllKdsItemsServed,
   findCurrentKdsItemIndex,
   getAggregateKdsOrderStatus,
+  getCurrentKdsTicketItems,
   getKdsItemStatus,
   markKdsScopeServed,
 } from '../lib/kdsOrderState';
@@ -132,6 +133,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
 }) => {
   const [kitchenOrderFilter, setKitchenOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'COOKED' | 'ALL'>('ONGOING_ALL');
   const [showNewOrderAlert, setShowNewOrderAlert] = useState(false);
+  const [kitchenAlertLabel, setKitchenAlertLabel] = useState('New order!');
   const [printerConnected, setPrinterConnected] = useState(false);
   const [isConnectingPrinter, setIsConnectingPrinter] = useState(false);
   const [printingKitchenOrderId, setPrintingKitchenOrderId] = useState<string | null>(null);
@@ -159,6 +161,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [viewportWidth, setViewportWidth] = useState(() => typeof window === 'undefined' ? 1280 : window.innerWidth);
   const kitchenPreviousPendingIds = useRef<Set<string> | null>(null);
+  const kitchenPreviousUpdateMarkers = useRef<Map<string, number> | null>(null);
   const autoPrintSeenOrderIds = useRef<Set<string> | null>(null);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -251,7 +254,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
 
   const getSortedOrderItems = (order: Order, scopedCategories: string[] = []) => {
     const scopedCategoryKeys = scopedCategories.map(getKitchenCategoryKey).filter(Boolean);
-    return order.items
+    return getCurrentKdsTicketItems(order.items)
       .filter(item => scopedCategoryKeys.length === 0 || scopedCategoryKeys.includes(getKitchenCategoryKey(item.category)))
       .sort((a, b) => {
         const byCategory = (a.category || '').localeCompare(b.category || '');
@@ -354,7 +357,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
     }, {});
   };
 
-  const triggerNewOrderAlert = () => {
+  const triggerNewOrderAlert = (label = 'New order!') => {
     try {
       const AudioCtor = window.AudioContext || (window as any).webkitAudioContext;
       const audioCtx = new AudioCtor();
@@ -372,6 +375,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
     } catch {
       console.warn('Audio Context failed');
     }
+    setKitchenAlertLabel(label);
     setShowNewOrderAlert(true);
     window.setTimeout(() => setShowNewOrderAlert(false), 5000);
   };
@@ -691,6 +695,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
             ...item,
             status: nextStatus,
             ...(nextStatus === OrderStatus.CANCELLED ? { kitchenCancelReason: cancellationReason || 'Other' } : {}),
+            ...(nextStatus === OrderStatus.CANCELLED ? { kdsChangedAt: transitionAt } : {}),
             ...(nextStatus === OrderStatus.PREPARING
               ? { kitchenStartedAt: item.kitchenStartedAt || transitionAt, kitchenCookedAt: undefined }
               : {}),
@@ -779,6 +784,24 @@ const KitchenDisplayPage: React.FC<Props> = ({
     }
     kitchenPreviousPendingIds.current = nextPendingIds;
   }, [kitchenPendingOrders, kitchenEnabled]);
+
+  // POS revisions carry an item-level timestamp. Comparing only scoped items
+  // means a Drinks edit alerts Drinks screens without disturbing Food screens.
+  useEffect(() => {
+    const markers = new Map<string, number>();
+    kitchenFilteredOrders.forEach(order => {
+      const scopedItems = getSortedOrderItems(order, kitchenHasAssignedScope ? kitchenScopeCategories : []);
+      markers.set(order.id, scopedItems.reduce(
+        (latest, item) => Math.max(latest, Number(item.kdsChangedAt || 0)),
+        0,
+      ));
+    });
+    const previous = kitchenPreviousUpdateMarkers.current;
+    if (previous && Array.from(markers).some(([orderId, marker]) => marker > (previous.get(orderId) || 0))) {
+      triggerNewOrderAlert('Order updated!');
+    }
+    kitchenPreviousUpdateMarkers.current = markers;
+  }, [kitchenFilteredOrders, kitchenHasAssignedScope, kitchenScopeCategories]);
 
   useEffect(() => {
     const pendingOrderIds = new Set(kitchenPendingOrders.map(order => order.id));
@@ -1023,6 +1046,10 @@ const KitchenDisplayPage: React.FC<Props> = ({
           >
             {pagedKitchenOrders.map(order => {
               const visibleKitchenItems = getSortedOrderItems(order, kitchenHasAssignedScope ? kitchenScopeCategories : []);
+              const isPostServedUpdate = visibleKitchenItems.some(item => item.kdsTicketKind === 'POST_SERVED');
+              const postServedUpdateLabel = visibleKitchenItems.every(item => getItemKitchenStatus(item, order.status) === OrderStatus.CANCELLED)
+                ? 'Cancelled items'
+                : 'New items';
               const isExpanded = expandedOrderId === order.id;
               const allItemsCooked = areAllKitchenItemsCooked(visibleKitchenItems, order.status);
               const allItemsServed = areAllKdsItemsServed(visibleKitchenItems, order.status);
@@ -1055,6 +1082,11 @@ const KitchenDisplayPage: React.FC<Props> = ({
                         <p>{visibleKitchenItems.length} item{visibleKitchenItems.length === 1 ? '' : 's'}</p>
                       </div>
                     </div>
+                    {isPostServedUpdate && (
+                      <div className="mt-2 rounded-md bg-blue-600 px-2 py-1 text-center text-[10px] font-black uppercase tracking-widest text-white">
+                        {postServedUpdateLabel}
+                      </div>
+                    )}
                   </div>
 
                   <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
@@ -1073,7 +1105,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
                           : isCookedItem
                           ? 'bg-gray-200 text-gray-400'
                           : itemStatus === OrderStatus.CANCELLED
-                            ? 'bg-red-50 opacity-55'
+                            ? 'bg-red-50'
                             : 'bg-gray-100 hover:bg-gray-200';
 
                       return (
@@ -1091,14 +1123,25 @@ const KitchenDisplayPage: React.FC<Props> = ({
                           className={`relative flex min-h-10 items-start gap-2 rounded-lg px-2 py-1.5 transition-colors ${nextItemStatus && !isUpdatingItem ? 'cursor-pointer' : 'cursor-default'} ${rowStateClass}`}
                           aria-label={nextItemStatus ? `${item.name}: mark ${getKitchenStatusText(nextItemStatus)}` : `${item.name}: ${getKitchenStatusText(itemStatus)}`}
                         >
-                          <span className="w-4 shrink-0 pt-0.5 text-[10px] font-semibold text-gray-500">{item.quantity}</span>
+                          <span className={`w-7 shrink-0 pt-0.5 text-[10px] font-bold ${itemStatus === OrderStatus.CANCELLED ? 'text-red-600 line-through decoration-2' : 'text-gray-500'}`}>x{item.quantity}</span>
                           <div className="min-w-0 flex-1">
-                            <p className={`whitespace-normal break-words font-bold ${ticketItemNameClass} ${itemStatus === OrderStatus.CANCELLED ? 'line-through text-red-500' : ''}`}>{item.name}</p>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className={`whitespace-normal break-words font-bold ${ticketItemNameClass} ${itemStatus === OrderStatus.CANCELLED ? 'line-through text-red-600 decoration-2' : ''}`}>{item.name}</p>
+                              {item.kdsChangeType === 'ADDED' && itemStatus !== OrderStatus.CANCELLED && (
+                                <span className="rounded bg-blue-600 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-white">New</span>
+                              )}
+                              {item.kdsChangeType === 'CORRECTED' && itemStatus !== OrderStatus.CANCELLED && (
+                                <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-white">Updated</span>
+                              )}
+                              {itemStatus === OrderStatus.CANCELLED && (
+                                <span className="rounded bg-red-600 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-white">Cancelled</span>
+                              )}
+                            </div>
                             {itemStatus === OrderStatus.CANCELLED && item.kitchenCancelReason && (
                               <p className={`mt-0.5 whitespace-normal break-words font-semibold text-red-500 ${ticketItemDetailClass}`}>{item.kitchenCancelReason}</p>
                             )}
                             {(item.selectedSize || item.selectedTemp || item.selectedOtherVariant || item.selectedMixMatch?.some(mix => mix.choice)) && (
-                              <p className={`truncate font-semibold leading-4 text-red-400 ${ticketItemDetailClass}`}>
+                              <p className={`truncate font-semibold leading-4 text-red-400 ${ticketItemDetailClass} ${itemStatus === OrderStatus.CANCELLED ? 'line-through decoration-2' : ''}`}>
                                 {[item.selectedSize, item.selectedTemp, item.selectedOtherVariant, ...(item.selectedMixMatch || []).map(mix => mix.choice)].filter(Boolean).join(' / ')}
                               </p>
                             )}
@@ -1201,6 +1244,10 @@ const KitchenDisplayPage: React.FC<Props> = ({
               <Check strokeWidth={3} size={10} />
             </span>
             Served
+          </button>
+          <button onClick={() => { setKitchenOrderFilter(OrderStatus.CANCELLED); setCurrentKitchenPage(1); }} className={`relative flex shrink-0 self-center items-center gap-1 rounded-t-md border-t-2 px-1.5 text-[9px] font-semibold transition-colors sm:px-2 sm:text-[10px] ${kitchenOrderFilter === OrderStatus.CANCELLED ? '-top-1 h-14 border-red-500 bg-[#3a3a3c] text-white' : 'h-8 rounded-md border-transparent text-gray-400 hover:bg-white/5'}`}>
+            <X className="text-red-400" size={14} />
+            Cancelled
           </button>
         </div>
 
@@ -1454,8 +1501,8 @@ const KitchenDisplayPage: React.FC<Props> = ({
               <Coffee size={20} />
             </div>
             <div>
-              <p className="text-sm font-black uppercase tracking-tight">New Order!</p>
-              <p className="text-[10px] font-bold opacity-80">A new order has arrived in the kitchen</p>
+              <p className="text-sm font-black uppercase tracking-tight">{kitchenAlertLabel}</p>
+              <p className="text-[10px] font-bold opacity-80">Check the latest kitchen instructions</p>
             </div>
           </div>
         </div>

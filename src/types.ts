@@ -181,6 +181,14 @@ export interface CartItem extends MenuItem {
   kdsItemId?: string;
   /** False when the item is intentionally outside every configured KDS route. */
   kdsRouted?: boolean;
+  /** Durable POS-to-KDS revision marker stored inside orders.items. */
+  kdsChangeType?: 'ADDED' | 'CORRECTED' | 'SUPERSEDED' | 'REMOVED';
+  /** Timestamp used by every KDS screen to detect a relevant department update. */
+  kdsChangedAt?: number;
+  /** Groups items that must appear as a separate KDS ticket after a served ticket. */
+  kdsTicketId?: string;
+  /** Prevents served items from being mixed back into a later active ticket. */
+  kdsTicketKind?: 'POST_SERVED';
   originalPrice?: number;
   savedBillId?: string;
   savedBillLineId?: string;
