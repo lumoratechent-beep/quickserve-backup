@@ -4,6 +4,7 @@ import { CartItem, KitchenDepartment, Order, OrderStatus, Restaurant, Subscripti
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
 import printerService, { DEFAULT_KITCHEN_TICKET_CONFIG, KitchenTicketConfig, SavedPrinter } from '../services/printerService';
+import { getKdsPreparationDetails } from '../lib/kdsItemDetails';
 import {
   areAllKdsItemsCooked,
   areAllKdsItemsServed,
@@ -1098,6 +1099,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
                       const isItemMenuOpen = openItemMenuKey === itemKey;
                       const isServedItem = itemStatus === OrderStatus.SERVED;
                       const isCookedItem = itemStatus === OrderStatus.COMPLETED;
+                      const preparationDetails = getKdsPreparationDetails(item);
                       const rowStateClass = itemStatus === OrderStatus.PREPARING
                         ? 'bg-blue-50'
                         : isServedItem
@@ -1140,11 +1142,14 @@ const KitchenDisplayPage: React.FC<Props> = ({
                             {itemStatus === OrderStatus.CANCELLED && item.kitchenCancelReason && (
                               <p className={`mt-0.5 whitespace-normal break-words font-semibold text-red-500 ${ticketItemDetailClass}`}>{item.kitchenCancelReason}</p>
                             )}
-                            {(item.selectedSize || item.selectedTemp || item.selectedOtherVariant || item.selectedMixMatch?.some(mix => mix.choice)) && (
-                              <p className={`truncate font-semibold leading-4 text-red-400 ${ticketItemDetailClass} ${itemStatus === OrderStatus.CANCELLED ? 'line-through decoration-2' : ''}`}>
-                                {[item.selectedSize, item.selectedTemp, item.selectedOtherVariant, ...(item.selectedMixMatch || []).map(mix => mix.choice)].filter(Boolean).join(' / ')}
+                            {preparationDetails.map(detail => (
+                              <p
+                                key={detail.key}
+                                className={`mt-0.5 whitespace-normal break-words font-semibold leading-4 ${ticketItemDetailClass} ${itemStatus === OrderStatus.CANCELLED ? 'text-red-500 line-through decoration-2' : 'text-gray-600'}`}
+                              >
+                                <span className="font-black text-current">{detail.label}:</span> {detail.value}
                               </p>
-                            )}
+                            ))}
                           </div>
                           <div className="flex shrink-0 items-center gap-0.5 pt-0.5">
                             {isUpdatingItem ? (

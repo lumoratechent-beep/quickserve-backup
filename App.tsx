@@ -15,6 +15,7 @@ import { getDefaultPromotionDiscount, normalizeMenuPromotionDiscount } from './l
 import { fetchIngredientItemsFromDb } from './lib/ingredientItems';
 import { fetchStockItemsFromDb, saveStockItemsToDb, saveStockMovementsToDb } from './lib/stockItems';
 import { cancelOrderItemsForKds, ensureKdsItemIdentities, getAggregateKdsOrderStatus } from './lib/kdsOrderState';
+import { getKdsItemConfigurationKey } from './lib/kdsItemDetails';
 
 // Keep unrelated screens out of the Back Office startup module graph.
 const CustomerView = React.lazy(() => import('./pages/CustomerView'));
@@ -2734,24 +2735,21 @@ const App: React.FC = () => {
     const res = restaurants.find(r => r.id === item.restaurantId);
     if (res && res.isOnline === false) { toast("This kitchen is currently offline.", 'warning'); return; }
     setCart(prev => {
-      const matchesCartVariant = (i: CartItem) => (
-        i.id === item.id &&
-        i.selectedSize === item.selectedSize &&
-        i.selectedTemp === item.selectedTemp &&
-        i.selectedOtherVariant === item.selectedOtherVariant &&
-        i.selectedVariantOption === item.selectedVariantOption
-      );
+      const itemConfigurationKey = getKdsItemConfigurationKey(item);
+      const matchesCartVariant = (i: CartItem) => getKdsItemConfigurationKey(i) === itemConfigurationKey;
       const existing = prev.find(matchesCartVariant);
       if (existing) return prev.map(i => matchesCartVariant(i) ? { ...i, quantity: i.quantity + 1 } : i);
       return [...prev, { ...item, quantity: 1 }];
     });
   };
 
-  const removeFromCart = (itemId: string) => {
+  const removeFromCart = (item: CartItem) => {
     setCart(prev => {
-      const existing = prev.find(i => i.id === itemId);
-      if (existing && existing.quantity > 1) return prev.map(i => i.id === itemId ? { ...i, quantity: i.quantity - 1 } : i);
-      return prev.filter(i => i.id !== itemId);
+      const itemConfigurationKey = getKdsItemConfigurationKey(item);
+      const matchesCartVariant = (i: CartItem) => getKdsItemConfigurationKey(i) === itemConfigurationKey;
+      const existing = prev.find(matchesCartVariant);
+      if (existing && existing.quantity > 1) return prev.map(i => matchesCartVariant(i) ? { ...i, quantity: i.quantity - 1 } : i);
+      return prev.filter(i => !matchesCartVariant(i));
     });
   };
 

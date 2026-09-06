@@ -10,6 +10,7 @@ import {
   reconcilePosKdsItems,
 } from './kdsOrderState';
 import { compressPosSettings, expandPosSettings } from './sharedSettings';
+import { getKdsItemConfigurationKey, getKdsPreparationDetails } from './kdsItemDetails';
 
 const item = (name: string, category: string, status: OrderStatus): CartItem => ({
   id: name,
@@ -224,4 +225,54 @@ test('non-default kitchen ticket settings survive database compression', () => {
     numberOfCopies: 3,
     autoPrintOnNewOrder: true,
   });
+});
+
+test('KDS preparation details include every non-empty item configuration', () => {
+  const configured: CartItem = {
+    ...item('Chicken Burger', 'Food', OrderStatus.PENDING),
+    selectedVariantOption: 'Spicy',
+    selectedOtherVariant: 'Brioche',
+    otherVariantName: 'bun type',
+    selectedModifiers: { Doneness: 'Well Done', Sauce: '' },
+    selectedSize: 'Large',
+    selectedTemp: 'Extra Hot',
+    selectedAddOns: [
+      { name: 'Cheese', price: 1, quantity: 1 },
+      { name: 'Egg', price: 2, quantity: 2 },
+    ],
+    selectedMixMatch: [
+      { label: 'Side', choice: 'Fries', priceModifier: 0 },
+      { label: 'Drink', choice: 'Coke', priceModifier: 0 },
+    ],
+    remark: 'No onion',
+  };
+
+  assert.deepEqual(getKdsPreparationDetails(configured).map(detail => [detail.label, detail.value]), [
+    ['Variant', 'Spicy'],
+    ['Bun Type', 'Brioche'],
+    ['Doneness', 'Well Done'],
+    ['Portion', 'Large'],
+    ['Thermal Option', 'Extra Hot'],
+    ['Add-On', 'Cheese, Egg x2'],
+    ['Mix & Match', 'Side: Fries + Drink: Coke'],
+    ['Remark', 'No onion'],
+  ]);
+});
+
+test('cart configuration identity distinguishes modifier, add-on and mix-and-match choices', () => {
+  const base = item('Burger', 'Food', OrderStatus.PENDING);
+  const first = {
+    ...base,
+    selectedModifiers: { Sauce: 'Chilli' },
+    selectedAddOns: [{ name: 'Egg', price: 1, quantity: 1 }],
+    selectedMixMatch: [{ label: 'Drink', choice: 'Coke', priceModifier: 0 }],
+  };
+  const second = {
+    ...base,
+    selectedModifiers: { Sauce: 'Mayo' },
+    selectedAddOns: [{ name: 'Cheese', price: 1, quantity: 1 }],
+    selectedMixMatch: [{ label: 'Drink', choice: 'Tea', priceModifier: 0 }],
+  };
+
+  assert.notEqual(getKdsItemConfigurationKey(first), getKdsItemConfigurationKey(second));
 });

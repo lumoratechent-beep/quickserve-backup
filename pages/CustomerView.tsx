@@ -9,7 +9,7 @@ interface Props {
   cart: CartItem[];
   orders: Order[];
   onAddToCart: (item: CartItem) => void;
-  onRemoveFromCart: (itemId: string) => void;
+  onRemoveFromCart: (item: CartItem) => void;
   onPlaceOrder: (remark: string) => void;
   locationName?: string;
   tableNo?: string;
@@ -426,7 +426,7 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
               </p>
               <div className="flex items-center justify-end gap-2 mt-2">
                 <button 
-                  onClick={() => onRemoveFromCart(item.id)} 
+                  onClick={() => onRemoveFromCart(item)}
                   className="p-1.5 bg-white dark:bg-gray-700 rounded-lg text-red-500 hover:bg-red-500 hover:text-white transition-all"
                 >
                   <Minus size={12}/>
