@@ -56,6 +56,8 @@ const PrinterSettings: React.FC<Props> = ({
   const [testPrintStatus, setTestPrintStatus] = useState<'idle' | 'printing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [sunmiStatus, setSunmiStatus] = useState(() => printerService.getSunmiIntegrationStatus());
+  const [showWifiGuide, setShowWifiGuide] = useState(true);
+  const [showAutoStartGuide, setShowAutoStartGuide] = useState(false);
 
   // Saved printers
   const [savedPrinters, setSavedPrinters] = useState<SavedPrinter[]>(() => {
@@ -1326,12 +1328,25 @@ const PrinterSettings: React.FC<Props> = ({
 
   const renderHelpTab = () => (
     <div className="grid grid-cols-1 gap-6">
-      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8">
-        <div>
-          <p className="text-xs font-black text-orange-500 uppercase tracking-widest">WiFi/LAN Printer Setup</p>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">How to print over your local network.</p>
-        </div>
-        <div className="min-w-0 space-y-4">
+      <div className="space-y-3">
+        <button
+          type="button"
+          onClick={() => setShowWifiGuide(value => !value)}
+          className="w-full flex items-center justify-between gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 text-left"
+          aria-expanded={showWifiGuide}
+        >
+          <span>
+            <span className="block text-xs font-black text-orange-500 uppercase tracking-widest">WiFi/LAN Printer Setup</span>
+            <span className="block text-[10px] text-gray-500 dark:text-gray-400 mt-1">How to print over your local network.</span>
+          </span>
+          {showWifiGuide ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        </button>
+        {showWifiGuide && <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8">
+          <div>
+            <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Setup steps</p>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Follow these steps to connect a WiFi/LAN printer.</p>
+          </div>
+          <div className="min-w-0 space-y-4">
           {/* Step 1 */}
           <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
             <div className="flex items-center gap-3 mb-2">
@@ -1439,7 +1454,58 @@ const PrinterSettings: React.FC<Props> = ({
               If QuickServe is running on this same Android device, use <code>http://localhost:3001</code>. If Termux shows port <code>3000</code>, use <code>http://localhost:3000</code> instead. If QuickServe is on another device, use <code>http://&lt;Termux-IP&gt;:&lt;port&gt;</code>.
             </p>
           </div>
-        </div>
+          </div>
+        </div>}
+      </div>
+
+      <div className="space-y-3">
+        <button
+          type="button"
+          onClick={() => setShowAutoStartGuide(value => !value)}
+          className="w-full flex items-center justify-between gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 text-left"
+          aria-expanded={showAutoStartGuide}
+        >
+          <span>
+            <span className="block text-xs font-black text-orange-500 uppercase tracking-widest">Automatic Termux Startup</span>
+            <span className="block text-[10px] text-gray-500 dark:text-gray-400 mt-1">Start the print proxy automatically after the tablet restarts.</span>
+          </span>
+          {showAutoStartGuide ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        </button>
+        {showAutoStartGuide && (
+          <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-700 space-y-4">
+            <div className="text-[10px] text-gray-500 dark:text-gray-400 space-y-2">
+              <p>Install both apps from F-Droid. Open Termux:Boot once after installing it.</p>
+              <div className="flex flex-col gap-1">
+                <a href="https://f-droid.org/packages/com.termux/" target="_blank" rel="noreferrer" className="text-orange-500 hover:underline">Termux on F-Droid</a>
+                <a href="https://f-droid.org/packages/com.termux.boot/" target="_blank" rel="noreferrer" className="text-orange-500 hover:underline">Termux:Boot on F-Droid</a>
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">One-time Termux setup</p>
+              <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed">
+                <div>pkg update &amp;&amp; pkg upgrade -y</div>
+                <div>pkg install nodejs -y</div>
+                <div>termux-setup-storage</div>
+                <div>mkdir -p ~/.termux/boot</div>
+                <div>nano ~/.termux/boot/start-print-server.sh</div>
+              </div>
+            </div>
+            <div className="text-[10px] text-gray-500 dark:text-gray-400 space-y-2">
+              <p>Paste the following into the file, save it, then make it executable:</p>
+              <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed">
+                <div>#!/data/data/com.termux/files/usr/bin/bash</div>
+                <div>termux-wake-lock</div>
+                <div>cd "$HOME/storage/downloads" || exit 1</div>
+                <div>node print-server.js &gt;&gt; "$HOME/print-server.log" 2&gt;&amp;1</div>
+              </div>
+              <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed">
+                <div>chmod +x ~/.termux/boot/start-print-server.sh</div>
+              </div>
+              <p>After a restart, Termux:Boot starts the proxy automatically. Keep battery optimization disabled for Termux and Termux:Boot.</p>
+              <p>Use <code>http://localhost:3001</code> when QuickServe is on the same tablet. From another device, use <code>http://&lt;Termux-IP&gt;:3001</code>.</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
