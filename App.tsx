@@ -4478,6 +4478,7 @@ const App: React.FC = () => {
                 onUpdateOrder={updateOrderStatus}
                 lastSyncTime={lastSyncTime}
                 userKitchenCategories={currentUser?.kitchenCategories}
+                kitchenUserName={currentUser?.username}
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
                 onUpdateOrderItems={updateOrderItems}
                 onLogout={handleLogout}

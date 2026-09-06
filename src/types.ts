@@ -193,6 +193,10 @@ export interface CartItem extends MenuItem {
   savedBillId?: string;
   savedBillLineId?: string;
   kitchenCancelReason?: string;
+  /** User-facing audit metadata for an item cancellation. */
+  cancelledBy?: string;
+  cancelledAt?: number;
+  cancelSource?: 'KDS' | 'POS';
   status?: OrderStatus;
   kitchenStartedAt?: number;
   kitchenCookedAt?: number;

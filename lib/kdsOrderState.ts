@@ -204,6 +204,9 @@ export const reconcilePosKdsItems = (
         kitchenStartedAt: undefined,
         kitchenCookedAt: undefined,
         kitchenCancelReason: undefined,
+        cancelledBy: undefined,
+        cancelledAt: undefined,
+        cancelSource: undefined,
         kdsChangeType: 'ADDED',
         kdsChangedAt: now,
         ...(targetPostServedTicketId ? {
@@ -252,6 +255,9 @@ export const reconcilePosKdsItems = (
       kitchenStartedAt: requiresNewWork ? undefined : existing.kitchenStartedAt,
       kitchenCookedAt: requiresNewWork ? undefined : existing.kitchenCookedAt,
       kitchenCancelReason: instructionChanged ? undefined : existing.kitchenCancelReason,
+      cancelledBy: instructionChanged ? undefined : existing.cancelledBy,
+      cancelledAt: instructionChanged ? undefined : existing.cancelledAt,
+      cancelSource: instructionChanged ? undefined : existing.cancelSource,
       kdsChangeType: instructionChanged ? 'CORRECTED' : existing.kdsChangeType,
       kdsChangedAt: instructionChanged ? now : existing.kdsChangedAt,
       ...(instructionChanged && targetPostServedTicketId ? {
@@ -276,6 +282,8 @@ export const reconcilePosKdsItems = (
       ...existing,
       status: OrderStatus.CANCELLED,
       kitchenCancelReason: 'Cancelled via POS',
+      cancelledAt: now,
+      cancelSource: 'POS',
       kdsChangeType: 'REMOVED',
       kdsChangedAt: now,
       ...(postServedTicketId ? {
@@ -307,6 +315,8 @@ export const cancelOrderItemsForKds = (
     ...item,
     status: OrderStatus.CANCELLED,
     kitchenCancelReason: reason,
+    cancelledAt: now,
+    cancelSource: 'POS',
     kdsChangeType: item.kdsChangeType === 'SUPERSEDED' ? item.kdsChangeType : 'REMOVED',
     kdsChangedAt: now,
   };
@@ -342,4 +352,43 @@ export const findCurrentKdsItemIndex = (
     return preferredIndex;
   }
   return items.findIndex(item => getLegacyItemFingerprint(item) === getLegacyItemFingerprint(targetItem));
+};
+
+export interface CancelKdsItemOptions {
+  reason?: string;
+  cancelledBy?: string;
+  now?: number;
+  isInScope?: (item: CartItem) => boolean;
+}
+
+/** Cancels exactly one current, routed KDS line and attaches POS-readable audit metadata. */
+export const cancelKdsItem = (
+  items: CartItem[],
+  fallbackStatus: OrderStatus,
+  targetItem: CartItem,
+  preferredIndex: number,
+  options: CancelKdsItemOptions = {},
+): { items: CartItem[]; cancelledValue: number } | null => {
+  const targetIndex = findCurrentKdsItemIndex(items, targetItem, preferredIndex);
+  if (targetIndex < 0) return null;
+
+  const currentTarget = items[targetIndex];
+  if (currentTarget.kdsRouted === false) return null;
+  if (options.isInScope && !options.isInScope(currentTarget)) return null;
+  if (getKdsItemStatus(currentTarget, fallbackStatus) === OrderStatus.CANCELLED) return null;
+
+  const now = options.now ?? Date.now();
+  const reason = options.reason?.trim() || undefined;
+  return {
+    items: items.map((item, index) => index === targetIndex ? {
+      ...item,
+      status: OrderStatus.CANCELLED,
+      kitchenCancelReason: reason,
+      cancelledBy: options.cancelledBy?.trim() || 'Kitchen',
+      cancelledAt: now,
+      cancelSource: 'KDS',
+      kdsChangedAt: now,
+    } : item),
+    cancelledValue: Number(currentTarget.price || 0) * Number(currentTarget.quantity || 0),
+  };
 };

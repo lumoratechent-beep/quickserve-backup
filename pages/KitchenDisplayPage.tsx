@@ -3,11 +3,13 @@ import { Check, CheckCheck, CheckCircle, ChefHat, ChevronLeft, ChevronRight, Clo
 import { CartItem, KitchenDepartment, Order, OrderStatus, Restaurant, Subscription } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
+import CancellationReasonQuickSelect from '../components/CancellationReasonQuickSelect';
 import printerService, { DEFAULT_KITCHEN_TICKET_CONFIG, KitchenTicketConfig, SavedPrinter } from '../services/printerService';
 import { getKdsPreparationDetails } from '../lib/kdsItemDetails';
 import {
   areAllKdsItemsCooked,
   areAllKdsItemsServed,
+  cancelKdsItem,
   findCurrentKdsItemIndex,
   getAggregateKdsOrderStatus,
   getCurrentKdsTicketItems,
@@ -19,6 +21,7 @@ interface Props {
   restaurant: Restaurant;
   orders: Order[];
   userKitchenCategories?: string[];
+  kitchenUserName?: string;
   isOnline?: boolean;
   lastSyncTime?: Date;
   subscription?: Subscription | null;
@@ -108,10 +111,20 @@ const getKitchenStatusClass = (status: OrderStatus) => {
   return 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/60';
 };
 
+const DEFAULT_KDS_CANCELLATION_REASONS = [
+  'Sold Out',
+  'Ingredient Unavailable',
+  'Unable to Prepare',
+  'Kitchen Issue',
+  'Customer Request',
+  'Other',
+] as const;
+
 const KitchenDisplayPage: React.FC<Props> = ({
   restaurant,
   orders,
   userKitchenCategories,
+  kitchenUserName,
   isOnline = true,
   lastSyncTime,
   subscription,
@@ -141,8 +154,9 @@ const KitchenDisplayPage: React.FC<Props> = ({
   const [showMailPanel, setShowMailPanel] = useState(false);
   const [openItemMenuKey, setOpenItemMenuKey] = useState<string | null>(null);
   const [cancelItemTarget, setCancelItemTarget] = useState<{ order: Order; item: CartItem; itemKey: string } | null>(null);
-  const [cancelReason, setCancelReason] = useState('Out of stock');
+  const [cancelReason, setCancelReason] = useState<string | undefined>();
   const [customCancelReason, setCustomCancelReason] = useState('');
+  const [isCancellingItem, setIsCancellingItem] = useState(false);
   const [updatingItemKeys, setUpdatingItemKeys] = useState<Set<string>>(new Set());
   const [currentKitchenPage, setCurrentKitchenPage] = useState(1);
   const [pageSlideDirection, setPageSlideDirection] = useState<'NEXT' | 'PREVIOUS'>('NEXT');
@@ -603,6 +617,9 @@ const KitchenDisplayPage: React.FC<Props> = ({
           kitchenStartedAt: kitchenItem.kitchenStartedAt,
           kitchenCookedAt: kitchenItem.kitchenCookedAt,
           kitchenCancelReason: kitchenItem.kitchenCancelReason,
+          cancelledBy: kitchenItem.cancelledBy,
+          cancelledAt: kitchenItem.cancelledAt,
+          cancelSource: kitchenItem.cancelSource,
         };
       });
       const { data: confirmed, error: updateError } = await supabase
@@ -626,7 +643,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
 
   const persistKdsOrderMutation = async (
     orderId: string,
-    mutate: (items: CartItem[], total: number, status: OrderStatus) => { items: CartItem[]; total?: number } | null,
+    mutate: (items: CartItem[], total: number, status: OrderStatus) => { items: CartItem[]; total?: number; status?: OrderStatus } | null,
   ): Promise<KdsOrderMutationResult> => {
     // Compare-and-swap on updated_at prevents two department screens from
     // replacing one another's JSON item changes. Conflicts refetch and retry.
@@ -646,7 +663,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
       const mutation = mutate(currentItems, Number(current.total || 0), currentStatus);
       if (!mutation) throw new Error('This order changed. Review its latest status and try again.');
 
-      const aggregateStatus = getAggregateStatusFromItems(mutation.items, currentStatus);
+      const aggregateStatus = mutation.status ?? getAggregateStatusFromItems(mutation.items, currentStatus);
       const nextTotal = mutation.total ?? Number(current.total || 0);
       const { data: confirmed, error: updateError } = await supabase
         .from('orders')
@@ -674,9 +691,9 @@ const KitchenDisplayPage: React.FC<Props> = ({
     itemKey: string,
     nextStatus: OrderStatus,
     cancellationReason?: string,
-  ) => {
+  ): Promise<boolean> => {
     const targetIndex = order.items.indexOf(targetItem);
-    if (targetIndex < 0 || updatingItemKeys.has(itemKey)) return;
+    if (targetIndex < 0 || updatingItemKeys.has(itemKey)) return false;
 
     setUpdatingItemKeys(previous => new Set(previous).add(itemKey));
     setOpenItemMenuKey(null);
@@ -685,39 +702,46 @@ const KitchenDisplayPage: React.FC<Props> = ({
       const confirmed = await persistKdsOrderMutation(order.id, (currentItems, currentTotal, currentStatus) => {
         const currentTargetIndex = findCurrentKdsItemIndex(currentItems, targetItem, targetIndex);
         if (currentTargetIndex < 0) return null;
-        const previousCancelledValue = currentItems.reduce((sum, item) => (
-          getItemKitchenStatus(item, currentStatus) === OrderStatus.CANCELLED
-            ? sum + (Number(item.price || 0) * Number(item.quantity || 0))
-            : sum
-        ), 0);
-        const updatedItems = currentItems.map((item, index) => {
+        if (!isKitchenItemInActionScope(currentItems[currentTargetIndex])) return null;
+        const cancellation = nextStatus === OrderStatus.CANCELLED
+          ? cancelKdsItem(currentItems, currentStatus, targetItem, targetIndex, {
+              reason: cancellationReason,
+              cancelledBy: kitchenUserName,
+              now: transitionAt,
+              isInScope: isKitchenItemInActionScope,
+            })
+          : null;
+        if (nextStatus === OrderStatus.CANCELLED && !cancellation) return null;
+        const updatedItems = cancellation?.items || currentItems.map((item, index) => {
           if (index !== currentTargetIndex) return item;
           return {
             ...item,
             status: nextStatus,
-            ...(nextStatus === OrderStatus.CANCELLED ? { kitchenCancelReason: cancellationReason || 'Other' } : {}),
-            ...(nextStatus === OrderStatus.CANCELLED ? { kdsChangedAt: transitionAt } : {}),
             ...(nextStatus === OrderStatus.PREPARING
               ? { kitchenStartedAt: item.kitchenStartedAt || transitionAt, kitchenCookedAt: undefined }
               : {}),
             ...(nextStatus === OrderStatus.COMPLETED ? { kitchenCookedAt: transitionAt } : {}),
           };
         });
-        const updatedCancelledValue = updatedItems.reduce((sum, item) => (
-          getItemKitchenStatus(item, currentStatus) === OrderStatus.CANCELLED
-            ? sum + (Number(item.price || 0) * Number(item.quantity || 0))
-            : sum
-        ), 0);
+        const aggregateStatus = getAggregateStatusFromItems(updatedItems, currentStatus);
         return {
           items: updatedItems,
-          total: Math.max(0, currentTotal + previousCancelledValue - updatedCancelledValue),
+          total: Math.max(0, currentTotal - (cancellation?.cancelledValue || 0)),
+          // Cancelling one line must not move the whole ticket backwards (for
+          // example ONGOING -> PENDING). Only an all-cancelled ticket changes
+          // the aggregate order status to CANCELLED.
+          ...(nextStatus === OrderStatus.CANCELLED ? {
+            status: aggregateStatus === OrderStatus.CANCELLED ? OrderStatus.CANCELLED : currentStatus,
+          } : {}),
         };
       });
-      await syncKitchenItemsToSavedBill(confirmed.items);
       onUpdateOrderItems?.(order.id, confirmed.items, confirmed.total, undefined, undefined, confirmed.status);
+      await syncKitchenItemsToSavedBill(confirmed.items);
+      return true;
     } catch (error) {
       console.error('Kitchen item status update error:', error);
       toast('Unable to update this food item.', 'error');
+      return false;
     } finally {
       setUpdatingItemKeys(previous => {
         const next = new Set(previous);
@@ -734,18 +758,21 @@ const KitchenDisplayPage: React.FC<Props> = ({
 
   const openCancelItemReasons = (order: Order, item: CartItem, itemKey: string) => {
     setOpenItemMenuKey(null);
-    setCancelReason('Out of stock');
+    setCancelReason(undefined);
     setCustomCancelReason('');
     setCancelItemTarget({ order, item, itemKey });
   };
 
-  const confirmCancelItem = () => {
-    if (!cancelItemTarget) return;
-    const reason = cancelReason === 'Other' ? customCancelReason.trim() : cancelReason;
-    if (!reason) return;
+  const confirmCancelItem = async () => {
+    if (!cancelItemTarget || isCancellingItem) return;
+    const reason = customCancelReason.trim() || cancelReason;
     const { order, item, itemKey } = cancelItemTarget;
+    setIsCancellingItem(true);
+    const updated = await updateKitchenSingleItemStatus(order, item, itemKey, OrderStatus.CANCELLED, reason);
+    setIsCancellingItem(false);
+    if (!updated) return;
     setCancelItemTarget(null);
-    void updateKitchenSingleItemStatus(order, item, itemKey, OrderStatus.CANCELLED, reason);
+    toast(`${item.name} cancelled.`, 'success');
   };
 
   const serveKitchenOrder = async (order: Order) => {
@@ -1495,6 +1522,98 @@ const KitchenDisplayPage: React.FC<Props> = ({
               )}
             </div>
           </aside>
+        </div>
+      )}
+
+      {cancelItemTarget && (
+        <div
+          className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          role="presentation"
+          onMouseDown={() => {
+            if (!isCancellingItem) setCancelItemTarget(null);
+          }}
+        >
+          <form
+            className="w-full max-w-lg rounded-t-2xl bg-white p-5 shadow-2xl dark:bg-gray-900 sm:rounded-2xl sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-kds-item-title"
+            onMouseDown={event => event.stopPropagation()}
+            onSubmit={event => {
+              event.preventDefault();
+              void confirmCancelItem();
+            }}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-500">Cancel item</p>
+                <h2 id="cancel-kds-item-title" className="mt-1 text-xl font-black text-gray-950 dark:text-white">
+                  {cancelItemTarget.item.name} <span className="text-gray-400">x{cancelItemTarget.item.quantity}</span>
+                </h2>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">The item will remain visible and update the POS immediately.</p>
+              </div>
+              <button
+                type="button"
+                disabled={isCancellingItem}
+                onClick={() => setCancelItemTarget(null)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                aria-label="Close cancellation dialog"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-6">
+              <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Quick reason (optional)</label>
+              <CancellationReasonQuickSelect
+                reasons={DEFAULT_KDS_CANCELLATION_REASONS}
+                selectedReason={cancelReason}
+                onChange={reason => {
+                  setCancelReason(reason);
+                  if (reason) setCustomCancelReason('');
+                }}
+                disabled={isCancellingItem}
+              />
+            </div>
+
+            <div className="mt-5">
+              <label htmlFor="kds-custom-cancel-reason" className="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Custom reason (optional)</label>
+              <textarea
+                id="kds-custom-cancel-reason"
+                value={customCancelReason}
+                onChange={event => {
+                  const nextReason = event.target.value.slice(0, 250);
+                  setCustomCancelReason(nextReason);
+                  if (nextReason.trim()) setCancelReason(undefined);
+                }}
+                disabled={isCancellingItem}
+                rows={3}
+                maxLength={250}
+                placeholder="Add a note for POS staff..."
+                className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-red-600 dark:focus:ring-red-900/30"
+              />
+              <p className="mt-1 text-right text-[9px] font-bold text-gray-400">{customCancelReason.length}/250</p>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                disabled={isCancellingItem}
+                onClick={() => setCancelItemTarget(null)}
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-xs font-black uppercase tracking-wider text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                Keep item
+              </button>
+              <button
+                type="submit"
+                disabled={isCancellingItem}
+                className="flex flex-[1.5] items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-red-700 disabled:cursor-wait disabled:opacity-60"
+              >
+                {isCancellingItem ? <Loader2 className="animate-spin" size={16} /> : <X size={16} />}
+                {isCancellingItem ? 'Cancelling...' : 'Cancel item'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

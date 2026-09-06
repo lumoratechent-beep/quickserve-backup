@@ -177,6 +177,18 @@ const ensureSavedBillItemIdentity = (item: CartItem, dispatchId: string): CartIt
   };
 };
 
+const CancelledItemNotice: React.FC<{ item: CartItem; className?: string }> = ({ item, className = '' }) => {
+  if (item.status !== OrderStatus.CANCELLED) return null;
+  const sourceLabel = item.cancelSource === 'KDS' ? 'Kitchen cancelled' : 'Cancelled';
+  const actorLabel = item.cancelSource === 'KDS' && item.cancelledBy ? ` by ${item.cancelledBy}` : '';
+  const reasonLabel = item.kitchenCancelReason ? `: ${item.kitchenCancelReason}` : '';
+  return (
+    <p className={`mt-1 text-[10px] font-bold leading-4 text-red-600 no-underline dark:text-red-400 ${className}`}>
+      {sourceLabel}{actorLabel}{reasonLabel}
+    </p>
+  );
+};
+
 type ItemRemarkGroup = 'food' | 'drink' | 'other';
 
 interface ItemRemarkPreset {
@@ -9034,8 +9046,9 @@ const PosOnlyView: React.FC<Props> = ({
                               {selectedSavedBillEntry.items.map((item, idx) => (
                                 <div key={`mobile-saved-${item.id}-${idx}`} className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
-                                    <p className="truncate text-xs font-black uppercase tracking-tight text-gray-900 dark:text-white">{item.name}</p>
-                                    <p className="text-[10px] font-bold text-gray-500 dark:text-gray-300">x{item.quantity}</p>
+                                    <p className={`truncate text-xs font-black uppercase tracking-tight ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-900 dark:text-white'}`}>{item.name}</p>
+                                    <p className={`text-[10px] font-bold ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-500 dark:text-gray-300'}`}>x{item.quantity}</p>
+                                    <CancelledItemNotice item={item} />
                                     {item.remark && (
                                       <p className="mt-0.5 flex items-start gap-1 text-[10px] font-bold italic text-orange-600 dark:text-orange-400">
                                         <MessageSquare size={10} className="mt-0.5 shrink-0" /> {item.remark}
@@ -9043,7 +9056,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     )}
                                   </div>
                                   <div className="flex shrink-0 items-center gap-1">
-                                    <p className="text-xs font-black text-orange-500">{currencySymbol}{(item.price * item.quantity).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                    <p className={`text-xs font-black ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-orange-500'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : `${currencySymbol}${(item.price * item.quantity).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</p>
                                     <div data-saved-bill-item-actions>
                                       <button
                                         type="button"
@@ -12325,13 +12338,14 @@ const PosOnlyView: React.FC<Props> = ({
                             {/* Items list */}
                             <div className="overflow-y-auto flex-1 px-5 py-3 divide-y divide-gray-100 dark:divide-gray-700/50">
                               {getSortedOrderItems(o).map((item, idx) => (
-                                <div key={`modal-${o.id}-${idx}`} className={`flex items-start gap-3 py-2.5 ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : ''}`}>
-                                  <span className={`text-xs font-black shrink-0 w-5 pt-0.5 ${isCancelledOrderItem(item) ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>×{item.quantity}</span>
+                                <div key={`modal-${o.id}-${idx}`} className={`flex items-start gap-3 py-2.5 ${isCancelledOrderItem(item) ? 'text-red-500' : ''}`}>
+                                  <span className={`text-xs font-black shrink-0 w-5 pt-0.5 ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-500 dark:text-gray-400'}`}>×{item.quantity}</span>
                                   <div className="flex-1 min-w-0">
-                                    <p className={`text-sm font-bold ${isCancelledOrderItem(item) ? 'text-red-500' : 'text-gray-800 dark:text-white'}`}>{item.name}</p>
-                                    {modLine(item) && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{modLine(item)}</p>}
+                                    <p className={`text-sm font-bold ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-800 dark:text-white'}`}>{item.name}</p>
+                                    {modLine(item) && <p className={`mt-0.5 text-[11px] ${isCancelledOrderItem(item) ? 'text-red-400 line-through' : 'text-gray-500 dark:text-gray-400'}`}>{modLine(item)}</p>}
+                                    <CancelledItemNotice item={item} />
                                   </div>
-                                  <span className={`text-sm font-bold whitespace-nowrap shrink-0 ${isCancelledOrderItem(item) ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : formatCartPrice(item.price * item.quantity)}</span>
+                                  <span className={`text-sm font-bold whitespace-nowrap shrink-0 ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-700 dark:text-gray-300'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : formatCartPrice(item.price * item.quantity)}</span>
                                 </div>
                               ))}
                             </div>
@@ -12680,9 +12694,12 @@ const PosOnlyView: React.FC<Props> = ({
                               )}
                               <div className="space-y-1 mb-3">
                                 {order.items.map((item, idx) => (
-                                  <div key={idx} className="flex items-center justify-between text-xs">
-                                    <span className={isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-600 dark:text-gray-300'}>{item.quantity}x {item.name}</span>
-                                    <span className={`font-bold ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'dark:text-white'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : formatCartPrice(item.price * item.quantity)}</span>
+                                  <div key={idx} className="text-xs">
+                                    <div className="flex items-center justify-between">
+                                      <span className={isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'text-gray-600 dark:text-gray-300'}>{item.quantity}x {item.name}</span>
+                                      <span className={`font-bold ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'dark:text-white'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : formatCartPrice(item.price * item.quantity)}</span>
+                                    </div>
+                                    <CancelledItemNotice item={item} />
                                   </div>
                                 ))}
                               </div>
@@ -13588,8 +13605,9 @@ const PosOnlyView: React.FC<Props> = ({
                     {selectedSavedBillEntry.items.map((item, idx) => (
                       <div key={`saved-${item.id}-${idx}`} className="flex items-center gap-4">
                         <div className="flex-1">
-                          <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                          <h4 className={`line-clamp-1 text-sm font-black uppercase tracking-tighter ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'dark:text-white'}`}>{item.name}</h4>
                           {renderCartItemPrice(item)}
+                          <CancelledItemNotice item={item} />
                           <div className="mt-1 space-y-0.5">
                             {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
                             {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temperature: {item.selectedTemp}</p>}
@@ -13614,7 +13632,7 @@ const PosOnlyView: React.FC<Props> = ({
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-1">
-                          <span className="rounded-lg bg-gray-100 px-2 py-1 text-xs font-black dark:bg-gray-700 dark:text-white">x{item.quantity}</span>
+                          <span className={`rounded-lg px-2 py-1 text-xs font-black ${isCancelledOrderItem(item) ? 'bg-red-50 text-red-500 line-through dark:bg-red-900/20' : 'bg-gray-100 dark:bg-gray-700 dark:text-white'}`}>x{item.quantity}</span>
                           <div data-saved-bill-item-actions>
                             <button
                               type="button"
@@ -13705,10 +13723,11 @@ const PosOnlyView: React.FC<Props> = ({
                         <span className="text-[10px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">{selectedQrOrderForPayment.tableNumber}</span>
                       </div>
                       {selectedQrOrderForPayment.items.map((item, idx) => (
-                        <div key={`qr-${item.id}-${idx}`} className={`flex items-center gap-4 ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : ''}`}>
+                        <div key={`qr-${item.id}-${idx}`} className={`flex items-center gap-4 ${isCancelledOrderItem(item) ? 'text-red-500' : ''}`}>
                           <div className="flex-1">
-                            <h4 className={`font-black text-sm uppercase tracking-tighter line-clamp-1 ${isCancelledOrderItem(item) ? 'text-red-500' : 'dark:text-white'}`}>{item.name}</h4>
+                            <h4 className={`font-black text-sm uppercase tracking-tighter line-clamp-1 ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'dark:text-white'}`}>{item.name}</h4>
                             {renderCartItemPrice(item)}
+                            <CancelledItemNotice item={item} />
                             <div className="mt-1 space-y-0.5">
                               {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
                               {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temp: {item.selectedTemp}</p>}
@@ -14996,9 +15015,10 @@ const PosOnlyView: React.FC<Props> = ({
                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Items</p>
                 <div className="space-y-2">
                   {selectedReportOrder.items.map((item, idx) => (
-                    <div key={idx} className={`flex items-start justify-between ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : ''}`}>
+                    <div key={idx} className={`flex items-start justify-between ${isCancelledOrderItem(item) ? 'text-red-500' : ''}`}>
                       <div>
-                        <p className={`text-xs font-bold ${isCancelledOrderItem(item) ? 'text-red-500' : 'dark:text-white'}`}>{item.quantity}x {item.name}</p>
+                        <p className={`text-xs font-bold ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'dark:text-white'}`}>{item.quantity}x {item.name}</p>
+                        <CancelledItemNotice item={item} />
                         {item.selectedSize && <p className="text-[9px] text-gray-400 ml-3">-Size: {item.selectedSize}</p>}
                         {item.selectedTemp && <p className="text-[9px] text-gray-400 ml-3">-Temperature: {item.selectedTemp}</p>}
                         {item.selectedVariantOption && <p className="text-[9px] text-gray-400 ml-3">-Variant: {item.selectedVariantOption}</p>}
@@ -15010,7 +15030,7 @@ const PosOnlyView: React.FC<Props> = ({
                           <p key={aIdx} className="text-[9px] text-gray-400 ml-3">-{addon.name}{addon.quantity > 1 ? ` x${addon.quantity}` : ''}</p>
                         ))}
                       </div>
-                      <span className={`text-xs font-bold shrink-0 ml-2 ${isCancelledOrderItem(item) ? 'text-red-500' : 'dark:text-white'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : formatCartPrice(item.price * item.quantity)}</span>
+                      <span className={`text-xs font-bold shrink-0 ml-2 ${isCancelledOrderItem(item) ? 'text-red-500 line-through' : 'dark:text-white'}`}>{isCancelledOrderItem(item) ? formatCartPrice(0) : formatCartPrice(item.price * item.quantity)}</span>
                     </div>
                   ))}
                 </div>

@@ -3,6 +3,7 @@ import test from 'node:test';
 import { CartItem, OrderStatus } from '../src/types';
 import {
   areAllKdsItemsServed,
+  cancelKdsItem,
   cancelOrderItemsForKds,
   getAggregateKdsOrderStatus,
   getCurrentKdsTicketItems,
@@ -208,6 +209,39 @@ test('whole-order cancellation marks every routed department item but not unrout
     OrderStatus.SERVED,
   ]);
   assert.deepEqual(cancelled.slice(0, 2).map(entry => entry.kdsChangedAt), [500, 500]);
+  assert.deepEqual(cancelled.slice(0, 2).map(entry => entry.cancelSource), ['POS', 'POS']);
+  assert.deepEqual(cancelled.slice(0, 2).map(entry => entry.cancelledAt), [500, 500]);
+});
+
+test('KDS cancellation changes only the targeted in-scope item and keeps an optional reason', () => {
+  const burger = { ...item('Burger', 'Food', OrderStatus.PREPARING), kdsItemId: 'burger-1', price: 12 };
+  const drink = { ...item('Tea', 'Drinks', OrderStatus.PREPARING), kdsItemId: 'drink-1', price: 3 };
+  const result = cancelKdsItem([burger, drink], OrderStatus.PREPARING, burger, 0, {
+    reason: 'Sold Out',
+    cancelledBy: 'kitchen-user',
+    now: 600,
+    isInScope: entry => entry.category === 'Food',
+  });
+
+  assert.ok(result);
+  assert.equal(result.cancelledValue, 12);
+  assert.equal(result.items[0].status, OrderStatus.CANCELLED);
+  assert.equal(result.items[0].kitchenCancelReason, 'Sold Out');
+  assert.equal(result.items[0].cancelledBy, 'kitchen-user');
+  assert.equal(result.items[0].cancelledAt, 600);
+  assert.equal(result.items[0].cancelSource, 'KDS');
+  assert.equal(result.items[1], drink);
+});
+
+test('KDS cancellation allows no reason and rejects another department item', () => {
+  const burger = { ...item('Burger', 'Food', OrderStatus.PENDING), kdsItemId: 'burger-1' };
+  const drink = { ...item('Tea', 'Drinks', OrderStatus.PENDING), kdsItemId: 'drink-1' };
+  const options = { now: 700, isInScope: (entry: CartItem) => entry.category === 'Food' };
+
+  const noReason = cancelKdsItem([burger, drink], OrderStatus.PENDING, burger, 0, options);
+  assert.ok(noReason);
+  assert.equal(noReason.items[0].kitchenCancelReason, undefined);
+  assert.equal(cancelKdsItem([burger, drink], OrderStatus.PENDING, drink, 1, options), null);
 });
 
 test('non-default kitchen ticket settings survive database compression', () => {
