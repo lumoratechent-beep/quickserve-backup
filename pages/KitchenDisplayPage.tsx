@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, CheckCheck, CheckCircle, ChevronLeft, ChevronRight, Clock, Coffee, Loader2, LogOut, Mail, Maximize2, MessageSquare, Minimize2, Moon, MoreHorizontal, Printer, RefreshCw, Settings, ShoppingBag, Sun, Trash2, X } from 'lucide-react';
+import { Check, CheckCheck, CheckCircle, ChefHat, ChevronLeft, ChevronRight, Clock, Coffee, Loader2, LogOut, Mail, Maximize2, MessageSquare, Minimize2, Moon, MoreHorizontal, Printer, RefreshCw, Settings, ShoppingBag, Sun, Trash2, X } from 'lucide-react';
 import { CartItem, KitchenDepartment, Order, OrderStatus, Restaurant, Subscription } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
@@ -157,6 +157,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
   const [showDisplaySettings, setShowDisplaySettings] = useState(false);
   const [displaySettingsSection, setDisplaySettingsSection] = useState<'APPEARANCE' | 'VERSION'>('APPEARANCE');
   const [clockNow, setClockNow] = useState(() => Date.now());
+  const [viewportWidth, setViewportWidth] = useState(() => typeof window === 'undefined' ? 1280 : window.innerWidth);
   const kitchenPreviousPendingIds = useRef<Set<string> | null>(null);
   const autoPrintSeenOrderIds = useRef<Set<string> | null>(null);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -190,6 +191,14 @@ const KitchenDisplayPage: React.FC<Props> = ({
   const kitchenScopeCategoryKeys = useMemo(() => (
     kitchenScopeCategories.map(getKitchenCategoryKey).filter(Boolean)
   ), [kitchenScopeCategories]);
+
+  const visibleTicketColumns = viewportWidth < 640
+    ? 1
+    : viewportWidth < 900
+      ? Math.min(2, ticketColumns)
+      : viewportWidth < 1180
+        ? Math.min(3, ticketColumns)
+        : ticketColumns;
 
   const savedPrinters = useMemo<SavedPrinter[]>(() => {
     const databasePrinters = restaurant.settings?.printers;
@@ -276,10 +285,10 @@ const KitchenDisplayPage: React.FC<Props> = ({
     }).sort((a, b) => a.timestamp - b.timestamp)
   ), [kitchenFilteredOrders, kitchenOrderFilter, kitchenHasAssignedScope, kitchenScopeCategories]);
 
-  const kitchenPageCount = Math.max(1, Math.ceil(kitchenVisibleOrders.length / ticketColumns));
+  const kitchenPageCount = Math.max(1, Math.ceil(kitchenVisibleOrders.length / visibleTicketColumns));
   const pagedKitchenOrders = kitchenVisibleOrders.slice(
-    (currentKitchenPage - 1) * ticketColumns,
-    currentKitchenPage * ticketColumns,
+    (currentKitchenPage - 1) * visibleTicketColumns,
+    currentKitchenPage * visibleTicketColumns,
   );
   const serveOrderCandidate = serveOrderId ? orders.find(order => order.id === serveOrderId) || null : null;
   const serveOrderItems = serveOrderCandidate
@@ -290,11 +299,15 @@ const KitchenDisplayPage: React.FC<Props> = ({
     && areAllKitchenItemsCooked(serveOrderItems, serveOrderCandidate.status)
       ? serveOrderCandidate
       : null;
-  const ticketGridClass = ticketColumns === 3
-    ? 'md:grid-cols-3'
-    : ticketColumns === 5
-      ? 'md:grid-cols-5'
-      : 'md:grid-cols-4';
+  const ticketGridClass = visibleTicketColumns === 1
+    ? 'grid-cols-1'
+    : visibleTicketColumns === 2
+      ? 'grid-cols-2'
+      : visibleTicketColumns === 3
+        ? 'grid-cols-3'
+        : visibleTicketColumns === 5
+          ? 'grid-cols-5'
+          : 'grid-cols-4';
   const ticketItemNameClass = ticketFontSize === 'SMALL'
     ? 'text-[10px] leading-4'
     : ticketFontSize === 'LARGE'
@@ -798,6 +811,13 @@ const KitchenDisplayPage: React.FC<Props> = ({
   }, []);
 
   useEffect(() => {
+    const updateViewportWidth = () => setViewportWidth(window.innerWidth);
+    updateViewportWidth();
+    window.addEventListener('resize', updateViewportWidth);
+    return () => window.removeEventListener('resize', updateViewportWidth);
+  }, []);
+
+  useEffect(() => {
     setCurrentKitchenPage(current => Math.min(current, kitchenPageCount));
   }, [kitchenPageCount]);
 
@@ -851,11 +871,43 @@ const KitchenDisplayPage: React.FC<Props> = ({
     );
   }
 
+  if (!kitchenHasAssignedScope) {
+    return (
+      <div className="flex h-[100dvh] items-center justify-center bg-slate-950 p-5 text-center">
+        <div className="w-full max-w-lg rounded-3xl border border-orange-400/20 bg-white p-7 shadow-2xl sm:p-10 dark:bg-gray-900">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
+            <ChefHat size={32} />
+          </div>
+          <p className="mt-6 text-[11px] font-black uppercase tracking-[0.2em] text-orange-600 dark:text-orange-400">Setup needed</p>
+          <h1 className="mt-2 text-2xl font-black tracking-tight text-gray-950 dark:text-white">No KDS department assigned</h1>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-gray-500 dark:text-gray-400">Ask a manager to open Back Office → Staff → User Access and assign this account to at least one KDS department.</p>
+          <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-left dark:border-gray-700 dark:bg-gray-800">
+            <p className="text-xs font-bold text-gray-800 dark:text-gray-100">Why the screen is paused</p>
+            <p className="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">A department determines which food categories this screen is allowed to receive. No orders are shown until routing is configured.</p>
+          </div>
+          {onLogout && (
+            <button onClick={onLogout} className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 text-xs font-black uppercase tracking-wider text-white transition hover:bg-orange-600">
+              <LogOut size={15} />
+              Logout
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-[100dvh] w-full min-h-0 flex-col bg-[#000000] text-gray-900 dark:bg-[#000000] dark:text-white">
-      <header className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-3 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:px-5">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-gray-200 bg-white px-2.5 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
-          <img src={isDarkMode ? '/LOGO/9-dark.png' : '/LOGO/9.png'} alt="QuickServe" className="h-7 w-auto shrink-0" />
+          <img src={isDarkMode ? '/LOGO/9-dark.png' : '/LOGO/9.png'} alt="QuickServe" className="hidden h-7 w-auto shrink-0 sm:block" />
+          <div className="flex min-w-0 items-center gap-2 sm:border-l sm:border-gray-200 sm:pl-3 dark:sm:border-gray-700">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400"><ChefHat size={17} /></span>
+            <div className="min-w-0">
+              <p className="hidden text-[9px] font-black uppercase tracking-wider text-gray-400 sm:block">Your station</p>
+              <p className="max-w-20 truncate text-[10px] font-black text-gray-900 dark:text-white sm:max-w-52 sm:text-xs">{kitchenAssignedScopes.join(', ')}</p>
+            </div>
+          </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
@@ -863,7 +915,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
             <button
               onClick={() => void connectKitchenPrinter()}
               disabled={isConnectingPrinter}
-              className={`flex h-6 w-7 items-center justify-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-70 ${printerConnected ? 'text-green-600 hover:bg-white dark:text-green-400 dark:hover:bg-gray-600' : 'text-red-600 hover:bg-white dark:text-red-400 dark:hover:bg-gray-600'}`}
+              className={`hidden h-6 w-7 items-center justify-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-70 sm:flex ${printerConnected ? 'text-green-600 hover:bg-white dark:text-green-400 dark:hover:bg-gray-600' : 'text-red-600 hover:bg-white dark:text-red-400 dark:hover:bg-gray-600'}`}
               title={activeKitchenPrinter ? `${activeKitchenPrinter.name}: ${printerConnected ? 'ready' : 'connect'}` : 'Set up a kitchen printer in POS Settings'}
               aria-label={printerConnected ? 'Printer ready' : 'Printer disconnected'}
             >
@@ -885,7 +937,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
               </div>
             </div>
             {batteryMeta && (
-              <div className={`flex h-7 w-8 items-center justify-center rounded-full ${batteryMeta.color}`} title={batteryMeta.label} aria-label={batteryMeta.label}>
+              <div className={`hidden h-7 w-8 items-center justify-center rounded-full sm:flex ${batteryMeta.color}`} title={batteryMeta.label} aria-label={batteryMeta.label}>
                 <div className="flex h-[18px] w-[18px] items-center justify-center" aria-hidden="true">
                   <div className="relative h-3 w-5 rounded-[3px] border-2 border-current p-0.5">
                     <span className="block h-full rounded-[1px] bg-current" style={{ width: batteryMeta.percent > 0 ? `${Math.max(batteryMeta.percent, 8)}%` : '0%' }} />
@@ -950,7 +1002,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
 
 
       <main
-        className="min-h-0 flex-1 touch-pan-y overflow-hidden bg-[#000000] px-1.5 pb-4 pt-4 dark:bg-[#000000]"
+        className="min-h-0 flex-1 touch-pan-y overflow-hidden bg-[#08090b] p-2 sm:p-3 dark:bg-[#08090b]"
         onTouchStart={handleKitchenTouchStart}
         onTouchEnd={handleKitchenTouchEnd}
       >
@@ -967,7 +1019,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
           )}
           <div
             key={`${kitchenOrderFilter}-${currentKitchenPage}`}
-            className={`grid h-full grid-cols-1 gap-1.5 sm:grid-cols-2 ${ticketGridClass} ${!expandedOrderId ? (pageSlideDirection === 'NEXT' ? 'animate-kds-page-next' : 'animate-kds-page-previous') : ''}`}
+            className={`grid h-full min-h-0 gap-2.5 ${ticketGridClass} ${!expandedOrderId ? (pageSlideDirection === 'NEXT' ? 'animate-kds-page-next' : 'animate-kds-page-previous') : ''}`}
           >
             {pagedKitchenOrders.map(order => {
               const visibleKitchenItems = getSortedOrderItems(order, kitchenHasAssignedScope ? kitchenScopeCategories : []);
@@ -984,9 +1036,9 @@ const KitchenDisplayPage: React.FC<Props> = ({
                 <article
                   key={order.id}
                   onClick={() => canServeOrder && setServeOrderId(order.id)}
-                  className={`flex min-h-0 flex-col overflow-hidden rounded-lg bg-white text-gray-900 shadow-sm dark:bg-white ${canServeOrder ? 'cursor-pointer ring-2 ring-inset ring-green-500 hover:ring-green-400' : ''} ${isExpanded ? 'fixed left-1/2 top-8 bottom-8 z-[90] w-[min(480px,calc(100vw-2rem))] -translate-x-1/2' : 'h-full'}`}
+                  className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-white/10 bg-white text-gray-900 shadow-xl dark:bg-white ${canServeOrder ? 'cursor-pointer ring-2 ring-inset ring-green-500 hover:ring-green-400' : ''} ${isExpanded ? 'fixed bottom-4 left-1/2 top-4 z-[90] w-[min(520px,calc(100vw-1rem))] -translate-x-1/2' : 'h-full'}`}
                 >
-                  <div className="shrink-0 border-b border-gray-300 px-2.5 py-2">
+                  <div className="shrink-0 border-b border-gray-200 bg-slate-50 px-3 py-2.5">
                     <div className="flex items-center justify-between gap-2">
                       <h2 className={`truncate font-black tracking-tight ${ticketTitleClass}`}>{order.tableNumber || 'Takeaway'}</h2>
                       <span className="shrink-0 rounded-lg bg-red-500 px-3 py-1 text-[10px] font-black tabular-nums text-white">
@@ -1005,7 +1057,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
                     </div>
                   </div>
 
-                  <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-1.5">
+                  <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
                     {visibleKitchenItems.map((item, idx) => {
                       const itemKey = `${order.id}-${item.category || 'item'}-${item.id}-${idx}`;
                       const itemStatus = getItemKitchenStatus(item, order.status);
@@ -1036,7 +1088,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
                               advanceKitchenItemStatus(order, item, itemKey);
                             }
                           }}
-                          className={`relative flex min-h-8 items-start gap-1.5 rounded-md px-1.5 py-1 transition-colors ${nextItemStatus && !isUpdatingItem ? 'cursor-pointer' : 'cursor-default'} ${rowStateClass}`}
+                          className={`relative flex min-h-10 items-start gap-2 rounded-lg px-2 py-1.5 transition-colors ${nextItemStatus && !isUpdatingItem ? 'cursor-pointer' : 'cursor-default'} ${rowStateClass}`}
                           aria-label={nextItemStatus ? `${item.name}: mark ${getKitchenStatusText(nextItemStatus)}` : `${item.name}: ${getKitchenStatusText(itemStatus)}`}
                         >
                           <span className="w-4 shrink-0 pt-0.5 text-[10px] font-semibold text-gray-500">{item.quantity}</span>
@@ -1080,7 +1132,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
                                   event.stopPropagation();
                                   setOpenItemMenuKey(current => current === itemKey ? null : itemKey);
                                 }}
-                                className="flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-white hover:text-gray-700"
+                                className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-white hover:text-gray-700"
                                 title="Item options"
                                 aria-label={`Options for ${item.name}`}
                               >
@@ -1120,7 +1172,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
                       event.stopPropagation();
                       setExpandedOrderId(isExpanded ? null : order.id);
                     }}
-                    className="flex h-9 shrink-0 items-center justify-center gap-1.5 border-t border-gray-200 text-[10px] font-bold text-blue-500 hover:bg-blue-50"
+                    className="flex h-11 shrink-0 items-center justify-center gap-1.5 border-t border-gray-200 text-[11px] font-bold text-blue-600 hover:bg-blue-50"
                   >
                     {isExpanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
                     {isExpanded ? 'collapse' : 'expand'}
@@ -1133,7 +1185,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
         )}
       </main>
 
-      <footer className="relative grid h-12 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] grid-rows-1 items-center gap-1 bg-[#2c2c2e] px-1.5 text-white sm:px-2">
+      <footer className="relative grid h-24 shrink-0 grid-cols-[minmax(0,1fr)_auto] grid-rows-[3.5rem_2.5rem] items-center gap-x-1 bg-[#202124] px-1.5 text-white sm:h-14 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:grid-rows-1 sm:px-2">
         <div className="flex h-full min-w-0 items-center gap-0.5 overflow-visible pl-1 sm:pl-2">
           <span className="hidden shrink-0 self-center pr-1 text-xs font-bold sm:inline">{kitchenVisibleOrders.length} orders</span>
           <button onClick={() => { setKitchenOrderFilter('ONGOING_ALL'); setCurrentKitchenPage(1); }} className={`relative flex shrink-0 self-center items-center gap-1 rounded-t-md border-t-2 px-1.5 text-[9px] font-semibold transition-colors sm:px-2 sm:text-[10px] ${kitchenOrderFilter === 'ONGOING_ALL' ? '-top-1 h-14 border-blue-400 bg-[#3a3a3c] text-white' : 'h-8 rounded-md border-transparent text-gray-400 hover:bg-white/5'}`}>
@@ -1152,7 +1204,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
           </button>
         </div>
 
-        <div className="flex h-8 self-center items-center gap-1">
+        <div className="col-span-2 row-start-2 flex h-8 items-center justify-center gap-1 self-center sm:col-span-1 sm:col-start-2 sm:row-start-1">
           <button
             onClick={() => goToKitchenPage(currentKitchenPage - 1)}
             disabled={currentKitchenPage === 1}
@@ -1182,7 +1234,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
           </button>
         </div>
 
-        <div className="relative flex h-8 self-center items-center justify-end gap-2">
+        <div className="relative col-start-2 row-start-1 flex h-8 items-center justify-end gap-2 self-center sm:col-start-3">
           <time className="hidden whitespace-nowrap text-right text-[10px] font-medium leading-tight text-gray-400 sm:block">
             <span>{new Date(clockNow).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })}</span>
             <span className="ml-2 tabular-nums text-[11px] font-bold text-white">{new Date(clockNow).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
@@ -1233,7 +1285,8 @@ const KitchenDisplayPage: React.FC<Props> = ({
                 <h2 className="text-2xl font-semibold">Appearance</h2>
 
                 <div className="mt-8 border-b border-white/20 pb-8">
-                  <p className="text-base font-medium">Tickets per page</p>
+                  <p className="text-base font-medium">Maximum tickets per page</p>
+                  <p className="mt-1 text-sm text-gray-400">The display automatically uses fewer columns on smaller screens so tickets are never cut off.</p>
                   <div className="mt-4 inline-grid grid-cols-3 overflow-hidden rounded-md border border-white/40">
                     {([3, 4, 5] as const).map(columns => (
                       <button

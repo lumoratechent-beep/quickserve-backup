@@ -4085,6 +4085,7 @@ const App: React.FC = () => {
             unreadMailCount={unreadMailCount}
             onOpenMail={currentRole === 'HR' ? undefined : () => { setView('APP'); fetchAnnouncements(); setOpenMailInPOS(true); }}
             onDownloadSalesReport={salesReportDownloader || undefined}
+            onSaveKitchenDivisions={(divisions) => saveKitchenDivisions(activeVendorRes.id, divisions)}
           />
         </div>
       )}

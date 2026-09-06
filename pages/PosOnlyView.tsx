@@ -1726,6 +1726,10 @@ const PosOnlyView: React.FC<Props> = ({
       toast(isEditingStaff ? 'Please fill in username, email and phone' : 'Please fill in all fields', 'warning');
       return;
     }
+    if (newStaffRole === 'KITCHEN' && newStaffKitchenCategories.length === 0) {
+      toast('Select at least one KDS department for this Kitchen user', 'warning');
+      return;
+    }
 
     setIsAddingStaff(true);
     ++staffMutationVersionRef.current;
@@ -1741,7 +1745,7 @@ const PosOnlyView: React.FC<Props> = ({
         restaurant_id: restaurant.id,
         role: assignedRole,
         is_active: true,
-        kitchen_categories: assignedRole === 'KITCHEN' && newStaffKitchenCategories.length > 0 ? newStaffKitchenCategories : null,
+        kitchen_categories: assignedRole === 'KITCHEN' ? newStaffKitchenCategories : null,
       };
 
       if (isEditingStaff) {
@@ -7345,7 +7349,7 @@ const PosOnlyView: React.FC<Props> = ({
                             {isManager ? 'Manager' : staff.role === 'KITCHEN' ? 'Kitchen' : staff.role === 'ORDER_TAKER' ? 'Order Taker' : 'Cashier'}
                           </span>
                           {staff.role === 'KITCHEN' && (
-                            <span className="text-[9px] font-semibold text-slate-400 dark:text-gray-500">{staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'General Kitchen'}</span>
+                            <span className={`text-[9px] font-semibold ${staff.kitchen_categories && staff.kitchen_categories.length > 0 ? 'text-slate-400 dark:text-gray-500' : 'text-red-500 dark:text-red-400'}`}>{staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'Department required'}</span>
                           )}
                           {!isManager && staff.role === 'CASHIER' && perms.viewOwnSalesOnly === false && (
                             <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Sales Report Off</span>
@@ -7829,8 +7833,8 @@ const PosOnlyView: React.FC<Props> = ({
                         <p className="text-sm font-medium text-gray-900 dark:text-white">{staff.username}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">Kitchen</span>
-                          <span className="text-xs text-gray-400 dark:text-gray-500">
-                            {staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'General Kitchen'}
+                          <span className={`text-xs ${staff.kitchen_categories && staff.kitchen_categories.length > 0 ? 'text-gray-400 dark:text-gray-500' : 'font-semibold text-red-500 dark:text-red-400'}`}>
+                            {staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'Department required'}
                           </span>
                         </div>
                       </div>
@@ -10972,30 +10976,51 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
                 )}
 
-                {/* Kitchen Category Assignment (only for Kitchen role + when divisions exist) */}
-                {newStaffRole === 'KITCHEN' && kitchenDivisions.length > 0 && (
+                {/* KDS department assignment is mandatory for Kitchen users. */}
+                {newStaffRole === 'KITCHEN' && (
                   <div>
                     <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Kitchen Departments</label>
-                    <p className="text-[9px] text-gray-400 mb-2 ml-1">Select which departments this user handles. Leave empty for all.</p>
-                    <div className="flex flex-wrap gap-2">
-                      {kitchenDivisions.map(dep => (
+                    <p className="text-[9px] text-gray-400 mb-2 ml-1">Select at least one department. Its food categories control which orders appear on this user&apos;s KDS.</p>
+                    {kitchenDivisions.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {kitchenDivisions.map(dep => (
+                          <button
+                            type="button"
+                            key={dep.name}
+                            onClick={() => {
+                              setNewStaffKitchenCategories(prev =>
+                                prev.includes(dep.name) ? prev.filter(c => c !== dep.name) : [...prev, dep.name]
+                              );
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${
+                              newStaffKitchenCategories.includes(dep.name)
+                                ? 'bg-orange-500 text-white border-orange-500'
+                                : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-orange-400'
+                            }`}
+                          >
+                            {dep.name}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-orange-300 bg-orange-50 p-3 dark:border-orange-800 dark:bg-orange-950/20">
+                        <p className="text-[10px] font-bold text-orange-700 dark:text-orange-300">No KDS department has been set up yet.</p>
                         <button
-                          key={dep.name}
+                          type="button"
                           onClick={() => {
-                            setNewStaffKitchenCategories(prev => 
-                              prev.includes(dep.name) ? prev.filter(c => c !== dep.name) : [...prev, dep.name]
-                            );
+                            setIsAddStaffModalOpen(false);
+                            setSettingsPanel('addon-kitchen');
+                            openCreateDepartmentEditor();
                           }}
-                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${
-                            newStaffKitchenCategories.includes(dep.name)
-                              ? 'bg-orange-500 text-white border-orange-500'
-                              : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-orange-400'
-                          }`}
+                          className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 text-[9px] font-black uppercase tracking-wider text-white hover:bg-orange-600"
                         >
-                          {dep.name}
+                          <Plus size={12} /> Set Up Department & Categories
                         </button>
-                      ))}
-                    </div>
+                      </div>
+                    )}
+                    {kitchenDivisions.length > 0 && newStaffKitchenCategories.length === 0 && (
+                      <p className="mt-2 text-[9px] font-bold text-red-500">A KDS department is required.</p>
+                    )}
                   </div>
                 )}
 
