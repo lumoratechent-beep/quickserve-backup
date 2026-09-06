@@ -17,6 +17,7 @@ import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import PriceEntryModal from '../components/PriceEntryModal';
 import { toast } from '../components/Toast';
 import StandardReport, { type ExcelColumnKey, type ReportDownloadOptions, type ReportSectionKey } from '../components/StandardReport';
+import ReportOrderDetailModal from '../components/ReportOrderDetailModal';
 import UpgradePlanModal from '../components/UpgradePlanModal';
 import ImageCropModal from '../components/ImageCropModal';
 import WalletBillingPage from './WalletBillingPage';
@@ -1012,12 +1013,64 @@ const PosOnlyView: React.FC<Props> = ({
   const [reportsSubMenu, setReportsSubMenu] = useState<'salesReport' | 'statistics' | 'shiftReport'>('salesReport');
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
+  const reportOrderDetailsRef = useRef(new Map<string, Order>());
+  const reportOrderRequestsRef = useRef(new Map<string, Promise<Order | null>>());
 
   // Printer Settings State (Loyverse-style)
   const [connectedDevice, setConnectedDevice] = useState<PrinterDevice | null>(null);
   const [realPrinterConnected, setRealPrinterConnected] = useState(false);
   const [isAutoReconnecting, setIsAutoReconnecting] = useState(false);
   const [selectedReportOrder, setSelectedReportOrder] = useState<Order | null>(null);
+  const [reportOrderLoading, setReportOrderLoading] = useState(false);
+  const [reportOrderError, setReportOrderError] = useState<string | null>(null);
+
+  const openReportOrder = useCallback(async (reportOrder: Order) => {
+    const orderId = String(reportOrder.id);
+    setSelectedReportOrder(reportOrder);
+    setReportOrderError(null);
+
+    const cachedDetail = reportOrderDetailsRef.current.get(orderId)
+      || counterOrdersCache.getReportOrdersCache(restaurant.id).find(order => order.id === orderId && order.items?.length > 0);
+    if (cachedDetail) {
+      reportOrderDetailsRef.current.set(orderId, cachedDetail);
+      setSelectedReportOrder(cachedDetail);
+      return;
+    }
+
+    const existingRequest = reportOrderRequestsRef.current.get(orderId);
+    const request = existingRequest || (async () => {
+      const params = new URLSearchParams({
+        restaurantId: restaurant.id,
+        search: orderId,
+        page: '1',
+        limit: '1',
+        includeSummary: 'false',
+        includeBreakdowns: 'false',
+        includeItems: 'true',
+        timezoneOffsetMinutes: String(new Date().getTimezoneOffset()),
+      });
+      const response = await fetch(`/api/orders/report?${params.toString()}`);
+      if (!response.ok) throw new Error('Unable to load order details.');
+      const data: ReportResponse = await response.json();
+      return data.orders.find(order => order.id === orderId) || null;
+    })();
+
+    if (!existingRequest) reportOrderRequestsRef.current.set(orderId, request);
+    setReportOrderLoading(true);
+    try {
+      const detail = await request;
+      if (!detail) throw new Error('Unable to load order details.');
+      reportOrderDetailsRef.current.set(orderId, detail);
+      counterOrdersCache.mergeReportOrdersCache(restaurant.id, [detail]);
+      setSelectedReportOrder(detail);
+    } catch (error) {
+      console.error('Failed to load report order details:', error);
+      setReportOrderError('Unable to load order details.');
+    } finally {
+      if (!existingRequest) reportOrderRequestsRef.current.delete(orderId);
+      setReportOrderLoading(false);
+    }
+  }, [restaurant.id]);
 
   // Loyverse-style printer config
   const [savedPrinters, setSavedPrinters] = useState<SavedPrinter[]>(() => {
@@ -8829,7 +8882,7 @@ const PosOnlyView: React.FC<Props> = ({
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Mobile Header */}
-          <div className="lg:hidden flex items-center p-3 landscape:py-1.5 landscape:px-2 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 no-print">
+          <div className="lg:hidden flex shrink-0 items-center p-3 landscape:py-1.5 landscape:px-2 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 no-print">
             <button 
               onClick={() => setIsMobileMenuOpen(true)}
               className="p-2 -ml-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -8960,7 +9013,7 @@ const PosOnlyView: React.FC<Props> = ({
                         return (
                           <>
                       <div
-                        className="saved-bill-table-panel-scroll flex-1 overflow-y-auto overflow-x-hidden space-y-2 min-h-0 pr-3"
+                        className="saved-bill-table-panel-scroll flex-1 overflow-y-auto overflow-x-hidden space-y-2 min-h-0 pr-3 pt-2"
                         onTouchStart={e => { tableSwipeStartX.current = e.touches[0].clientX; }}
                         onTouchEnd={e => {
                           if (tableSwipeStartX.current === null) return;
@@ -8992,7 +9045,7 @@ const PosOnlyView: React.FC<Props> = ({
                                   }}
                                   className={`saved-table-cell h-[96px] rounded-xl border-2 px-3 py-2.5 text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
                                     isActiveTable
-                                      ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-[0_0_0_2px_rgba(249,115,22,0.5)]'
+                                      ? 'border-orange-500 bg-orange-200 dark:bg-orange-900/20 shadow-[0_0_0_2px_rgba(249,115,22,0.5)]'
                                       :
                                     hasPending
                                       ? 'border-gray-200 dark:border-gray-700 bg-orange-50 dark:bg-orange-900/20'
@@ -9422,7 +9475,7 @@ const PosOnlyView: React.FC<Props> = ({
                     onChangeCurrentPage={setCurrentPage}
                     onDownloadReport={handleDownloadReportWithOptions}
                     isDownloadingReport={isDownloadingReport}
-                    onSelectOrder={(order) => setSelectedReportOrder(order)}
+                    onSelectOrder={openReportOrder}
                     planId={vendorPlan}
                     isSidebarCollapsed={isSidebarCollapsed}
                   />
@@ -9462,7 +9515,7 @@ const PosOnlyView: React.FC<Props> = ({
                       onChangeCurrentPage={setCurrentPage}
                       onDownloadReport={handleDownloadReportWithOptions}
                       isDownloadingReport={isDownloadingReport}
-                      onSelectOrder={(order) => setSelectedReportOrder(order)}
+                      onSelectOrder={openReportOrder}
                       activeShift={activeShift}
                       applyCurrentShiftFilter={true}
                       planId={vendorPlan}
@@ -11238,7 +11291,7 @@ const PosOnlyView: React.FC<Props> = ({
                     {
                       id: 'foodpanda',
                       name: 'FoodPanda Integration',
-                      icon: <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTZ8WyOVgm7u4MbpCHXhobc5aXOxHw7JBrB4w&s" alt="FoodPanda" className="w-7 h-7 object-contain" />,
+                      icon: <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTZ8WyOVgm7u4MbpCHXhobc5aXOxHw7JBrB4w&s" alt="FoodPanda" className="w-full h-full rounded-lg object-cover" />,
                       iconBg: 'bg-pink-100 dark:bg-pink-900/30',
                       plan: 'Pro',
                       planColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -11258,7 +11311,7 @@ const PosOnlyView: React.FC<Props> = ({
                     {
                       id: 'grabfood',
                       name: 'GrabFood Integration',
-                      icon: <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ6fjai_GH6_ALG_h0E1FA2YjJyRi7S6tjuiQ&s" alt="GrabFood" className="w-7 h-7 object-contain" />,
+                      icon: <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ6fjai_GH6_ALG_h0E1FA2YjJyRi7S6tjuiQ&s" alt="GrabFood" className="w-full h-full rounded-lg object-cover" />,
                       iconBg: 'bg-green-100 dark:bg-green-900/30',
                       plan: 'Pro',
                       planColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -11278,7 +11331,7 @@ const PosOnlyView: React.FC<Props> = ({
                     {
                       id: 'shopee',
                       name: 'Shopee Food Integration',
-                      icon: <img src="https://pvc-59e770c8-2cb3-44f2-ae48-15e1acc03f35.ams3.digitaloceanspaces.com/images/Shopee%20Food.webp" alt="Shopee Food" className="w-7 h-7 object-contain" />,
+                      icon: <img src="https://pvc-59e770c8-2cb3-44f2-ae48-15e1acc03f35.ams3.digitaloceanspaces.com/images/Shopee%20Food.webp" alt="Shopee Food" className="w-full h-full rounded-lg object-cover" />,
                       iconBg: 'bg-orange-100 dark:bg-orange-900/30',
                       plan: 'Pro',
                       planColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -11639,7 +11692,7 @@ const PosOnlyView: React.FC<Props> = ({
                       >
                         {/* Card top */}
                         <div className="p-4 flex items-start gap-3 flex-1 min-h-0">
-                          <div className={`w-12 h-12 rounded-lg ${addon.iconBg} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                          <div className={`w-12 h-12 rounded-lg ${addon.iconBg} flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm`}>
                             {addon.icon}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -14967,6 +15020,65 @@ const PosOnlyView: React.FC<Props> = ({
 
       {/* Order Detail Popup from Report */}
       {selectedReportOrder && (
+        <ReportOrderDetailModal
+          order={selectedReportOrder}
+          currencySymbol={currencySymbol}
+          taxes={activeTaxEntries}
+          loading={reportOrderLoading}
+          error={reportOrderError}
+          onRetry={() => openReportOrder(selectedReportOrder)}
+          onClose={() => setSelectedReportOrder(null)}
+          onReprintReceipt={async () => {
+            if (!hasPrintableTransport) {
+              toast('Printer is not connected. Please connect or configure a printer to reprint.', 'warning');
+              return;
+            }
+            const printRestaurant = { ...restaurant, name: receiptConfig.businessName.trim() || restaurant.name };
+            try {
+              await printerService.printReceipt({ ...selectedReportOrder, remark: selectedReportOrder.remark || '' }, printRestaurant, getReceiptPrintOptions(selectedReportOrder.eReceiptId));
+              setSelectedReportOrder(null);
+            } catch (error) {
+              console.error('Reprint error:', error);
+            }
+          }}
+          onReprintOrder={async () => {
+            if (!hasPrintableTransport) {
+              toast('Printer is not connected. Please connect or configure a printer to reprint.', 'warning');
+              return;
+            }
+            const printRestaurant = { ...restaurant, name: orderListConfig.businessName.trim() };
+            try {
+              await printerService.printReceipt({ ...selectedReportOrder, remark: selectedReportOrder.remark || '' }, printRestaurant, getOrderListPrintOptions());
+              setSelectedReportOrder(null);
+            } catch (error) {
+              console.error('Reprint order list error:', error);
+            }
+          }}
+          onCollectPayment={() => {
+            setCollectCashAmount(selectedReportOrder.total);
+            setCollectCashAmountInput(selectedReportOrder.total.toFixed(2));
+            setCollectPaymentType(getFirstEnabledPaymentTypeId(paymentTypes));
+            setCollectPaymentSuccess(false);
+            setShowCollectPaymentSidebar(true);
+          }}
+          onRefund={() => {
+            const permissions = staffList.find((staff: any) => staff.username === cashierName)?.access_permissions;
+            if (permissions?.requireManagerApprovalForRefund) openRefundApprovalModal(selectedReportOrder);
+            else setShowRefundConfirm(true);
+          }}
+        />
+      )}
+
+      {showRefundConfirm && selectedReportOrder && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/50 p-4" onClick={() => setShowRefundConfirm(false)}>
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800" onClick={event => event.stopPropagation()}>
+            <div className="p-6 text-center"><div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30"><RotateCcw size={28} className="text-red-500" /></div><h3 className="mb-2 text-lg font-black dark:text-white">Confirm Refund</h3><p className="text-sm text-gray-500 dark:text-gray-400">Refund Order <span className="font-bold dark:text-gray-200">#{selectedReportOrder.id}</span>? This action cannot be undone.</p></div>
+            <div className="flex border-t dark:border-gray-700"><button onClick={() => setShowRefundConfirm(false)} className="flex-1 py-4 text-sm font-black text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button><button onClick={() => { reportOrderDetailsRef.current.delete(selectedReportOrder.id); handleOrderStatusUpdate(selectedReportOrder.id, OrderStatus.CANCELLED); toast('Order has been refunded.', 'success'); setShowRefundConfirm(false); setSelectedReportOrder(null); }} className="flex-1 border-l py-4 text-sm font-black text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">Refund</button></div>
+          </div>
+        </div>
+      )}
+
+      {false && selectedReportOrder && ((selectedReportOrder: Order) => (
         <div className="fixed inset-0 bg-black/50 z-[130] flex items-center justify-center p-4" onClick={() => setSelectedReportOrder(null)}>
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b dark:border-gray-700 flex items-center justify-between sticky top-0 bg-white dark:bg-gray-800 z-10">
@@ -15083,11 +15195,11 @@ const PosOnlyView: React.FC<Props> = ({
                   <>
                     <div className="flex items-center justify-between mt-0.5">
                       <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">Received Amount</span>
-                      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{selectedReportOrder.amountReceived.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{selectedReportOrder.amountReceived!.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex items-center justify-between mt-0.5">
                       <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">Total Change</span>
-                      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{(selectedReportOrder.changeAmount ?? Math.max(0, selectedReportOrder.amountReceived - selectedReportOrder.total)).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{(selectedReportOrder.changeAmount ?? Math.max(0, selectedReportOrder.amountReceived! - selectedReportOrder.total)).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   </>
                 )}
@@ -15237,7 +15349,7 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
           </div>
         </div>
-      )}
+      ))(selectedReportOrder as Order)}
 
       {/* Manager Approval Modal (for refund requiring manager sign-off) */}
       {showManagerApprovalModal && pendingRefundOrder && (
