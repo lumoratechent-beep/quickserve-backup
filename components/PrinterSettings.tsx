@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Printer, Bluetooth, Plus, Trash2, CheckCircle2, AlertCircle, X, Wifi, Usb, Settings, FileText, UtensilsCrossed, RotateCw, ListOrdered, Smartphone, Download, HelpCircle, Building2 } from 'lucide-react';
+import { Printer, Bluetooth, Plus, Trash2, CheckCircle2, AlertCircle, X, Wifi, Usb, Settings, FileText, UtensilsCrossed, RotateCw, ListOrdered, Smartphone, Download, Copy, HelpCircle, Building2 } from 'lucide-react';
 import printerService, { PrinterDevice, SavedPrinter, ReceiptConfig, OrderListConfig, KitchenTicketConfig, DEFAULT_RECEIPT_CONFIG, DEFAULT_ORDER_LIST_CONFIG, DEFAULT_KITCHEN_TICKET_CONFIG, createDefaultPrinter, PRINTER_MODELS, applyModelPreset } from '../services/printerService';
 import type { PaperSize, ConnectionType, PrintDensity, PrintJobType, PrintMode, TextSize, TextFont, TextAlignment } from '../services/printerService';
 import { KitchenDepartment } from '../src/types';
@@ -56,6 +56,7 @@ const PrinterSettings: React.FC<Props> = ({
   const [testPrintStatus, setTestPrintStatus] = useState<'idle' | 'printing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [sunmiStatus, setSunmiStatus] = useState(() => printerService.getSunmiIntegrationStatus());
+  const [isBootScriptCopied, setIsBootScriptCopied] = useState(false);
 
   // Saved printers
   const [savedPrinters, setSavedPrinters] = useState<SavedPrinter[]>(() => {
@@ -353,6 +354,24 @@ const PrinterSettings: React.FC<Props> = ({
       });
   };
 
+  const handleCopyBootScript = async () => {
+    const script = [
+      '#!/data/data/com.termux/files/usr/bin/bash',
+      'termux-wake-lock',
+      'cd "$HOME/storage/downloads" || exit 1',
+      'node print-server.js >> "$HOME/print-server.log" 2>&1',
+    ].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(script);
+      setIsBootScriptCopied(true);
+      setTimeout(() => setIsBootScriptCopied(false), 2000);
+    } catch {
+      setErrorMessage('Could not copy the script. Select and copy it manually.');
+      setTimeout(() => setErrorMessage(''), 5000);
+    }
+  };
+
   // ─── Receipt & Kitchen Config save ─────────────────────────────
 
   const updateReceiptConfig = <K extends keyof ReceiptConfig>(key: K, value: ReceiptConfig[K]) => {
@@ -402,18 +421,18 @@ const PrinterSettings: React.FC<Props> = ({
   // ─── Render: Printers Tab ──────────────────────────────────────
 
   const renderPrintersTab = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8">
-      <div>
+    <div className="space-y-5">
+      <div className="hidden">
         <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Printer Setup</p>
         <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Connect printers and manage printer profiles.</p>
       </div>
       <div className="min-w-0 space-y-4">
-      <div className="flex items-center">
-        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Printers</p>
+            <div className="flex items-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Printers</p>
         <div className="flex-1" />
         <button
           onClick={handleDownloadPrintServer}
-          className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-[8px] font-black text-gray-500 hover:text-orange-500 transition-all"
+          className="flex items-center gap-1 rounded-lg border border-[#385069] bg-[#223247] px-2.5 py-1.5 text-[8px] font-black text-slate-300 transition-all hover:border-orange-500/60 hover:text-orange-300"
           title="Download print-server.js for WiFi/LAN printing"
         >
           <Download size={10} /> Proxy Script
@@ -485,11 +504,11 @@ const PrinterSettings: React.FC<Props> = ({
         )}
 
         {savedPrinters.map(printer => (
-          <div key={printer.id} className="mb-2 p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+          <div key={printer.id} className="mb-2 rounded-xl border border-[#2d435a] bg-[#1d2d40] p-4 transition-colors hover:border-orange-500/50">
             <div className="flex items-center justify-between">
               <div className="flex-1" onClick={() => handleEditPrinter(printer)} style={{ cursor: 'pointer' }}>
                 <div className="flex items-center gap-2">
-                  <p className="text-xs font-black dark:text-white">{printer.name}</p>
+                  <p className="text-xs font-black text-white">{printer.name}</p>
                   {printer.printJobs.includes('receipt') && (
                     <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded text-[8px] font-black uppercase">Receipt</span>
                   )}
@@ -498,24 +517,24 @@ const PrinterSettings: React.FC<Props> = ({
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[9px] text-gray-400 capitalize">{printer.connectionType}</span>
+                  <span className="text-[9px] capitalize text-slate-400">{printer.connectionType}</span>
                   <span className="text-[9px] text-gray-300">&middot;</span>
-                  <span className="text-[9px] text-gray-400">{printer.paperSize}</span>
+                  <span className="text-[9px] text-slate-400">{printer.paperSize}</span>
                   <span className="text-[9px] text-gray-300">&middot;</span>
-                  <span className="text-[9px] text-gray-400">
+                  <span className="text-[9px] text-slate-400">
                     {printer.printerModel === 'other' ? 'Custom' : (PRINTER_MODELS.find(m => m.id === printer.printerModel)?.name || printer.printerModel || 'Custom')}
                   </span>
                   <span className="text-[9px] text-gray-300">&middot;</span>
-                  <span className="text-[9px] text-gray-400 capitalize">{printer.printDensity}</span>
+                  <span className="text-[9px] capitalize text-slate-400">{printer.printDensity}</span>
                   {printer.autoCut && <><span className="text-[9px] text-gray-300">&middot;</span><span className="text-[9px] text-gray-400">Auto-cut</span></>}
                   {printer.cashDrawer && <><span className="text-[9px] text-gray-300">&middot;</span><span className="text-[9px] text-gray-400">Drawer</span></>}
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => handleEditPrinter(printer)} className="p-2 text-gray-300 hover:text-orange-500 transition-colors">
+                <button onClick={() => handleEditPrinter(printer)} className="rounded-full border border-[#385069] p-2 text-slate-300 transition-colors hover:border-orange-500/60 hover:text-orange-300">
                   <Settings size={14} />
                 </button>
-                <button onClick={() => handleDeletePrinter(printer.id)} className="p-2 text-gray-300 hover:text-red-500 transition-colors">
+                <button onClick={() => handleDeletePrinter(printer.id)} className="rounded-full border border-[#385069] p-2 text-slate-300 transition-colors hover:border-red-500/60 hover:text-red-400">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -525,7 +544,7 @@ const PrinterSettings: React.FC<Props> = ({
 
         {/* ── Add / Edit Printer Form ── */}
         {isAddingPrinter ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 space-y-4 mt-3">
+          <div className="mt-3 space-y-4 rounded-xl border border-[#2d435a] bg-[#1d2d40] p-4">
             <div className="flex items-center justify-between">
               <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
                 {editingPrinterId ? 'Edit Printer' : 'New Printer'}
@@ -1326,10 +1345,10 @@ const PrinterSettings: React.FC<Props> = ({
 
   const renderHelpTab = () => (
     <div className="grid grid-cols-1 gap-5">
-      <div className="p-5 bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl text-white">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em]">WiFi/LAN Printer Setup</p>
-        <h3 className="text-lg font-black mt-1">Connect QuickServe to a network printer</h3>
-        <p className="text-[10px] text-orange-50 mt-2 max-w-2xl">Complete the steps in order. The print server is required only for WiFi/LAN printers; Bluetooth, USB, and SUNMI printers use their own connection.</p>
+      <div>
+        <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em]">WiFi/LAN Printer Setup</p>
+        <h3 className="text-lg font-black mt-1 dark:text-white">Connect QuickServe to a network printer</h3>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2 max-w-2xl">Complete the steps in order. The print server is required only for WiFi/LAN printers; Bluetooth, USB, and SUNMI printers use their own connection.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1375,7 +1394,17 @@ const PrinterSettings: React.FC<Props> = ({
             <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">Install and open Termux:Boot once, then run:</p>
             <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed"><div>mkdir -p ~/.termux/boot</div><div>nano ~/.termux/boot/start-print-server.sh</div></div>
             <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">Paste this file content, save it, then make it executable:</p>
-            <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed mt-2"><div>#!/data/data/com.termux/files/usr/bin/bash</div><div>termux-wake-lock</div><div>cd "$HOME/storage/downloads" || exit 1</div><div>node print-server.js &gt;&gt; "$HOME/print-server.log" 2&gt;&amp;1</div></div>
+            <div className="relative bg-gray-900 text-green-300 rounded-lg p-3 pr-10 font-mono text-[10px] leading-relaxed mt-2">
+              <button
+                onClick={handleCopyBootScript}
+                className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-white transition-colors"
+                title={isBootScriptCopied ? 'Copied' : 'Copy script'}
+                aria-label={isBootScriptCopied ? 'Script copied' : 'Copy script'}
+              >
+                {isBootScriptCopied ? <CheckCircle2 size={13} className="text-green-400" /> : <Copy size={13} />}
+              </button>
+              <div>#!/data/data/com.termux/files/usr/bin/bash</div><div>termux-wake-lock</div><div>cd "$HOME/storage/downloads" || exit 1</div><div>node print-server.js &gt;&gt; "$HOME/print-server.log" 2&gt;&amp;1</div>
+            </div>
             <div className="bg-gray-900 text-green-300 rounded-lg p-3 font-mono text-[10px] leading-relaxed mt-2"><div>chmod +x ~/.termux/boot/start-print-server.sh</div></div>
             <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">Disable battery optimization for Termux and Termux:Boot. After reboot, the proxy starts automatically.</p>
           </div>
@@ -1410,20 +1439,20 @@ const PrinterSettings: React.FC<Props> = ({
   }, [activeTab, filteredTabs]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5 text-slate-200">
       {/* Tab Navigation */}
       {filteredTabs.length > 1 && (
-        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+        <div className="flex border-b border-[#26384c]">
           {filteredTabs.map(tab => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                className={`flex-1 flex items-center justify-center gap-2 border-b-2 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${
                   activeTab === tab.id
-                    ? 'bg-white dark:bg-gray-700 text-orange-600 dark:text-orange-400 shadow-sm'
-                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                    ? 'border-orange-500 text-white'
+                    : 'border-transparent text-slate-400 hover:text-white'
                 }`}
               >
                 <Icon size={13} />

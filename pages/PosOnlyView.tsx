@@ -799,6 +799,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [sendingSavedBillId, setSendingSavedBillId] = useState<string | null>(null);
   const [savedBillKitchenOrderIds, setSavedBillKitchenOrderIds] = useState<Record<string, string>>({});
   const [activeSavedBillTable, setActiveSavedBillTable] = useState<string | null>(null);
+  const [counterOrderAction, setCounterOrderAction] = useState<'ADD_ORDER' | 'EDIT_BILL' | 'ADD_ITEMS'>('ADD_ORDER');
   const [savedBillActionMenuOpen, setSavedBillActionMenuOpen] = useState(false);
   const [showMobileSavedBillCart, setShowMobileSavedBillCart] = useState(false);
   const [showSaveBillTableModal, setShowSaveBillTableModal] = useState(false);
@@ -3356,8 +3357,19 @@ const PosOnlyView: React.FC<Props> = ({
     setPosTableNo(selectedBill.tableNumber);
     setPosDiningType(selectedBill.diningType || preferredDiningOption);
     setActiveSavedBillTable(tableNumber);
+    setCounterOrderAction('EDIT_BILL');
     setCounterMode('COUNTER_ORDER');
     toast(`${tableNumber} bill loaded into counter.`, 'success');
+  };
+
+  const addOrderForTable = (tableNumber: string) => {
+    setPosCart([]);
+    setPosRemark('');
+    setPosTableNo(tableNumber);
+    setPosDiningType(preferredDiningOption);
+    setActiveSavedBillTable(tableNumber);
+    setCounterOrderAction('ADD_ORDER');
+    setCounterMode('COUNTER_ORDER');
   };
 
   const saveSelectedQrOrderAsBill = () => {
@@ -9036,10 +9048,8 @@ const PosOnlyView: React.FC<Props> = ({
                                 <button
                                   type="button"
                                   key={table}
-                                  disabled={!hasPending}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (!hasPending) return;
                                     setActiveSavedBillTable(isActiveTable ? null : table);
                                     setShowMobileSavedBillCart(false);
                                   }}
@@ -9078,7 +9088,7 @@ const PosOnlyView: React.FC<Props> = ({
                           />
                         ))}
                       </div>
-                      {selectedSavedBillEntry && (
+                      {selectedSavedBillEntry ? (
                         <div className="lg:hidden mt-3 shrink-0 rounded-2xl border border-orange-200 bg-white p-3 shadow-lg dark:border-orange-900/50 dark:bg-gray-800" onClick={e => e.stopPropagation()}>
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
@@ -9160,7 +9170,15 @@ const PosOnlyView: React.FC<Props> = ({
                             )}
                           </div>
                         </div>
-                      )}
+                      ) : activeSavedBillTable ? (
+                        <button
+                          type="button"
+                          onClick={() => addOrderForTable(activeSavedBillTable)}
+                          className="lg:hidden mt-3 w-full shrink-0 rounded-2xl bg-orange-500 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600"
+                        >
+                          Add Order
+                        </button>
+                      ) : null}
                           </>
                         );
                       })()}
@@ -10305,12 +10323,12 @@ const PosOnlyView: React.FC<Props> = ({
             })();
 
             return (
-              <div className="relative flex-1 overflow-y-auto bg-gradient-to-b from-slate-50 via-white to-orange-50/40 dark:bg-gray-900 dark:bg-none">
+              <div className="relative flex-1 overflow-y-auto bg-[#0d1724] text-slate-200">
                 <div className="w-full px-3 pb-8 pt-3 sm:px-5 sm:pt-5 lg:px-6 lg:pt-6">
                   <div className="animate-in fade-in duration-500">
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-[270px_minmax(0,1fr)] lg:gap-5">
-                      <aside className="h-fit rounded-2xl border border-slate-200/80 bg-white/95 p-3 shadow-sm dark:border-gray-700/80 dark:bg-gray-800 dark:shadow-none md:sticky md:top-4">
-                        <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">General Setting</p>
+                      <aside className="h-fit rounded-2xl border border-[#26384c] bg-[#172333] p-3 shadow-xl shadow-black/10 md:sticky md:top-4">
+                        <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">General Setting</p>
 
                         <div className="flex flex-col gap-1">
                           {settingsTabs.map(tab => {
@@ -10322,17 +10340,15 @@ const PosOnlyView: React.FC<Props> = ({
                                 onClick={() => setSettingsPanel(tab.key)}
                                 className={`w-full rounded-xl border px-3 py-2.5 text-left transition-all duration-200 ${
                                   isActive
-                                    ? 'border-orange-300 bg-orange-50/90 dark:border-orange-500/50 dark:bg-orange-500/10'
-                                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-800/70 dark:hover:border-gray-500 dark:hover:bg-gray-700/80'
+                                    ? 'border-orange-500/60 bg-orange-500/15 shadow-[inset_3px_0_0_#f97316]'
+                                    : 'border-transparent bg-transparent hover:border-[#385069] hover:bg-[#203044]'
                                 }`}
                               >
                                 <div className="flex min-w-0 items-center">
-                                  <span className={`whitespace-nowrap text-sm font-semibold ${isActive ? 'text-orange-700 dark:text-orange-300' : 'text-slate-700 dark:text-gray-200'}`}>{tab.label}</span>
+                                  <tab.icon size={17} className={`mr-3 shrink-0 ${isActive ? 'text-orange-400' : 'text-slate-300'}`} />
+                                  <span className={`whitespace-nowrap text-sm font-semibold ${isActive ? 'text-orange-300' : 'text-slate-200'}`}>{tab.label}</span>
                                 </div>
 
-                                <div className={`overflow-hidden transition-all duration-200 ${isActive ? 'mt-1.5 max-h-16 opacity-100' : 'mt-0 max-h-0 opacity-0'}`}>
-                                  <p className="pr-1 text-xs leading-relaxed text-slate-500 dark:text-gray-400">{tab.info}</p>
-                                </div>
                               </button>
                             );
                           })}
@@ -10349,8 +10365,8 @@ const PosOnlyView: React.FC<Props> = ({
                             { key: 'addon-shift', label: 'Shift Management', info: 'Cashier shift open/close with cash drawer reconciliation & schedule.', icon: <Clock size={14} />, badge: 'Add-on', isInstalled: featureSettings.shiftEnabled, addonId: 'shift' },
                           ];
                           return (
-                            <div className="mt-3 border-t border-slate-200/80 pt-3 dark:border-gray-700/80">
-                              <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">Add-on Feature Setting</p>
+                            <div className="mt-3 border-t border-[#26384c] pt-3">
+                              <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Add-on Feature Setting</p>
                               <div className="flex flex-col gap-1">
                                 {addonSettingsList.map(addon => {
                                   const isActive = activeSettingsPanel === addon.key;
@@ -10360,17 +10376,14 @@ const PosOnlyView: React.FC<Props> = ({
                                       onClick={() => setSettingsPanel(addon.key)}
                                       className={`w-full rounded-xl border px-3 py-2.5 text-left transition-all duration-200 ${
                                         isActive
-                                          ? 'border-orange-300 bg-orange-50/90 dark:border-orange-500/50 dark:bg-orange-500/10'
-                                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-800/70 dark:hover:border-gray-500 dark:hover:bg-gray-700/80'
+                                          ? 'border-orange-500/60 bg-orange-500/15 shadow-[inset_3px_0_0_#f97316]'
+                                            : 'border-transparent bg-transparent hover:border-[#385069] hover:bg-[#203044]'
                                       }`}
                                     >
                                       <div className="flex min-w-0 items-center">
-                                        <span className={`flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold ${isActive ? 'text-orange-700 dark:text-orange-300' : 'text-slate-700 dark:text-gray-200'}`}>
-                                          {addon.icon} {addon.label}
+                                        <span className={`flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold ${isActive ? 'text-orange-300' : 'text-slate-200'}`}>
+                                          <span className={isActive ? 'text-orange-400' : 'text-slate-300'}>{addon.icon}</span> {addon.label}
                                         </span>
-                                      </div>
-                                      <div className={`overflow-hidden transition-all duration-200 ${isActive ? 'mt-1.5 max-h-16 opacity-100' : 'mt-0 max-h-0 opacity-0'}`}>
-                                        <p className="pr-1 text-xs leading-relaxed text-slate-500 dark:text-gray-400">{addon.info}</p>
                                       </div>
                                     </button>
                                   );
@@ -10378,7 +10391,7 @@ const PosOnlyView: React.FC<Props> = ({
                               </div>
                               <button
                                 onClick={() => handleTabSelection('ADDONS')}
-                                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 transition-all hover:border-orange-300 hover:bg-orange-50/50 hover:text-orange-600 dark:border-gray-600 dark:bg-gray-800/30 dark:text-gray-400 dark:hover:border-orange-500/50 dark:hover:text-orange-400"
+                                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#385069] bg-[#13202e] px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 transition-all hover:border-orange-500/60 hover:bg-orange-500/10 hover:text-orange-300"
                               >
                                 <Package size={12} /> Manage Add-ons
                               </button>
@@ -10387,16 +10400,16 @@ const PosOnlyView: React.FC<Props> = ({
                         })()}
                       </aside>
 
-                      <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_16px_45px_-40px_rgba(15,23,42,0.7)] backdrop-blur-sm dark:border-gray-700/80 dark:bg-gray-800 dark:shadow-none dark:backdrop-blur-none">
-                      <div className="border-b border-slate-200/80 px-4 py-4 dark:border-gray-700/80 sm:px-6 sm:py-5">
+                      <section className="min-w-0 overflow-hidden rounded-2xl border border-[#26384c] bg-[#172333] shadow-2xl shadow-black/15">
+                      <div className="border-b border-[#26384c] px-4 py-4 sm:px-6 sm:py-5">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex items-start gap-3">
-                            <div className="rounded-xl border border-orange-200 bg-orange-50 p-2 text-orange-600 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-300">
+                            <div className="rounded-xl border border-orange-500/40 bg-orange-500 p-2 text-white shadow-lg shadow-orange-500/20">
                               <ActiveSettingsIcon size={18} />
                             </div>
                             <div>
-                              <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">{activeSettingsTab.label}</h2>
-                              <p className="mt-0.5 text-sm text-slate-500 dark:text-gray-400">{activeSettingsTab.info}</p>
+                              <h2 className="text-lg font-semibold tracking-tight text-white">{activeSettingsTab.label}</h2>
+                              <p className="mt-0.5 text-sm text-slate-400">{activeSettingsTab.info}</p>
                             </div>
                           </div>
                           {isAddonPanel && addonPanelMeta[activeSettingsPanel] ? (
@@ -10452,11 +10465,11 @@ const PosOnlyView: React.FC<Props> = ({
                               </button>
                             </div>
                           ) : (
-                            <span className="inline-flex w-fit items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600 dark:border-gray-600 dark:bg-gray-700/80 dark:text-gray-300">{activeSettingsTab.badge}</span>
+                            <span className="inline-flex w-fit items-center rounded-full border border-[#385069] bg-[#223247] px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-300">{activeSettingsTab.badge}</span>
                           )}
                         </div>
                         <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[11px] font-semibold text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-300">{panelMetaLine}</span>
+                          <span className="inline-flex items-center rounded-full border border-orange-500/40 bg-orange-500/10 px-2.5 py-1 text-[11px] font-semibold text-orange-300">{panelMetaLine}</span>
                         </div>
                       </div>
 
@@ -10466,7 +10479,7 @@ const PosOnlyView: React.FC<Props> = ({
                           )}
 
                           {activeSettingsPanel === 'printer' && (
-                            <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3 dark:border-gray-700/70 dark:bg-gray-900/30 sm:p-4">
+                            <div className="min-w-0 rounded-2xl border border-[#26384c] bg-[#101c2b] p-3 sm:p-4">
                               <PrinterSettings
                                 restaurantId={restaurant.id}
                                 restaurantName={restaurant.name}
@@ -10494,7 +10507,7 @@ const PosOnlyView: React.FC<Props> = ({
                           )}
 
                           {activeSettingsPanel === 'receipt' && (
-                            <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3 dark:border-gray-700/70 dark:bg-gray-900/30 sm:p-4">
+                            <div className="min-w-0">
                               <PrinterSettings
                                 restaurantId={restaurant.id}
                                 restaurantName={restaurant.name}
@@ -10519,7 +10532,7 @@ const PosOnlyView: React.FC<Props> = ({
                           )}
 
                           {activeSettingsPanel === 'orderList' && (
-                            <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3 dark:border-gray-700/70 dark:bg-gray-900/30 sm:p-4">
+                            <div className="min-w-0">
                               <PrinterSettings
                                 restaurantId={restaurant.id}
                                 restaurantName={restaurant.name}
@@ -13584,8 +13597,8 @@ const PosOnlyView: React.FC<Props> = ({
                         ? 'Saved Bills'
                         : showQrFeature && counterMode === 'QR_ORDER'
                         ? (selectedQrOrderForPayment ? `Order #${selectedQrOrderForPayment.id.slice(-6).toUpperCase()}` : 'QR Order')
-                        : activeSavedBillTable && counterMode === 'COUNTER_ORDER' && posTableNo === activeSavedBillTable
-                        ? `Editing Saved Bill: ${activeSavedBillTable}`
+                        : counterMode === 'COUNTER_ORDER' && !isCounterTableValue(posTableNo)
+                        ? `${counterOrderAction === 'EDIT_BILL' ? 'Edit Bill' : counterOrderAction === 'ADD_ITEMS' ? 'Add Items' : 'Adding Order to'} ${posTableNo}`
                         : 'Current Order'}
                     </h3>
                     {!editingQrOrderId && showSavedBillFeature && counterMode === 'SAVED_BILL' && (
@@ -13625,7 +13638,11 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                     )}
                     {!editingQrOrderId && (counterMode === 'COUNTER_ORDER' || (!showQrFeature && counterMode !== 'SAVED_BILL')) && (
-                      <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => { resetCounterOrderDraft(); setActiveSavedBillTable(null); setCounterOrderAction('ADD_ORDER'); }}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                      >
                         <Trash2 size={16} />
                       </button>
                     )}
@@ -13711,6 +13728,16 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
 
               <div className="p-6 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-4">
+                {!selectedSavedBillEntry && activeSavedBillTable ? (
+                  <button
+                    type="button"
+                    onClick={() => addOrderForTable(activeSavedBillTable)}
+                    className="w-full py-4 rounded-lg bg-orange-500 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-orange-500/20 transition-all hover:bg-orange-600"
+                  >
+                    Add Order
+                  </button>
+                ) : (
+                <>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                     <span>Subtotal</span>
@@ -13759,6 +13786,8 @@ const PosOnlyView: React.FC<Props> = ({
                     Complete Payment
                   </button>
                 </div>
+                </>
+                )}
               </div>
               </>
             ) : showQrFeature && counterMode === 'QR_ORDER' ? (
