@@ -147,7 +147,7 @@ export interface Restaurant {
     font?: string;
     currency?: string;
     printers?: Array<Record<string, any>>;
-    kitchenSettings?: { autoAccept: boolean; autoPrint: boolean };
+    kitchenSettings?: { autoAccept: boolean; autoPrint: boolean; autoServe?: boolean };
     qrOrderSettings?: { autoApprove: boolean; autoPrint: boolean };
     tablesideOrderSettings?: { autoApprove: boolean; autoPrint: boolean };
     kitchenTicket?: Record<string, any>;

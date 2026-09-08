@@ -128,7 +128,7 @@ export const POS_DEFAULTS = {
     { id: 'cash', name: 'CASH' },
     { id: 'qr', name: 'QR' },
   ],
-  kitchenSettings: { autoAccept: false, autoPrint: false } as Record<string, unknown>,
+  kitchenSettings: { autoAccept: false, autoPrint: false, autoServe: false } as Record<string, unknown>,
   qrOrderSettings: { autoApprove: false, autoPrint: false } as Record<string, unknown>,
   onlinePaymentMethods: [
     { id: 'cod', label: 'COD (Cash on Delivery)', enabled: true },

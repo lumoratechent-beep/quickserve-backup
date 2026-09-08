@@ -261,6 +261,23 @@ test('non-default kitchen ticket settings survive database compression', () => {
   });
 });
 
+test('non-default KDS auto serve setting survives database compression', () => {
+  const compressed = compressPosSettings({
+    kitchenSettings: {
+      autoAccept: false,
+      autoPrint: false,
+      autoServe: true,
+    },
+  }, 'Test Restaurant');
+  const expanded = expandPosSettings(compressed, 'Test Restaurant');
+
+  assert.deepEqual(expanded.kitchenSettings, {
+    autoAccept: false,
+    autoPrint: false,
+    autoServe: true,
+  });
+});
+
 test('KDS preparation details include every non-empty item configuration', () => {
   const configured: CartItem = {
     ...item('Chicken Burger', 'Food', OrderStatus.PENDING),
