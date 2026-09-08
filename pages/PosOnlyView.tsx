@@ -801,6 +801,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [activeSavedBillTable, setActiveSavedBillTable] = useState<string | null>(null);
   const [counterOrderAction, setCounterOrderAction] = useState<'ADD_ORDER' | 'EDIT_BILL' | 'ADD_ITEMS'>('ADD_ORDER');
   const [savedBillActionMenuOpen, setSavedBillActionMenuOpen] = useState(false);
+  const [showCancelSavedBillConfirm, setShowCancelSavedBillConfirm] = useState(false);
   const [showMobileSavedBillCart, setShowMobileSavedBillCart] = useState(false);
   const [showSaveBillTableModal, setShowSaveBillTableModal] = useState(false);
   const [pendingSaveBillSource, setPendingSaveBillSource] = useState<'COUNTER' | 'QR' | null>(null);
@@ -889,6 +890,17 @@ const PosOnlyView: React.FC<Props> = ({
     document.addEventListener('pointerdown', closeSavedBillActions);
     return () => document.removeEventListener('pointerdown', closeSavedBillActions);
   }, [savedBillActionMenuOpen]);
+
+  useEffect(() => {
+    if (!showCancelSavedBillConfirm) return;
+
+    const closeCancelConfirmation = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowCancelSavedBillConfirm(false);
+    };
+
+    document.addEventListener('keydown', closeCancelConfirmation);
+    return () => document.removeEventListener('keydown', closeCancelConfirmation);
+  }, [showCancelSavedBillConfirm]);
 
   const closePaymentPage = () => {
     if (isCompletingPayment) return;
@@ -3331,20 +3343,26 @@ const PosOnlyView: React.FC<Props> = ({
     }
   };
 
-  const handleCancelSavedBillOrder = async () => {
+  const handleCancelSavedBillOrder = () => {
     if (!selectedSavedBillEntry) {
       toast('Select a pending saved bill first.', 'error');
       return;
     }
-    if (!confirm(`Cancel order for ${selectedSavedBillEntry.tableNumber}?`)) return;
 
     setSavedBillActionMenuOpen(false);
+    setShowCancelSavedBillConfirm(true);
+  };
+
+  const confirmCancelSavedBillOrder = async () => {
+    if (!selectedSavedBillEntry) return;
+
     const orderToCancel = selectedSavedBillKitchenOrder;
     if (orderToCancel && orderToCancel.status !== OrderStatus.CANCELLED) {
       await Promise.resolve(onUpdateOrder(orderToCancel.id, OrderStatus.CANCELLED));
     }
     clearSavedBillByTable(selectedSavedBillEntry.tableNumber);
     setActiveSavedBillTable(null);
+    setShowCancelSavedBillConfirm(false);
     toast(`${selectedSavedBillEntry.tableNumber} order cancelled.`, 'success');
   };
 
@@ -15104,6 +15122,49 @@ const PosOnlyView: React.FC<Props> = ({
           <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800" onClick={event => event.stopPropagation()}>
             <div className="p-6 text-center"><div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30"><RotateCcw size={28} className="text-red-500" /></div><h3 className="mb-2 text-lg font-black dark:text-white">Confirm Refund</h3><p className="text-sm text-gray-500 dark:text-gray-400">Refund Order <span className="font-bold dark:text-gray-200">#{selectedReportOrder.id}</span>? This action cannot be undone.</p></div>
             <div className="flex border-t dark:border-gray-700"><button onClick={() => setShowRefundConfirm(false)} className="flex-1 py-4 text-sm font-black text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button><button onClick={() => { reportOrderDetailsRef.current.delete(selectedReportOrder.id); handleOrderStatusUpdate(selectedReportOrder.id, OrderStatus.CANCELLED); toast('Order has been refunded.', 'success'); setShowRefundConfirm(false); setSelectedReportOrder(null); }} className="flex-1 border-l py-4 text-sm font-black text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">Refund</button></div>
+          </div>
+        </div>
+      )}
+
+      {showCancelSavedBillConfirm && selectedSavedBillEntry && (
+        <div
+          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          role="presentation"
+          onClick={() => setShowCancelSavedBillConfirm(false)}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-saved-bill-title"
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="p-6 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/15">
+                <AlertCircle size={28} className="text-red-400" />
+              </div>
+              <h3 id="cancel-saved-bill-title" className="mb-2 text-lg font-black text-white">Cancel Saved Bill?</h3>
+              <p className="text-sm text-gray-400">
+                Cancel the order for <span className="font-bold text-gray-200">{selectedSavedBillEntry.tableNumber}</span>?
+                <br />This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex border-t border-gray-700">
+              <button
+                type="button"
+                onClick={() => setShowCancelSavedBillConfirm(false)}
+                className="flex-1 py-4 text-sm font-black text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+              >
+                Keep Bill
+              </button>
+              <button
+                type="button"
+                onClick={confirmCancelSavedBillOrder}
+                className="flex-1 border-l border-gray-700 py-4 text-sm font-black text-red-400 transition-colors hover:bg-red-950/40"
+              >
+                Cancel Order
+              </button>
+            </div>
           </div>
         </div>
       )}
