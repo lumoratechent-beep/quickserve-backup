@@ -5550,6 +5550,7 @@ const PosOnlyView: React.FC<Props> = ({
       paymentStatusSize: orderListConfig.paymentStatusSize,
       paymentStatusFont: orderListConfig.paymentStatusFont,
       paymentStatusAlignment: orderListConfig.paymentStatusAlignment,
+      itemSize: orderListConfig.itemSize,
     };
   };
 

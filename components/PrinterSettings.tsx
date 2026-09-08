@@ -1261,6 +1261,22 @@ const PrinterSettings: React.FC<Props> = ({
               </div>
             </div>
           ))}
+          <div className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl space-y-2">
+            <p className="text-[9px] font-black text-gray-500 dark:text-gray-300 uppercase tracking-widest">Item Details</p>
+            <div>
+              <label className="block text-[8px] font-bold text-gray-400 mb-1">Size</label>
+              <select
+                value={orderListConfig.itemSize}
+                onChange={e => updateOrderListConfig('itemSize', Number(e.target.value) as TextSize)}
+                className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-[10px] font-bold dark:text-white"
+              >
+                <option value={1}>Normal</option>
+                <option value={2}>Large</option>
+                <option value={3}>Extra Large</option>
+                <option value={4}>Huge</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 

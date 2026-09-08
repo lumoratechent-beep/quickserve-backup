@@ -4,7 +4,9 @@ import { CartItem, KitchenDepartment, Order, OrderStatus, Restaurant, Subscripti
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
 import CancellationReasonQuickSelect from '../components/CancellationReasonQuickSelect';
-import printerService, { DEFAULT_KITCHEN_TICKET_CONFIG, KitchenTicketConfig, SavedPrinter } from '../services/printerService';
+import PrinterSettings from '../components/PrinterSettings';
+import printerService, { DEFAULT_KITCHEN_TICKET_CONFIG, DEFAULT_ORDER_LIST_CONFIG, KitchenTicketConfig, OrderListConfig, ReceiptPrintOptions, SavedPrinter } from '../services/printerService';
+import { saveSettingsToDb } from '../lib/sharedSettings';
 import { getKdsPreparationDetails } from '../lib/kdsItemDetails';
 import {
   areAllKdsItemsCooked,
@@ -151,6 +153,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
   const [printerConnected, setPrinterConnected] = useState(false);
   const [isConnectingPrinter, setIsConnectingPrinter] = useState(false);
   const [printingKitchenOrderId, setPrintingKitchenOrderId] = useState<string | null>(null);
+  const [isTestingPrinter, setIsTestingPrinter] = useState(false);
   const [showMailPanel, setShowMailPanel] = useState(false);
   const [openItemMenuKey, setOpenItemMenuKey] = useState<string | null>(null);
   const [cancelItemTarget, setCancelItemTarget] = useState<{ order: Order; item: CartItem; itemKey: string } | null>(null);
@@ -172,12 +175,14 @@ const KitchenDisplayPage: React.FC<Props> = ({
   const [serveOrderId, setServeOrderId] = useState<string | null>(null);
   const [isServingOrder, setIsServingOrder] = useState(false);
   const [showDisplaySettings, setShowDisplaySettings] = useState(false);
-  const [displaySettingsSection, setDisplaySettingsSection] = useState<'APPEARANCE' | 'VERSION'>('APPEARANCE');
+  const [displaySettingsSection, setDisplaySettingsSection] = useState<'APPEARANCE' | 'PRINTER' | 'VERSION'>('APPEARANCE');
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [viewportWidth, setViewportWidth] = useState(() => typeof window === 'undefined' ? 1280 : window.innerWidth);
   const kitchenPreviousPendingIds = useRef<Set<string> | null>(null);
   const kitchenPreviousUpdateMarkers = useRef<Map<string, number> | null>(null);
   const autoPrintSeenOrderIds = useRef<Set<string> | null>(null);
+  const autoPrintEligibleOrderIds = useRef<Set<string>>(new Set());
+  const autoPrintInFlightOrderIds = useRef<Set<string>>(new Set());
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const kitchenEnabled = subscription?.plan_id === 'pro_plus' && restaurant.kitchenEnabled === true;
@@ -218,7 +223,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
         ? Math.min(3, ticketColumns)
         : ticketColumns;
 
-  const savedPrinters = useMemo<SavedPrinter[]>(() => {
+  const [savedPrinters, setSavedPrinters] = useState<SavedPrinter[]>(() => {
     const databasePrinters = restaurant.settings?.printers;
     if (Array.isArray(databasePrinters) && databasePrinters.length > 0) {
       return databasePrinters as SavedPrinter[];
@@ -229,9 +234,9 @@ const KitchenDisplayPage: React.FC<Props> = ({
     } catch {
       return [];
     }
-  }, [restaurant.id, restaurant.settings?.printers]);
+  });
 
-  const kitchenTicketConfig = useMemo<KitchenTicketConfig>(() => {
+  const [kitchenTicketConfig, setKitchenTicketConfig] = useState<KitchenTicketConfig>(() => {
     const databaseConfig = restaurant.settings?.kitchenTicket;
     if (databaseConfig && typeof databaseConfig === 'object') {
       return { ...DEFAULT_KITCHEN_TICKET_CONFIG, ...databaseConfig } as KitchenTicketConfig;
@@ -244,11 +249,37 @@ const KitchenDisplayPage: React.FC<Props> = ({
     } catch {
       return { ...DEFAULT_KITCHEN_TICKET_CONFIG };
     }
-  }, [restaurant.id, restaurant.settings?.kitchenTicket]);
+  });
+
+  const orderListConfig = useMemo<OrderListConfig>(() => {
+    const databaseConfig = restaurant.settings?.orderList;
+    const legacyAddress = typeof databaseConfig?.businessAddress === 'string' ? databaseConfig.businessAddress : '';
+    return {
+      ...DEFAULT_ORDER_LIST_CONFIG,
+      businessName: restaurant.name,
+      ...(databaseConfig || {}),
+      businessAddressLine1: databaseConfig?.businessAddressLine1 || legacyAddress || '',
+      businessAddressLine2: databaseConfig?.businessAddressLine2 || '',
+    } as OrderListConfig;
+  }, [restaurant.name, restaurant.settings?.orderList]);
+
+  const [selectedPrinterId, setSelectedPrinterId] = useState(() => (
+    localStorage.getItem(`kds_selected_printer_${restaurant.id}`) || ''
+  ));
+  const [printedOrderIds, setPrintedOrderIds] = useState<Set<string>>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`kds_printed_orders_${restaurant.id}`) || '[]');
+      return new Set(Array.isArray(saved) ? saved.map(String) : []);
+    } catch {
+      return new Set();
+    }
+  });
 
   const activeKitchenPrinter = useMemo(() => {
+    const selected = savedPrinters.find(printer => printer.id === selectedPrinterId);
+    if (selected) return selected;
     const kitchenPrinters = savedPrinters.filter(printer => printer.printJobs?.includes('kitchen'));
-    if (kitchenPrinters.length === 0) return null;
+    if (kitchenPrinters.length === 0) return savedPrinters[0] || null;
     if (!kitchenHasAssignedScope) return kitchenPrinters[0];
 
     return kitchenPrinters.find(printer => {
@@ -259,7 +290,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
       );
       return Boolean(departmentMatch || categoryMatch);
     }) || kitchenPrinters[0];
-  }, [savedPrinters, kitchenHasAssignedScope, kitchenAssignedScopes, kitchenScopeCategoryKeys]);
+  }, [savedPrinters, selectedPrinterId, kitchenHasAssignedScope, kitchenAssignedScopes, kitchenScopeCategoryKeys]);
 
   const isKitchenItemInActionScope = (item: CartItem): boolean => {
     if (!kitchenHasAssignedScope) return true;
@@ -397,6 +428,9 @@ const KitchenDisplayPage: React.FC<Props> = ({
 
   const configureNetworkPrinter = (printer: SavedPrinter): boolean => {
     if (printer.connectionType !== 'wifi' || !printer.printServerUrl?.trim() || !printer.ipAddress?.trim()) {
+      // A saved WiFi profile elsewhere in the restaurant must not override the
+      // USB/Bluetooth/SUNMI printer explicitly selected on this KDS device.
+      printerService.clearActiveNetworkPrinter(true);
       return false;
     }
     printerService.setActiveNetworkPrinter({
@@ -407,21 +441,141 @@ const KitchenDisplayPage: React.FC<Props> = ({
     return true;
   };
 
+  const getOrderListPrintOptions = (printer: SavedPrinter, cashierName = ''): ReceiptPrintOptions => ({
+    documentType: 'order-list',
+    showDateTime: orderListConfig.showDateTime,
+    showOrderId: orderListConfig.showOrderNumber,
+    showTableNumber: orderListConfig.showTableNumber,
+    showDiningOption: orderListConfig.showDiningOption,
+    showItems: orderListConfig.showItems,
+    includeCancelledItems: true,
+    showItemPrice: orderListConfig.showItemPrice,
+    showRemark: orderListConfig.showRemark,
+    showTotal: orderListConfig.showTotal,
+    showPaymentMethod: orderListConfig.showPaymentMethod,
+    headerText: orderListConfig.headerText,
+    footerText: orderListConfig.footerText,
+    businessAddressLine1: orderListConfig.businessAddressLine1,
+    businessAddressLine2: orderListConfig.businessAddressLine2,
+    businessCity: orderListConfig.businessCity,
+    businessState: orderListConfig.businessState,
+    businessCountry: orderListConfig.businessCountry,
+    businessPhone: orderListConfig.businessPhone,
+    autoOpenDrawer: false,
+    paperSize: printer.paperSize || '58mm',
+    printDensity: printer.printDensity || 'medium',
+    autoCut: printer.autoCut ?? true,
+    showOrderSource: orderListConfig.showOrderSource,
+    showCashierName: orderListConfig.showCashierName,
+    cashierName,
+    showAmountReceived: false,
+    showChange: false,
+    showTaxes: false,
+    documentSize: orderListConfig.documentSize,
+    documentFont: orderListConfig.documentFont,
+    documentAlignment: orderListConfig.documentAlignment,
+    titleSize: orderListConfig.titleSize,
+    titleFont: orderListConfig.titleFont,
+    titleAlignment: orderListConfig.titleAlignment,
+    headerSize: orderListConfig.headerSize,
+    headerFont: orderListConfig.headerFont,
+    headerAlignment: orderListConfig.headerAlignment,
+    footerSize: orderListConfig.footerSize,
+    footerFont: orderListConfig.footerFont,
+    footerAlignment: orderListConfig.footerAlignment,
+    paymentStatusSize: orderListConfig.paymentStatusSize,
+    paymentStatusFont: orderListConfig.paymentStatusFont,
+    paymentStatusAlignment: orderListConfig.paymentStatusAlignment,
+    itemSize: orderListConfig.itemSize,
+  });
+
+  const getLatestCachedSettings = (): Record<string, any> => {
+    try {
+      const cached = localStorage.getItem(`qs_settings_${restaurant.id}`);
+      return cached ? JSON.parse(cached) : (restaurant.settings || {});
+    } catch {
+      return restaurant.settings || {};
+    }
+  };
+
+  const markOrderListPrinted = (orderId: string) => {
+    autoPrintEligibleOrderIds.current.delete(orderId);
+    setPrintedOrderIds(previous => {
+      const next = new Set(previous);
+      next.add(orderId);
+      const recentIds = Array.from(next).slice(-500);
+      localStorage.setItem(`kds_printed_orders_${restaurant.id}`, JSON.stringify(recentIds));
+      return new Set(recentIds);
+    });
+  };
+
+  const handleKdsPrintersChange = (printers: SavedPrinter[]) => {
+    setSavedPrinters(printers);
+    localStorage.setItem(`printers_${restaurant.id}`, JSON.stringify(printers));
+    if (selectedPrinterId && !printers.some(printer => printer.id === selectedPrinterId)) {
+      setSelectedPrinterId('');
+      localStorage.removeItem(`kds_selected_printer_${restaurant.id}`);
+    }
+    void saveSettingsToDb(restaurant.id, getLatestCachedSettings(), 'printers', printers).then(saved => {
+      if (!saved) toast('Printer setup was saved on this device only.', 'warning');
+    });
+  };
+
+  const selectKdsPrinter = async (printerId: string) => {
+    // A printer service owns one active transport. Tear down the previous
+    // destination first so selecting another profile cannot print to it.
+    printerService.clearActiveNetworkPrinter(true);
+    await printerService.disconnect();
+    setPrinterConnected(false);
+    setSelectedPrinterId(printerId);
+    if (printerId) localStorage.setItem(`kds_selected_printer_${restaurant.id}`, printerId);
+    else localStorage.removeItem(`kds_selected_printer_${restaurant.id}`);
+  };
+
+  const setAutoPrintNewOrders = (enabled: boolean) => {
+    const next = { ...kitchenTicketConfig, autoPrintOnNewOrder: enabled };
+    setKitchenTicketConfig(next);
+    localStorage.setItem(`kitchen_config_${restaurant.id}`, JSON.stringify(next));
+    void saveSettingsToDb(restaurant.id, getLatestCachedSettings(), 'kitchenTicket', next).then(saved => {
+      toast(
+        saved ? `Auto Print New Order ${enabled ? 'enabled' : 'disabled'}.` : 'Auto-print setting was saved on this device only.',
+        saved ? 'success' : 'warning',
+      );
+    });
+  };
+
   const refreshPrinterStatus = () => {
-    setPrinterConnected(printerService.getConnectionStatus().connected);
+    const status = printerService.getConnectionStatus();
+    if (!activeKitchenPrinter) {
+      setPrinterConnected(false);
+      return;
+    }
+    const matchesSelectedTransport = status.transport === activeKitchenPrinter.connectionType;
+    const matchesSelectedDevice = activeKitchenPrinter.connectionType !== 'bluetooth'
+      || !activeKitchenPrinter.deviceName
+      || status.deviceName === activeKitchenPrinter.deviceName;
+    setPrinterConnected(status.connected && matchesSelectedTransport && matchesSelectedDevice);
   };
 
   const connectKitchenPrinter = async () => {
     if (!activeKitchenPrinter) {
-      toast('No kitchen printer is assigned. Add one in POS Settings.', 'warning');
+      toast('No printer is configured. Add one in Printer settings.', 'warning');
       return;
     }
 
     setIsConnectingPrinter(true);
     try {
+      const currentTransport = printerService.getConnectionStatus().transport;
+      if (activeKitchenPrinter.connectionType === 'wifi' && currentTransport !== 'wifi' && currentTransport !== 'none') {
+        await printerService.disconnect();
+      }
       if (configureNetworkPrinter(activeKitchenPrinter)) {
         refreshPrinterStatus();
-        toast('Kitchen printer is ready.', 'success');
+        toast('Printer is ready.', 'success');
+        return;
+      }
+      if (activeKitchenPrinter.connectionType === 'wifi') {
+        toast('Complete the print server URL and printer IP in the selected printer setup.', 'warning');
         return;
       }
 
@@ -435,6 +589,11 @@ const KitchenDisplayPage: React.FC<Props> = ({
         connected = Boolean(device);
         connectedDeviceName = device?.name || '';
       } else if (connectedDeviceName) {
+        const status = printerService.getConnectionStatus();
+        if (status.transport === 'bluetooth' && status.deviceName !== connectedDeviceName) {
+          await printerService.disconnect();
+          printerService.clearActiveNetworkPrinter(true);
+        }
         connected = await printerService.autoReconnect(connectedDeviceName)
           || await printerService.connect(connectedDeviceName);
       } else {
@@ -453,11 +612,11 @@ const KitchenDisplayPage: React.FC<Props> = ({
         }));
       }
       refreshPrinterStatus();
-      toast(connected ? 'Kitchen printer connected.' : 'Unable to connect kitchen printer.', connected ? 'success' : 'error');
+      toast(connected ? 'Printer connected.' : 'Unable to connect printer.', connected ? 'success' : 'error');
     } catch (error) {
       console.error('Kitchen printer connection error:', error);
       refreshPrinterStatus();
-      toast('Unable to connect kitchen printer.', 'error');
+      toast('Unable to connect printer.', 'error');
     } finally {
       setIsConnectingPrinter(false);
     }
@@ -465,7 +624,7 @@ const KitchenDisplayPage: React.FC<Props> = ({
 
   const printKitchenOrder = async (order: Order, notify = true) => {
     if (!activeKitchenPrinter) {
-      if (notify) toast('No kitchen printer is assigned. Add one in POS Settings.', 'warning');
+      if (notify) toast('No printer is configured. Add one in Printer settings.', 'warning');
       return false;
     }
 
@@ -476,46 +635,78 @@ const KitchenDisplayPage: React.FC<Props> = ({
         .from('orders')
         .select('*')
         .eq('id', order.id)
-        .single();
+        .maybeSingle();
 
-      if (error || !freshOrder) throw error || new Error('Order not found');
+      if (error) console.warn('Using the latest KDS copy for printing because the order refresh failed:', error);
+      const sourceOrder: any = freshOrder || order;
 
-      const freshItems: CartItem[] = Array.isArray(freshOrder.items)
-        ? freshOrder.items
-        : typeof freshOrder.items === 'string'
-          ? JSON.parse(freshOrder.items)
+      const freshItems: CartItem[] = Array.isArray(sourceOrder.items)
+        ? sourceOrder.items
+        : typeof sourceOrder.items === 'string'
+          ? JSON.parse(sourceOrder.items)
           : [];
-      const scopedItems = freshItems.filter(isKitchenItemInActionScope);
+      // Print the complete latest order revision for this station, including
+      // served and cancelled audit rows, rather than only the active KDS batch.
+      const scopedItems = freshItems.filter(item => item.kdsRouted !== false && isKitchenItemInActionScope(item));
       if (scopedItems.length === 0) return false;
 
       const printableOrder = {
-        id: freshOrder.id,
-        tableNumber: freshOrder.table_number,
-        timestamp: freshOrder.timestamp,
+        ...order,
+        id: sourceOrder.id || order.id,
+        tableNumber: sourceOrder.table_number ?? sourceOrder.tableNumber ?? order.tableNumber,
+        diningType: sourceOrder.dining_type ?? sourceOrder.diningType ?? order.diningType,
+        orderSource: sourceOrder.order_source ?? sourceOrder.orderSource ?? order.orderSource,
+        paymentMethod: sourceOrder.payment_method ?? sourceOrder.paymentMethod ?? order.paymentMethod,
+        cashierName: sourceOrder.cashier_name ?? sourceOrder.cashierName ?? order.cashierName,
+        total: Number(sourceOrder.total ?? order.total ?? 0),
+        timestamp: sourceOrder.timestamp || order.timestamp,
         items: scopedItems,
-        remark: freshOrder.remark || '',
+        remark: sourceOrder.remark || '',
       };
-      const copyCount = Math.max(1, activeKitchenPrinter.numberOfCopies || kitchenTicketConfig.numberOfCopies || 1);
-      let printed = true;
-      for (let copy = 0; copy < copyCount; copy += 1) {
-        printed = await printerService.printKitchenTicket(
-          printableOrder,
-          restaurant,
-          kitchenTicketConfig,
-          activeKitchenPrinter.paperSize || '58mm',
-        ) && printed;
-      }
+      const printRestaurant = {
+        ...restaurant,
+        name: orderListConfig.businessName.trim() || restaurant.name,
+      };
+      const printed = await printerService.printReceipt(
+        printableOrder,
+        printRestaurant,
+        getOrderListPrintOptions(activeKitchenPrinter, printableOrder.cashierName || ''),
+      );
 
       refreshPrinterStatus();
-      if (notify) toast(printed ? 'Kitchen ticket printed.' : 'Kitchen ticket failed to print.', printed ? 'success' : 'error');
+      if (printed) markOrderListPrinted(order.id);
+      if (notify) toast(printed ? 'Order list printed.' : 'Order list failed to print.', printed ? 'success' : 'error');
       return printed;
     } catch (error) {
-      console.error('Kitchen ticket print error:', error);
+      console.error('KDS order list print error:', error);
       refreshPrinterStatus();
-      if (notify) toast('Kitchen ticket failed to print.', 'error');
+      if (notify) toast('Order list failed to print.', 'error');
       return false;
     } finally {
       setPrintingKitchenOrderId(null);
+    }
+  };
+
+  const testKitchenPrinter = async () => {
+    if (!activeKitchenPrinter) {
+      toast('Select or add a printer first.', 'warning');
+      return;
+    }
+    configureNetworkPrinter(activeKitchenPrinter);
+    setIsTestingPrinter(true);
+    try {
+      const printed = await printerService.printTestPage(
+        orderListConfig.businessName.trim() || restaurant.name,
+        activeKitchenPrinter.paperSize || '58mm',
+      );
+      refreshPrinterStatus();
+      toast(printed ? 'Test print sent.' : 'Test print failed.', printed ? 'success' : 'error');
+    } catch (error) {
+      console.error('KDS test print error:', error);
+      refreshPrinterStatus();
+      toast('Test print failed. Connect the selected printer first.', 'error');
+    } finally {
+      setIsTestingPrinter(false);
     }
   };
 
@@ -528,6 +719,10 @@ const KitchenDisplayPage: React.FC<Props> = ({
         return;
       }
 
+      const currentTransport = printerService.getConnectionStatus().transport;
+      if (activeKitchenPrinter.connectionType === 'wifi' && currentTransport !== 'wifi' && currentTransport !== 'none') {
+        await printerService.disconnect();
+      }
       if (configureNetworkPrinter(activeKitchenPrinter)) {
         if (!cancelled) refreshPrinterStatus();
         return;
@@ -832,22 +1027,43 @@ const KitchenDisplayPage: React.FC<Props> = ({
   }, [kitchenFilteredOrders, kitchenHasAssignedScope, kitchenScopeCategories]);
 
   useEffect(() => {
-    const pendingOrderIds = new Set(kitchenPendingOrders.map(order => order.id));
+    const receivedOrders = kitchenFilteredOrders.filter(order => (
+      order.status === OrderStatus.PENDING
+      || order.status === OrderStatus.ONGOING
+      || order.status === OrderStatus.PREPARING
+    ));
+    const receivedOrderIds = new Set(receivedOrders.map(order => order.id));
     if (autoPrintSeenOrderIds.current === null) {
-      autoPrintSeenOrderIds.current = pendingOrderIds;
+      // Existing tickets are the mount-time baseline, not newly received work.
+      autoPrintSeenOrderIds.current = receivedOrderIds;
       return;
     }
 
-    const newPendingOrders = kitchenPendingOrders.filter(order => !autoPrintSeenOrderIds.current?.has(order.id));
-    autoPrintSeenOrderIds.current = pendingOrderIds;
+    receivedOrders.forEach(order => {
+      if (
+        kitchenTicketConfig.autoPrintOnNewOrder
+        && !autoPrintSeenOrderIds.current?.has(order.id)
+      ) autoPrintEligibleOrderIds.current.add(order.id);
+    });
+    receivedOrderIds.forEach(orderId => autoPrintSeenOrderIds.current?.add(orderId));
     if (!kitchenEnabled || !kitchenTicketConfig.autoPrintOnNewOrder || !printerConnected) return;
 
-    newPendingOrders.forEach(order => {
+    const ordersToPrint = receivedOrders.filter(order => (
+      autoPrintEligibleOrderIds.current.has(order.id)
+      && !printedOrderIds.has(order.id)
+      && !autoPrintInFlightOrderIds.current.has(order.id)
+    ));
+    ordersToPrint.forEach(order => {
+      // Remove before starting so state changes during a print cannot enqueue a duplicate.
+      autoPrintEligibleOrderIds.current.delete(order.id);
+      autoPrintInFlightOrderIds.current.add(order.id);
       void printKitchenOrder(order, false).then(printed => {
-        if (!printed) toast(`Auto-print failed for order #${order.id}.`, 'error');
+        if (!printed) toast(`Auto-print failed for order #${order.id}. Use Print Order List to retry.`, 'error');
+      }).finally(() => {
+        autoPrintInFlightOrderIds.current.delete(order.id);
       });
     });
-  }, [kitchenPendingOrders, kitchenEnabled, kitchenTicketConfig.autoPrintOnNewOrder, printerConnected]);
+  }, [kitchenFilteredOrders, kitchenEnabled, kitchenTicketConfig.autoPrintOnNewOrder, printerConnected, printedOrderIds]);
 
   useEffect(() => {
     if (!openItemMenuKey) return;
@@ -1241,17 +1457,31 @@ const KitchenDisplayPage: React.FC<Props> = ({
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={event => {
-                      event.stopPropagation();
-                      setExpandedOrderId(isExpanded ? null : order.id);
-                    }}
-                    className="flex h-11 shrink-0 items-center justify-center gap-1.5 border-t border-gray-200 text-[11px] font-bold text-blue-600 hover:bg-blue-50"
-                  >
-                    {isExpanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-                    {isExpanded ? 'collapse' : 'expand'}
-                  </button>
+                  <div className="grid h-11 shrink-0 grid-cols-2 border-t border-gray-200">
+                    <button
+                      type="button"
+                      onClick={event => {
+                        event.stopPropagation();
+                        void printKitchenOrder(order);
+                      }}
+                      disabled={printingKitchenOrderId === order.id}
+                      className="flex items-center justify-center gap-1.5 border-r border-gray-200 px-1 text-[10px] font-bold text-orange-600 hover:bg-orange-50 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {printingKitchenOrderId === order.id ? <Loader2 className="animate-spin" size={14} /> : <Printer size={14} />}
+                      {printedOrderIds.has(order.id) ? 'Reprint Order List' : 'Print Order List'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={event => {
+                        event.stopPropagation();
+                        setExpandedOrderId(isExpanded ? null : order.id);
+                      }}
+                      className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-blue-600 hover:bg-blue-50"
+                    >
+                      {isExpanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+                      {isExpanded ? 'collapse' : 'expand'}
+                    </button>
+                  </div>
                 </article>
               );
             })}
@@ -1350,6 +1580,13 @@ const KitchenDisplayPage: React.FC<Props> = ({
                 </button>
                 <button
                   type="button"
+                  onClick={() => setDisplaySettingsSection('PRINTER')}
+                  className={`flex h-12 flex-1 items-center rounded-md px-4 text-left text-base font-semibold sm:flex-none ${displaySettingsSection === 'PRINTER' ? 'bg-white/25 text-white' : 'text-gray-400 hover:bg-white/10 hover:text-white'}`}
+                >
+                  Printer
+                </button>
+                <button
+                  type="button"
                   onClick={() => setDisplaySettingsSection('VERSION')}
                   className={`flex h-12 flex-1 items-center rounded-md px-4 text-left text-base font-semibold sm:flex-none ${displaySettingsSection === 'VERSION' ? 'bg-white/25 text-white' : 'text-gray-400 hover:bg-white/10 hover:text-white'}`}
                 >
@@ -1397,6 +1634,90 @@ const KitchenDisplayPage: React.FC<Props> = ({
                 </div>
 
               </div>
+              ) : displaySettingsSection === 'PRINTER' ? (
+                <div className="max-w-4xl">
+                  <h2 className="text-2xl font-semibold">Printer</h2>
+                  <p className="mt-2 text-sm text-gray-400">Connect a thermal printer and use the same Order List layout configured in POS.</p>
+
+                  <div className="mt-8 rounded-lg border border-white/20 p-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                      <label className="min-w-0 flex-1 text-sm font-medium">
+                        Selected printer
+                        <select
+                          value={activeKitchenPrinter?.id || ''}
+                          onChange={event => void selectKdsPrinter(event.target.value)}
+                          className="mt-2 h-11 w-full rounded-md border border-white/30 bg-[#171717] px-3 text-sm text-white outline-none focus:border-blue-500"
+                        >
+                          {savedPrinters.length === 0 && <option value="">No printers configured</option>}
+                          {savedPrinters.map(printer => (
+                            <option key={printer.id} value={printer.id}>{printer.name} · {printer.connectionType.toUpperCase()} · {printer.paperSize}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void connectKitchenPrinter()}
+                          disabled={!activeKitchenPrinter || isConnectingPrinter}
+                          className="flex h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-bold text-white hover:bg-blue-500 disabled:opacity-40"
+                        >
+                          {isConnectingPrinter ? <Loader2 className="animate-spin" size={16} /> : <Printer size={16} />}
+                          {printerConnected ? 'Reconnect' : 'Connect'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void testKitchenPrinter()}
+                          disabled={!activeKitchenPrinter || isTestingPrinter}
+                          className="flex h-11 items-center justify-center gap-2 rounded-md border border-white/30 px-4 text-sm font-bold hover:bg-white/10 disabled:opacity-40"
+                        >
+                          {isTestingPrinter ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle size={16} />}
+                          Test Print
+                        </button>
+                      </div>
+                    </div>
+                    <div className={`mt-4 flex items-center gap-2 text-sm font-semibold ${printerConnected ? 'text-green-400' : 'text-gray-400'}`}>
+                      <span className={`h-2.5 w-2.5 rounded-full ${printerConnected ? 'bg-green-400' : 'bg-gray-500'}`} />
+                      {printerConnected ? 'Printer ready' : 'Printer disconnected'}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex items-center justify-between gap-5 rounded-lg border border-white/20 p-5">
+                    <div>
+                      <p className="text-base font-medium">Auto Print New Order</p>
+                      <p className="mt-1 text-sm text-gray-400">Print each newly received KDS order once. Later updates can be reprinted from the order card.</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={kitchenTicketConfig.autoPrintOnNewOrder}
+                      onClick={() => setAutoPrintNewOrders(!kitchenTicketConfig.autoPrintOnNewOrder)}
+                      className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${kitchenTicketConfig.autoPrintOnNewOrder ? 'bg-blue-600' : 'bg-gray-600'}`}
+                    >
+                      <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${kitchenTicketConfig.autoPrintOnNewOrder ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+                  {kitchenTicketConfig.autoPrintOnNewOrder && !printerConnected && (
+                    <p className="mt-3 text-sm font-medium text-amber-400">Connect the selected printer to auto-print incoming orders.</p>
+                  )}
+
+                  <div className="mt-8 border-t border-white/20 pt-8">
+                    <h3 className="text-lg font-semibold">Printer connection and setup</h3>
+                    <p className="mt-1 text-sm text-gray-400">Add or edit Bluetooth, USB, SUNMI, and WiFi/LAN thermal printer profiles.</p>
+                    <div className="mt-5">
+                      <PrinterSettings
+                        restaurantId={restaurant.id}
+                        restaurantName={restaurant.name}
+                        categories={kitchenScopeCategories}
+                        departments={kitchenDivisions}
+                        savedPrinters={savedPrinters}
+                        initialTab="printers"
+                        visibleTabs={['printers']}
+                        onPrinterConnected={() => refreshPrinterStatus()}
+                        onPrintersChange={handleKdsPrintersChange}
+                      />
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <div className="max-w-3xl">
                   <h2 className="text-2xl font-semibold">Version Info</h2>

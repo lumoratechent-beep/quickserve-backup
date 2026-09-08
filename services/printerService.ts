@@ -195,6 +195,7 @@ export interface ReceiptConfig {
 export interface OrderListConfig extends ReceiptConfig {
   showItemPrice: boolean;
   showPaymentMethod: boolean;
+  itemSize: TextSize;
 }
 
 /** Kitchen ticket config */
@@ -211,6 +212,8 @@ export interface ReceiptPrintOptions {
   showTableNumber?: boolean;
   showDiningOption?: boolean;
   showItems?: boolean;
+  /** Include cancelled KDS lines and their cancellation reason on an order list. */
+  includeCancelledItems?: boolean;
   showItemPrice?: boolean;
   showRemark?: boolean;
   showTotal?: boolean;
@@ -252,6 +255,7 @@ export interface ReceiptPrintOptions {
   paymentStatusSize?: TextSize;
   paymentStatusFont?: TextFont;
   paymentStatusAlignment?: TextAlignment;
+  itemSize?: TextSize;
 }
 
 export interface ShiftPrintData {
@@ -345,6 +349,7 @@ export const DEFAULT_ORDER_LIST_CONFIG: OrderListConfig = {
   showChange: false,
   showItemPrice: false,
   showPaymentMethod: false,
+  itemSize: 1,
 };
 
 export const DEFAULT_KITCHEN_TICKET_CONFIG: KitchenTicketConfig = {
@@ -822,10 +827,10 @@ class PrinterService {
     this.networkPrinterConfigSource = 'manual';
   }
 
-  /** Clear the active network printer config */
-  clearActiveNetworkPrinter(): void {
+  /** Clear the active network printer config. Direct transports can suppress saved WiFi auto-detection. */
+  clearActiveNetworkPrinter(preventAutoDetection = false): void {
     this.networkPrinterConfig = null;
-    this.networkPrinterConfigSource = null;
+    this.networkPrinterConfigSource = preventAutoDetection ? 'manual' : null;
   }
 
   /** Returns true if a network printer is configured */
@@ -1470,15 +1475,21 @@ class PrinterService {
 
       // ── Items ──
       if (showItems && Array.isArray(order.items) && order.items.length > 0) {
+        const isOrderList = options?.documentType === 'order-list';
+        const itemSz = isOrderList ? options?.itemSize || 1 : 1;
+        let printedItemCount = 0;
         for (const item of order.items) {
-          // Cancelled KDS revision rows are kitchen audit history, not sale lines.
-          if (item.status === 'CANCELLED') continue;
+          const isCancelled = item.status === 'CANCELLED';
+          // Receipts keep historical KDS revisions hidden. KDS order-list
+          // reprints opt in so the kitchen sees changed/cancelled instructions.
+          if (isCancelled && !options?.includeCancelledItems) continue;
           const name = this.sanitize(item.name) || 'Item';
           const qty  = item.quantity || 1;
-          const lineLabel = `${qty}x ${name}`;
+          const lineLabel = `${qty}x ${name}${isCancelled ? ' [CANCELLED]' : ''}`;
 
-          r.bold(true);
-          if (showItemPrice) {
+          if (isOrderList && printedItemCount > 0) r.feed(1);
+          r.bold(true).size(itemSz, itemSz);
+          if (showItemPrice && !isCancelled) {
             const price = this.formatPrice(item.price ? item.price * qty : 0);
             r.columns2(lineLabel, price);
           } else {
@@ -1486,36 +1497,16 @@ class PrinterService {
           }
           r.bold(false);
 
-          // Item options / variants
-          if (item.selectedSize)
-            r.line(`  Size: ${this.sanitize(item.selectedSize)}`);
-          if (item.selectedTemp)
-            r.line(`  Temp: ${this.sanitize(item.selectedTemp)}`);
-          if (item.selectedOtherVariant) {
-            const label = this.sanitize(item.otherVariantName) || 'Option';
-            r.line(`  ${label}: ${this.sanitize(item.selectedOtherVariant)}`);
+          // Keep POS and KDS order-list preparation details identical.
+          for (const detail of getKdsPreparationDetails(item)) {
+            r.line(`  ${this.sanitize(detail.label)}: ${this.sanitize(detail.value)}`);
           }
-          if (item.selectedVariantOption)
-            r.line(`  Variant: ${this.sanitize(item.selectedVariantOption)}`);
-
-          // Mix & Match
-          if (Array.isArray(item.selectedMixMatch)) {
-            for (const mm of item.selectedMixMatch) {
-              if (mm.choice) {
-                const label = this.sanitize(mm.label) || 'Selection';
-                r.line(`  ${label}: ${this.sanitize(mm.choice)}`);
-              }
-            }
+          if (isCancelled) {
+            const reason = this.sanitize(item.kitchenCancelReason);
+            if (reason) r.line(`  Cancel reason: ${reason}`);
           }
-
-          // Add-ons
-          if (Array.isArray(item.selectedAddOns)) {
-            for (const addon of item.selectedAddOns) {
-              const an = this.sanitize(addon.name) || 'Add-on';
-              const aq = addon.quantity || 1;
-              r.line(aq > 1 ? `  + ${an} x${aq}` : `  + ${an}`);
-            }
-          }
+          r.normalSize().bold(false);
+          printedItemCount += 1;
         }
         r.feed(1);
       } else {
@@ -1538,17 +1529,18 @@ class PrinterService {
       const hasChange = options?.showChange !== false && order.changeAmount != null && Number(order.changeAmount) >= 0;
       const hasTotalSection = hasTotal || hasPayment || hasAmountReceived || hasChange;
 
-      const discountAmount = Array.isArray(order.items)
-        ? order.items.reduce((sum: number, item: any) => {
+      const financialItems = Array.isArray(order.items)
+        ? order.items.filter((item: any) => item.status !== 'CANCELLED')
+        : [];
+      const discountAmount = financialItems
+        .reduce((sum: number, item: any) => {
             const originalPrice = Number(item.originalPrice || 0);
             const currentPrice = Number(item.price || 0);
             const quantity = Number(item.quantity || 0);
             return sum + (originalPrice > currentPrice + 0.005 ? (originalPrice - currentPrice) * quantity : 0);
-          }, 0)
-        : 0;
-      const discountedItemsSubtotal = Array.isArray(order.items)
-        ? order.items.reduce((sum: number, item: any) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0)
-        : 0;
+          }, 0);
+      const discountedItemsSubtotal = financialItems
+        .reduce((sum: number, item: any) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
       const receiptTaxLines = options?.showTaxes && Array.isArray(options.taxes)
         ? options.taxes.map(tax => {
             const percentage = Number(tax.percentage ?? tax.amount ?? 0);
