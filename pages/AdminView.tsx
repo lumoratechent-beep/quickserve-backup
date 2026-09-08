@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, AdminDashboardAnalytics, Subscription, SubscriptionExpiryHistory, PlanId, MenuItem } from '../src/types';
 import { uploadImage } from '../lib/storage';
-import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, ChevronDown, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2, Lock, Unlock, MoreVertical, BookOpen, Package } from 'lucide-react';
+import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, DoorOpen, Trash2, LayoutGrid, List, ChevronRight, ChevronDown, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2, Lock, Unlock, MoreVertical, BookOpen, Package } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
@@ -13,6 +13,7 @@ import { getCalendarReportDateRange, toLocalDateInputValue } from '../lib/report
 
 interface Props {
   vendors: User[];
+  users: User[];
   restaurants: Restaurant[];
   locations: Area[];
   onAddVendor: (user: User, restaurant: Restaurant) => Promise<string | null>;
@@ -31,7 +32,7 @@ interface Props {
   onFetchDashboardAnalytics?: (filters: ReportFilters) => Promise<AdminDashboardAnalytics>;
 }
 
-type AdminTab = 'DASHBOARD' | 'VENDORS' | 'INCOME_REPORT' | 'VENDOR_SUBSCRIPTION' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SHOP' | 'DOCUMENTS' | 'PORTAL_MANAGEMENT' | 'SYSTEM';
+type AdminTab = 'DASHBOARD' | 'USERS' | 'VENDORS' | 'INCOME_REPORT' | 'VENDOR_SUBSCRIPTION' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SHOP' | 'DOCUMENTS' | 'PORTAL_MANAGEMENT' | 'SYSTEM';
 type SubscriptionScheduleSort = 'EXPIRY_DESC' | 'EXPIRY_ASC' | 'ALPHA_ASC' | 'ALPHA_DESC';
 type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'paid' | 'expired';
 type QuotationDocumentType = 'quotation' | 'invoice';
@@ -873,6 +874,7 @@ const SystemSchedulerDashboard: React.FC = () => {
 
 const AdminView: React.FC<Props> = ({ 
   vendors, 
+  users,
   restaurants, 
   locations, 
   onAddVendor, 
@@ -904,6 +906,44 @@ const AdminView: React.FC<Props> = ({
   };
 
   const [activeTab, setActiveTab] = useState<AdminTab>('DASHBOARD');
+    const [userSearch, setUserSearch] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState<'ALL' | User['role']>('ALL');
+  const [userStatusFilter, setUserStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+  const [userEntriesPerPage, setUserEntriesPerPage] = useState(30);
+  const [userCurrentPage, setUserCurrentPage] = useState(1);
+  const filteredUsers = useMemo(() => {
+    const query = userSearch.trim().toLowerCase();
+    return users.filter(user => {
+      const matchesSearch = !query
+        || user.username.toLowerCase().includes(query)
+        || user.name?.toLowerCase().includes(query)
+        || user.role.toLowerCase().includes(query);
+      const matchesRole = userRoleFilter === 'ALL' || user.role === userRoleFilter;
+      const matchesStatus = userStatusFilter === 'ALL'
+        || (userStatusFilter === 'ACTIVE' ? user.isActive !== false : user.isActive === false);
+      return matchesSearch && matchesRole && matchesStatus;
+    });
+  }, [users, userSearch, userRoleFilter, userStatusFilter]);
+  const userTotalPages = Math.max(1, Math.ceil(filteredUsers.length / userEntriesPerPage));
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (userCurrentPage - 1) * userEntriesPerPage;
+    return filteredUsers.slice(startIndex, startIndex + userEntriesPerPage);
+  }, [filteredUsers, userCurrentPage, userEntriesPerPage]);
+  const visibleUserPages = useMemo(() => {
+    const pages = new Set<number>([1, userTotalPages]);
+    for (let page = Math.max(1, userCurrentPage - 2); page <= Math.min(userTotalPages, userCurrentPage + 2); page += 1) {
+      pages.add(page);
+    }
+    return Array.from(pages).sort((left, right) => left - right);
+  }, [userCurrentPage, userTotalPages]);
+
+  useEffect(() => {
+    setUserCurrentPage(1);
+  }, [userSearch, userRoleFilter, userStatusFilter, userEntriesPerPage]);
+
+  useEffect(() => {
+    if (userCurrentPage > userTotalPages) setUserCurrentPage(userTotalPages);
+  }, [userCurrentPage, userTotalPages]);
   const [vendorHubSubTab, setVendorHubSubTab] = useState<'VENDORS' | 'HUBS'>('VENDORS');
   const [incomeReportSubTab, setIncomeReportSubTab] = useState<'INCOME' | 'REPORTS'>('INCOME');
   const [vendorSubscriptionSubTab, setVendorSubscriptionSubTab] = useState<'SCHEDULE' | 'HISTORY'>('SCHEDULE');
@@ -3594,6 +3634,7 @@ const AdminView: React.FC<Props> = ({
         <nav className={`flex-1 space-y-1 ${sidebarCollapsed ? 'p-2 pt-4' : 'p-4 pt-5'}`}>
           {([
             { id: 'DASHBOARD', label: 'Dashboard', icon: LayoutGrid },
+            { id: 'USERS', label: 'User Management', icon: Users },
             { id: 'VENDORS', label: 'Vendor & Hubs', icon: Store },
             { id: 'INCOME_REPORT', label: 'Income & Report', icon: TrendingUp },
             { id: 'VENDOR_SUBSCRIPTION', label: 'Vendor Subscription', icon: Calendar },
@@ -3660,6 +3701,7 @@ const AdminView: React.FC<Props> = ({
             </div>
             <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm">
               {activeTab === 'DASHBOARD' ? 'Dashboard' :
+               activeTab === 'USERS' ? 'User Management' :
                activeTab === 'VENDORS' ? 'Vendor & Hubs' :
                activeTab === 'INCOME_REPORT' ? 'Income & Report' :
                activeTab === 'VENDOR_SUBSCRIPTION' ? 'Vendor Subscription' :
@@ -3683,6 +3725,132 @@ const AdminView: React.FC<Props> = ({
               throw new Error('Dashboard analytics service is unavailable.');
             })}
           />
+        )}
+        {activeTab === 'USERS' && (
+          <div className="p-4 md:p-8">
+            <div className="mb-5">
+              <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">User Management</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">View all accounts and sign in as a user.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="relative w-full sm:w-72">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search users..."
+                    className="w-full h-9 pl-9 pr-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 transition-all dark:text-white"
+                    value={userSearch}
+                    onChange={event => setUserSearch(event.target.value)}
+                  />
+                </div>
+                <div className="flex w-full sm:w-auto flex-wrap items-center justify-end gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  <div className="relative">
+                    <select
+                      aria-label="Filter by access type"
+                      value={userRoleFilter}
+                      onChange={event => setUserRoleFilter(event.target.value as typeof userRoleFilter)}
+                      className={`${adminSelectBase} w-[132px] pl-3 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600`}
+                    >
+                      <option value="ALL">All Types</option>
+                      {(['ADMIN', 'VENDOR', 'CASHIER', 'KITCHEN', 'ORDER_TAKER', 'MANAGER', 'HR', 'CUSTOMER'] as User['role'][]).map(role => (
+                        <option key={role} value={role}>{role.replace('_', ' ')}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                  <div className="relative">
+                    <select
+                      aria-label="Filter by status"
+                      value={userStatusFilter}
+                      onChange={event => setUserStatusFilter(event.target.value as typeof userStatusFilter)}
+                      className={`${adminSelectBase} w-[132px] pl-3 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600`}
+                    >
+                      <option value="ALL">All Status</option>
+                      <option value="ACTIVE">Active</option>
+                      <option value="INACTIVE">Inactive</option>
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                  <span>Show</span>
+                  <div className="relative">
+                    <select
+                      value={userEntriesPerPage}
+                      onChange={event => setUserEntriesPerPage(Number(event.target.value))}
+                      className={`${adminSelectBase} w-[64px] pl-3 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600`}
+                    >
+                      {[30, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[9px] font-black uppercase tracking-widest">
+                    <tr>
+                      <th className="px-4 py-2.5 text-left">Username</th>
+                      <th className="px-4 py-2.5 text-left">Name</th>
+                      <th className="px-4 py-2.5 text-left">User Type</th>
+                      <th className="px-4 py-2.5 text-left">Status</th>
+                      <th className="px-4 py-2.5 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y dark:divide-gray-700">
+                    {paginatedUsers
+                      .map(user => (
+                        <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                          <td className="px-4 py-2 text-[10px] font-black dark:text-white uppercase tracking-widest whitespace-nowrap">{user.username}</td>
+                          <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tight whitespace-nowrap">{user.name || '-'}</td>
+                          <td className="px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">{user.role}</td>
+                          <td className="px-4 py-2 text-[10px] whitespace-nowrap">
+                            <span className={`inline-flex items-center gap-1.5 font-bold ${user.isActive === false ? 'text-red-500' : 'text-emerald-500'}`}>
+                              <span className={`h-1.5 w-1.5 rounded-full ${user.isActive === false ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                              {user.isActive === false ? 'Disabled' : 'Active'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 text-right">
+                            <button
+                              type="button"
+                              title={`Login as ${user.username}`}
+                              aria-label={`Login as ${user.username}`}
+                              onClick={() => onImpersonateVendor(user)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-gray-500 hover:bg-orange-50 hover:text-orange-500 dark:hover:bg-orange-900/20"
+                            >
+                              <DoorOpen size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    {paginatedUsers.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="py-10 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">No matching users found.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-3 border-t border-gray-100 dark:border-gray-700 px-4 py-3">
+                {userTotalPages > 1 && (
+                  <div className="flex items-center justify-center gap-1 overflow-x-auto no-print">
+                    <button onClick={() => setUserCurrentPage(1)} disabled={userCurrentPage === 1} className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded-md text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronFirst size={14} /></button>
+                    <button onClick={() => setUserCurrentPage(prev => Math.max(1, prev - 1))} disabled={userCurrentPage === 1} className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded-md text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLeft size={14} /></button>
+                    {visibleUserPages.map((page, index, pages) => (
+                      <React.Fragment key={page}>
+                        {index > 0 && page !== pages[index - 1] + 1 && <span className="px-1 text-[10px] text-gray-400">...</span>}
+                        <button onClick={() => setUserCurrentPage(page)} className={`h-7 min-w-7 rounded-md px-1.5 text-[10px] font-black transition-all ${userCurrentPage === page ? 'bg-orange-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>{page}</button>
+                      </React.Fragment>
+                    ))}
+                    <button onClick={() => setUserCurrentPage(prev => Math.min(userTotalPages, prev + 1))} disabled={userCurrentPage === userTotalPages} className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded-md text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronRight size={14} /></button>
+                    <button onClick={() => setUserCurrentPage(userTotalPages)} disabled={userCurrentPage === userTotalPages} className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded-md text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLast size={14} /></button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
         {activeTab === 'VENDORS' && (
           <div className="p-4 md:p-8">

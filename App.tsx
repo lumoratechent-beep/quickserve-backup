@@ -1100,13 +1100,19 @@ const App: React.FC = () => {
     // Only fetch users if the user is an admin
     if (currentRole !== 'ADMIN') return;
     
-    const result = await withTimeout(supabase.from('users').select('id, username, role, restaurant_id, is_active, email, phone, kitchen_categories'), 6000);
+    const [result, profileResult] = await Promise.all([
+      withTimeout(supabase.from('users').select('id, username, role, restaurant_id, is_active, email, phone, kitchen_categories'), 6000),
+      withTimeout(supabase.from('staff_profiles').select('user_id, full_name, preferred_name'), 6000),
+    ]);
     if (!result) return;
     const { data, error } = result;
+    const profiles = profileResult?.data || [];
+    const profileByUserId = new Map(profiles.map(profile => [profile.user_id, profile]));
     if (!error && data) {
       const mapped = data.map(u => ({
         id: u.id, 
         username: u.username, 
+        name: profileByUserId.get(u.id)?.preferred_name || profileByUserId.get(u.id)?.full_name || undefined,
         role: u.role as Role,
         restaurantId: u.restaurant_id,
         isActive: u.is_active, 
@@ -4535,6 +4541,7 @@ const App: React.FC = () => {
 
         {currentRole === 'ADMIN' && (
           <AdminView 
+            users={allUsers}
             vendors={allUsers.filter(u => u.role === 'VENDOR')} 
             restaurants={restaurants} 
             locations={locations} 
