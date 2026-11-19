@@ -1,3 +1,4 @@
+import BodyPortal from './BodyPortal';
 import React, { useMemo, useState } from 'react';
 import { Archive, Calendar, Edit3, Plus, Save, Search, Tag, X } from 'lucide-react';
 import type { MenuItem, MenuPromotionDiscount, Restaurant } from '../src/types';
@@ -258,8 +259,8 @@ const PromotionDiscountManager: React.FC<Props> = ({ restaurant, currencySymbol,
   }));
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="min-w-0">
+      <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex w-full shrink-0 items-center gap-3 sm:w-auto">
           <div className="relative min-w-0 flex-1 sm:flex-none">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -303,16 +304,16 @@ const PromotionDiscountManager: React.FC<Props> = ({ restaurant, currencySymbol,
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px]">
+          <table className="w-full whitespace-nowrap text-left text-xs">
             <thead className="bg-gray-50 text-gray-400 dark:bg-gray-900/40">
               <tr>
-                <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest">Menu</th>
-                <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest">Discount</th>
-                <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest">Date</th>
-                <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest">Promo Price</th>
-                <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest">Actions</th>
+                <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider">Menu</th>
+                <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider">Discount</th>
+                <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider">Date</th>
+                <th className="px-3 py-2 text-right text-[10px] font-black uppercase tracking-wider">Promo Price</th>
+                <th className="px-3 py-2 text-right text-[10px] font-black uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700/70">
@@ -320,7 +321,7 @@ const PromotionDiscountManager: React.FC<Props> = ({ restaurant, currencySymbol,
                 <tr>
                   <td colSpan={5} className="py-14 text-center">
                     <Tag size={28} className="mx-auto mb-2 text-gray-300" />
-                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
                       {statusFilter === 'ACTIVE' ? '0 active promotions' : 'No archived promotions'}
                     </p>
                   </td>
@@ -331,23 +332,23 @@ const PromotionDiscountManager: React.FC<Props> = ({ restaurant, currencySymbol,
 
                 return (
                   <tr key={item.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <div className="min-w-0">
-                        <p className="text-xs font-black uppercase tracking-tight text-gray-900 dark:text-white">{item.name}</p>
-                        <p className="mt-1 text-[9px] font-black uppercase tracking-widest text-gray-400">{item.category || 'Uncategorized'}</p>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white">{item.name}</p>
+                        <p className="mt-1 text-[9px] font-black uppercase tracking-wider text-gray-400">{item.category || 'Uncategorized'}</p>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <p className="text-xs font-black text-gray-900 dark:text-white">{getPromotionValueLabel(promotion, currencySymbol)}</p>
-                      <p className="mt-1 text-[9px] font-black uppercase tracking-widest text-gray-400">{isVariantPromo ? 'Adjusted variants' : 'All variants'}</p>
+                      <p className="mt-1 text-[9px] font-black uppercase tracking-wider text-gray-400">{isVariantPromo ? 'Adjusted variants' : 'All variants'}</p>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <div className="inline-flex items-center gap-1.5 text-[10px] font-bold text-gray-500 dark:text-gray-400">
                         <Calendar size={13} />
                         {getPromotionDateLabel(promotion)}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-3 py-2 text-right">
                       {isVariantPromo ? (
                         <span className="text-xs font-black text-orange-500">Variant based</span>
                       ) : (
@@ -357,7 +358,7 @@ const PromotionDiscountManager: React.FC<Props> = ({ restaurant, currencySymbol,
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <div className="flex items-center justify-end">
                         <TableActionMenu label={`Actions for ${item.name}`} menuHeight={statusFilter === 'ACTIVE' ? 96 : 56}>
                           {close => (
@@ -384,6 +385,7 @@ const PromotionDiscountManager: React.FC<Props> = ({ restaurant, currencySymbol,
       </div>
 
       {isModalOpen && selectedItem && (
+      <BodyPortal>
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
           <div
             className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800"
@@ -589,6 +591,7 @@ const PromotionDiscountManager: React.FC<Props> = ({ restaurant, currencySymbol,
             </div>
           </div>
         </div>
+      </BodyPortal>
       )}
     </div>
   );

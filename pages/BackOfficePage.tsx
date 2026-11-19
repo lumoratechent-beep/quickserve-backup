@@ -19,6 +19,7 @@ import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal
 import PromotionDiscountManager from '../components/PromotionDiscountManager';
 import SectionInfoButton from '../components/SectionInfoButton';
 import TableActionMenu from '../components/TableActionMenu';
+import BodyPortal from '../components/BodyPortal';
 import StandardReport, { type ReportDownloadOptions } from '../components/StandardReport';
 import { getMenuItemEffectivePrice, isMenuPromotionActive } from '../lib/menuPricing';
 import { getCalendarReportDateRange, localDateEnd, localDateStart } from '../lib/reportDateRanges';
@@ -235,7 +236,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
   const [itemSearch, setItemSearch] = useState('');
   const [itemCategoryFilter, setItemCategoryFilter] = useState('ALL');
   const [itemShowArchived, setItemShowArchived] = useState(false);
-  const [itemActionMenu, setItemActionMenu] = useState<{ itemId: string; top: number; right: number } | null>(null);
   const [isItemFormOpen, setIsItemFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [formItem, setFormItem] = useState<MenuFormItem>({});
@@ -261,19 +261,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
   const [ingredientCurrentPage, setIngredientCurrentPage] = useState(1);
   const [ingredientSyncWarning, setIngredientSyncWarning] = useState('');
 
-  useEffect(() => {
-    if (!itemActionMenu) return;
-
-    const closeMenu = () => setItemActionMenu(null);
-    document.addEventListener('click', closeMenu);
-    window.addEventListener('resize', closeMenu);
-    window.addEventListener('scroll', closeMenu, true);
-    return () => {
-      document.removeEventListener('click', closeMenu);
-      window.removeEventListener('resize', closeMenu);
-      window.removeEventListener('scroll', closeMenu, true);
-    };
-  }, [itemActionMenu]);
 
   const ingredientPendingSyncKey = () => `ingredients_${restaurant.id}_pending_sync`;
   const ingredientPendingDeleteKey = () => `ingredients_${restaurant.id}_pending_delete`;
@@ -870,7 +857,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
       stockEnabled: false,
     }));
   });
-  const [stockMenuOpen, setStockMenuOpen] = useState(false);
   const [stockSelectionMode, setStockSelectionMode] = useState(false);
   const [stockSearch, setStockSearch] = useState('');
   const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'out'>('all');
@@ -2573,41 +2559,12 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end">
-                            <button
-                              type="button"
-                              onClick={event => {
-                                event.stopPropagation();
-                                if (itemActionMenu?.itemId === item.id) {
-                                  setItemActionMenu(null);
-                                  return;
-                                }
-                                const rect = event.currentTarget.getBoundingClientRect();
-                                const menuHeight = item.isArchived ? 132 : 96;
-                                setItemActionMenu({
-                                  itemId: item.id,
-                                  top: Math.min(rect.bottom + 4, window.innerHeight - menuHeight),
-                                  right: window.innerWidth - rect.right,
-                                });
-                              }}
-                              aria-label={`Actions for ${item.name}`}
-                              aria-expanded={itemActionMenu?.itemId === item.id}
-                              className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white"
-                              title="Actions"
-                            >
-                              <MoreVertical size={16} />
-                            </button>
-
-                            {itemActionMenu?.itemId === item.id && (
-                              <div
-                                role="menu"
-                                onClick={event => event.stopPropagation()}
-                                className="fixed z-[60] w-48 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5 text-left shadow-xl dark:border-gray-700 dark:bg-gray-800"
-                                style={{ top: itemActionMenu.top, right: itemActionMenu.right }}
-                              >
+                            <TableActionMenu label={`Actions for ${item.name}`} menuHeight={item.isArchived ? 132 : 96}>
+                              {close => (<>
                                 <button
                                   type="button"
                                   role="menuitem"
-                                  onClick={() => { setItemActionMenu(null); openEditItem(item); }}
+                                  onClick={() => { close(); openEditItem(item); }}
                                   className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold text-gray-600 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                                 >
                                   <Edit3 size={14} className="text-amber-500" /> Edit
@@ -2617,7 +2574,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
                                     <button
                                       type="button"
                                       role="menuitem"
-                                      onClick={() => { setItemActionMenu(null); handleRestoreItem(item); }}
+                                      onClick={() => { close(); handleRestoreItem(item); }}
                                       className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold text-gray-600 transition hover:bg-green-50 hover:text-green-600 dark:text-gray-300 dark:hover:bg-green-900/20 dark:hover:text-green-400"
                                     >
                                       <RotateCcw size={14} /> Restore
@@ -2625,7 +2582,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
                                     <button
                                       type="button"
                                       role="menuitem"
-                                      onClick={() => { setItemActionMenu(null); handleDeleteItem(item); }}
+                                      onClick={() => { close(); handleDeleteItem(item); }}
                                       className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-50 dark:hover:bg-red-900/20"
                                     >
                                       <Trash2 size={14} /> Delete permanently
@@ -2635,14 +2592,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
                                   <button
                                     type="button"
                                     role="menuitem"
-                                    onClick={() => { setItemActionMenu(null); handleArchiveItem(item); }}
+                                    onClick={() => { close(); handleArchiveItem(item); }}
                                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-50 dark:hover:bg-red-900/20"
                                   >
                                     <Archive size={14} /> Archive
                                   </button>
                                 )}
-                              </div>
-                            )}
+                              </>)}
+                            </TableActionMenu>
                           </div>
                         </td>
                       </tr>
@@ -2687,7 +2644,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
 
             {/* Promotion / Discount sub-tab */}
             {itemSubTab === 'promotions' && (
-              <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+              <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <PromotionDiscountManager
                   restaurant={restaurant}
                   currencySymbol={currencySymbol}
@@ -2701,9 +2658,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
             <>
             {/* Ingredient Form Modal */}
             {isIngredientFormOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-2 backdrop-blur-sm" onClick={() => { setIsIngredientFormOpen(false); setEditingIngredient(null); }}>
-                <div className="max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800" onClick={e => e.stopPropagation()}>
-                  <h3 className="mb-2 text-sm font-black">{editingIngredient ? 'Edit Ingredient' : 'Add Ingredient / Supply'}</h3>
+              <BodyPortal>
+              <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-2 backdrop-blur-sm" onClick={() => { setIsIngredientFormOpen(false); setEditingIngredient(null); }}>
+                <div role="dialog" aria-modal="true" aria-labelledby="ingredient-form-title" className="max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800" onClick={e => e.stopPropagation()}>
+                  <h3 id="ingredient-form-title" className="mb-2 text-sm font-black">{editingIngredient ? 'Edit Ingredient' : 'Add Ingredient / Supply'}</h3>
                   <form onSubmit={handleIngredientFormSubmit} className="space-y-2">
                     <div>
                       <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wider text-gray-400">Name *</label>
@@ -2769,6 +2727,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
                   </form>
                 </div>
               </div>
+              </BodyPortal>
             )}
 
             <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -2831,29 +2790,29 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
                   <table className="w-full text-left">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cost/Purchase Unit</th>
-                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Stock Unit</th>
-                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Conversion</th>
-                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">SKU</th>
-                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Notes</th>
-                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                        <th className="px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                        <th className="px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
+                        <th className="px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cost/Purchase Unit</th>
+                        <th className="px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Stock Unit</th>
+                        <th className="px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Conversion</th>
+                        <th className="px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">SKU</th>
+                        <th className="px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Notes</th>
+                        <th className="px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {paginatedIngredients.map(item => (
                         <tr key={item.id} className={`border-b border-gray-100 transition-colors dark:border-gray-700/50 ${item.is_archived ? 'opacity-50' : ''}`}>
-                          <td className="px-5 py-4">
-                            <span className="text-sm font-bold dark:text-white">{item.name}</span>
+                          <td className="px-3 py-2">
+                            <span className="whitespace-nowrap text-xs font-bold dark:text-white">{item.name}</span>
                           </td>
-                          <td className="px-5 py-4"><span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">{item.category}</span></td>
-                          <td className="px-5 py-4 text-sm font-bold dark:text-white">{currencySymbol}{(item.cost || 0).toFixed(2)} / {getIngredientPurchaseUnit(item)}</td>
-                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{getIngredientStockUnit(item)}</td>
-                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden lg:table-cell">1 {getIngredientPurchaseUnit(item)} = {getIngredientPurchaseRatio(item)} {getIngredientStockUnit(item)}</td>
-                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{item.sku || '-'}</td>
-                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate max-w-[150px]">{item.notes || '-'}</td>
-                          <td className="px-5 py-4 text-right">
+                          <td className="px-3 py-2"><span className="whitespace-nowrap text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">{item.category}</span></td>
+                          <td className="px-3 py-2 whitespace-nowrap text-xs font-bold dark:text-white">{currencySymbol}{(item.cost || 0).toFixed(2)} / {getIngredientPurchaseUnit(item)}</td>
+                          <td className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">{getIngredientStockUnit(item)}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400 hidden lg:table-cell">1 {getIngredientPurchaseUnit(item)} = {getIngredientPurchaseRatio(item)} {getIngredientStockUnit(item)}</td>
+                          <td className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{item.sku || '-'}</td>
+                          <td className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate max-w-[150px]">{item.notes || '-'}</td>
+                          <td className="px-3 py-2 text-right">
                             <div className="flex items-center justify-end">
                               <TableActionMenu label={`Actions for ${item.name}`} menuHeight={item.is_archived ? 132 : 96}>
                                 {close => (
@@ -2989,7 +2948,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
                 <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
                   Showing {filteredStock.length === 0 ? 0 : (stockCurrentPage - 1) * stockEntriesPerPage + 1}-{Math.min(stockCurrentPage * stockEntriesPerPage, filteredStock.length)} of {filteredStock.length}
                 </span>
-                <div className="ml-auto flex items-center gap-2">
+                <div className="ml-auto flex items-center gap-1.5">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Show</span>
                   <select value={stockEntriesPerPage} onChange={e => setStockEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border border-gray-200 bg-white p-1 text-[10px] font-bold text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                     <option value={30}>30</option>
@@ -3001,42 +2960,38 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
               </div>
               {paginatedStock.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[980px] text-left">
+                  <table className="stock-management-table w-full text-left">
                     <thead className="bg-gray-50 dark:bg-gray-900/40">
                       <tr>
-                        <th className="px-3 py-2 w-8">
+                        <th className="px-2 py-2 w-8">
                           <div className="relative">
-                            <button onClick={() => setStockMenuOpen(!stockMenuOpen)} className="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                              <MoreVertical size={16} className="text-gray-500" />
-                            </button>
-                            {stockMenuOpen && (
-                              <div className="absolute left-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 min-w-[140px] py-1">
+                            <TableActionMenu label="Stock selection actions">
+                              {close => (<>
                                 <button
-                                  onClick={() => { setStockSelectionMode(true); setStockMenuOpen(false); }}
+                                  type="button" role="menuitem"
+                                  onClick={() => { setStockSelectionMode(true); close(); }}
                                   className="w-full text-left px-4 py-2.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                 >Select</button>
                                 <button
-                                  onClick={() => { setStockSelectionMode(true); setSelectedStockIds(new Set(filteredStock.map(s => s.menuItemId))); setStockMenuOpen(false); }}
+                                  type="button" role="menuitem"
+                                  onClick={() => { setStockSelectionMode(true); setSelectedStockIds(new Set(filteredStock.map(s => s.menuItemId))); close(); }}
                                   className="w-full text-left px-4 py-2.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                 >Select All</button>
-                              </div>
-                            )}
+                              </>)}
+                            </TableActionMenu>
                           </div>
                         </th>
-                        <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500">Item</th>
-                        <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500">Category</th>
-                        <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500">Stock</th>
-                        <th className="hidden px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500 md:table-cell">
+                        <th className="px-2 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500">Item</th>
+                        <th className="px-2 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500">Category</th>
+                        <th className="px-2 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500">Stock</th>
+                        <th className="hidden px-2 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500 md:table-cell">
                           <span className="inline-flex items-center gap-1">Threshold
-                            <span className="relative group">
-                              <Info size={12} className="text-gray-400 cursor-help" />
-                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block w-48 px-2 py-1.5 text-[10px] font-normal normal-case tracking-normal bg-gray-900 text-white rounded-lg shadow-lg z-50 text-center whitespace-normal">When stock falls to or below this number, the item is flagged as low stock.</span>
-                            </span>
+                            <SectionInfoButton compact title="Low-stock threshold" description="When stock falls to or below this number, the item is flagged as low stock." />
                           </span>
                         </th>
-                        <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500">Status</th>
-                        <th className="hidden px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500 sm:table-cell">Last Restocked</th>
-                        <th className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-gray-500">Track Stock</th>
+                        <th className="px-2 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500">Status</th>
+                        <th className="hidden px-2 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500 sm:table-cell">Restocked</th>
+                        <th className="px-2 py-2 text-center text-[10px] font-black uppercase tracking-wider text-gray-500">Track</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
@@ -3050,47 +3005,48 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
                         const showPurchaseBalance = Boolean(ingredient && purchaseUnit !== stockUnit && purchaseRatio !== 1);
                         return (
                           <tr key={item.menuItemId} className={`transition-colors ${!item.stockEnabled ? 'opacity-50' : ''}`}>
-                            <td className="px-3 py-4">
+                            <td className="px-2 py-2">
                               {stockSelectionMode ? (
                                 <input type="checkbox" checked={selectedStockIds.has(item.menuItemId)} onChange={() => handleSelectStockItem(item.menuItemId)} className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
                               ) : (
                                 <span className="w-4 h-4" />
                               )}
                             </td>
-                            <td className="px-3 py-4">
-                              <span className="text-sm font-bold dark:text-white">{item.name}</span>
+                            <td className="px-2 py-2">
+                              <span className="text-xs font-bold dark:text-white">{item.name}</span>
                             </td>
-                            <td className="px-3 py-4">
-                              <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">{item.category}</span>
+                            <td className="px-2 py-2">
+                              <span className="inline-block whitespace-nowrap text-[11px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">{item.category}</span>
                             </td>
-                            <td className="px-3 py-4">
+                            <td className="px-2 py-2">
                               {item.stockEnabled ? (
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => handleSetStock(item.menuItemId, item.currentStock - 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Minus size={12} /></button>
-                                <div className="min-w-[92px] text-center">
-                                  <span className={`block text-sm font-black ${
+                              <div className="flex items-center gap-1.5">
+                                <button aria-label={`Decrease stock for ${item.name}`} onClick={() => handleSetStock(item.menuItemId, item.currentStock - 1)} className="w-6 h-6 shrink-0 rounded bg-gray-200 dark:bg-gray-600 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center"><Minus size={12} /></button>
+                                <div className="min-w-[56px] text-center">
+                                  <span className={`block whitespace-nowrap text-xs font-black ${
                                     status === 'out' ? 'text-red-600 dark:text-red-400' : status === 'low' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'
                                   }`}>{formatStockNumber(item.currentStock)} {getUnitLabel(stockUnit)}</span>
                                   {showPurchaseBalance && (
                                     <span className="block text-[10px] font-semibold text-gray-400">{formatStockNumber(purchaseBalance)} {getUnitLabel(purchaseUnit)}</span>
                                   )}
                                 </div>
-                                <button onClick={() => handleSetStock(item.menuItemId, item.currentStock + 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Plus size={12} /></button>
+                                <button aria-label={`Increase stock for ${item.name}`} onClick={() => handleSetStock(item.menuItemId, item.currentStock + 1)} className="w-6 h-6 shrink-0 rounded bg-gray-200 dark:bg-gray-600 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center"><Plus size={12} /></button>
                               </div>
                               ) : <span className="text-xs text-gray-400">-</span>}
                             </td>
-                            <td className="hidden px-3 py-4 md:table-cell">
+                            <td className="hidden px-2 py-2 md:table-cell">
                               {item.stockEnabled ? (
                               <input
                                 type="number"
                                 value={item.lowStockThreshold}
+                                aria-label={`Low stock threshold for ${item.name}`}
                                 onChange={e => handleUpdateStockThreshold(item.menuItemId, parseInt(e.target.value) || 0)}
                                 className="w-16 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none"
                               />
                               ) : <span className="text-xs text-gray-400">-</span>}
                             </td>
-                            <td className="px-3 py-4">
-                              <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
+                            <td className="px-2 py-2">
+                              <span className={`inline-flex whitespace-nowrap text-[10px] font-bold px-2 py-1 rounded-md ${
                                 status === 'disabled' ? 'bg-gray-500/20 text-gray-400' :
                                 status === 'out' ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400' :
                                 status === 'low' ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400' :
@@ -3099,11 +3055,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, i
                                 {status === 'disabled' ? 'Disabled' : status === 'out' ? 'Out of Stock' : status === 'low' ? 'Low Stock' : 'In Stock'}
                               </span>
                             </td>
-                            <td className="hidden px-3 py-4 text-xs text-gray-500 dark:text-gray-400 sm:table-cell">
+                            <td className="hidden whitespace-nowrap px-2 py-2 text-xs text-gray-500 dark:text-gray-400 sm:table-cell">
                               {item.lastRestocked ? new Date(item.lastRestocked).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '-'}
                             </td>
-                            <td className="px-3 py-4 text-center">
+                            <td className="px-2 py-2 text-center">
                               <button
+                                aria-label={`Track stock for ${item.name}`}
+                                aria-pressed={item.stockEnabled}
                                 onClick={() => handleToggleStockEnabled(item.menuItemId)}
                                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${item.stockEnabled ? 'bg-green-500' : 'bg-gray-400 dark:bg-gray-600'}`}
                               >

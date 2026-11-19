@@ -1,3 +1,4 @@
+import BodyPortal from './BodyPortal';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Check, Circle, Square, RectangleHorizontal } from 'lucide-react';
 
@@ -339,6 +340,7 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel, mode = '
   };
 
   return (
+    <BodyPortal>
     <div className="fixed inset-0 z-[99999] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-xl w-full shadow-2xl animate-in zoom-in fade-in duration-300">
         {/* Header */}
@@ -426,6 +428,7 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel, mode = '
         </div>
       </div>
     </div>
+    </BodyPortal>
   );
 };
 

@@ -3,7 +3,7 @@ import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, R
 import type { FirstTimeSetupValues } from './pages/FirstTimeSetupPage';
 import { supabase } from './lib/supabase';
 import { expandPosSettings, fetchSettingsFromServer, syncBackofficeToDb } from './lib/sharedSettings';
-import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock, AlertCircle, ShoppingBag, ChevronLeft } from 'lucide-react';
+import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock, AlertCircle, ShoppingBag, ChevronLeft, Menu } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
 import { getConnectivityMonitor, destroyConnectivityMonitor, type ConnectivityStatus } from './lib/connectivityMonitor';
 import { toast } from './components/Toast';
@@ -304,6 +304,7 @@ const precacheBasicPwaShell = () => {
 };
 
 const App: React.FC = () => {
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   // --- HYDRATED STATE ---
   const [allUsers, setAllUsers] = useState<User[]>(() => {
     try {
@@ -4153,6 +4154,18 @@ const App: React.FC = () => {
       {currentRole !== 'ORDER_TAKER' && currentRole !== 'KITCHEN' && (
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-11 sm:h-12 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
         <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+          {currentRole === 'ADMIN' && (
+            <button
+              type="button"
+              aria-label="Open admin menu"
+              aria-controls="admin-sidebar"
+              aria-expanded={adminMenuOpen}
+              onClick={() => setAdminMenuOpen(open => !open)}
+              className="inline-flex shrink-0 items-center justify-center rounded-lg p-2 text-gray-500 hover:bg-gray-100 focus-visible:outline-orange-500 dark:text-gray-400 dark:hover:bg-gray-700 lg:hidden"
+            >
+              <Menu size={20} />
+            </button>
+          )}
           {view === 'COMPARE_PLANS' && (
             <button
               type="button"
@@ -4541,6 +4554,8 @@ const App: React.FC = () => {
 
         {currentRole === 'ADMIN' && (
           <AdminView 
+            isMobileMenuOpen={adminMenuOpen}
+            onMobileMenuOpenChange={setAdminMenuOpen}
             users={allUsers}
             vendors={allUsers.filter(u => u.role === 'VENDOR')} 
             restaurants={restaurants} 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Subscription, PlanId, DuitNowPayment } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
@@ -82,6 +82,10 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const [duitnowPreviewUrl, setDuitnowPreviewUrl] = useState<string | null>(null);
   const [paymentQrImageUrl, setPaymentQrImageUrl] = useState<string | null>(null);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<BillingHistoryRow | null>(null);
+  const historyTableContainerRef = useRef<HTMLDivElement>(null);
+  const historyTableRef = useRef<HTMLTableElement>(null);
+  const fullHistoryWidthRef = useRef(0);
+  const [compactHistory, setCompactHistory] = useState(false);
 
   const renderBodyModal = (modal: React.ReactNode) => {
     if (typeof document === 'undefined') return null;
@@ -668,6 +672,33 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     return filteredBillingHistory.slice(startIndex, startIndex + historyPageSize);
   }, [filteredBillingHistory, historyPage, historyPageSize]);
 
+  useLayoutEffect(() => {
+    fullHistoryWidthRef.current = 0;
+    setCompactHistory(false);
+  }, [paginatedHistory]);
+
+  useLayoutEffect(() => {
+    const container = historyTableContainerRef.current;
+    const table = historyTableRef.current;
+    if (!container || !table) return;
+    const measure = () => {
+      if (container.clientWidth === 0) return;
+      if (!compactHistory) {
+        if (table.scrollWidth > container.clientWidth + 1) {
+          fullHistoryWidthRef.current = table.scrollWidth;
+          setCompactHistory(true);
+        }
+      } else if (container.clientWidth >= fullHistoryWidthRef.current + 1) {
+        setCompactHistory(false);
+      }
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    observer.observe(table);
+    return () => observer.disconnect();
+  }, [compactHistory, paginatedHistory, isLoadingHistory, duitnowLoading]);
+
   useEffect(() => {
     if (historyPage > totalHistoryPages) {
       setHistoryPage(totalHistoryPages);
@@ -722,7 +753,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
               </span>
             )}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
+          <div role="group" aria-label="Subscription plans" className="grid grid-cols-1 gap-4 items-stretch sm:grid-cols-3">
             {PRICING_PLANS.map(plan => {
               const isCurrent = plan.id === currentPlanId;
               const isActivePlanCard = hasPendingDowngrade && plan.id === activePlanId;
@@ -731,12 +762,12 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
               return (
                 <div
                   key={plan.id}
-                  className={`relative rounded-xl border-2 p-5 transition-all h-full flex flex-col overflow-hidden ${
+                  className={`relative rounded-xl border-2 p-4 lg:p-5 transition-all h-full min-h-[248px] min-w-0 flex flex-col overflow-hidden ${
                     isCurrent
-                      ? 'border-orange-400 bg-white dark:bg-gray-800 lg:col-span-2'
+                      ? 'border-orange-400 bg-white dark:bg-gray-800'
                       : isActivePlanCard
-                        ? 'border-amber-400 bg-amber-50/50 dark:bg-amber-900/10 lg:col-span-1'
-                        : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 lg:col-span-1'
+                        ? 'border-amber-400 bg-amber-50/50 dark:bg-amber-900/10'
+                        : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60'
                   }`}
                 >
                   {/* Checkmark badge */}
@@ -843,14 +874,14 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                           disabled={isRenewing}
                           className="w-full md:flex-1 min-w-0 px-2.5 py-2 rounded-lg text-[11px] lg:text-xs font-semibold border border-orange-400 bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 text-center leading-tight whitespace-normal break-words"
                         >
-                          <RefreshCw size={12} /> Renew Plan
+                          <RefreshCw size={12} className="shrink-0" /> Renew
                         </button>
                         <button
                           onClick={onUpgradeClick}
                           className="w-full md:flex-1 min-w-0 px-2.5 py-2 rounded-lg text-[11px] lg:text-xs font-semibold border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center gap-1.5 text-center leading-tight whitespace-normal break-words"
                         >
-                          <ArrowLeftRight size={12} />
-                          Switch Plan
+                          <ArrowLeftRight size={12} className="shrink-0" />
+                          Switch
                         </button>
                       </>
                     ) : isUpgrade ? (
@@ -903,20 +934,20 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         </section>
 
         {/* ── Payment Method ── */}
-        <section>
+        <section aria-label="Payment methods">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Payment Method</h3>
 
           {isLoadingPayments ? (
             <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
           ) : (
-            <div className="flex items-stretch gap-4 overflow-x-auto pb-4" onClick={() => setConfirmingDeleteId(null)}>
+            <div className={`grid grid-cols-1 items-stretch gap-4 ${!isDuitNowEnabled && paymentMethods.length === 0 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`} onClick={() => setConfirmingDeleteId(null)}>
               <div
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedMethodId('wallet');
                   setConfirmingDeleteId(null);
                 }}
-                className={`relative flex h-[132px] w-[220px] flex-none flex-col rounded-xl border-2 px-5 py-5 cursor-pointer transition-all select-none overflow-hidden ${
+                className={`relative flex min-h-[148px] min-w-0 w-full flex-col rounded-xl border-2 p-4 cursor-pointer transition-all select-none overflow-hidden ${
                   selectedMethodId === 'wallet'
                     ? 'border-emerald-500 bg-white dark:bg-gray-800 ring-2 ring-emerald-500/20 dark:ring-emerald-500/30'
                     : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 hover:border-emerald-400/60'
@@ -960,7 +991,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     setSelectedMethodId('duitnow');
                     setConfirmingDeleteId(null);
                   }}
-                  className={`relative flex h-[132px] w-[220px] flex-none flex-col rounded-xl border-2 px-5 py-5 cursor-pointer transition-all select-none overflow-hidden ${
+                  className={`relative flex min-h-[148px] min-w-0 w-full flex-col rounded-xl border-2 p-4 cursor-pointer transition-all select-none overflow-hidden ${
                     selectedMethodId === 'duitnow'
                       ? 'border-[#ED2C67] bg-white dark:bg-gray-800 ring-2 ring-[#ED2C67]/20 dark:ring-[#ED2C67]/30'
                       : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 hover:border-[#ED2C67]/50'
@@ -1009,7 +1040,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                         setConfirmingDeleteId(method.id);
                       }
                     }}
-                    className={`relative flex h-[132px] w-[220px] flex-none flex-col rounded-xl border-2 px-5 py-5 cursor-pointer transition-all select-none overflow-hidden ${
+                    className={`relative flex min-h-[148px] min-w-0 w-full flex-col rounded-xl border-2 p-4 cursor-pointer transition-all select-none overflow-hidden ${
                       isConfirming
                         ? 'border-red-400 bg-red-50 dark:bg-red-900/20'
                         : isSelected
@@ -1043,11 +1074,11 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     </p>
 
                     {/* Card visual */}
-                    <div className="flex flex-1 items-center gap-3 pr-7">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center">
                         {brandLogo(method.brand)}
                       </div>
-                      <span className="min-w-0 whitespace-nowrap text-[11px] text-gray-700 dark:text-gray-300 font-mono tracking-[0.14em]">
+                      <span className="min-w-0 truncate text-[11px] text-gray-700 dark:text-gray-300 font-mono tracking-[0.14em]">
                         •••• •••• ••••{method.last4}
                       </span>
                     </div>
@@ -1066,8 +1097,8 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
               <button
                 onClick={handleAddCard}
                 disabled={isAddingCard}
-                className={`flex h-[132px] w-[220px] flex-none rounded-xl border-2 transition-all ${paymentMethods.length === 0
-                  ? 'flex-col border-dashed border-gray-300 dark:border-gray-600 px-5 py-5 text-left hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10'
+                className={`flex min-h-[148px] min-w-0 w-full rounded-xl border-2 transition-all ${paymentMethods.length === 0
+                  ? 'flex-col border-dashed border-gray-300 dark:border-gray-600 p-4 text-left hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10'
                   : 'items-center justify-center border-dashed border-gray-300 dark:border-gray-600 hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10'
                 }`}
               >
@@ -1095,7 +1126,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         </section>
 
         {/* ── Billing History ── */}
-        <section>
+        <section aria-label="Billing history">
           {isLoadingHistory || duitnowLoading ? (
             <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
           ) : (
@@ -1149,23 +1180,23 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
+              <div ref={historyTableContainerRef} className="overflow-x-auto">
+                <table ref={historyTableRef} className={`w-full text-left ${compactHistory ? '[&_th]:px-3 [&_td]:px-3' : ''}`}>
                   <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                     <tr>
                       <th className="px-4 py-3 text-left">Date</th>
                       <th className="px-4 py-3 text-left">Time</th>
                       <th className="px-4 py-3 text-left">Status</th>
                       <th className="px-4 py-3 text-left">Method</th>
-                      <th className="px-4 py-3 text-left">Details</th>
+                      {!compactHistory && <th className="px-4 py-3 text-left">Details</th>}
                       <th className="px-4 py-3 text-right">Amount</th>
-                      <th className="px-4 py-3 text-right">Action</th>
+                      <th className="px-4 py-3 text-right">{compactHistory ? 'Details' : 'Action'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y dark:divide-gray-700">
                     {paginatedHistory.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        <td colSpan={compactHistory ? 6 : 7} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
                           No matching records found.
                         </td>
                       </tr>
@@ -1180,15 +1211,15 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                             </span>
                           </td>
                           <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase whitespace-nowrap">{inv.sourceLabel}</td>
-                          <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-200 min-w-[260px]">{inv.description}</td>
+                          {!compactHistory && <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-200 min-w-[260px]">{inv.description}</td>}
                           <td className="px-4 py-2 text-right font-black dark:text-white text-xs whitespace-nowrap">RM{inv.amount.toFixed(2)}</td>
                           <td className="px-4 py-2 text-right whitespace-nowrap">
                             <button
                               onClick={() => setSelectedHistoryItem(inv)}
-                              className="h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors inline-flex items-center justify-center"
+                              className={`${compactHistory ? 'rounded-full px-2.5 py-1 text-[10px] font-semibold' : 'h-8 w-8 rounded-lg'} bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-gray-600 transition-colors inline-flex items-center justify-center`}
                               aria-label={`Open ${inv.referenceLabel} details`}
                             >
-                              <Menu size={14} />
+                              {compactHistory ? 'View details' : <Menu size={14} />}
                             </button>
                           </td>
                         </tr>

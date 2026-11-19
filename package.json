@@ -12,6 +12,9 @@
     "dev": "tsx server.ts",
     "build": "tsc && vite build",
     "test:kds": "tsx --test lib/kdsOrderState.test.ts",
+    "test:browser": "playwright test",
+    "test:browser:ui": "playwright test --ui",
+    "test:browser:report": "playwright show-report",
     "generate:product-pdf": "tsx scripts/generate-quickserve-introduction-pdf.ts",
     "lint": "tsc --noEmit",
     "preview": "vite preview"
@@ -36,6 +39,7 @@
     "stripe": "^20.4.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@types/express": "^5.0.6",
     "@types/formidable": "^3.4.6",
     "@types/react": "^19.0.0",

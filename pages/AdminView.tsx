@@ -9,16 +9,20 @@ import { PRICING_PLANS } from '../lib/pricingPlans';
 import { getSubscriptionAccessLockState, getSubscriptionEndDate } from '../lib/subscriptionService';
 import AdminDocuments from '../components/AdminDocuments';
 import AdminDashboard from '../components/AdminDashboard';
+import AdminVendorDetailsModal from '../components/AdminVendorDetailsModal';
+import { buildAdminVendorDirectory } from '../lib/adminVendorDirectory';
 import { getCalendarReportDateRange, toLocalDateInputValue } from '../lib/reportDateRanges';
 
 interface Props {
+  isMobileMenuOpen: boolean;
+  onMobileMenuOpenChange: (open: boolean) => void;
   vendors: User[];
   users: User[];
   restaurants: Restaurant[];
   locations: Area[];
   onAddVendor: (user: User, restaurant: Restaurant) => Promise<string | null>;
   onUpdateVendor: (user: User, restaurant: Restaurant) => void | Promise<void>;
-  onImpersonateVendor: (user: User) => void;
+  onImpersonateVendor: (user: User, portalMode?: 'staff' | 'backoffice') => void;
   onAddLocation: (area: Area) => void | Promise<void>;
   onUpdateLocation: (area: Area) => void | Promise<void>;
   onDeleteLocation: (areaId: string) => void | Promise<void>;
@@ -873,6 +877,8 @@ const SystemSchedulerDashboard: React.FC = () => {
 };
 
 const AdminView: React.FC<Props> = ({ 
+  isMobileMenuOpen,
+  onMobileMenuOpenChange: setIsMobileMenuOpen,
   vendors, 
   users,
   restaurants, 
@@ -906,7 +912,10 @@ const AdminView: React.FC<Props> = ({
   };
 
   const [activeTab, setActiveTab] = useState<AdminTab>('DASHBOARD');
-    const [userSearch, setUserSearch] = useState('');
+  const [vendorDetailsId, setVendorDetailsId] = useState<string | null>(null);
+  const vendorDirectory = useMemo(() => buildAdminVendorDirectory(restaurants, users, vendors), [restaurants, users, vendors]);
+  const detailsRestaurant = restaurants.find(restaurant => restaurant.id === vendorDetailsId);
+  const [userSearch, setUserSearch] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState<'ALL' | User['role']>('ALL');
   const [userStatusFilter, setUserStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [userEntriesPerPage, setUserEntriesPerPage] = useState(30);
@@ -917,13 +926,14 @@ const AdminView: React.FC<Props> = ({
       const matchesSearch = !query
         || user.username.toLowerCase().includes(query)
         || user.name?.toLowerCase().includes(query)
+        || vendorDirectory.restaurantByUserId.get(user.id)?.name.toLowerCase().includes(query)
         || user.role.toLowerCase().includes(query);
       const matchesRole = userRoleFilter === 'ALL' || user.role === userRoleFilter;
       const matchesStatus = userStatusFilter === 'ALL'
         || (userStatusFilter === 'ACTIVE' ? user.isActive !== false : user.isActive === false);
       return matchesSearch && matchesRole && matchesStatus;
     });
-  }, [users, userSearch, userRoleFilter, userStatusFilter]);
+  }, [users, userSearch, userRoleFilter, userStatusFilter, vendorDirectory]);
   const userTotalPages = Math.max(1, Math.ceil(filteredUsers.length / userEntriesPerPage));
   const paginatedUsers = useMemo(() => {
     const startIndex = (userCurrentPage - 1) * userEntriesPerPage;
@@ -2324,7 +2334,6 @@ const AdminView: React.FC<Props> = ({
   
   const [viewingHubVendors, setViewingHubVendors] = useState<Area | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Fetch income data
   const fetchIncome = async (loadMore = false) => {
@@ -3623,7 +3632,7 @@ const AdminView: React.FC<Props> = ({
       )}
 
       {/* Sidebar */}
-      <aside className={`
+      <aside id="admin-sidebar" className={`
         fixed lg:relative inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 border-r dark:border-gray-700
         flex flex-col transition-all duration-300 ease-in-out no-print
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -3687,35 +3696,6 @@ const AdminView: React.FC<Props> = ({
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* Mobile Header */}
-        <div className="lg:hidden flex items-center p-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 no-print">
-          <button
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="p-2 -ml-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <Menu size={24} />
-          </button>
-          <div className="ml-4 flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center">
-              <ShieldCheck size={16} className="text-white" />
-            </div>
-            <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm">
-              {activeTab === 'DASHBOARD' ? 'Dashboard' :
-               activeTab === 'USERS' ? 'User Management' :
-               activeTab === 'VENDORS' ? 'Vendor & Hubs' :
-               activeTab === 'INCOME_REPORT' ? 'Income & Report' :
-               activeTab === 'VENDOR_SUBSCRIPTION' ? 'Vendor Subscription' :
-               activeTab === 'CASHOUT' ? 'Cashout' :
-               activeTab === 'DUITNOW' ? 'DuitNow' :
-               activeTab === 'QUOTATION' ? 'Quotations & Invoices' :
-               activeTab === 'SHOP' ? 'Shop' :
-               activeTab === 'DOCUMENTS' ? 'Documents' :
-               activeTab === 'PORTAL_MANAGEMENT' ? 'Portal Management' :
-               'System'}
-            </h1>
-          </div>
-        </div>
-
         <div className="flex-1 overflow-auto">
         {activeTab === 'DASHBOARD' && (
           <AdminDashboard
@@ -3730,84 +3710,87 @@ const AdminView: React.FC<Props> = ({
           <div className="p-4 md:p-8">
             <div className="mb-5">
               <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">User Management</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">View all accounts and sign in as a user.</p>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Manage accounts, view vendor assignments and sign in as a user.</p>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-72">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+              <div className="flex flex-col gap-2.5 p-3 sm:flex-row sm:items-center">
+                <div className="relative min-w-0 flex-1">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Search users..."
-                    className="w-full h-9 pl-9 pr-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 transition-all dark:text-white"
+                    aria-label="Search users or vendors"
+                    placeholder="Search users or vendors..."
+                    className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-9 pr-3 text-xs outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                     value={userSearch}
                     onChange={event => setUserSearch(event.target.value)}
                   />
                 </div>
-                <div className="flex w-full sm:w-auto flex-wrap items-center justify-end gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                  <div className="relative">
+                <div className="flex shrink-0 items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="relative w-[108px]">
                     <select
                       aria-label="Filter by access type"
                       value={userRoleFilter}
                       onChange={event => setUserRoleFilter(event.target.value as typeof userRoleFilter)}
-                      className={`${adminSelectBase} w-[132px] pl-3 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600`}
+                      className="h-9 w-full rounded-lg border border-gray-200 bg-white pl-2.5 pr-7 text-xs outline-none appearance-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                     >
                       <option value="ALL">All Types</option>
                       {(['ADMIN', 'VENDOR', 'CASHIER', 'KITCHEN', 'ORDER_TAKER', 'MANAGER', 'HR', 'CUSTOMER'] as User['role'][]).map(role => (
                         <option key={role} value={role}>{role.replace('_', ' ')}</option>
                       ))}
                     </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   </div>
-                  <div className="relative">
+                  <div className="relative w-[100px]">
                     <select
                       aria-label="Filter by status"
                       value={userStatusFilter}
                       onChange={event => setUserStatusFilter(event.target.value as typeof userStatusFilter)}
-                      className={`${adminSelectBase} w-[132px] pl-3 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600`}
+                      className="h-9 w-full rounded-lg border border-gray-200 bg-white pl-2.5 pr-7 text-xs outline-none appearance-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                     >
                       <option value="ALL">All Status</option>
                       <option value="ACTIVE">Active</option>
                       <option value="INACTIVE">Inactive</option>
                     </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   </div>
-                  <span>Show</span>
-                  <div className="relative">
+                  <div className="relative w-[64px]">
                     <select
+                      aria-label="Users per page"
                       value={userEntriesPerPage}
                       onChange={event => setUserEntriesPerPage(Number(event.target.value))}
-                      className={`${adminSelectBase} w-[64px] pl-3 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600`}
+                      className="h-9 w-full rounded-lg border border-gray-200 bg-white pl-2.5 pr-7 text-xs outline-none appearance-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                     >
                       {[30, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
                     </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   </div>
                 </div>
               </div>
-              <div className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm">
+              <div className="border-y border-gray-200 dark:border-gray-700">
                 <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[9px] font-black uppercase tracking-widest">
+                <table className="w-full min-w-[620px] text-xs">
+                  <thead className="bg-gray-50 text-gray-500 dark:bg-gray-800/70 dark:text-gray-400 [&_th]:px-4 [&_th]:py-2.5 [&_th]:font-semibold">
                     <tr>
-                      <th className="px-4 py-2.5 text-left">Username</th>
-                      <th className="px-4 py-2.5 text-left">Name</th>
-                      <th className="px-4 py-2.5 text-left">User Type</th>
-                      <th className="px-4 py-2.5 text-left">Status</th>
-                      <th className="px-4 py-2.5 text-right">Action</th>
+                      <th scope="col" className="text-left">User</th>
+                      <th scope="col" className="text-left">Vendor / restaurant</th>
+                      <th scope="col" className="text-left">Role</th>
+                      <th scope="col" className="text-left">Status</th>
+                      <th scope="col" className="text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y dark:divide-gray-700">
-                    {paginatedUsers
-                      .map(user => (
+                    {paginatedUsers.map(user => {
+                        const restaurant = vendorDirectory.restaurantByUserId.get(user.id);
+                        return (
                         <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                          <td className="px-4 py-2 text-[10px] font-black dark:text-white uppercase tracking-widest whitespace-nowrap">{user.username}</td>
-                          <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tight whitespace-nowrap">{user.name || '-'}</td>
-                          <td className="px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">{user.role}</td>
-                          <td className="px-4 py-2 text-[10px] whitespace-nowrap">
-                            <span className={`inline-flex items-center gap-1.5 font-bold ${user.isActive === false ? 'text-red-500' : 'text-emerald-500'}`}>
-                              <span className={`h-1.5 w-1.5 rounded-full ${user.isActive === false ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                          <td className="px-4 py-2"><div className="flex items-center gap-2"><span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">{(user.name || user.username).slice(0, 1).toUpperCase()}</span><div><p className="font-semibold text-gray-900 dark:text-white">{user.name || user.username}</p><p className="text-[11px] text-gray-500 dark:text-gray-400">@{user.username}</p></div></div></td>
+                          <td className="max-w-xs px-4 py-2">
+                            {restaurant ? <button type="button" onClick={() => setVendorDetailsId(restaurant.id)} aria-label={`View vendor information for ${restaurant.name}`} className="rounded text-left font-semibold text-orange-600 hover:underline focus-visible:outline-orange-500 dark:text-orange-400">{restaurant.name}</button> : <span className="text-gray-500 dark:text-gray-400">{user.restaurantId ? 'Vendor unavailable' : user.role === 'ADMIN' ? 'Platform admin' : 'Unassigned'}</span>}
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap"><span className="inline-flex h-5 w-24 items-center justify-center rounded-md bg-gray-100 text-[11px] text-gray-600 capitalize dark:bg-gray-800 dark:text-gray-300">{user.role.toLowerCase().replaceAll('_', ' ')}</span></td>
+                          <td className="px-4 py-2 whitespace-nowrap">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${user.isActive === false ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'}`}>
                               {user.isActive === false ? 'Disabled' : 'Active'}
                             </span>
                           </td>
@@ -3817,36 +3800,38 @@ const AdminView: React.FC<Props> = ({
                               title={`Login as ${user.username}`}
                               aria-label={`Login as ${user.username}`}
                               onClick={() => onImpersonateVendor(user)}
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-gray-500 hover:bg-orange-50 hover:text-orange-500 dark:hover:bg-orange-900/20"
+                              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600 focus-visible:outline-orange-500 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-orange-900/20"
                             >
-                              <DoorOpen size={16} />
+                              <DoorOpen size={14} /> Sign in
                             </button>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     {paginatedUsers.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="py-10 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">No matching users found.</td>
+                        <td colSpan={5} className="px-5 py-12 text-center text-gray-500 dark:text-gray-400">No matching users found. Try another search or filter.</td>
                       </tr>
                     )}
                   </tbody>
                 </table>
                 </div>
               </div>
-              <div className="flex items-center justify-end gap-3 border-t border-gray-100 dark:border-gray-700 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Showing {filteredUsers.length === 0 ? 0 : (userCurrentPage - 1) * userEntriesPerPage + 1}–{Math.min(userCurrentPage * userEntriesPerPage, filteredUsers.length)} of {filteredUsers.length} users</p>
                 {userTotalPages > 1 && (
-                  <div className="flex items-center justify-center gap-1 overflow-x-auto no-print">
-                    <button onClick={() => setUserCurrentPage(1)} disabled={userCurrentPage === 1} className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded-md text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronFirst size={14} /></button>
-                    <button onClick={() => setUserCurrentPage(prev => Math.max(1, prev - 1))} disabled={userCurrentPage === 1} className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded-md text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLeft size={14} /></button>
+                  <nav aria-label="User list pagination" className="flex max-w-full items-center gap-1 overflow-x-auto no-print">
+                    <button aria-label="First page" onClick={() => setUserCurrentPage(1)} disabled={userCurrentPage === 1} className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-orange-600 disabled:opacity-30 dark:text-gray-400 dark:hover:bg-gray-800"><ChevronFirst size={15} /></button>
+                    <button aria-label="Previous page" onClick={() => setUserCurrentPage(prev => Math.max(1, prev - 1))} disabled={userCurrentPage === 1} className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-orange-600 disabled:opacity-30 dark:text-gray-400 dark:hover:bg-gray-800"><ChevronLeft size={15} /></button>
                     {visibleUserPages.map((page, index, pages) => (
                       <React.Fragment key={page}>
-                        {index > 0 && page !== pages[index - 1] + 1 && <span className="px-1 text-[10px] text-gray-400">...</span>}
-                        <button onClick={() => setUserCurrentPage(page)} className={`h-7 min-w-7 rounded-md px-1.5 text-[10px] font-black transition-all ${userCurrentPage === page ? 'bg-orange-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>{page}</button>
+                        {index > 0 && page !== pages[index - 1] + 1 && <span className="px-1 text-sm text-gray-400">...</span>}
+                        <button aria-label={`Page ${page}`} aria-current={userCurrentPage === page ? 'page' : undefined} onClick={() => setUserCurrentPage(page)} className={`h-7 min-w-7 rounded-md px-1.5 text-xs font-semibold transition-colors ${userCurrentPage === page ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}>{page}</button>
                       </React.Fragment>
                     ))}
-                    <button onClick={() => setUserCurrentPage(prev => Math.min(userTotalPages, prev + 1))} disabled={userCurrentPage === userTotalPages} className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded-md text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronRight size={14} /></button>
-                    <button onClick={() => setUserCurrentPage(userTotalPages)} disabled={userCurrentPage === userTotalPages} className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded-md text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLast size={14} /></button>
-                  </div>
+                    <button aria-label="Next page" onClick={() => setUserCurrentPage(prev => Math.min(userTotalPages, prev + 1))} disabled={userCurrentPage === userTotalPages} className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-orange-600 disabled:opacity-30 dark:text-gray-400 dark:hover:bg-gray-800"><ChevronRight size={15} /></button>
+                    <button aria-label="Last page" onClick={() => setUserCurrentPage(userTotalPages)} disabled={userCurrentPage === userTotalPages} className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-orange-600 disabled:opacity-30 dark:text-gray-400 dark:hover:bg-gray-800"><ChevronLast size={15} /></button>
+                  </nav>
                 )}
               </div>
             </div>
@@ -3979,10 +3964,10 @@ const AdminView: React.FC<Props> = ({
               {vendorHubSubTab === 'VENDORS' && (
                 <>
                   <div className="overflow-x-auto rounded-b-2xl">
-                    <table className="w-full">
-                      <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                    <table className="w-full min-w-[980px] text-xs">
+                      <thead className="bg-gray-50 text-xs font-semibold text-gray-500 dark:bg-gray-800/70 dark:text-gray-400">
                         <tr>
-                          <th className="px-4 py-3 text-left group whitespace-nowrap">
+                          <th className="px-4 py-2 text-left group whitespace-nowrap">
                             <div className="inline-flex items-center gap-1.5">
                               <span>Kitchen</span>
                               <button
@@ -3995,7 +3980,7 @@ const AdminView: React.FC<Props> = ({
                               </button>
                             </div>
                           </th>
-                          <th className="px-4 py-3 text-left group whitespace-nowrap">
+                          <th className="px-4 py-2 text-left group whitespace-nowrap">
                             <div className="inline-flex items-center gap-1.5">
                               <span>Hub</span>
                               <button
@@ -4008,12 +3993,12 @@ const AdminView: React.FC<Props> = ({
                               </button>
                             </div>
                           </th>
-                          <th className="px-4 py-3 text-center whitespace-nowrap">Plan</th>
-                          <th className="px-4 py-3 text-center whitespace-nowrap">Plan Expiry</th>
-                          <th className="px-4 py-3 text-center whitespace-nowrap">DuitNow</th>
-                          <th className="px-4 py-3 text-center whitespace-nowrap">Master / Plan Lock</th>
-                          <th className="px-4 py-3 text-center whitespace-nowrap">Live Status</th>
-                          <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
+                          <th className="px-4 py-2 text-center whitespace-nowrap">Plan</th>
+                          <th className="px-4 py-2 text-center whitespace-nowrap">Plan Expiry</th>
+                          <th className="px-4 py-2 text-center whitespace-nowrap">DuitNow</th>
+                          <th className="px-4 py-2 text-center whitespace-nowrap">Master / Plan Lock</th>
+                          <th className="px-4 py-2 text-center whitespace-nowrap">Live Status</th>
+                          <th className="px-4 py-2 text-right whitespace-nowrap">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y dark:divide-gray-700/50">
@@ -4022,40 +4007,40 @@ const AdminView: React.FC<Props> = ({
                           const isOnline = res?.isOnline ?? false;
                           return (
                             <tr key={vendor.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                              <td className="px-4 py-2.5">
-                                <div className="flex items-center gap-3">
-                                  <img src={res?.logo} className="w-7 h-7 rounded-lg shadow-sm object-cover border dark:border-gray-600" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="12" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${res?.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
+                              <td className="px-4 py-2 whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  <img src={res?.logo} className="w-7 h-7 shrink-0 rounded-lg shadow-sm object-cover border dark:border-gray-600" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="12" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${res?.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
                                   <div>
-                                      <span className="font-black dark:text-white text-xs block">{res?.name}</span>
-                                      <span className="text-[8px] font-black text-orange-500 uppercase tracking-widest">@{vendor.username}</span>
+                                      {res ? <button type="button" onClick={() => setVendorDetailsId(res.id)} aria-label={`View vendor information for ${res.name}`} className="block rounded text-left text-xs font-semibold text-gray-900 hover:text-orange-600 hover:underline focus-visible:outline-orange-500 dark:text-white dark:hover:text-orange-400">{res.name}</button> : <span className="block text-sm text-gray-500">Vendor unavailable</span>}
+                                      <span className="text-[11px] text-gray-500 dark:text-gray-400">@{vendor.username}</span>
                                   </div>
                                 </div>
                               </td>
-                              <td className="px-4 py-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase truncate max-w-[120px]">{res?.location || 'Unassigned'}</td>
-                              <td className="px-4 py-2.5 text-center">
+                              <td className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 truncate max-w-[140px]">{res?.location || 'Unassigned'}</td>
+                              <td className="px-4 py-2 text-center">
                                 {(() => {
                                   const sub = res ? subscriptions[res.id] : null;
                                   const planId = sub?.plan_id || 'basic';
                                   const planLabels: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
-                                  return <span className="whitespace-nowrap text-[9px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300">{planLabels[planId] || 'Basic'}</span>;
+                                  return <span className="whitespace-nowrap text-xs font-medium text-gray-600 dark:text-gray-300">{planLabels[planId] || 'Basic'}</span>;
                                 })()}
                               </td>
-                              <td className="px-4 py-2.5 text-center">
+                              <td className="px-4 py-2 text-center">
                                 {(() => {
                                   const sub = res ? subscriptions[res.id] : null;
-                                  if (!sub) return <span className="text-[9px] font-bold text-gray-400">—</span>;
+                                  if (!sub) return <span className="text-xs text-gray-400">—</span>;
                                   const endDate = sub.current_period_end || sub.trial_end;
-                                  if (!endDate) return <span className="text-[9px] font-bold text-gray-400">—</span>;
+                                  if (!endDate) return <span className="text-xs text-gray-400">—</span>;
                                   const d = new Date(endDate);
                                   const isExpired = d < new Date();
                                   return (
-                                    <div className="flex flex-col items-center gap-1">
-                                      <span className={`text-[9px] font-black ${isExpired ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>{d.toLocaleDateString()}</span>
+                                    <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
+                                      <span className={`text-xs font-medium ${isExpired ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>{d.toLocaleDateString()}</span>
                                       {res && (
                                         <button
                                           onClick={() => handleAdminExtend(res.id, res.name)}
                                           disabled={extendingRestId === res.id}
-                                          className="text-[8px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
+                                          className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
                                         >
                                           {extendingRestId === res.id ? '...' : '+ 1 Month'}
                                         </button>
@@ -4064,7 +4049,7 @@ const AdminView: React.FC<Props> = ({
                                   );
                                 })()}
                               </td>
-                              <td className="px-4 py-2.5 text-center">
+                              <td className="px-4 py-2 text-center">
                                 {(() => {
                                   const sub = res ? subscriptions[res.id] : null;
                                   const isDuitNow = sub?.duitnow_enabled ?? false;
@@ -4084,7 +4069,7 @@ const AdminView: React.FC<Props> = ({
                                   );
                                 })()}
                               </td>
-                              <td className="px-4 py-2.5 text-center">
+                              <td className="px-4 py-2 text-center">
                                 <div className="flex items-center justify-center gap-1.5">
                                   <button onClick={() => toggleVendorStatus(vendor)} className={`p-1.5 rounded-lg transition-all ${vendor.isActive ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`} title={vendor.isActive ? 'Master active' : 'Master inactive'}>
                                      {vendor.isActive ? <CheckCircle2 size={16} /> : <Power size={16} />}
@@ -4124,19 +4109,19 @@ const AdminView: React.FC<Props> = ({
                                   })()}
                                 </div>
                               </td>
-                              <td className="px-4 py-2.5 text-center">
+                              <td className="px-4 py-2 text-center">
                                 <button 
                                   onClick={() => res && onToggleOnline(res.id, isOnline)} 
-                                  className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${isOnline ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}
+                                  className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${isOnline ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}
                                 >
                                   {isOnline ? 'Online' : 'Offline'}
                                 </button>
                               </td>
-                              <td className="px-4 py-2.5 text-right">
+                              <td className="px-4 py-2 text-right">
                                 <button
                                   type="button"
                                   onClick={event => openVendorActionMenu(event, vendor.id)}
-                                  className="inline-flex p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-white dark:hover:bg-gray-700 transition-colors"
+                                  className="inline-flex p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-white dark:hover:bg-gray-700 transition-colors"
                                   title="Vendor actions"
                                   aria-label={`Actions for ${res?.name || vendor.username}`}
                                   aria-expanded={vendorActionMenu?.vendorId === vendor.id}
@@ -4149,7 +4134,7 @@ const AdminView: React.FC<Props> = ({
                         })}
                         {paginatedVendors.length === 0 && (
                           <tr>
-                            <td colSpan={8} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                            <td colSpan={8} className="py-16 text-center text-[11px] text-gray-500 dark:text-gray-400">
                               No matching vendors found.
                             </td>
                           </tr>
@@ -4186,34 +4171,34 @@ const AdminView: React.FC<Props> = ({
               {vendorHubSubTab === 'HUBS' && (
                 <>
                   <div className="overflow-x-auto rounded-b-2xl">
-                    <table className="w-full">
-                      <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                    <table className="w-full text-xs">
+                      <thead className="bg-gray-50 text-xs font-semibold text-gray-500 dark:bg-gray-800/70 dark:text-gray-400">
                         <tr>
-                          <th className="px-4 py-3 text-left whitespace-nowrap">Hub</th>
-                          <th className="px-4 py-3 text-center whitespace-nowrap">Vendors</th>
-                          <th className="px-4 py-3 text-center whitespace-nowrap">Status</th>
-                          <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
+                          <th className="px-4 py-2 text-left whitespace-nowrap">Hub</th>
+                          <th className="px-4 py-2 text-center whitespace-nowrap">Vendors</th>
+                          <th className="px-4 py-2 text-center whitespace-nowrap">Status</th>
+                          <th className="px-4 py-2 text-right whitespace-nowrap">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y dark:divide-gray-700/50">
                         {paginatedHubsList.map(loc => (
                           <tr key={loc.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors group">
-                            <td className="px-4 py-2.5">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-orange-50 dark:bg-orange-900/30 text-orange-500 rounded-xl flex items-center justify-center shadow-inner group-hover:bg-orange-500 group-hover:text-white transition-all"><MapPin size={20} /></div>
+                            <td className="px-4 py-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 shrink-0 bg-orange-50 dark:bg-orange-900/30 text-orange-500 rounded-xl flex items-center justify-center shadow-inner group-hover:bg-orange-500 group-hover:text-white transition-all"><MapPin size={16} /></div>
                                 <div>
-                                  <span className="font-black dark:text-white text-sm block uppercase tracking-tight">{loc.name}</span>
-                                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{loc.code} | {loc.state}</span>
+                                  <span className="font-semibold dark:text-white text-xs block">{loc.name}</span>
+                                  <span className="text-[11px] text-gray-500 dark:text-gray-400">{loc.code} | {loc.state}</span>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-2.5 text-center">
+                            <td className="px-4 py-2 text-center">
                               {(() => {
                                 const count = restaurants.filter(r => r.location === loc.name).length;
                                 return (
                                   <button
                                     onClick={() => setViewingHubVendors(loc)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:text-orange-500 text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50"
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:text-orange-500 text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50"
                                   >
                                     <Users size={14} />
                                     {count}
@@ -4221,12 +4206,12 @@ const AdminView: React.FC<Props> = ({
                                 );
                               })()}
                             </td>
-                            <td className="px-4 py-2.5 text-center">
+                            <td className="px-4 py-2 text-center">
                               <button onClick={() => toggleHubStatus(loc)} className={`p-1.5 rounded-lg transition-all ${loc.isActive !== false ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`}>
                                  {loc.isActive !== false ? <Power size={16} /> : <Power size={16} className="opacity-40" />}
                               </button>
                             </td>
-                            <td className="px-4 py-2.5 text-right">
+                            <td className="px-4 py-2 text-right">
                               <div className="flex justify-end gap-1">
                                 <button onClick={() => setGeneratingQrHub(loc)} className="p-1.5 text-gray-400 hover:text-orange-500"><QrCode size={15} /></button>
                                 <button onClick={() => handleOpenHubEdit(loc)} className="p-1.5 text-gray-400 hover:text-blue-500"><Edit3 size={15} /></button>
@@ -4236,7 +4221,7 @@ const AdminView: React.FC<Props> = ({
                         ))}
                         {paginatedHubsList.length === 0 && (
                           <tr>
-                            <td colSpan={4} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                            <td colSpan={4} className="py-16 text-center text-[11px] text-gray-500 dark:text-gray-400">
                               No matching hubs found.
                             </td>
                           </tr>
@@ -4319,7 +4304,7 @@ const AdminView: React.FC<Props> = ({
 
               {/* Tab content container */}
               <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm rounded-b-2xl rounded-tr-2xl ${
-                activeTab === 'VENDOR_SUBSCRIPTION' ? 'overflow-hidden' : 'p-5 md:p-6'
+                activeTab === 'VENDOR_SUBSCRIPTION' ? 'overflow-hidden' : 'p-3 sm:p-4'
               }`}>
 
             {activeTab === 'INCOME_REPORT' && incomeReportSubTab === 'INCOME' && (
@@ -4359,20 +4344,20 @@ const AdminView: React.FC<Props> = ({
                 )}
 
                 {/* Date Filters */}
-                <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-                  <div className="relative flex-1 min-w-[220px]">
+                <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[140px_minmax(0,1fr)_36px] xl:grid-cols-[minmax(0,1fr)_140px_auto_36px]">
+                  <div className="relative min-w-0 sm:col-span-3 xl:col-span-1">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       type="text"
                       value={incomeSearchQuery}
                       onChange={e => setIncomeSearchQuery(e.target.value)}
                       placeholder="Search income, vendor, plan..."
-                      className="w-full h-10 pl-9 pr-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 dark:text-white"
+                      className="w-full h-9 pl-9 pr-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 dark:text-white"
                     />
                   </div>
-                  <div className="relative w-full sm:w-[180px] shrink-0">
+                  <div className="relative min-w-0">
                     <select
-                      value={incomePaymentFilter}
+                      aria-label="Income payment method" value={incomePaymentFilter}
                       onChange={e => setIncomePaymentFilter(e.target.value)}
                       className={`${adminSelectBase} w-full pl-4 pr-9`}
                     >
@@ -4410,31 +4395,23 @@ const AdminView: React.FC<Props> = ({
                 </div>
 
                 {/* Transactions Table */}
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
-                  <table className="w-full table-fixed">
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-sm">
+                  <table className="w-full min-w-[640px] table-fixed">
                     <thead>
                       <tr className="bg-gray-50 dark:bg-gray-900/50">
-                        <th className="w-[10%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Date</th>
-                        <th className="w-[14%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Restaurant</th>
-                        <th className="w-[10%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Plan</th>
-                        <th className="w-[11%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Type</th>
-                        <th className="w-[18%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest hidden lg:table-cell">Description</th>
-                        <th className="w-[9%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Gross</th>
-                        <th className="w-[9%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest hidden md:table-cell">Fee</th>
-                        <th className="w-[9%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Net</th>
-                        <th className="w-[8%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Action</th>
+                        <th className="w-[10%] px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400">Date</th>
+                        <th className="w-[14%] px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400">Restaurant</th>
+                        <th className="w-[10%] px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400">Plan</th>
+                        <th className="w-[11%] px-3 py-2.5 text-center text-[11px] font-semibold text-gray-500 dark:text-gray-400">Type</th>
+                        <th className="w-[18%] px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 hidden xl:table-cell">Description</th>
+                        <th className="w-[9%] px-3 py-2.5 text-right text-[11px] font-semibold text-gray-500 dark:text-gray-400">Gross</th>
+                        <th className="w-[9%] px-3 py-2.5 text-right text-[11px] font-semibold text-gray-500 dark:text-gray-400">Fee</th>
+                        <th className="w-[9%] px-3 py-2.5 text-right text-[11px] font-semibold text-gray-500 dark:text-gray-400">Net</th>
+                        <th className="w-[8%] px-3 py-2.5 text-center text-[11px] font-semibold text-gray-500 dark:text-gray-400">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                      {incomeLoading && incomeTransactions.length === 0 ? (
-                        <tr><td colSpan={9} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
-                      ) : filteredIncomeTransactions.length === 0 ? (
-                        <tr><td colSpan={9} className="text-center py-12">
-                          <FileText size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-                          <p className="text-sm font-bold text-gray-400">No transactions found</p>
-                          <p className="text-xs text-gray-400 mt-1">Try adjusting the search or date range</p>
-                        </td></tr>
-                      ) : filteredIncomeTransactions.map(txn => (
+                      {filteredIncomeTransactions.map(txn => (
                         <tr key={txn.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                           <td className="px-3 py-2 text-xs font-bold dark:text-gray-300">
                             <DateTimeRows
@@ -4462,9 +4439,9 @@ const AdminView: React.FC<Props> = ({
                               <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-white dark:bg-white text-gray-700">Free</span>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-xs dark:text-gray-300 truncate hidden lg:table-cell">{txn.description}</td>
+                          <td className="px-3 py-2 text-xs dark:text-gray-300 truncate hidden xl:table-cell">{txn.description}</td>
                           <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 text-right">{txn.amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                          <td className="px-3 py-2 text-xs text-red-400 text-right hidden md:table-cell">-{txn.fee.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="px-3 py-2 text-xs text-red-400 text-right">-{txn.fee.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                           <td className="px-3 py-2 text-xs font-black text-orange-500 text-right">{txn.net.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                           <td className="px-3 py-2 text-center">
                             <button
@@ -4481,6 +4458,8 @@ const AdminView: React.FC<Props> = ({
                       ))}
                     </tbody>
                   </table>
+                  {!incomeLoading && filteredIncomeTransactions.length === 0 && <div className="py-12 text-center"><FileText size={32} className="mx-auto mb-3 text-gray-300 dark:text-gray-600" /><p className="text-sm font-medium text-gray-500">No transactions found</p><p className="mt-1 text-xs text-gray-400">Try adjusting the search or date range</p></div>}
+                  {incomeLoading && incomeTransactions.length === 0 && <div className="py-12 text-center text-sm text-gray-500"><RefreshCw size={20} className="mx-auto mb-2 animate-spin" />Loading transactions...</div>}
 
                   {/* Load More */}
                   {incomeHasMore && (
@@ -4729,7 +4708,7 @@ const AdminView: React.FC<Props> = ({
 
             {activeTab === 'INCOME_REPORT' && incomeReportSubTab === 'REPORTS' && (
               <div className="space-y-5">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                   <div>
                     <h3 className="text-base font-black dark:text-white uppercase tracking-tighter">Sales Analysis</h3>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Platform-wide order history, revenue and performance metrics</p>
@@ -4756,7 +4735,7 @@ const AdminView: React.FC<Props> = ({
                 </div>
 
                 <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border dark:border-gray-700 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_minmax(0,1fr)] xl:grid-cols-[auto_repeat(3,minmax(0,1fr))]">
                     {/* Period selection */}
                     <div>
                       <div className="inline-flex h-9 w-fit items-center gap-1.5 bg-white dark:bg-gray-800 px-2.5 rounded-lg border dark:border-gray-600">
@@ -4768,7 +4747,7 @@ const AdminView: React.FC<Props> = ({
                           onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') openAdminDatePicker(reportStartDateInputRef.current); }}
                           className={adminDateSlotClass}
                         >
-                          <input ref={reportStartDateInputRef} type="date" value={reportStart} onChange={(e) => {setReportStart(e.target.value); setCurrentPage(1);}} className="admin-date-input pointer-events-none w-full bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
+                          <input aria-label="Sales report from" ref={reportStartDateInputRef} type="date" value={reportStart} onChange={(e) => {setReportStart(e.target.value); setCurrentPage(1);}} className="admin-date-input pointer-events-none w-full bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
                         </div>
                         <span className="text-gray-400 font-black text-[10px]">TO</span>
                         <div
@@ -4778,7 +4757,7 @@ const AdminView: React.FC<Props> = ({
                           onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') openAdminDatePicker(reportEndDateInputRef.current); }}
                           className={adminDateSlotClass}
                         >
-                          <input ref={reportEndDateInputRef} type="date" value={reportEnd} onChange={(e) => {setReportEnd(e.target.value); setCurrentPage(1);}} className="admin-date-input pointer-events-none w-full bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
+                          <input aria-label="Sales report to" ref={reportEndDateInputRef} type="date" value={reportEnd} onChange={(e) => {setReportEnd(e.target.value); setCurrentPage(1);}} className="admin-date-input pointer-events-none w-full bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
                         </div>
                       </div>
                     </div>
@@ -4788,7 +4767,7 @@ const AdminView: React.FC<Props> = ({
                       <div className="relative">
                         <Store size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <select 
-                          value={reportVendor} 
+                          aria-label="Sales report vendor" value={reportVendor}
                           onChange={(e) => {setReportVendor(e.target.value); setCurrentPage(1);}}
                           className={`${adminSelectBase} w-full pl-8 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600`}
                         >
@@ -4804,7 +4783,7 @@ const AdminView: React.FC<Props> = ({
                       <div className="relative">
                         <MapPin size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <select 
-                          value={reportHub} 
+                          aria-label="Sales report hub" value={reportHub}
                           onChange={(e) => {setReportHub(e.target.value); setCurrentPage(1);}}
                           className={`${adminSelectBase} w-full pl-8 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600`}
                         >
@@ -4820,7 +4799,7 @@ const AdminView: React.FC<Props> = ({
                       <div className="relative">
                         <CreditCard size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500" />
                         <select 
-                          value={reportPaymentMethod}
+                          aria-label="Sales report payment" value={reportPaymentMethod}
                           onChange={(e) => {setReportPaymentMethod(e.target.value); setCurrentPage(1);}}
                           className={`${adminSelectBase} w-full pl-8 pr-8 bg-white dark:bg-gray-800 border dark:border-gray-600`}
                         >
@@ -4834,22 +4813,22 @@ const AdminView: React.FC<Props> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                   <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
                     <p className="text-gray-400 dark:text-gray-500 text-[9px] font-black mb-1 uppercase tracking-widest">Platform Revenue</p>
-                    <p className="text-lg font-black text-gray-900 dark:text-white tracking-tighter leading-none">
+                    <p className="text-base font-bold text-gray-900 dark:text-white tracking-tighter leading-none">
                       RM{reportData?.summary.totalRevenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
                     </p>
                   </div>
                   <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
                     <p className="text-gray-400 dark:text-gray-500 text-[9px] font-black mb-1 uppercase tracking-widest">Filtered Orders</p>
-                    <p className="text-lg font-black text-gray-900 dark:text-white tracking-tighter leading-none">
+                    <p className="text-base font-bold text-gray-900 dark:text-white tracking-tighter leading-none">
                       {reportData?.summary.orderVolume || 0}
                     </p>
                   </div>
                   <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
                     <p className="text-gray-400 dark:text-gray-500 text-[9px] font-black mb-1 uppercase tracking-widest">Completion Rate</p>
-                    <p className="text-lg font-black text-green-500 tracking-tighter leading-none">
+                    <p className="text-base font-bold text-green-500 tracking-tighter leading-none">
                       {reportData?.summary.efficiency || 0}%
                     </p>
                   </div>
@@ -4857,8 +4836,8 @@ const AdminView: React.FC<Props> = ({
 
                 <div className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm">
                   <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[9px] font-black uppercase tracking-widest">
+                    <table className="w-full min-w-[850px]">
+                      <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[11px] font-semibold">
                         <tr>
                           <th className="px-4 py-2.5 text-left">ID</th>
                           <th className="px-4 py-2.5 text-left">Kitchen</th>
@@ -4897,14 +4876,11 @@ const AdminView: React.FC<Props> = ({
                             </tr>
                           );
                         })}
-                        {paginatedReports.length === 0 && (
-                          <tr>
-                            <td colSpan={10} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">No matching records found.</td>
-                          </tr>
-                        )}
+
                       </tbody>
                     </table>
                   </div>
+                  {paginatedReports.length === 0 && <p className="py-12 text-center text-xs text-gray-500">{isReportLoading ? 'Loading report?' : 'No matching records found.'}</p>}
                 </div>
 
                 {/* Pagination Controls */}
@@ -7267,6 +7243,20 @@ const AdminView: React.FC<Props> = ({
               </div>
            </div>
         </div>
+      )}
+
+      {detailsRestaurant && (
+        <AdminVendorDetailsModal
+          key={detailsRestaurant.id}
+          restaurant={detailsRestaurant}
+          users={vendorDirectory.usersByRestaurantId.get(detailsRestaurant.id) || []}
+          subscription={subscriptions[detailsRestaurant.id]}
+          onSignIn={user => {
+            setVendorDetailsId(null);
+            onImpersonateVendor(user, user.role === 'HR' ? 'backoffice' : 'staff');
+          }}
+          onClose={() => setVendorDetailsId(null)}
+        />
       )}
 
       {vendorActionMenu && (() => {

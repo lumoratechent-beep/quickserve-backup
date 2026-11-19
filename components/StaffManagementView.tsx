@@ -2122,7 +2122,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4">
       {subTab !== 'access' && (
       <>
       <div>
@@ -2130,9 +2130,9 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
         <p className="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">Manage departments, employee details, salary profiles, statutory deductions and payslips.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(320px,1.15fr)_minmax(420px,1fr)]">
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="grid min-w-0 grid-cols-1 gap-3">
+        <div className="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-2 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10"><CalendarDays size={20} className="text-violet-500" /></div>
               <div>
@@ -2145,9 +2145,9 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
             </button>
           </div>
           {peopleOnLeaveToday.length ? (
-            <div className="space-y-1.5 overflow-x-auto">
+            <div className="space-y-1.5">
               {peopleOnLeaveToday.slice(0, 4).map(leave => (
-                <div key={leave.id} className="grid min-w-[430px] grid-cols-[minmax(110px,1.4fr)_minmax(80px,0.8fr)_92px_92px_auto] items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-1.5 text-[11px] dark:border-gray-700 dark:bg-gray-900/50">
+                <div key={leave.id} className="grid min-w-0 grid-cols-2 items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-1.5 text-[11px] dark:border-gray-700 dark:bg-gray-900/50 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_92px_92px_auto]">
                   <span className="truncate font-black text-gray-900 dark:text-white">{leave.staff_name || 'Staff'}</span>
                   <span className="truncate font-bold uppercase text-violet-600 dark:text-violet-300">{leave.leave_type}</span>
                   <span className="whitespace-nowrap font-semibold text-gray-500 dark:text-gray-400">{formatDate(leave.start_date)}</span>
@@ -2158,26 +2158,26 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
               {peopleOnLeaveToday.length > 4 && <p className="text-[11px] font-bold text-gray-400">+{peopleOnLeaveToday.length - 4} more on leave today</p>}
             </div>
           ) : (
-            <div className="flex min-h-32 flex-col justify-center rounded-xl border border-dashed border-gray-200 px-4 text-gray-400 dark:border-gray-700">
+            <div className="flex flex-col justify-center rounded-xl border border-dashed border-gray-200 px-3 py-3 text-gray-400 dark:border-gray-700">
               <p className="text-sm font-bold">No one is on leave today</p>
               <p className="mt-1 text-xs">Approved and scheduled leave for today will appear here.</p>
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid min-w-0 grid-cols-4 gap-2 sm:gap-3">
           {[
             { label: 'Total Staff', value: staff.length, icon: <Users size={20} className="text-blue-500" />, tone: 'bg-blue-500/10' },
             { label: 'Departments', value: departments.length, icon: <Building2 size={20} className="text-amber-500" />, tone: 'bg-amber-500/10' },
             { label: 'Monthly Payroll', value: fmt(staff.reduce((sum, item) => sum + n(item.profile?.salary_amount), 0)), icon: <CreditCard size={20} className="text-emerald-500" />, tone: 'bg-emerald-500/10' },
             { label: 'Payslips', value: payslips.length, icon: <FileText size={20} className="text-rose-500" />, tone: 'bg-rose-500/10' },
           ].map(card => (
-            <div key={card.label} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-              <div className="mb-3 flex items-center gap-3">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.tone}`}>{card.icon}</div>
-                <span className="text-xs font-bold uppercase tracking-wider text-gray-400">{card.label}</span>
+            <div key={card.label} className="min-w-0 rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-3">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${card.tone}`}>{card.icon}</div>
+                <span className="text-[9px] font-bold uppercase tracking-wide text-gray-400 sm:text-[10px]">{card.label}</span>
               </div>
-              <p className="text-2xl font-black text-gray-950 dark:text-white">{card.value}</p>
+              <p className="break-words text-sm font-black tabular-nums text-gray-950 dark:text-white sm:text-xl">{card.value}</p>
             </div>
           ))}
         </div>
@@ -2187,19 +2187,19 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
 
       <div className="min-w-0">
         {subTab !== 'access' && (
-        <div className="relative flex gap-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="relative flex flex-wrap gap-0">
           {([
-            ['directory', 'Staff Directory', <Users size={14} />],
+            ['directory', 'Directory', <Users size={14} />],
             ['leave', 'Leave', <CalendarDays size={14} />],
-            ['payroll', 'Staff Payslip', <Receipt size={14} />],
-            ['claims', 'Staff Claim', <FileText size={14} />],
+            ['payroll', 'Payslip', <Receipt size={14} />],
+            ['claims', 'Claims', <FileText size={14} />],
             ['departments', 'Departments', <Building2 size={14} />],
           ] as const).map(([key, label, icon]) => (
             <button
               key={key}
               onClick={() => setSubTab(key)}
               style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
-              className={`relative -mb-px inline-flex items-center gap-2 whitespace-nowrap rounded-t-lg border px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors duration-150 ${
+              className={`relative -mb-px inline-flex flex-auto items-center justify-center gap-1 whitespace-nowrap rounded-t-lg border px-2 py-2 text-[10px] font-bold uppercase tracking-wide transition-colors duration-150 sm:gap-1.5 sm:px-3 sm:text-xs ${
                 subTab === key
                   ? 'z-10 border-x border-t border-gray-200 bg-white text-orange-500 dark:border-gray-600 dark:border-t-orange-500 dark:bg-gray-800'
                   : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'
@@ -2213,30 +2213,30 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
 
         {subTab === 'directory' && (
         <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
-            <div>
+          <div className="staff-list-header space-y-3 border-b border-gray-200 p-3 dark:border-gray-700">
+            <div className="min-w-0">
               <h3 className="text-sm font-black text-gray-900 dark:text-white">Employee Records</h3>
               <p className="text-xs text-gray-500 dark:text-gray-400">Manage employee profiles, departments, employment status and salary setup.</p>
             </div>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <div className="relative sm:w-72">
+            <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
+              <div className="relative min-w-0 flex-1">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search staff..." className="h-[38px] w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
               </div>
-              <button onClick={() => openStaffModal()} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+              <button onClick={() => openStaffModal()} className="inline-flex h-[38px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-amber-600 px-3 text-xs font-bold uppercase tracking-wide text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
                 <UserPlus size={14} /> Add Staff
               </button>
             </div>
           </div>
           {visibleStaff.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[680px] text-left">
+              <table className="staff-directory-table w-full table-fixed text-left">
                 <thead className="bg-gray-50 dark:bg-gray-900/50">
                   <tr>
-                    <th className="w-[34%] min-w-[260px] px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Staff</th>
-                    <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Department</th>
-                    <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Status</th>
-                    <th className="w-12 px-2 py-2 text-center text-[10px] font-black uppercase tracking-widest text-gray-400">Actions</th>
+                    <th className="w-[34%] px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Staff</th>
+                    <th className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Department</th>
+                    <th className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Status</th>
+                    <th className="w-12 px-2 py-2 text-center text-[10px] font-black uppercase tracking-widest text-gray-400"><span className="sr-only">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
@@ -2245,17 +2245,16 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
                     const currentStatus = (item.profile?.employment_status || (item.is_active === false ? 'Inactive' : 'Active')) as StaffEmploymentStatus;
                     return (
                       <tr key={item.id} className="transition">
-                        <td className="w-[34%] min-w-[260px] px-5 py-4">
+                        <td className="w-[34%] px-3 py-2">
                           <div>
                             <button type="button" onClick={() => openStaffDetail(item)} className="text-left text-sm font-black text-gray-900 transition hover:text-amber-600 hover:underline dark:text-white dark:hover:text-amber-300">
                               {item.profile?.full_name || item.username}
                             </button>
                             {item.profile?.employee_code && <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{item.profile.employee_code}</p>}
-                            {item.profile?.nationality && <p className="mt-1 text-[10px] font-semibold text-gray-400">Citizen: {item.profile.nationality}</p>}
                           </div>
                         </td>
-                        <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p className="font-bold text-gray-700 dark:text-gray-200">{department?.name || 'Unassigned'}</p><p>{item.profile?.job_title || 'No job title'}</p></td>
-                        <td className="px-5 py-4">
+                        <td className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400"><p className="font-bold text-gray-700 dark:text-gray-200">{department?.name || 'Unassigned'}</p><p>{item.profile?.job_title || 'No job title'}</p></td>
+                        <td className="px-3 py-2">
                           <select
                             value={currentStatus}
                             disabled={updatingStatusId === `staff_${item.id}`}
@@ -2268,7 +2267,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
                             <option className={statusOptionClass} value="Resigned">Resigned</option>
                           </select>
                         </td>
-                        <td className="w-12 px-2 py-4 text-center">
+                        <td className="w-12 px-2 py-2 text-center">
                           <div className="flex justify-center">
                             <button
                               type="button"
@@ -2311,10 +2310,12 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
 
             {accessPageTab === 'users' && (
               <div className="overflow-hidden rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
-                  <div className="relative w-full md:w-72"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={accessSearch} onChange={event => setAccessSearch(event.target.value)} placeholder="Search users..." className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" /></div>
-                  <div className="flex w-full gap-2 sm:w-auto">
-                    <select value={accessTypeFilter} onChange={event => setAccessTypeFilter(event.target.value as 'all' | StaffRole)} className="h-10 rounded-xl border border-gray-200 bg-gray-50 px-3 text-xs font-black uppercase tracking-wider text-gray-600 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                <div className="staff-list-header space-y-3 border-b border-gray-200 p-3 dark:border-gray-700">
+                  <div><h3 className="text-sm font-black text-gray-900 dark:text-white">User Access</h3><p className="text-xs text-gray-500 dark:text-gray-400">Manage staff accounts and access permissions.</p></div>
+                  <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
+                  <div className="relative min-w-0 flex-1"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={accessSearch} onChange={event => setAccessSearch(event.target.value)} placeholder="Search users..." className="h-[38px] w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" /></div>
+                  <div className="contents">
+                    <select value={accessTypeFilter} onChange={event => setAccessTypeFilter(event.target.value as 'all' | StaffRole)} aria-label="Filter users by access type" className="order-first h-[38px] w-full shrink-0 rounded-xl sm:order-none sm:w-auto border border-gray-200 bg-gray-50 px-3 text-xs font-black uppercase tracking-wider text-gray-600 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
                       <option value="all">ALL ACCESS</option>
                       <option value="CASHIER">Cashier</option>
                       <option value="KITCHEN">Kitchen</option>
@@ -2322,8 +2323,9 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
                       <option value="MANAGER">Manager</option>
                       <option value="HR">Human Resources</option>
                     </select>
-                    <button onClick={openAccessForm} className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-xl bg-amber-600 px-4 text-xs font-black uppercase tracking-wider text-white hover:bg-amber-700"><UserPlus size={14} /> New Access</button>
+                    <button onClick={openAccessForm} className="inline-flex h-[38px] shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-amber-600 px-4 text-xs font-black uppercase tracking-wider text-white hover:bg-amber-700"><UserPlus size={14} /> New Access</button>
                   </div>
+                </div>
                 </div>
                 {visibleAccessUsers.length > 0 ? (
                   <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left"><thead className="bg-gray-50 dark:bg-gray-900/50"><tr><th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Full Name</th><th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Username</th><th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Access Type</th><th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Contact</th></tr></thead><tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">{visibleAccessUsers.map(item => <tr key={item.id} onClick={() => openAccessSettings(item)} className="cursor-pointer transition hover:bg-amber-50/40 dark:hover:bg-amber-900/10" title="Open user settings"><td className="px-5 py-4 text-sm font-black text-gray-900 dark:text-white">{item.profile?.full_name || item.username}</td><td className="px-5 py-4 text-xs font-bold text-gray-600 dark:text-gray-300">{item.username}</td><td className="px-5 py-4"><span className="rounded-lg bg-violet-50 px-2.5 py-1 text-[10px] font-black text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">{item.role.replace('_', ' ')}</span>{item.role === 'KITCHEN' && <p className={`mt-2 max-w-56 text-[10px] font-bold ${item.kitchen_categories?.length ? 'text-orange-600 dark:text-orange-400' : 'text-rose-600 dark:text-rose-400'}`}>{item.kitchen_categories?.length ? item.kitchen_categories.join(', ') : 'Department required'}</p>}</td><td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p>{item.email || '-'}</p><p>{item.phone || '-'}</p></td></tr>)}</tbody></table></div>
@@ -2395,17 +2397,17 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
           </div>
         ) : (
           <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 xl:flex-row xl:items-center xl:justify-between">
+            <div className="staff-list-header space-y-3 border-b border-gray-200 p-3 dark:border-gray-700">
               <div>
                 <h3 className="text-sm font-black text-gray-900 dark:text-white">Staff Leave</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">See who is on leave and manage leave records by type.</p>
               </div>
-              <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
-                <div className="relative sm:w-72">
+              <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
+                <div className="relative min-w-0 flex-1">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input value={leaveSearch} onChange={event => setLeaveSearch(event.target.value)} placeholder="Search leave..." className="h-[38px] w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
                 </div>
-                <button onClick={() => openLeaveForm()} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                <button onClick={() => openLeaveForm()} className="inline-flex h-[38px] shrink-0 whitespace-nowrap items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
                   <CalendarPlus size={14} /> Add Leave
                 </button>
               </div>
@@ -2641,23 +2643,23 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
           </div>
         ) : (
           <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 xl:flex-row xl:items-center xl:justify-between">
+            <div className="staff-list-header space-y-3 border-b border-gray-200 p-3 dark:border-gray-700">
               <div>
                 <h3 className="text-sm font-black text-gray-900 dark:text-white">Staff Payslip</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Review saved payslips and create a new staff payroll record.</p>
               </div>
-              <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
-                <div className="relative sm:w-64">
+              <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
+                <div className="relative min-w-0 flex-1">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input value={payslipSearch} onChange={event => setPayslipSearch(event.target.value)} placeholder="Search payslip..." className="h-[38px] w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
                 </div>
-                <select value={payslipStatusFilter} onChange={event => setPayslipStatusFilter(event.target.value as 'all' | PayrollPayslip['status'])} className="h-[38px] rounded-xl border border-gray-200 bg-gray-50 px-3 text-xs font-bold uppercase tracking-wider text-gray-600 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                <select value={payslipStatusFilter} onChange={event => setPayslipStatusFilter(event.target.value as 'all' | PayrollPayslip['status'])} aria-label="Filter payslips by status" className="order-first h-[38px] w-full shrink-0 rounded-xl sm:order-none sm:w-auto border border-gray-200 bg-gray-50 px-3 text-xs font-bold uppercase tracking-wider text-gray-600 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
                   <option className={statusOptionClass} value="all">All Status</option>
                   <option className={statusOptionClass} value="draft">Draft</option>
                   <option className={statusOptionClass} value="approved">Approved</option>
                   <option className={statusOptionClass} value="paid">Paid</option>
                 </select>
-                <button onClick={() => openPayslipForm()} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                <button onClick={() => openPayslipForm()} className="inline-flex h-[38px] shrink-0 whitespace-nowrap items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
                   <Plus size={14} /> Create Payslip
                 </button>
               </div>
@@ -2812,17 +2814,17 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
           </div>
         ) : (
           <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 xl:flex-row xl:items-center xl:justify-between">
+            <div className="staff-list-header space-y-3 border-b border-gray-200 p-3 dark:border-gray-700">
               <div>
                 <h3 className="text-sm font-black text-gray-900 dark:text-white">Staff Claim</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Create and review staff reimbursement claims linked to Staff expenses.</p>
               </div>
-              <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
-                <div className="relative sm:w-72">
+              <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
+                <div className="relative min-w-0 flex-1">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input value={claimSearch} onChange={event => setClaimSearch(event.target.value)} placeholder="Search claim..." className="h-[38px] w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
                 </div>
-                <button onClick={() => openClaimForm()} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                <button onClick={() => openClaimForm()} className="inline-flex h-[38px] shrink-0 whitespace-nowrap items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
                   <Plus size={14} /> Create Claim
                 </button>
               </div>
@@ -2891,17 +2893,17 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
 
         {subTab === 'departments' && (
         <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
+          <div className="staff-list-header space-y-3 border-b border-gray-200 p-3 dark:border-gray-700">
             <div>
               <h3 className="text-sm font-black text-gray-900 dark:text-white">Departments</h3>
               <p className="text-xs text-gray-500 dark:text-gray-400">Departments connect employees to branches, job groups or kitchen sections.</p>
             </div>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <div className="relative sm:w-72">
+            <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
+              <div className="relative min-w-0 flex-1">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input value={departmentSearch} onChange={event => setDepartmentSearch(event.target.value)} placeholder="Search departments..." className="h-[38px] w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
               </div>
-              <button onClick={() => setIsDepartmentFormOpen(open => !open)} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+              <button onClick={() => setIsDepartmentFormOpen(open => !open)} className="inline-flex h-[38px] shrink-0 whitespace-nowrap items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
                 <Plus size={14} /> Add Department
               </button>
             </div>

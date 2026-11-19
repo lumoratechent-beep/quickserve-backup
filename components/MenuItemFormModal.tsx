@@ -1,3 +1,5 @@
+import SectionInfoButton from './SectionInfoButton';
+import BodyPortal from './BodyPortal';
 import React, { useEffect, useRef, useState } from 'react';
 import { MenuItem, AddOnItem, ModifierData, AddOnItemData, MixMatchSelection, MixMatchOption } from '../src/types';
 import { ArrowLeft, X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save, Pencil, ScanBarcode, DollarSign, Tag, Layers, ChevronDown, Package, Shuffle, Copy } from 'lucide-react';
@@ -686,12 +688,7 @@ const MenuItemFormModal: React.FC<Props> = ({
           }`} />
         </button>
         <label className="text-xs font-bold text-gray-600 dark:text-gray-300">Track stock</label>
-        <div className="relative group">
-          <Info size={14} className="text-gray-400 cursor-help" />
-          <div className="hidden group-hover:block absolute bottom-full left-0 mb-1 w-48 p-2 bg-gray-800 text-white text-[10px] rounded-lg shadow-lg z-10">
-            Enable to track inventory levels for this item in Stock Management.
-          </div>
-        </div>
+        <SectionInfoButton compact title="Stock tracking" description="Enable to track inventory levels for this item in Stock Management." />
       </div>
     </div>
   );
@@ -1333,6 +1330,7 @@ const MenuItemFormModal: React.FC<Props> = ({
   return (
     <>
     {showUnsavedWarning && (
+      <BodyPortal>
       <div className="fixed inset-0 z-[99999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowUnsavedWarning(false)}>
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border dark:border-gray-700 w-full max-w-sm p-6 space-y-4" onClick={e => e.stopPropagation()}>
           <div className="text-center">
@@ -1360,6 +1358,7 @@ const MenuItemFormModal: React.FC<Props> = ({
           </div>
         </div>
       </div>
+      </BodyPortal>
     )}
     {cropFile && (
       <ImageCropModal

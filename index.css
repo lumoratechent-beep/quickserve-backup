@@ -3,6 +3,94 @@
 @tailwind components;
 @tailwind utilities;
 
+.stock-management-table {
+  min-width: 720px;
+  font-size: 12px;
+  letter-spacing: normal;
+}
+.stock-management-table th {
+  white-space: nowrap;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+.stock-management-table td:nth-child(2) {
+  min-width: 140px;
+  max-width: 240px;
+}
+.stock-management-table td:nth-child(3) {
+  white-space: nowrap;
+}
+.stock-management-table td:nth-child(4) {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* Size records against the content area, including when the sidebar is open. */
+.cashier-shift-records {
+  container-type: inline-size;
+}
+.cashier-shift-table {
+  letter-spacing: normal;
+}
+.cashier-shift-table th:nth-child(1) { width: 12%; }
+.cashier-shift-table th:nth-child(2) { width: 21%; }
+.cashier-shift-table th:nth-child(3) { width: 17%; }
+.cashier-shift-table th:nth-child(4) { width: 11%; }
+.cashier-shift-table th:nth-child(5),
+.cashier-shift-table th:nth-child(6) { width: 14%; }
+.cashier-shift-table th:nth-child(7) { width: 9%; }
+.cashier-shift-table th:nth-child(8) { width: 2%; }
+.cashier-shift-table td {
+  overflow-wrap: anywhere;
+}
+.cashier-shift-table td:nth-child(5),
+.cashier-shift-table td:nth-child(6) {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.cashier-shift-table th:last-child,
+.cashier-shift-table td:last-child {
+  padding-left: 0;
+  padding-right: 0;
+}
+.staff-directory-table td {
+  overflow-wrap: anywhere;
+}
+@container (max-width: 639px) {
+  .cashier-shift-table thead { display: none; }
+  .cashier-shift-table,
+  .cashier-shift-table tbody { display: block; }
+  .cashier-shift-table tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0.5rem;
+  }
+  .cashier-shift-table td {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    text-align: left;
+  }
+  .cashier-shift-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.125rem;
+    color: var(--qs-text-secondary);
+    font-size: 10px;
+  }
+  .cashier-shift-table td:last-child { display: none; }
+  .cashier-shift-table td:nth-child(7) { grid-column: 2; grid-row: 4; }
+}
+@media (max-width: 479px) {
+  .staff-directory-table th,
+  .staff-directory-table td { padding-left: 0.375rem; padding-right: 0.375rem; }
+  .staff-directory-table th { font-size: 9px; letter-spacing: normal; }
+  .staff-directory-table th:first-child,
+  .staff-directory-table td:first-child { width: 32%; }
+  .staff-directory-table th:last-child,
+  .staff-directory-table td:last-child { width: 3rem; }
+  .staff-directory-table select { max-width: 100%; padding-left: 0.25rem; font-size: 9px; }
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;

@@ -18,3 +18,14 @@ View your app in AI Studio: https://ai.studio/apps/277fff03-da49-41d0-9233-a2243
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Browser testing
+
+Playwright runs Chromium against a local Vite server, which it starts automatically.
+
+1. Install the browser after installing dependencies: `npx playwright install chromium`.
+2. Run tests: `npm run test:browser`.
+3. Use the interactive runner: `npm run test:browser:ui`.
+4. Open the latest HTML report: `npm run test:browser:report`.
+
+Admin tests use synthetic accounts and intercepted API responses, so they do not access the live database. They cover tablet and desktop toolbar sizing, row density, filters, and vendor information popups. Screenshots and failure traces are saved in the ignored `test-results/` folder.

@@ -28,6 +28,9 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
   const [isPrinting, setIsPrinting] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(6);
+  const recordsRef = useRef<HTMLDivElement | null>(null);
   const downloadMenuRef = useRef<HTMLDivElement | null>(null);
 
   const fetchShifts = async () => {
@@ -89,6 +92,32 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
       (s.close_note || '').toLowerCase().includes(q)
     );
   }, [shifts, searchQuery]);
+
+  useEffect(() => {
+    const resize = () => {
+      const table = recordsRef.current?.querySelector<HTMLTableElement>('.cashier-shift-table');
+      const row = table?.querySelector('tbody tr');
+      if (!table || !row) return;
+      const headerHeight = table.tHead?.getBoundingClientRect().height || 0;
+      const availableHeight = window.innerHeight - table.getBoundingClientRect().top - headerHeight - 72;
+      setPageSize(Math.max(1, Math.min(12, Math.floor(availableHeight / Math.max(48, row.getBoundingClientRect().height)))));
+    };
+    resize();
+    const observer = new ResizeObserver(resize);
+    if (recordsRef.current) observer.observe(recordsRef.current);
+    window.addEventListener('resize', resize);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', resize);
+    };
+  }, [loading, filtered.length]);
+
+  useEffect(() => { setPage(1); }, [searchQuery, statusFilter, dateRange, pageSize]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pageStart = (currentPage - 1) * pageSize;
+  const visibleShifts = filtered.slice(pageStart, pageStart + pageSize);
 
   useEffect(() => {
     if (!filtered.length) {
@@ -405,7 +434,7 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
   };
 
   return (
-    <div className="space-y-6">
+    <div ref={recordsRef} className="cashier-shift-records min-w-0 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-black dark:text-white flex items-center gap-2">
@@ -418,18 +447,18 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="min-w-0 bg-green-50 dark:bg-green-900/20 rounded-xl p-3">
           <p className="text-xs font-bold text-green-600 mb-1">Total Sales</p>
-          <p className="text-2xl font-black text-green-700 dark:text-green-400">{fmt(summary.totalSales)}</p>
+          <p className="break-words text-sm sm:text-2xl font-black tabular-nums text-green-700 dark:text-green-400">{fmt(summary.totalSales)}</p>
         </div>
-        <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4">
+        <div className="min-w-0 bg-red-50 dark:bg-red-900/20 rounded-xl p-3">
           <p className="text-xs font-bold text-red-600 mb-1">Total Shortages</p>
-          <p className="text-2xl font-black text-red-700 dark:text-red-400">{fmt(summary.totalShorts)}</p>
+          <p className="break-words text-sm sm:text-2xl font-black tabular-nums text-red-700 dark:text-red-400">{fmt(summary.totalShorts)}</p>
         </div>
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
+        <div className="min-w-0 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3">
           <p className="text-xs font-bold text-blue-600 mb-1">Total Overages</p>
-          <p className="text-2xl font-black text-blue-700 dark:text-blue-400">{fmt(summary.totalOverage)}</p>
+          <p className="break-words text-sm sm:text-2xl font-black tabular-nums text-blue-700 dark:text-blue-400">{fmt(summary.totalOverage)}</p>
         </div>
       </div>
 
@@ -477,23 +506,22 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
       ) : (
         <>
           <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div>
+              <table className="cashier-shift-table w-full table-fixed text-xs">
                 <thead className="bg-gray-50 dark:bg-gray-900/50">
                   <tr>
-                    <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Shift ID</th>
-                    <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Cashier</th>
-                    <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Date</th>
-                    <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Time</th>
-                    <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Duration</th>
-                    <th className="px-4 py-3 text-right font-bold text-gray-500 dark:text-gray-400">Sales</th>
-                    <th className="px-4 py-3 text-right font-bold text-gray-500 dark:text-gray-400">Difference</th>
-                    <th className="px-4 py-3 text-center font-bold text-gray-500 dark:text-gray-400">Status</th>
-                    <th className="px-4 py-3 text-center font-bold text-gray-500 dark:text-gray-400"></th>
+                    <th className="px-2 py-2 text-left font-bold text-gray-500 dark:text-gray-400">Shift ID</th>
+                    <th className="px-2 py-2 text-left font-bold text-gray-500 dark:text-gray-400">Cashier</th>
+                    <th className="px-2 py-2 text-left font-bold text-gray-500 dark:text-gray-400">Date / Time</th>
+                    <th className="px-2 py-2 text-left font-bold text-gray-500 dark:text-gray-400">Duration</th>
+                    <th className="px-2 py-2 text-right font-bold text-gray-500 dark:text-gray-400">Sales</th>
+                    <th className="px-2 py-2 text-right font-bold text-gray-500 dark:text-gray-400">Difference</th>
+                    <th className="px-2 py-2 text-center font-bold text-gray-500 dark:text-gray-400">Status</th>
+                    <th className="px-2 py-2 text-center font-bold text-gray-500 dark:text-gray-400"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y dark:divide-gray-700">
-                  {filtered.map((shift) => {
+                  {visibleShifts.map((shift) => {
                     const isSelected = selectedShift?.id === shift.id;
                     return (
                       <tr
@@ -508,24 +536,24 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
                           setSelectedShiftId(shift.id);
                         }}
                       >
-                        <td className="px-4 py-3">
-                          <span className="font-black text-gray-700 dark:text-gray-100">{shift.shift_code || shift.id}</span>
+                        <td data-label="Shift ID" className="px-2 py-2">
+                          <button type="button" onClick={event => { event.stopPropagation(); setShowDownloadMenu(false); setSelectedShiftId(shift.id); }} className="text-left font-black text-gray-700 hover:text-amber-600 hover:underline dark:text-gray-100" aria-label={`View shift ${shift.shift_code || shift.id}`}>{shift.shift_code || shift.id}</button>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
+                        <td data-label="Cashier" className="px-2 py-2">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <div className="hidden h-6 w-6 shrink-0 bg-amber-100 dark:bg-amber-900/30 rounded-full xl:flex items-center justify-center">
                               <User size={14} className="text-amber-600" />
                             </div>
-                            <span className="font-bold dark:text-white">{shift.cashier_name}</span>
+                            <span className="break-words font-bold dark:text-white">{shift.cashier_name}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{fmtDate(shift.opened_at)}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                          {fmtTime(shift.opened_at)} - {shift.closed_at ? fmtTime(shift.closed_at) : 'Now'}
+                        <td data-label="Date / Time" className="px-2 py-2 text-gray-600 dark:text-gray-300">
+                          <span className="block whitespace-nowrap">{fmtDate(shift.opened_at)}</span>
+                          <span className="block whitespace-nowrap text-[10px] text-gray-500 dark:text-gray-400">{fmtTime(shift.opened_at)} – {shift.closed_at ? fmtTime(shift.closed_at) : 'Now'}</span>
                         </td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{duration(shift.opened_at, shift.closed_at)}</td>
-                        <td className="px-4 py-3 text-right font-bold dark:text-white">{fmt(shift.total_sales)}</td>
-                        <td className="px-4 py-3 text-right">
+                        <td data-label="Duration" className="px-2 py-2 text-gray-600 dark:text-gray-300">{duration(shift.opened_at, shift.closed_at)}</td>
+                        <td data-label="Sales" className="px-2 py-2 text-right font-bold dark:text-white">{fmt(shift.total_sales)}</td>
+                        <td data-label="Difference" className="px-2 py-2 text-right">
                           {shift.status === 'closed' ? (
                             <span className={`font-bold ${
                               (shift.difference || 0) === 0 ? 'text-green-600' :
@@ -535,8 +563,8 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
                             </span>
                           ) : <span className="text-gray-400">—</span>}
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                        <td data-label="Status" className="px-2 py-2 text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                             shift.status === 'open'
                               ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                               : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
@@ -544,7 +572,7 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
                             {shift.status === 'open' ? 'Active' : 'Closed'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td data-label="Details" className="px-2 py-2 text-center">
                           <ChevronRight size={16} className={`mx-auto ${isSelected ? 'text-amber-500' : 'text-gray-400'}`} />
                         </td>
                       </tr>
@@ -552,6 +580,14 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
                   })}
                 </tbody>
               </table>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
+              <span>{pageStart + 1}–{Math.min(pageStart + pageSize, filtered.length)} of {filtered.length} shifts</span>
+              <div className="flex items-center gap-2">
+                <button type="button" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} className="rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:hover:bg-gray-700">Previous</button>
+                <span>{currentPage} / {pageCount}</span>
+                <button type="button" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)} className="rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:hover:bg-gray-700">Next</button>
+              </div>
             </div>
           </div>
 

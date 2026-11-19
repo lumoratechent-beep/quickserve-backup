@@ -6,9 +6,9 @@ import {
 } from 'recharts';
 import {
   DollarSign, ShoppingBag, Tag, Users, CreditCard, Layers, Percent, Receipt,
-  TrendingUp, TrendingDown, Search, Download, Calendar, X, Clock, ArrowLeft, FileText,
+  TrendingUp, TrendingDown, Search, Download, Calendar, X, Clock, ArrowLeft, FileText, ChevronDown,
 } from 'lucide-react';
-import { REPORT_CHART_COLORS, REPORT_PDF_THEME } from '../lib/reportPdfTheme';
+import TableActionMenu from './TableActionMenu';
 import { getCalendarReportDateRange, localDateEnd, localDateStart, toLocalDateInputValue } from '../lib/reportDateRanges';
 
 interface Props {
@@ -50,7 +50,6 @@ const ReportsView: React.FC<Props> = ({ orders, restaurantId, onFetchOrders, cur
   const [customStart, setCustomStart] = useState(() => getCalendarReportDateRange('month').start);
   const [customEnd, setCustomEnd] = useState(() => getCalendarReportDateRange('month').end);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   useEffect(() => {
     const { start, end } = getCalendarReportDateRange(dateRange);
@@ -258,172 +257,30 @@ const ReportsView: React.FC<Props> = ({ orders, restaurantId, onFetchOrders, cur
     URL.revokeObjectURL(url);
   };
 
-  const handleExportPDF = async () => {
-    if (isExportingPdf) return;
-    setIsExportingPdf(true);
-    try {
-      const report = getSectionExport();
-      const { default: jsPDF } = await import('jspdf');
-      const { default: autoTable } = await import('jspdf-autotable');
-      const theme = REPORT_PDF_THEME;
-      const doc = new jsPDF({ orientation: theme.orientation, unit: theme.unit, format: theme.format, compress: true });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = theme.margin;
-      const contentWidth = pageWidth - margin * 2;
-      const { accent, heading, body, muted, border, surface, white } = theme.colors;
-      let y = 16;
-
-      const drawPageAccent = () => {
-        doc.setFillColor(...accent);
-        doc.rect(0, 0, pageWidth, theme.topAccentHeight, 'F');
-      };
-      const beginPage = () => {
-        doc.addPage();
-        drawPageAccent();
-        y = 16;
-      };
-      const ensureSpace = (height: number) => {
-        if (y + height > pageHeight - 16) beginPage();
-      };
-      const section = (title: string, description: string, height = 18) => {
-        ensureSpace(height);
-        doc.setFont(theme.font, 'bold'); doc.setFontSize(theme.sizes.sectionTitle); doc.setTextColor(...heading);
-        doc.text(title.toUpperCase(), margin, y);
-        doc.setFont(theme.font, 'normal'); doc.setFontSize(6.8); doc.setTextColor(125, 125, 125);
-        doc.text(description, margin, y + 3.5);
-        y += 8;
-      };
-
-      drawPageAccent();
-      doc.setFont(theme.font, 'bold'); doc.setFontSize(theme.sizes.reportTitle); doc.setTextColor(...heading);
-      doc.text(report.title, margin, y); y += 7;
-      doc.setFont(theme.font, 'normal'); doc.setFontSize(theme.sizes.metadata); doc.setTextColor(...muted);
-      doc.text(`Report Period: ${customStart} to ${customEnd}`, margin, y);
-      doc.text(`Generated: ${new Date().toLocaleString('en-MY')}`, pageWidth - margin, y, { align: 'right' }); y += 10;
-
-      section('Report Overview', 'Key performance figures for the selected report and period.', 44);
-      const cardGap = 3;
-      const cardCount = Math.min(report.metrics.length, 4);
-      const cardWidth = (contentWidth - cardGap * (cardCount - 1)) / cardCount;
-      report.metrics.slice(0, 4).forEach(([label, value], index) => {
-        const x = margin + index * (cardWidth + cardGap);
-        doc.setDrawColor(...accent); doc.setLineWidth(0.7); doc.setFillColor(...surface);
-        doc.roundedRect(x, y, cardWidth, 28, 3, 3, 'FD');
-        doc.setFillColor(...accent); doc.rect(x + 1.2, y + 4, 2.2, 20, 'F');
-        doc.setFont(theme.font, 'bold'); doc.setFontSize(6.3); doc.setTextColor(105, 105, 105);
-        doc.text(String(label).toUpperCase().slice(0, 24), x + 6, y + 8);
-        doc.setFontSize(10); doc.setTextColor(...heading);
-        const displayedValue = String(value);
-        doc.text(displayedValue.length > 18 ? `${displayedValue.slice(0, 16)}...` : displayedValue, x + 6, y + 18);
-      });
-      y += 40;
-
-      const drawHorizontalBarChart = (title: string, data: Array<{ label: string; value: number }>) => {
-        const visible = data.slice(0, 10);
-        if (!visible.length) return;
-        const rowHeight = 7;
-        const chartHeight = visible.length * rowHeight + 10;
-        section(title, 'Values are ranked from highest to lowest for easy comparison.', chartHeight + 18);
-        doc.setDrawColor(...border); doc.setFillColor(253, 253, 253);
-        doc.roundedRect(margin, y, contentWidth, chartHeight, 2, 2, 'FD');
-        const labelWidth = 47;
-        const chartX = margin + labelWidth;
-        const chartWidth = contentWidth - labelWidth - 17;
-        const maxValue = Math.max(...visible.map(item => item.value), 1);
-        visible.forEach((item, index) => {
-          const rowY = y + 6 + index * rowHeight;
-          doc.setFont(theme.font, 'normal'); doc.setFontSize(6.5); doc.setTextColor(...body);
-          const fittedLabel = doc.splitTextToSize(item.label, labelWidth - 5)[0];
-          doc.text(fittedLabel, chartX - 3, rowY + 2.5, { align: 'right' });
-          doc.setFillColor(229, 231, 235); doc.roundedRect(chartX, rowY, chartWidth, 3.5, 1, 1, 'F');
-          doc.setFillColor(...accent); doc.roundedRect(chartX, rowY, Math.max(0.8, (item.value / maxValue) * chartWidth), 3.5, 1, 1, 'F');
-          doc.setFontSize(6); doc.setTextColor(...muted);
-          const formattedValue = subTab === 'sales_by_modifier' ? item.value.toLocaleString() : money(item.value);
-          doc.text(formattedValue, chartX + chartWidth + 2, rowY + 2.5);
-        });
-        y += chartHeight + 12;
-      };
-
-      const drawCategoryPieChart = (data: Array<{ label: string; value: number }>) => {
-        const positive = data.filter(item => item.value > 0);
-        if (!positive.length) return;
-        const visible = positive.length > 10
-          ? [
-            ...positive.slice(0, 9),
-            { label: 'Other categories', value: positive.slice(9).reduce((sum, item) => sum + item.value, 0) },
-          ]
-          : positive;
-        const boxHeight = Math.max(66, visible.length * 6 + 10);
-        section('Revenue Distribution of Categories', 'Full 360-degree category share with matching breakdown colours.', boxHeight + 18);
-        doc.setDrawColor(...border); doc.setFillColor(253, 253, 253);
-        doc.roundedRect(margin, y, contentWidth, boxHeight, 2, 2, 'FD');
-        const centerX = margin + 39;
-        const centerY = y + boxHeight / 2;
-        const radius = Math.min(25, boxHeight / 2 - 7);
-        const total = visible.reduce((sum, item) => sum + item.value, 0);
-        let startAngle = -Math.PI / 2;
-        visible.forEach((item, index) => {
-          const endAngle = startAngle + (item.value / total) * Math.PI * 2;
-          const fillStartAngle = startAngle - 0.001;
-          const fillEndAngle = endAngle + 0.001;
-          const color = REPORT_CHART_COLORS[index % REPORT_CHART_COLORS.length];
-          doc.setFillColor(...color);
-          const steps = Math.max(4, Math.ceil((fillEndAngle - fillStartAngle) / (Math.PI / 90)));
-          const points = Array.from({ length: steps + 1 }, (_, step) => {
-            const angle = fillStartAngle + ((fillEndAngle - fillStartAngle) * step) / steps;
-            return { x: centerX + Math.cos(angle) * radius, y: centerY + Math.sin(angle) * radius };
-          });
-          const segments: Array<[number, number]> = [
-            [points[0].x - centerX, points[0].y - centerY],
-            ...points.slice(1).map((point, pointIndex) => [point.x - points[pointIndex].x, point.y - points[pointIndex].y] as [number, number]),
-            [centerX - points[points.length - 1].x, centerY - points[points.length - 1].y],
-          ];
-          doc.lines(segments, centerX, centerY, [1, 1], 'F', true);
-          startAngle = endAngle;
-        });
-        const legendX = margin + 76;
-        visible.forEach((item, index) => {
-          const legendY = y + 8 + index * 6;
-          const color = REPORT_CHART_COLORS[index % REPORT_CHART_COLORS.length];
-          doc.setFillColor(...color); doc.circle(legendX, legendY - 1, 1.5, 'F');
-          doc.setFont(theme.font, 'bold'); doc.setFontSize(6.5); doc.setTextColor(...heading);
-          doc.text(item.label.slice(0, 28), legendX + 4, legendY);
-          doc.setFont(theme.font, 'normal'); doc.setTextColor(...muted);
-          doc.text(`${money(item.value)}  (${((item.value / total) * 100).toFixed(1)}%)`, pageWidth - margin - 4, legendY, { align: 'right' });
-        });
-        y += boxHeight + 12;
-      };
-
-      if (subTab === 'sales_by_category') drawCategoryPieChart(report.chart);
-      else drawHorizontalBarChart(report.chartTitle, report.chart);
-
-      section('Data Table', 'Complete figures used in this report.', 28);
-      autoTable(doc, {
-        startY: y, head: [report.headers.map(header => header.toUpperCase())], body: report.rows,
-        margin: { left: margin, right: margin, bottom: 16 }, theme: 'grid',
-        styles: { font: theme.font, fontSize: theme.sizes.table, cellPadding: 1.5, overflow: 'linebreak', halign: 'center', valign: 'middle', textColor: body },
-        headStyles: { fillColor: accent, textColor: white, fontStyle: 'bold', fontSize: theme.sizes.tableHeader, halign: 'center', valign: 'middle', overflow: 'ellipsize' },
-        columnStyles: subTab === 'sales_by_item'
-          ? { 0: { halign: 'center' }, 1: { halign: 'left' } }
-          : { 0: { halign: 'left' } },
-      });
-
-      const pageCount = doc.getNumberOfPages();
-      for (let page = 1; page <= pageCount; page += 1) {
-        doc.setPage(page); doc.setFont(theme.font, 'normal'); doc.setFontSize(theme.sizes.footer); doc.setTextColor(160, 160, 160);
-        doc.text('QuickServe POS - Sales Report', margin, pageHeight - 8);
-        doc.text(`Page ${page} of ${pageCount}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
-      }
-      doc.save(`${report.fileName}_${customStart}_${customEnd}.pdf`);
-    } finally {
-      setIsExportingPdf(false);
-    }
+  const handleExportExcel = () => {
+    const report = getSectionExport();
+    const escapeXml = (value: ExportCell) => String(value)
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+    const cell = (value: ExportCell) => `<Cell><Data ss:Type="${typeof value === 'number' ? 'Number' : 'String'}">${escapeXml(value)}</Data></Cell>`;
+    const rows: ExportCell[][] = [
+      [report.title], [`Report Period: ${customStart} to ${customEnd}`], [],
+      ['Summary'], ...report.metrics, [], report.headers, ...report.rows,
+    ];
+    const workbook = `<?xml version="1.0" encoding="UTF-8"?>
+      <?mso-application progid="Excel.Sheet"?>
+      <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+        <Worksheet ss:Name="Sales Report"><Table>${rows.map(row => `<Row>${row.map(cell).join('')}</Row>`).join('')}</Table></Worksheet>
+      </Workbook>`;
+    const blob = new Blob(['\ufeff', workbook], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${report.fileName}_${customStart}_${customEnd}.xls`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
-
-  // ════════════════════════════════════════
-  // COMPUTED REPORT DATA
-  // ════════════════════════════════════════
 
   // Sales Summary
   const salesSummary = useMemo(() => {
@@ -673,40 +530,44 @@ const ReportsView: React.FC<Props> = ({ orders, restaurantId, onFetchOrders, cur
     <div>
       <div>
 
-      {/* Date Range - same as PosOnlyView > Report */}
-      <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center gap-4 mb-6">
-        <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full">
-          <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
-            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
-              {(['today', 'week', 'month'] as const).map(range => (
-                <button
-                  key={range}
-                  onClick={() => setDateRange(range)}
-                  className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
-                    dateRange === range
-                      ? 'bg-amber-600 text-white shadow-sm'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                  }`}
-                >
-                  {range === 'today' ? 'Today' : range === 'week' ? 'This Week' : 'This Month'}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex-1">
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Custom Range</label>
-            <div className="flex items-center gap-2">
-              <Calendar size={14} className="text-amber-500 shrink-0" />
-              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
-              <span className="text-gray-400 font-black">to</span>
-              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
-            </div>
+      {/* Shared period controls for every sales report. */}
+      <div className="sales-report-toolbar mb-6 flex min-w-0 flex-wrap items-end gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-4">
+        <div className="min-w-0 shrink-0">
+          <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-gray-400">Period Selection</p>
+          <div className="flex rounded-lg bg-gray-100 p-0.5 dark:bg-gray-700">
+            {(['today', 'week', 'month'] as const).map(range => (
+              <button
+                key={range}
+                type="button"
+                onClick={() => setDateRange(range)}
+                aria-pressed={dateRange === range}
+                className={`h-9 whitespace-nowrap rounded-md px-3 text-[10px] font-black uppercase tracking-wide transition ${dateRange === range ? 'bg-amber-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+              >
+                {range === 'today' ? 'Today' : range === 'week' ? 'This Week' : 'This Month'}
+              </button>
+            ))}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2 w-full md:flex md:w-auto">
-          <button onClick={handleExportCSV} className="min-h-10 px-5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:border-amber-500 hover:text-amber-600 dark:hover:text-amber-400 transition-all shadow-sm"><Download size={15} /> Download CSV</button>
-          <button onClick={() => void handleExportPDF()} disabled={isExportingPdf} className="min-h-10 px-5 py-2.5 bg-amber-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-amber-700 transition-all shadow-sm shadow-amber-600/20 disabled:cursor-wait disabled:opacity-60"><FileText size={15} /> {isExportingPdf ? 'Creating PDF...' : 'Download PDF'}</button>
+        <div className="min-w-0 flex-1 basis-64">
+          <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-gray-400">Custom Range</p>
+          <div className="flex min-w-0 items-center gap-2">
+            <Calendar size={14} className="shrink-0 text-amber-500" />
+            <input aria-label="Report start date" type="date" value={customStart} onChange={event => setCustomStart(event.target.value)} className="h-[38px] min-w-0 flex-1 rounded-lg border border-gray-200 bg-gray-50 px-2 text-[11px] text-gray-900 outline-none focus:border-amber-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+            <span className="shrink-0 text-xs text-gray-400">to</span>
+            <input aria-label="Report end date" type="date" value={customEnd} onChange={event => setCustomEnd(event.target.value)} className="h-[38px] min-w-0 flex-1 rounded-lg border border-gray-200 bg-gray-50 px-2 text-[11px] text-gray-900 outline-none focus:border-amber-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+          </div>
+        </div>
+        <div className="ml-auto shrink-0">
+          <TableActionMenu
+            label="Download report"
+            trigger={<><Download size={15} /> Download <ChevronDown size={13} /></>}
+            triggerClassName="inline-flex h-[38px] items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-amber-600 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-amber-700"
+          >
+            {close => (<>
+              <button type="button" role="menuitem" onClick={() => { close(); handleExportCSV(); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"><FileText size={14} /> CSV (.csv)</button>
+              <button type="button" role="menuitem" onClick={() => { close(); handleExportExcel(); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"><FileText size={14} /> Excel (.xls)</button>
+            </>)}
+          </TableActionMenu>
         </div>
       </div>
 

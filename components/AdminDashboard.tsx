@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   BarChart3,
-  CalendarDays,
   CheckCircle2,
   Download,
   Loader2,
@@ -16,8 +15,6 @@ import {
 import {
   AreaChart,
   Area,
-  BarChart,
-  Bar,
   CartesianGrid,
   Cell,
   Pie,
@@ -283,11 +280,11 @@ const AdminDashboard: React.FC<Props> = ({
         </div>
       )}
 
-      <div className="space-y-5 p-4 md:p-8">
-      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
-        <div>
+      <div className="space-y-4 p-4 xl:p-6">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Dashboard</h1>
-          <p className="mt-1 text-xs font-medium uppercase tracking-widest text-gray-500 dark:text-gray-400">
+          <p className="mt-1 max-w-64 text-[10px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 xl:text-xs">
             Sales and performance across every vendor
           </p>
           {lastUpdated && (
@@ -297,8 +294,8 @@ const AdminDashboard: React.FC<Props> = ({
           )}
         </div>
 
-        <div className="flex max-w-full flex-nowrap items-end gap-2 overflow-x-auto rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <label className="w-[138px] shrink-0">
+        <div role="group" aria-label="Dashboard date range" className="flex max-w-full shrink-0 flex-nowrap items-end gap-1.5 overflow-x-auto rounded-xl border border-gray-200 bg-white p-2 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <label className="w-28 shrink-0 xl:w-[138px]">
             <span className="mb-0.5 block text-[8px] font-black uppercase tracking-widest text-gray-400">Date range</span>
             <select
               value={preset}
@@ -312,7 +309,7 @@ const AdminDashboard: React.FC<Props> = ({
               <option value="CUSTOM">Custom range</option>
             </select>
           </label>
-          <label className="w-[116px] shrink-0">
+          <label className="w-[108px] shrink-0 xl:w-[116px]">
             <span className="mb-0.5 block text-[8px] font-black uppercase tracking-widest text-gray-400">From</span>
             <input
               type="date"
@@ -322,7 +319,7 @@ const AdminDashboard: React.FC<Props> = ({
               className="h-8 w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 text-[11px] font-bold text-gray-700 outline-none focus:ring-2 focus:ring-orange-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             />
           </label>
-          <label className="w-[116px] shrink-0">
+          <label className="w-[108px] shrink-0 xl:w-[116px]">
             <span className="mb-0.5 block text-[8px] font-black uppercase tracking-widest text-gray-400">To</span>
             <input
               type="date"
@@ -337,6 +334,7 @@ const AdminDashboard: React.FC<Props> = ({
             onClick={handleRefresh}
             disabled={isLoading}
             title="Refresh dashboard"
+            aria-label="Refresh dashboard"
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-gray-200 text-gray-500 transition hover:border-orange-300 hover:text-orange-500 disabled:opacity-50 dark:border-gray-600"
           >
             <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
@@ -344,10 +342,12 @@ const AdminDashboard: React.FC<Props> = ({
           <button
             type="button"
             onClick={handleDownload}
+            aria-label="Download dashboard report"
+            title="Download dashboard report"
             disabled={isLoading || analytics.totalOrders === 0}
-            className="flex h-8 shrink-0 items-center gap-2 rounded-md bg-red-600 px-4 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-8 w-8 shrink-0 items-center justify-center gap-2 rounded-md bg-red-600 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40 xl:w-auto xl:px-4"
           >
-            <Download size={14} /> Download
+            <Download size={14} /><span className="hidden xl:inline">Download</span>
           </button>
         </div>
       </div>
@@ -359,19 +359,17 @@ const AdminDashboard: React.FC<Props> = ({
       )}
 
       <div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div role="group" aria-label="Dashboard summary" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {cards.map(card => (
-            <div key={card.label} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{card.label}</p>
-                  <p className="mt-2 text-2xl font-black tracking-tight text-gray-900 dark:text-white">{card.value}</p>
-                  <p className="mt-1 text-[10px] font-semibold text-gray-400">{card.note}</p>
-                </div>
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${cardColors[card.color]}`}>
-                  <card.icon size={19} />
+            <div key={card.label} className="min-w-0 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800 xl:p-4">
+              <div className="flex min-h-7 items-start justify-between gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{card.label}</p>
+                <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${cardColors[card.color]}`}>
+                  <card.icon size={15} />
                 </div>
               </div>
+              <p className="mt-2 break-words text-lg font-black tracking-tight text-gray-900 dark:text-white xl:text-2xl">{card.value}</p>
+              <p className="mt-1 text-[10px] font-medium text-gray-500 dark:text-gray-400">{card.note}</p>
             </div>
           ))}
         </div>
@@ -434,22 +432,24 @@ const AdminDashboard: React.FC<Props> = ({
         </section>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-3">
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 xl:col-span-2">
-          <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+      <div className="space-y-5">
+        <section aria-label="Vendor performance" className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+            <div>
             <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white"><Store size={17} className="text-orange-500" /> Vendor performance</h2>
             <p className="mt-1 text-[10px] font-semibold text-gray-400">All vendors ranked by completed sales</p>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px]">
               <thead className="bg-gray-50 text-[9px] font-black uppercase tracking-widest text-gray-400 dark:bg-gray-700/50">
                 <tr>
-                  <th className="px-5 py-3 text-left">Rank / Vendor</th>
-                  <th className="px-4 py-3 text-right">Sales</th>
-                  <th className="px-4 py-3 text-right">Orders</th>
-                  <th className="px-4 py-3 text-right">Avg. order</th>
-                  <th className="px-4 py-3 text-right">Completion</th>
-                  <th className="px-5 py-3 text-right">Share</th>
+                  <th className="px-4 py-2.5 text-left">Rank / Vendor</th>
+                  <th className="px-4 py-2.5 text-right">Sales</th>
+                  <th className="px-4 py-2.5 text-right">Orders</th>
+                  <th className="px-4 py-2.5 text-right">Avg. order</th>
+                  <th className="px-4 py-2.5 text-right">Completion</th>
+                  <th className="px-4 py-2.5 text-right">Share</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -457,7 +457,7 @@ const AdminDashboard: React.FC<Props> = ({
                   const vendor = vendors.find(item => item.restaurantId === row.restaurantId);
                   return (
                     <tr key={row.restaurantId} className="text-xs hover:bg-gray-50/80 dark:hover:bg-gray-700/30">
-                      <td className="px-5 py-3.5">
+                      <td className="px-4 py-2">
                         <div className="flex items-center gap-3">
                           <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[10px] font-black ${index < 3 ? 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300'}`}>{index + 1}</span>
                           <div className="min-w-0">
@@ -467,11 +467,11 @@ const AdminDashboard: React.FC<Props> = ({
                           <span className={`ml-auto h-2 w-2 shrink-0 rounded-full ${row.isOnline ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} title={row.isOnline ? 'Online' : 'Offline'} />
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-right font-black text-gray-900 dark:text-white">{CURRENCY.format(row.sales)}</td>
-                      <td className="px-4 py-3.5 text-right font-bold text-gray-600 dark:text-gray-300">{NUMBER.format(row.completed)} <span className="font-medium text-gray-400">/ {NUMBER.format(row.total)}</span></td>
-                      <td className="px-4 py-3.5 text-right font-bold text-gray-600 dark:text-gray-300">{CURRENCY.format(row.averageOrder)}</td>
-                      <td className="px-4 py-3.5 text-right font-bold text-gray-600 dark:text-gray-300">{row.completionRate.toFixed(1)}%</td>
-                      <td className="px-5 py-3.5 text-right">
+                      <td className="px-4 py-2 text-right font-black text-gray-900 dark:text-white">{CURRENCY.format(row.sales)}</td>
+                      <td className="px-4 py-2 text-right font-bold text-gray-600 dark:text-gray-300">{NUMBER.format(row.completed)} <span className="font-medium text-gray-400">/ {NUMBER.format(row.total)}</span></td>
+                      <td className="px-4 py-2 text-right font-bold text-gray-600 dark:text-gray-300">{CURRENCY.format(row.averageOrder)}</td>
+                      <td className="px-4 py-2 text-right font-bold text-gray-600 dark:text-gray-300">{row.completionRate.toFixed(1)}%</td>
+                      <td className="px-4 py-2 text-right">
                         <div className="ml-auto w-24">
                           <p className="mb-1 text-[10px] font-black text-gray-600 dark:text-gray-300">{row.salesShare.toFixed(1)}%</p>
                           <div className="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700"><div className="h-full rounded-full bg-orange-500" style={{ width: `${Math.min(100, row.salesShare)}%` }} /></div>
@@ -488,10 +488,11 @@ const AdminDashboard: React.FC<Props> = ({
           </div>
         </section>
 
-        <div className="space-y-5">
-          <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <section aria-label="Top items" className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex items-start justify-between gap-3"><div>
             <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white"><Package size={17} className="text-violet-500" /> Top items</h2>
             <p className="mt-1 text-[10px] font-semibold text-gray-400">Best sellers by quantity</p>
+            </div></div>
             <div className="mt-4 space-y-3">
               {analytics.topItems.map((item, index) => (
                 <div key={`${item.name}-${index}`} className="flex items-center gap-3">
@@ -507,22 +508,6 @@ const AdminDashboard: React.FC<Props> = ({
             </div>
           </section>
 
-          <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white"><CalendarDays size={17} className="text-emerald-500" /> Order status</h2>
-            <p className="mt-1 text-[10px] font-semibold text-gray-400">All orders in the selected period</p>
-            <div className="mt-4 h-40">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analytics.statusBreakdown} layout="vertical" margin={{ left: 8, right: 18 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
-                  <XAxis type="number" hide />
-                  <YAxis type="category" dataKey="name" width={72} tick={{ fontSize: 9, fontWeight: 700, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                  <Tooltip formatter={value => [NUMBER.format(Number(value || 0)), 'Orders']} />
-                  <Bar dataKey="value" fill="#10b981" radius={[0, 5, 5, 0]} barSize={12} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
-        </div>
       </div>
       </div>
     </div>

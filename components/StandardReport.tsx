@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { Order, OrderStatus, ReportResponse, CashierShift } from '../src/types';
 import type { PlanId } from '../src/types';
 import { REPORT_HISTORY_LIMITS } from '../lib/pricingPlans';
@@ -87,6 +87,23 @@ interface Props {
   toolbarOnly?: boolean;
 }
 
+function SalesBreakdownCard({ kind, entries, stacked }: { kind: 'cashier' | 'transaction'; entries: { name: string; count: number; total: number }[]; stacked: boolean }) {
+  const Icon = kind === 'cashier' ? Users : CreditCard;
+  return <div role="region" aria-label={kind === 'cashier' ? 'Cashier sales summary' : 'Transaction sales summary'} className="min-w-0 rounded-lg border bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800 md:p-4">
+    <div className="mb-2 flex items-center gap-1.5"><Icon size={12} className="text-orange-500" /><p className="text-[9px] font-black uppercase tracking-widest text-gray-400">{kind === 'cashier' ? 'By Cashier' : 'By Transaction Type'}</p></div>
+    <div className="max-h-44 space-y-1.5 overflow-y-auto pr-1">
+      {entries.map(entry => <div key={entry.name} className="flex items-start gap-2.5 rounded-lg bg-gray-50 p-2.5 text-left dark:bg-gray-700/50">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">{kind === 'cashier' ? <span className="text-[10px] font-black">{entry.name.charAt(0).toUpperCase()}</span> : <CreditCard size={12} />}</div>
+        <div className={`flex min-w-0 flex-1 gap-1 ${stacked ? 'flex-col' : 'flex-row items-center gap-3'}`}>
+          <div className="min-w-0 flex-1"><p title={entry.name} className="truncate text-xs font-black dark:text-white">{entry.name}</p><p className="text-[10px] font-bold text-gray-400">{entry.count} order{entry.count !== 1 ? 's' : ''}</p></div>
+          <p className="max-w-full break-words text-left text-sm font-black text-orange-500">RM{entry.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+        </div>
+      </div>)}
+      {entries.length === 0 && <p className="py-4 text-center text-[10px] text-gray-400">{kind === 'cashier' ? 'No orders' : 'No transactions'}</p>}
+    </div>
+  </div>;
+}
+
 const StandardReport: React.FC<Props> = ({
   reportStart,
   reportEnd,
@@ -120,6 +137,45 @@ const StandardReport: React.FC<Props> = ({
   const [filterPayment, setFilterPayment] = useState<string>('ALL');
   const [filterCashier, setFilterCashier] = useState<string>('ALL');
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const periodMeasureRef = useRef<HTMLDivElement>(null);
+  const summaryRef = useRef<HTMLDivElement>(null);
+  const [toolbarMode, setToolbarMode] = useState(0);
+  const [stackBreakdowns, setStackBreakdowns] = useState(true);
+
+  useLayoutEffect(() => {
+    const toolbar = toolbarRef.current;
+    const probe = periodMeasureRef.current;
+    if (!toolbar || !probe || downloadOnly) return;
+    const measure = () => {
+      const labels = Array.from(probe.children) as HTMLElement[];
+      if (labels.length !== 6 || toolbar.clientWidth === 0) return;
+      const widths = labels.map(label => label.getBoundingClientRect().width);
+      const fullPeriod = widths.slice(0, 5).reduce((sum, width) => sum + width, 0) + 12;
+      const shortPeriod = fullPeriod - widths[4] + widths[5];
+      const styles = getComputedStyle(toolbar);
+      const available = toolbar.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight) - 12;
+      setToolbarMode(available >= fullPeriod + 124 ? 0 : available >= shortPeriod + 124 ? 1 : available >= shortPeriod + 104 ? 2 : 3);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(toolbar);
+    observer.observe(probe);
+    return () => observer.disconnect();
+  }, [downloadOnly, toolbarOnly, applyCurrentShiftFilter]);
+
+  useLayoutEffect(() => {
+    const summary = summaryRef.current;
+    if (!summary) return;
+    const measure = () => {
+      const cards = Array.from(summary.querySelectorAll<HTMLElement>('[aria-label$="sales summary"]'));
+      if (cards.length) setStackBreakdowns(Math.min(...cards.map(card => card.clientWidth)) < 320);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(summary);
+    return () => observer.disconnect();
+  }, [downloadOnly, toolbarOnly]);
   const reportSectionOptions = [
     { key: 'salesSummary' as const, label: 'Sales Summary', description: 'Overview of your sales performance.' },
     { key: 'dailyBreakdown' as const, label: 'Daily Sales Breakdown', description: 'Graph and table view of daily sales.' },
@@ -437,10 +493,10 @@ const StandardReport: React.FC<Props> = ({
       )}
 
       {showTopRangeAndExportControls && (
-        <div className={downloadOnly ? 'w-auto shrink-0' : 'bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col lg:flex-row lg:items-end gap-3 lg:gap-4 mb-6'}>
-          {!downloadOnly && <div className="flex-1 w-full">
+        <div ref={toolbarRef} role="group" aria-label="Report period and download" className={downloadOnly ? 'w-auto shrink-0' : 'min-w-0 bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-row items-end gap-3 mb-6'}>
+          {!downloadOnly && <div className="min-w-0 flex-1">
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
-              <div className="inline-flex max-w-full bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 overflow-x-auto hide-scrollbar">
+              <div className="flex w-full flex-nowrap gap-0.5 overflow-x-auto rounded-lg bg-gray-100 p-0.5 hide-scrollbar dark:bg-gray-700">
                 {periodOptions.map((option) => (
                   <button
                     key={option.value}
@@ -455,23 +511,28 @@ const StandardReport: React.FC<Props> = ({
                       }
                       setDetailRange(option.value);
                     }}
-                    className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                    className={`flex-1 shrink-0 px-2 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                       detailRange === option.value
                         ? 'bg-orange-500 text-white shadow-sm'
                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                     }`}
                   >
-                    {option.label}
+                    {option.value === 'custom' && toolbarMode > 0 ? 'Custom' : option.label}
                   </button>
                 ))}
               </div>
           </div>}
-          <div className={downloadOnly ? 'w-full' : 'w-full md:w-auto md:min-w-[170px]'}>
-            <label className="mb-1 ml-1 block whitespace-nowrap text-[10px] font-black uppercase tracking-widest text-gray-400">Download Report</label>
+          {!downloadOnly && <div ref={periodMeasureRef} aria-hidden="true" className="pointer-events-none fixed -left-[10000px] top-0 flex w-max invisible">
+            {[...periodOptions.map(option => option.label), 'Custom'].map((label, index) => <span key={index} className="shrink-0 px-2 text-[10px] font-black uppercase tracking-widest whitespace-nowrap">{label}</span>)}
+          </div>}
+          <div className={downloadOnly ? 'w-full' : `shrink-0 ${toolbarMode === 3 ? 'w-9' : toolbarMode === 2 ? 'w-[104px]' : 'w-[124px]'}`}>
+            <label className={toolbarMode === 3 && !downloadOnly ? 'sr-only' : 'mb-1 ml-1 block truncate whitespace-nowrap text-[8px] font-black uppercase tracking-wider text-gray-400'}>Download Report</label>
             <button
+              aria-label="Download"
+              title="Download report"
               onClick={openDownloadModal}
               disabled={isDownloadingReport}
-              className={`w-full ${downloadOnly ? 'px-2' : 'px-6'} py-2 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
+              className={`h-8 w-full px-2 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
                 isDownloadingReport
                   ? 'bg-orange-300 text-white cursor-not-allowed'
                   : 'bg-black text-white dark:bg-white dark:text-gray-900 hover:bg-orange-500'
@@ -483,12 +544,12 @@ const StandardReport: React.FC<Props> = ({
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Downloading...
+                  {(downloadOnly || toolbarMode !== 3) && <span>Downloading...</span>}
                 </>
               ) : (
                 <>
-                  <Download size={16} />
-                  Download
+                  {(downloadOnly || toolbarMode !== 2) && <Download size={16} className="shrink-0" />}
+                  {(downloadOnly || toolbarMode !== 3) && <span>Download</span>}
                 </>
               )}
             </button>
@@ -803,7 +864,7 @@ const StandardReport: React.FC<Props> = ({
       )}
 
       <div className={toolbarOnly ? 'hidden' : undefined}>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6">
+      <div ref={summaryRef} className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6">
         {/* Total Revenue */}
         <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm">
           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Total Revenue</p>
@@ -812,56 +873,8 @@ const StandardReport: React.FC<Props> = ({
           <p className="text-[11px] text-orange-500 dark:text-orange-400 font-black mt-1">{revenuePeriodLabel}</p>
         </div>
 
-        {/* By Transaction Type */}
-        <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm">
-          <div className="flex items-center gap-1.5 mb-2">
-            <CreditCard size={12} className="text-orange-500" />
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">By Transaction Type</p>
-          </div>
-          {detailTransactions.length > 0 ? (
-            <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
-              {detailTransactions.map(t => (
-                <div key={t.name} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                  <div>
-                    <p className="text-xs font-black dark:text-white">{t.name}</p>
-                    <p className="text-[10px] text-gray-400 font-bold">{t.count} order{t.count !== 1 ? 's' : ''}</p>
-                  </div>
-                  <p className="text-sm font-black text-orange-500">RM{t.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-[10px] text-gray-400 text-center py-4">No transactions</p>
-          )}
-        </div>
-
-        {/* By Cashier */}
-        <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm">
-          <div className="flex items-center gap-1.5 mb-2">
-            <Users size={12} className="text-orange-500" />
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">By Cashier</p>
-          </div>
-          {detailCashiers.length > 0 ? (
-            <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
-              {detailCashiers.map(c => (
-                <div key={c.name} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
-                      <span className="text-[10px] font-black text-orange-600 dark:text-orange-400">{c.name.charAt(0).toUpperCase()}</span>
-                    </div>
-                    <div>
-                      <p className="text-xs font-black dark:text-white">{c.name}</p>
-                      <p className="text-[10px] text-gray-400 font-bold">{c.count} order{c.count !== 1 ? 's' : ''}</p>
-                    </div>
-                  </div>
-                  <p className="text-sm font-black text-orange-500">RM{c.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-[10px] text-gray-400 text-center py-4">No orders</p>
-          )}
-        </div>
+        <SalesBreakdownCard kind="transaction" entries={detailTransactions} stacked={stackBreakdowns} />
+        <SalesBreakdownCard kind="cashier" entries={detailCashiers} stacked={stackBreakdowns} />
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 overflow-hidden shadow-sm">

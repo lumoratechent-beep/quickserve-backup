@@ -7014,7 +7014,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const isKitchenUser = userRole === 'KITCHEN';
   const isPlanAccessLocked = isSubscriptionAccessLocked(subscription, planLockNow) && !planLockSubmitOverride;
-  const showPlanLockOverlay = isPlanAccessLocked && activeTab !== 'BILLING';
+  const showPlanLockOverlay = isPlanAccessLocked && activeTab !== 'BILLING' && activeTab !== 'REPORTS';
   const formatPlanLockDate = (dateStr?: string | null): string => {
     if (!dateStr) return 'Not set';
     const date = new Date(dateStr);
@@ -7032,15 +7032,30 @@ const PosOnlyView: React.FC<Props> = ({
     return periodEnd.toISOString();
   }, [planLockExpiredAt, planLockNow, subscription?.billing_interval]);
 
-  // Sidebar nav item count – used to auto-scale spacing so the menu never needs to scroll
+  // Tighten spacing to the available height, keeping a readable minimum before scrolling.
   const sidebarNavItemCount = 6 + (showQrFeature ? 1 : 0) + (showOnlineShopFeature ? 1 : 0);
-  const navCompact      = sidebarNavItemCount >= 9;
-  const navExtraCompact = sidebarNavItemCount >= 11;
+  const sidebarNavRef = useRef<HTMLElement>(null);
+  const [sidebarNavHeight, setSidebarNavHeight] = useState<number | null>(null);
+  useEffect(() => {
+    const nav = sidebarNavRef.current;
+    if (!nav) return;
+    const measure = () => setSidebarNavHeight(nav.clientHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(nav);
+    return () => observer.disconnect();
+  }, []);
+  const navLabelCount = isSidebarCollapsed ? 0 : 3;
+  const navGapCount = sidebarNavItemCount + navLabelCount - 1;
+  const normalNavHeight = sidebarNavItemCount * 42 + (isSidebarCollapsed ? 0 : 93) + navGapCount * 4 + 16;
+  const compactNavHeight = sidebarNavItemCount * 38 + (isSidebarCollapsed ? 0 : 81) + navGapCount * 3 + 16;
+  const navCompact      = sidebarNavHeight !== null && sidebarNavHeight < normalNavHeight;
+  const navExtraCompact = sidebarNavHeight !== null && sidebarNavHeight < compactNavHeight;
   const navItemPy       = navExtraCompact ? 'py-1.5' : navCompact ? 'py-2' : 'py-2.5';
   const navSectionPt    = navExtraCompact ? 'pt-2 pb-0' : navCompact ? 'pt-3 pb-0.5' : 'pt-4 pb-1';
-  const navContainerPy  = navExtraCompact ? 'py-2' : navCompact ? 'py-3' : 'py-4';
-  const navIconSize     = navExtraCompact ? 16 : navCompact ? 17 : 18;
-  const navTextSize     = navExtraCompact ? 'text-xs' : 'text-sm';
+  const navGapClass     = navExtraCompact ? 'space-y-0.5' : navCompact ? 'space-y-[3px]' : 'space-y-1';
+  const navIconSize     = 18;
+  const navTextSize     = 'text-sm';
   const navActiveClass  = 'border border-orange-300 bg-orange-200 text-orange-900 shadow-sm dark:border-orange-500/30 dark:bg-orange-900/20 dark:text-orange-400';
   const navInactiveClass = 'border border-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50';
 
@@ -8541,6 +8556,13 @@ const PosOnlyView: React.FC<Props> = ({
               <CreditCard size={16} />
               Renew Plan Now
             </button>
+            <button
+              type="button"
+              onClick={handleReportsClick}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+            >
+              <BarChart3 size={16} /> Open reports
+            </button>
           </div>
         </div>
       )}
@@ -8615,7 +8637,7 @@ const PosOnlyView: React.FC<Props> = ({
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
       {isMobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -8624,13 +8646,13 @@ const PosOnlyView: React.FC<Props> = ({
       )}
 
       {/* Left Sidebar Navigation */}
-      <aside className={`
+      <aside aria-label="POS sidebar" className={`
         fixed lg:relative inset-y-0 left-0 z-[120] bg-white dark:bg-gray-800 border-r dark:border-gray-700 
-        flex flex-col transition-all duration-300 ease-in-out no-print
+        flex min-h-0 flex-col transition-all duration-300 ease-in-out no-print
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         ${isSidebarCollapsed ? 'lg:w-16' : 'w-64'}
       `}>
-        <div className={`flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
+        <div className={`flex shrink-0 items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
           {isSidebarCollapsed ? (
             <button onClick={openProfilePanel} title="Account & Settings" className="rounded-lg hover:ring-2 hover:ring-orange-300 transition-all">
               <RestaurantLogo logo={restaurant.logo} restaurantName={restaurant.name} className="w-8 h-8 rounded-lg shadow-sm cursor-pointer" iconSize={16} />
@@ -8655,7 +8677,7 @@ const PosOnlyView: React.FC<Props> = ({
           )}
         </div>
 
-        <nav className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? 'p-2 space-y-1' : ('px-3 pt-2 pb-2 space-y-1')}`}>
+        <nav ref={sidebarNavRef} aria-label="POS navigation" className={`min-h-0 flex-1 overflow-y-auto py-2 [&>button]:min-h-9 ${navGapClass} ${isSidebarCollapsed ? 'px-2' : 'px-3'}`}>
           {/* Operations Group */}
           {!isSidebarCollapsed && (
             <p className={`text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-3 pt-1 pb-1`}>Operations</p>
@@ -8801,7 +8823,7 @@ const PosOnlyView: React.FC<Props> = ({
         </nav>
 
         {/* Sidebar Collapse Toggle — in-flow, sits just above the printer separator */}
-        <div className={`hidden lg:flex ${isSidebarCollapsed ? 'justify-center px-2 pb-1' : 'justify-end px-3 pb-1'}`}>
+        <div className={`hidden shrink-0 lg:flex ${isSidebarCollapsed ? 'justify-center px-2 pb-1' : 'justify-end px-3 pb-1'}`}>
           <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -8812,7 +8834,7 @@ const PosOnlyView: React.FC<Props> = ({
         </div>
 
         {/* Printer Connection Status */}
-        <div className={`relative z-[121] mt-auto border-t dark:border-gray-700 space-y-1.5 ${isSidebarCollapsed ? 'p-2' : 'px-3 py-2'}`}>
+        <div className={`relative z-[121] mt-auto shrink-0 border-t dark:border-gray-700 space-y-1.5 ${isSidebarCollapsed ? 'p-2' : 'px-3 py-2'}`}>
           <div ref={printerModeMenuRef} className="relative flex items-stretch gap-1.5">
             <button
               onClick={handlePrinterButtonClick}
