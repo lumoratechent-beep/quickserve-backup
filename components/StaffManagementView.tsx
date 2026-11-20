@@ -2130,8 +2130,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
         <p className="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">Manage departments, employee details, salary profiles, statutory deductions and payslips.</p>
       </div>
 
-      <div className="grid min-w-0 grid-cols-1 gap-3">
-        <div className="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)] xl:gap-2">
+        <div className="flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <div className="mb-2 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10"><CalendarDays size={20} className="text-violet-500" /></div>
@@ -2158,14 +2158,14 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
               {peopleOnLeaveToday.length > 4 && <p className="text-[11px] font-bold text-gray-400">+{peopleOnLeaveToday.length - 4} more on leave today</p>}
             </div>
           ) : (
-            <div className="flex flex-col justify-center rounded-xl border border-dashed border-gray-200 px-3 py-3 text-gray-400 dark:border-gray-700">
+            <div className="flex flex-1 flex-col justify-center rounded-xl border border-dashed border-gray-200 px-3 py-3 text-gray-400 dark:border-gray-700">
               <p className="text-sm font-bold">No one is on leave today</p>
               <p className="mt-1 text-xs">Approved and scheduled leave for today will appear here.</p>
             </div>
           )}
         </div>
 
-        <div className="grid min-w-0 grid-cols-4 gap-2 sm:gap-3">
+        <div className="grid min-w-0 grid-cols-4 gap-2 sm:gap-3 xl:grid-cols-2">
           {[
             { label: 'Total Staff', value: staff.length, icon: <Users size={20} className="text-blue-500" />, tone: 'bg-blue-500/10' },
             { label: 'Departments', value: departments.length, icon: <Building2 size={20} className="text-amber-500" />, tone: 'bg-amber-500/10' },
@@ -2199,7 +2199,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol, init
               key={key}
               onClick={() => setSubTab(key)}
               style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
-              className={`relative -mb-px inline-flex flex-auto items-center justify-center gap-1 whitespace-nowrap rounded-t-lg border px-2 py-2 text-[10px] font-bold uppercase tracking-wide transition-colors duration-150 sm:gap-1.5 sm:px-3 sm:text-xs ${
+              className={`relative -mb-px inline-flex flex-auto items-center justify-center gap-1 whitespace-nowrap rounded-t-lg border px-2 py-2 text-[10px] font-bold uppercase tracking-wide transition-colors duration-150 sm:gap-1.5 sm:px-3 sm:text-xs md:flex-none md:gap-2 md:px-5 md:py-2.5 md:tracking-wider ${
                 subTab === key
                   ? 'z-10 border-x border-t border-gray-200 bg-white text-orange-500 dark:border-gray-600 dark:border-t-orange-500 dark:bg-gray-800'
                   : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'

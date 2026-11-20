@@ -1,3 +1,4 @@
+import { getReportTableDisplay } from '../lib/orderTableDisplay';
 import React from 'react';
 import { CheckCircle2, Clock3, CreditCard, Hash, List, MessageSquare, Printer, RotateCcw, ShoppingBag, UserRound, Utensils, X } from 'lucide-react';
 import type { CartItem, Order } from '../src/types';
@@ -72,7 +73,7 @@ const ReportOrderDetailModal: React.FC<Props> = ({ order, currencySymbol, taxes 
   const statusLabel = order.status === 'COMPLETED' ? 'PAID' : order.status;
   const infoRows = [
     [<Hash size={16} />, 'Order ID', `#${order.id}`],
-    [<Utensils size={16} />, 'Table', order.tableNumber || 'Counter'],
+    [<Utensils size={16} />, 'Table', getReportTableDisplay(order)],
     [<ShoppingBag size={16} />, 'Source', order.orderSource === 'qr_order' ? 'QR Order' : order.orderSource === 'tableside' ? 'Tableside' : order.orderSource === 'online' ? 'Online' : 'Counter'],
     [<Utensils size={16} />, 'Dining Option', order.diningType || '-'],
     [<UserRound size={16} />, 'Cashier', order.cashierName || '-'],

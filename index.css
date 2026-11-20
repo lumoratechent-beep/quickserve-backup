@@ -597,3 +597,78 @@
     animation: none;
   }
 }
+
+
+@keyframes tableBillSuccessEnter {
+  0% { opacity: 0; transform: translateY(-24px) scale(0.92); }
+  65% { opacity: 1; transform: translateY(4px) scale(1.015); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes tableBillSuccessCheck {
+  0% { transform: scale(0.4) rotate(-18deg); opacity: 0; }
+  65% { transform: scale(1.14) rotate(4deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes tableBillCheckDraw { from { stroke-dashoffset: 28; } to { stroke-dashoffset: 0; } }
+@keyframes tableBillSuccessRing {
+  from { opacity: 0.65; transform: scale(0.8); }
+  to { opacity: 0; transform: scale(1.8); }
+}
+@keyframes tableBillSpark {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateY(-18px) scale(0); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateY(-48px) scale(0.4); }
+}
+@keyframes tableBillCountdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes tableBillReceiptFloat { 0%, 100% { transform: translateY(2px) rotate(-4deg); } 50% { transform: translateY(-4px) rotate(4deg); } }
+@keyframes tableBillOrbit { to { transform: rotate(360deg); } }
+@keyframes tableBillSavingProgress { from { transform: translateX(-100%); } to { transform: translateX(200%); } }
+.table-bill-success {
+  top: 16px;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: min(360px, calc(100vw - 32px));
+}
+.table-bill-success, .table-bill-saving-card { animation: tableBillSuccessEnter 480ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.table-bill-success-check { animation: tableBillSuccessCheck 560ms 100ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.table-bill-check-stroke { stroke-dasharray: 28; animation: tableBillCheckDraw 380ms 350ms ease-out both; }
+.table-bill-success-ring { animation: tableBillSuccessRing 850ms 250ms ease-out both; }
+.table-bill-spark { animation: tableBillSpark 750ms 300ms ease-out both; }
+.table-bill-success-countdown { animation: tableBillCountdown var(--bill-feedback-duration) linear both; }
+.table-bill-saving-receipt { animation: tableBillReceiptFloat 1.4s ease-in-out infinite; }
+.table-bill-saving-orbit { animation: tableBillOrbit 6s linear infinite; }
+.table-bill-saving-track > span { animation: tableBillSavingProgress 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .table-bill-success, .table-bill-saving-card, .table-bill-success-check,
+  .table-bill-check-stroke, .table-bill-success-ring, .table-bill-spark,
+  .table-bill-success-countdown, .table-bill-saving-receipt,
+  .table-bill-saving-orbit, .table-bill-saving-track > span { animation: none; }
+  .table-bill-spark, .table-bill-success-ring { display: none; }
+}
+
+
+.counter-checkout-actions {
+  display: grid;
+  grid-template-columns: 0fr 1fr;
+  column-gap: 0;
+  transition: grid-template-columns 280ms ease, column-gap 280ms ease;
+}
+.counter-checkout-actions.has-save-bill { grid-template-columns: 1fr 1fr; column-gap: 10px; }
+.counter-save-slot {
+  min-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(-8px);
+  visibility: hidden;
+  transition: opacity 180ms ease, transform 280ms ease, visibility 0s linear 280ms;
+}
+.has-save-bill .counter-save-slot {
+  opacity: 1;
+  transform: translateX(0);
+  visibility: visible;
+  transition-delay: 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .counter-checkout-actions, .counter-save-slot { transition: none; }
+}

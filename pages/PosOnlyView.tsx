@@ -1,3 +1,4 @@
+import { getOrderTableDisplay, getReportTableDisplay } from '../lib/orderTableDisplay';
 // pages/PosOnlyView.tsx
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -15,6 +16,9 @@ import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal
 import PromotionDiscountManager from '../components/PromotionDiscountManager';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import PriceEntryModal from '../components/PriceEntryModal';
+import CounterOrderSetupModal from '../components/CounterOrderSetupModal';
+import CounterCheckoutActions from '../components/CounterCheckoutActions';
+import TableBillFeedback, { TABLE_BILL_FEEDBACK_DURATION } from '../components/TableBillFeedback';
 import { toast } from '../components/Toast';
 import StandardReport, { type ExcelColumnKey, type ReportDownloadOptions, type ReportSectionKey } from '../components/StandardReport';
 import ReportOrderDetailModal from '../components/ReportOrderDetailModal';
@@ -587,6 +591,23 @@ const PosOnlyView: React.FC<Props> = ({
   const [counterMode, setCounterMode] = useState<'SAVED_BILL' | 'COUNTER_ORDER' | 'QR_ORDER'>('COUNTER_ORDER');
   const [selectedQrOrderForPayment, setSelectedQrOrderForPayment] = useState<Order | null>(null);
   const [qrOrderFilter, setQrOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
+  const [showKitchenRoutingInfo, setShowKitchenRoutingInfo] = useState(false);
+  const kitchenRoutingInfoRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showKitchenRoutingInfo) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!kitchenRoutingInfoRef.current?.contains(event.target as Node)) setShowKitchenRoutingInfo(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowKitchenRoutingInfo(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [showKitchenRoutingInfo]);
   const [onlineOrderFilter, setOnlineOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
   const [rejectingQrOrderId, setRejectingQrOrderId] = useState<string | null>(null);
   const [viewingQrOrderDetail, setViewingQrOrderDetail] = useState<Order | null>(null);
@@ -773,7 +794,6 @@ const PosOnlyView: React.FC<Props> = ({
   const [paymentPageClosing, setPaymentPageClosing] = useState(false);
   const [paymentPageExitDirection, setPaymentPageExitDirection] = useState<'left' | 'right'>('left');
   const [showCounterModePicker, setShowCounterModePicker] = useState(false);
-  const [showDiningOptionPicker, setShowDiningOptionPicker] = useState(false);
   const [posCart, setPosCart] = useState<CartItem[]>([]);
   const [cartItemActionIndex, setCartItemActionIndex] = useState<number | null>(null);
   const [cartItemActionPosition, setCartItemActionPosition] = useState<{ top: number; right: number } | null>(null);
@@ -790,6 +810,13 @@ const PosOnlyView: React.FC<Props> = ({
   const [posRemark, setPosRemark] = useState('');
   const [posTableNo, setPosTableNo] = useState('Counter');
   const [posDiningType, setPosDiningType] = useState('Dine-in');
+  const [counterDiningDraft, setCounterDiningDraft] = useState('Dine-in');
+  const [pendingCounterMenuItem, setPendingCounterMenuItem] = useState<MenuItem | null>(null);
+  const counterOrderConfiguredRef = useRef(false);
+
+  useEffect(() => {
+    if (posCart.length === 0) counterOrderConfiguredRef.current = false;
+  }, [posCart.length]);
   const [savedBills, setSavedBills] = useState<SavedBillEntry[]>(() => {
     // Use localStorage as initial cache; Supabase will overwrite on mount
     const saved = localStorage.getItem(`saved_bills_${restaurant.id}`);
@@ -804,6 +831,15 @@ const PosOnlyView: React.FC<Props> = ({
   const [showCancelSavedBillConfirm, setShowCancelSavedBillConfirm] = useState(false);
   const [showMobileSavedBillCart, setShowMobileSavedBillCart] = useState(false);
   const [showSaveBillTableModal, setShowSaveBillTableModal] = useState(false);
+  const [isSavingTableBill, setIsSavingTableBill] = useState(false);
+  const tableBillSavingRef = useRef(false);
+  const [tableBillSuccess, setTableBillSuccess] = useState<{ id: number; table: string } | null>(null);
+
+  useEffect(() => {
+    if (!tableBillSuccess) return;
+    const timer = window.setTimeout(() => setTableBillSuccess(null), TABLE_BILL_FEEDBACK_DURATION);
+    return () => window.clearTimeout(timer);
+  }, [tableBillSuccess]);
   const [pendingSaveBillSource, setPendingSaveBillSource] = useState<'COUNTER' | 'QR' | null>(null);
   const [tableModalMode, setTableModalMode] = useState<TableModalMode | null>(null);
   const [selectedSaveTableNumber, setSelectedSaveTableNumber] = useState<string>('');
@@ -2446,6 +2482,16 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const handleMenuItemClick = (item: MenuItem) => {
+    if (posCart.length === 0 && !counterOrderConfiguredRef.current && !editingQrOrderId && !activeSavedBillTable) {
+      setPendingCounterMenuItem(item);
+      openCounterTablePicker();
+      setCounterDiningDraft(preferredDiningOption);
+      return;
+    }
+    continueCounterMenuItem(item);
+  };
+
+  const continueCounterMenuItem = (item: MenuItem) => {
     console.log('PosOnlyView: Menu item clicked', { itemName: item.name, itemId: item.id });
     
     const sanitizedItem: MenuItem = {
@@ -2668,7 +2714,7 @@ const PosOnlyView: React.FC<Props> = ({
         .eq('restaurant_id', restaurant.id)
         .eq('table_number', selectedSavedBillEntry.tableNumber)
         .then(({ error }) => {
-          if (error) console.error('Failed to update saved bill item remark:', error);
+          if (error) console.error('Failed to update table bill item remark:', error);
         });
     } else {
       return;
@@ -2800,6 +2846,22 @@ const PosOnlyView: React.FC<Props> = ({
     return map;
   }, [savedBills]);
 
+  const occupiedCounterTables = useMemo(() => {
+    const occupied = new Set(savedBillsByTable.keys());
+    orders.forEach(order => {
+      if (order.restaurantId === restaurant.id && order.tableNumber &&
+          order.status !== OrderStatus.COMPLETED && order.status !== OrderStatus.CANCELLED &&
+          (!order.diningType || order.diningType === 'Dine-in')) occupied.add(order.tableNumber);
+    });
+    return occupied;
+  }, [savedBillsByTable, orders, restaurant.id]);
+  const blockedCounterTables = useMemo(() => {
+    const blocked = new Set(occupiedCounterTables);
+    // Staff can continue editing the bill they explicitly opened from Table Bill.
+    if (activeSavedBillTable) blocked.delete(activeSavedBillTable);
+    return blocked;
+  }, [occupiedCounterTables, activeSavedBillTable]);
+
   const selectedSavedBillEntry = useMemo(() => {
     if (!activeSavedBillTable) return null;
     return savedBillsByTable.get(activeSavedBillTable) ?? null;
@@ -2903,8 +2965,15 @@ const PosOnlyView: React.FC<Props> = ({
     return normalized === '' || normalized === 'counter';
   };
 
-  const saveBillToTable = (source: 'COUNTER' | 'QR', tableNumber: string): boolean => {
+  const saveBillToTable = async (source: 'COUNTER' | 'QR', tableNumber: string): Promise<boolean> => {
+    if (tableBillSavingRef.current) return false;
     const targetTable = tableNumber.trim() || tableLabels[0] || 'Table 1';
+    if (source === 'COUNTER' && posDiningType !== 'Dine-in') return false;
+    if ((source === 'COUNTER' && blockedCounterTables.has(targetTable)) ||
+        (source === 'QR' && savedBillsByTable.has(targetTable))) {
+      toast('This table already has an open bill. Choose an available table or open its Table Bill.', 'warning');
+      return false;
+    }
     const now = Date.now();
     const sourceItems = source === 'COUNTER' ? posCart : selectedQrOrderForPayment?.items;
     const dispatchId = sourceItems?.find(item => item.savedBillId)?.savedBillId || crypto.randomUUID();
@@ -2932,35 +3001,42 @@ const PosOnlyView: React.FC<Props> = ({
 
     if (!entry) return false;
 
-    // Optimistic local update
-    setSavedBills(prev => {
-      const withoutSameTable = prev.filter(bill => bill.tableNumber !== targetTable);
-      return [entry, ...withoutSameTable];
-    });
-    setActiveSavedBillTable(targetTable);
+    tableBillSavingRef.current = true;
+    setTableBillSuccess(null);
+    setIsSavingTableBill(true);
+    try {
+      const payload = {
+        restaurant_id: restaurant.id,
+        table_number: entry.tableNumber,
+        items: entry.items,
+        remark: entry.remark,
+        dining_type: entry.diningType ?? null,
+        created_at: new Date(entry.createdAt).toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      // New bills must never replace a bill another counter just created.
+      const query = source === 'COUNTER' && activeSavedBillTable === targetTable
+        ? supabase.from('saved_bills').upsert(payload, { onConflict: 'restaurant_id,table_number' })
+        : supabase.from('saved_bills').insert(payload);
+      const { error } = await query;
+      if (error) throw error;
+    } catch (error) {
+      console.error('Failed to save table bill:', error);
+      toast('Could not save table bill. Your order is still here. Please try again.', 'error');
+      return false;
+    } finally {
+      tableBillSavingRef.current = false;
+      setIsSavingTableBill(false);
+    }
 
-    // Persist to Supabase (upsert by restaurant_id + table_number)
-    savedBillsSyncRef.current = true;
-    supabase
-      .from('saved_bills')
-      .upsert(
-        {
-          restaurant_id: restaurant.id,
-          table_number: entry.tableNumber,
-          items: entry.items,
-          remark: entry.remark,
-          dining_type: entry.diningType ?? null,
-          created_at: new Date(entry.createdAt).toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'restaurant_id,table_number' }
-      )
-      .then(({ error }) => {
-        if (error) console.error('Failed to save bill to Supabase:', error);
-      });
+    setSavedBills(prev => [entry, ...prev.filter(bill => bill.tableNumber !== targetTable)]);
+    setActiveSavedBillTable(null);
+    setCounterOrderAction('ADD_ORDER');
+    setShowMobileCart(false);
 
     if (source === 'COUNTER') {
       setPosCart([]);
+      counterOrderConfiguredRef.current = false;
       setPosRemark('');
       setPosTableNo('Counter');
       setPosDiningType(preferredDiningOption);
@@ -2968,14 +3044,16 @@ const PosOnlyView: React.FC<Props> = ({
       setSelectedQrOrderForPayment(null);
     }
 
-    setCounterMode('SAVED_BILL');
-    toast(`Bill saved to ${targetTable}.`, 'success');
+    setTableBillSuccess({ id: now, table: targetTable });
     return true;
   };
 
   const openSaveBillTableModal = (source: 'COUNTER' | 'QR', preferredTable?: string) => {
     const fallbackTable = tableLabels[0] || 'Table 1';
-    const defaultTable = preferredTable?.trim() || fallbackTable;
+    const requestedTable = preferredTable?.trim() || fallbackTable;
+    const defaultTable = blockedCounterTables.has(requestedTable)
+      ? tableLabels.find(table => !blockedCounterTables.has(table)) || ''
+      : requestedTable;
     setTableModalMode('SAVE_BILL');
     setPendingSaveBillSource(source);
     setSelectedSaveTableNumber(defaultTable);
@@ -2984,8 +3062,10 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const openCounterTablePicker = () => {
-    const fallbackTable = tableLabels[0] || 'Table 1';
-    const defaultTable = !isCounterTableValue(posTableNo) ? posTableNo.trim() : fallbackTable;
+    const defaultTable = (counterOrderConfiguredRef.current || activeSavedBillTable) && posDiningType === 'Dine-in'
+      ? posTableNo.trim()
+      : '';
+    setCounterDiningDraft(posDiningType);
     setTableModalMode('COUNTER_PICK');
     setPendingSaveBillSource(null);
     setSelectedSaveTableNumber(defaultTable);
@@ -2994,6 +3074,7 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const startSaveBillFlow = (source: 'COUNTER' | 'QR') => {
+    if (tableBillSavingRef.current || (source === 'COUNTER' && posDiningType !== 'Dine-in')) return;
     if (source === 'COUNTER' && posCart.length === 0) {
       toast('Cart is empty. Add items before saving bill.', 'warning');
       return;
@@ -3021,6 +3102,7 @@ const PosOnlyView: React.FC<Props> = ({
     setShowSaveBillTableModal(false);
     setPendingSaveBillSource(null);
     setTableModalMode(null);
+    setPendingCounterMenuItem(null);
   };
 
   const clearSavedBillByTable = (tableNumber: string) => {
@@ -3034,32 +3116,31 @@ const PosOnlyView: React.FC<Props> = ({
       .eq('restaurant_id', restaurant.id)
       .eq('table_number', tableNumber)
       .then(({ error }) => {
-        if (error) console.error('Failed to delete saved bill from Supabase:', error);
+        if (error) console.error('Failed to delete table bill from Supabase:', error);
       });
   };
 
   const handleSaveBillModalTableClick = (tableNumber: string) => {
+    if (blockedCounterTables.has(tableNumber)) return;
     setSelectedSaveTableNumber(tableNumber);
-
-    if (tableModalMode === 'COUNTER_PICK') {
-      setPosTableNo(tableNumber);
-      closeSaveBillTableModal();
-      toast(`Table set to ${tableNumber}.`, 'success');
-    }
   };
 
-  const confirmSaveBillToTable = () => {
+  const confirmSaveBillToTable = async () => {
     const targetTable = selectedSaveTableNumber || tableLabels[0] || 'Table 1';
 
     if (tableModalMode === 'COUNTER_PICK') {
-      setPosTableNo(targetTable);
+      if (counterDiningDraft === 'Dine-in' && (!selectedSaveTableNumber || blockedCounterTables.has(selectedSaveTableNumber))) return;
+      setPosDiningType(counterDiningDraft);
+      setPosTableNo(counterDiningDraft === 'Dine-in' ? targetTable : 'Counter');
+      counterOrderConfiguredRef.current = true;
+      const pendingItem = pendingCounterMenuItem;
       closeSaveBillTableModal();
-      toast(`Table set to ${targetTable}.`, 'success');
+      if (pendingItem) continueCounterMenuItem(pendingItem);
       return;
     }
 
     if (!pendingSaveBillSource) return;
-    const isSaved = saveBillToTable(pendingSaveBillSource, targetTable);
+    const isSaved = await saveBillToTable(pendingSaveBillSource, targetTable);
     if (!isSaved) return;
     closeSaveBillTableModal();
   };
@@ -3071,6 +3152,7 @@ const PosOnlyView: React.FC<Props> = ({
   const resetCounterOrderDraft = () => {
     setEditingQrOrderId(null);
     setPosCart([]);
+    counterOrderConfiguredRef.current = false;
     setPosRemark('');
     setPosTableNo('Counter');
     setPosDiningType(preferredDiningOption);
@@ -3092,7 +3174,7 @@ const PosOnlyView: React.FC<Props> = ({
   const currentCounterModeLabel = editingQrOrderId
     ? 'Edit Order'
     : counterMode === 'SAVED_BILL'
-      ? 'Saved Bill'
+      ? 'Table Bill'
       : counterMode === 'QR_ORDER'
         ? 'QR Order'
         : 'Counter';
@@ -3250,7 +3332,7 @@ const PosOnlyView: React.FC<Props> = ({
           .update({ items: updatedCurrentItems, updated_at: new Date().toISOString() })
           .eq('restaurant_id', restaurant.id)
           .eq('table_number', selectedSavedBillEntry.tableNumber);
-        if (billUpdateError) console.error('Failed to sync edited saved bill after kitchen update:', billUpdateError);
+        if (billUpdateError) console.error('Failed to sync edited table bill after kitchen update:', billUpdateError);
 
         setSavedBillKitchenOrderIds(prev => ({ ...prev, [dispatchId]: existingOrderId }));
         setSavedBills(prev => prev.map(bill => bill.id === selectedSavedBillEntry.id ? { ...bill, items: updatedCurrentItems } : bill));
@@ -3295,13 +3377,13 @@ const PosOnlyView: React.FC<Props> = ({
           .update({ items: firstDispatchItems, updated_at: new Date().toISOString() })
           .eq('restaurant_id', restaurant.id)
           .eq('table_number', selectedSavedBillEntry.tableNumber);
-        if (error) console.error('Failed to attach kitchen dispatch ID to saved bill:', error);
+        if (error) console.error('Failed to attach kitchen dispatch ID to table bill:', error);
       }
 
       toast(`Order #${orderId} sent to kitchen.`, 'success');
       returnToCounterAfterKitchenSend();
     } catch (error: any) {
-      console.error('Failed to send saved bill to kitchen:', error);
+      console.error('Failed to send table bill to kitchen:', error);
       toast(`Could not send to kitchen: ${error?.message || 'Unknown error'}`, 'error');
     } finally {
       setSendingSavedBillId(null);
@@ -3310,7 +3392,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   const handlePrintSavedBillOrderList = async () => {
     if (!selectedSavedBillEntry) {
-      toast('Select a pending saved bill first.', 'error');
+      toast('Select a pending table bill first.', 'error');
       return;
     }
     if (!hasPrintableTransport) {
@@ -3345,7 +3427,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   const handleCancelSavedBillOrder = () => {
     if (!selectedSavedBillEntry) {
-      toast('Select a pending saved bill first.', 'error');
+      toast('Select a pending table bill first.', 'error');
       return;
     }
 
@@ -3382,6 +3464,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   const addOrderForTable = (tableNumber: string) => {
     setPosCart([]);
+    counterOrderConfiguredRef.current = false;
     setPosRemark('');
     setPosTableNo(tableNumber);
     setPosDiningType(preferredDiningOption);
@@ -3489,6 +3572,7 @@ const PosOnlyView: React.FC<Props> = ({
         onUpdateOrderItems(savedOrderId, savedItems, savedTotal, posRemark, undefined, savedStatus);
       }
       setPosCart([]);
+      counterOrderConfiguredRef.current = false;
       setPosRemark('');
       setPosTableNo('Counter');
       setPosDiningType(preferredDiningOption);
@@ -3649,7 +3733,7 @@ const PosOnlyView: React.FC<Props> = ({
         orderSource: selectedQrOrderForPayment.orderSource,
       }]);
     } else if (pendingOrderData.kitchenOrderId) {
-      // A saved bill that was sent to KDS already has an order row. Record payment
+      // A table bill that was sent to KDS already has an order row. Record payment
       // on that row without changing the kitchen's current cooking status.
       actualOrderId = pendingOrderData.kitchenOrderId;
       const kitchenOrder = orders.find(order => order.id === actualOrderId);
@@ -3871,6 +3955,7 @@ const PosOnlyView: React.FC<Props> = ({
         }
       }
       setPosCart([]);
+      counterOrderConfiguredRef.current = false;
       setPosRemark('');
       setPosTableNo('Counter');
       setPosDiningType(preferredDiningOption);
@@ -4782,7 +4867,7 @@ const PosOnlyView: React.FC<Props> = ({
     localStorage.setItem(`saved_bills_${restaurant.id}`, JSON.stringify(savedBills));
   }, [savedBills, restaurant.id]);
 
-  // Load saved bills from Supabase on mount + subscribe to realtime changes
+  // Load table bills from Supabase on mount + subscribe to realtime changes
   useEffect(() => {
     let cancelled = false;
 
@@ -4842,7 +4927,6 @@ const PosOnlyView: React.FC<Props> = ({
     if (activeTab !== 'COUNTER') {
       setShowLayoutPicker(false);
       setShowCounterModePicker(false);
-      setShowDiningOptionPicker(false);
       setShowMobileCart(false);
     }
   }, [activeTab]);
@@ -6194,7 +6278,7 @@ const PosOnlyView: React.FC<Props> = ({
       { key: 'status', header: 'Status', value: (order) => order.status },
       { key: 'paymentMethod', header: 'Payment Method', value: (order) => order.paymentMethod || '' },
       { key: 'cashier', header: 'Cashier', value: (order) => order.cashierName || '' },
-      { key: 'table', header: 'Table', value: (order) => order.tableNumber || '' },
+      { key: 'table', header: 'Table', value: (order) => getReportTableDisplay(order) },
       { key: 'diningOption', header: 'Dining Option', value: (order) => order.diningType || '' },
       { key: 'orderSource', header: 'Order Source', value: (order) => order.orderSource || '' },
       { key: 'itemId', header: 'Item ID', value: (_order, item) => item?.id || '' },
@@ -6416,7 +6500,7 @@ const PosOnlyView: React.FC<Props> = ({
     if (includeSection('transactions')) {
       appendTable('Transactions', ['Order ID', 'Table', 'Dining Option', 'Date', 'Time', 'Status', 'Payment Method', 'Cashier', 'Items', 'Total'], orders.map((o) => [
           o.id,
-          o.tableNumber || '-',
+          getReportTableDisplay(o),
           o.diningType || '-',
           new Date(o.timestamp).toLocaleDateString('en-MY'),
           new Date(o.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -8242,8 +8326,8 @@ const PosOnlyView: React.FC<Props> = ({
             <h3 className="text-sm font-black dark:text-white uppercase tracking-tight mb-3">QR Code Generator Config</h3>
 
             <div className="space-y-3">
-              {/* Location Name & Table Prefix side by side */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Give each field a full row in the three-column tablet layout. */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-1 2xl:grid-cols-2">
                 <div className="min-w-0">
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Location Name</label>
                   <input
@@ -8264,7 +8348,7 @@ const PosOnlyView: React.FC<Props> = ({
                 <div className="min-w-0">
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Table Prefix</label>
                   <div className="flex items-center gap-2">
-                    <span className="text-gray-400 text-sm">—</span>
+                    <span className="hidden text-gray-400 text-sm 2xl:inline">—</span>
                     <input
                       type="text"
                       value={qrGenTablePrefix}
@@ -8277,7 +8361,7 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
 
               {/* Start Number & Number of Tables side by side */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="min-w-0">
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Start Number</label>
                   <input
@@ -8294,7 +8378,8 @@ const PosOnlyView: React.FC<Props> = ({
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => setQrGenTableCount(String(Math.max(1, (parseInt(qrGenTableCount, 10) || 1) - 1)))}
-                      className="p-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-gray-500 hover:text-orange-500 hover:border-orange-300 transition-all"
+                      aria-label="Decrease number of tables"
+                      className="hidden p-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-gray-500 hover:text-orange-500 hover:border-orange-300 transition-all 2xl:inline-flex"
                     >
                       <Minus size={14} />
                     </button>
@@ -8309,7 +8394,8 @@ const PosOnlyView: React.FC<Props> = ({
                     />
                     <button
                       onClick={() => setQrGenTableCount(String(Math.min(50, (parseInt(qrGenTableCount, 10) || 0) + 1)))}
-                      className="p-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-gray-500 hover:text-orange-500 hover:border-orange-300 transition-all"
+                      aria-label="Increase number of tables"
+                      className="hidden p-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-gray-500 hover:text-orange-500 hover:border-orange-300 transition-all 2xl:inline-flex"
                     >
                       <Plus size={14} />
                     </button>
@@ -8324,7 +8410,7 @@ const PosOnlyView: React.FC<Props> = ({
                   onClick={handlePrintQrs}
                   className="w-full py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-500 hover:text-white dark:hover:bg-orange-500 dark:hover:text-white transition-all flex items-center justify-center gap-2"
                 >
-                  <Printer size={14} /> Print All [{count}] QR Codes
+                  <Printer size={14} className="md:hidden 2xl:block" /><span className="md:hidden 2xl:inline">Print All [{count}] QR Codes</span><span className="hidden md:inline 2xl:hidden">Print All</span>
                 </button>
                 <button
                   onClick={() => {
@@ -8335,9 +8421,10 @@ const PosOnlyView: React.FC<Props> = ({
                     setQrGenPreviewTable('');
                     setQrPreviewIndex(0);
                   }}
+                  aria-label="Reset QR generator"
                   className="w-full mt-2 py-2 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex items-center justify-center gap-2"
                 >
-                  <RotateCcw size={12} /> Reset
+                  <RotateCcw size={12} className="md:hidden 2xl:block" /><span className="md:hidden 2xl:inline">Reset</span><span className="hidden md:inline 2xl:hidden">Reset All</span>
                 </button>
               </div>
             </div>
@@ -8435,7 +8522,7 @@ const PosOnlyView: React.FC<Props> = ({
                 onClick={() => handleDownloadQr(previewTableName)}
                 className="w-full py-2 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
               >
-                <QrCode size={13} /> Preview & Download Single Code
+                <QrCode size={13} className="hidden 2xl:block" /><span className="md:hidden 2xl:inline">Preview & Download Single Code</span><span className="hidden md:inline 2xl:hidden">Preview & Download</span>
               </button>
 
               {/* Navigation */}
@@ -8448,7 +8535,7 @@ const PosOnlyView: React.FC<Props> = ({
                   <ChevronLeft size={18} />
                 </button>
                 <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">
-                  Showing Table {safePreviewIdx + 1} of {tableNames.length}
+                  <span className="md:hidden 2xl:inline">Showing Table {safePreviewIdx + 1} of {tableNames.length}</span><span className="hidden md:inline 2xl:hidden">Table {safePreviewIdx + 1} of {tableNames.length}</span>
                 </span>
                 <button
                   onClick={() => setQrPreviewIndex(Math.min(tableNames.length - 1, safePreviewIdx + 1))}
@@ -8495,7 +8582,7 @@ const PosOnlyView: React.FC<Props> = ({
                 <p className="text-[8px] font-black dark:text-white uppercase tracking-tighter text-center line-clamp-1 w-full">{t}</p>
                 <button
                   onClick={e => { e.stopPropagation(); handleDownloadQr(t); }}
-                  className="flex items-center gap-1 text-[8px] text-gray-400 hover:text-orange-500 transition-colors font-bold"
+                  className="hidden items-center gap-1 text-[8px] text-gray-400 hover:text-orange-500 transition-colors font-bold 2xl:flex"
                   title={`Download QR for ${t}`}
                 >
                   <Download size={10} /> Download
@@ -8937,6 +9024,7 @@ const PosOnlyView: React.FC<Props> = ({
           {/* Mobile Header */}
           <div className="lg:hidden flex shrink-0 items-center p-3 landscape:py-1.5 landscape:px-2 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 no-print">
             <button 
+              aria-label="Open POS menu"
               onClick={() => setIsMobileMenuOpen(true)}
               className="p-2 -ml-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
@@ -8978,7 +9066,7 @@ const PosOnlyView: React.FC<Props> = ({
                           onClick={() => switchCounterMode('SAVED_BILL')}
                           className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${counterMode === 'SAVED_BILL' && !editingQrOrderId ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                         >
-                          <span className="text-[10px] font-black uppercase tracking-widest">Saved Bill</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest">Table Bill</span>
                           {savedBills.length > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[8px] font-black flex items-center justify-center">{savedBills.length}</span>}
                         </button>
                       )}
@@ -9027,19 +9115,19 @@ const PosOnlyView: React.FC<Props> = ({
           {/* Counter Tab - Same as PosView */}
           {activeTab === 'COUNTER' && (
             <>
-              {/* Saved Bill selection panel */}
+              {/* Table Bill selection panel */}
               {counterMode === 'SAVED_BILL' ? (
-                <div className="flex-1 overflow-hidden flex flex-col p-4" onClick={() => setActiveSavedBillTable(null)}>
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-2 pt-4" onClick={() => setActiveSavedBillTable(null)}>
                   {!featureSettings.savedBillEnabled ? (
                     <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
                       <Receipt size={48} className="mb-4" />
-                      <p className="text-[10px] font-black uppercase tracking-widest">Saved bill feature is disabled</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest">Table bill feature is disabled</p>
                     </div>
                   ) : (
-                    <div className="flex flex-col h-full">
-                      <div className="mb-3">
+                    <div className="flex min-h-0 flex-1 flex-col">
+                      <div className="mb-3 shrink-0">
                         <p className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">Table Arrangement</p>
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Choose a table with pending bill to continue editing, or view empty tables ready for new saved bills.</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Choose a table with pending bill to continue editing, or view empty tables ready for new table bills.</p>
                       </div>
                       {/* Floor tabs */}
                       {featureSettings.floorEnabled && effectiveFloorCount > 1 && (
@@ -9066,7 +9154,7 @@ const PosOnlyView: React.FC<Props> = ({
                         return (
                           <>
                       <div
-                        className="saved-bill-table-panel-scroll flex-1 overflow-y-auto overflow-x-hidden space-y-2 min-h-0 pr-3 pt-2"
+                        className="saved-bill-table-panel-scroll flex-1 overflow-y-auto overflow-x-hidden space-y-2 min-h-0 pr-3 pt-2 pb-2"
                         onTouchStart={e => { tableSwipeStartX.current = e.touches[0].clientX; }}
                         onTouchEnd={e => {
                           if (tableSwipeStartX.current === null) return;
@@ -9116,8 +9204,8 @@ const PosOnlyView: React.FC<Props> = ({
                             })}
                           </div>
                       </div>
-                      {/* Fixed dot indicator area — always takes space so layout never shifts */}
-                      <div className="h-8 flex items-center justify-center gap-1.5 shrink-0">
+                      {/* Reserve pagination space only when additional pages exist. */}
+                      {totalColPages > 1 && <div className="h-6 flex items-center justify-center gap-1.5 shrink-0">
                         {totalColPages > 1 && Array.from({ length: totalColPages }, (_, i) => (
                           <button
                             key={i}
@@ -9128,7 +9216,7 @@ const PosOnlyView: React.FC<Props> = ({
                             }`}
                           />
                         ))}
-                      </div>
+                      </div>}
                       {selectedSavedBillEntry ? (
                         <div className="lg:hidden mt-3 shrink-0 rounded-2xl border border-orange-200 bg-white p-3 shadow-lg dark:border-orange-900/50 dark:bg-gray-800" onClick={e => e.stopPropagation()}>
                           <div className="flex items-start justify-between gap-3">
@@ -9615,8 +9703,8 @@ const PosOnlyView: React.FC<Props> = ({
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Manage your menu items, categories, modifiers, and add-ons.</p>
                 </div>
 
-                {/* Document-style tab bar */}
-                <div className="flex gap-0 relative overflow-x-auto overflow-y-hidden hide-scrollbar">
+                {/* Document-style tabs, with compact spacing and overflow on narrow screens. */}
+                <nav aria-label="Menu editor sections" className="relative flex max-w-full gap-0 overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:thin]">
                   {([
                     { id: 'KITCHEN' as const, label: 'Kitchen Menu', icon: <BookOpen size={13} /> },
                     { id: 'CATEGORY' as const, label: 'Category', icon: <Layers size={13} /> },
@@ -9626,9 +9714,10 @@ const PosOnlyView: React.FC<Props> = ({
                   ]).map(tab => (
                     <button
                       key={tab.id}
+                      type="button"
+                      aria-pressed={menuSubTab === tab.id}
                       onClick={() => setMenuSubTab(tab.id)}
-                      style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
-                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
+                      className={`relative flex min-h-9 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-t-lg px-2 py-2 text-[10px] font-bold uppercase tracking-normal transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-orange-500 sm:gap-1.5 sm:px-3 sm:text-[11px] sm:tracking-wide ${
                         menuSubTab === tab.id
                           ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
                           : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
@@ -9638,7 +9727,7 @@ const PosOnlyView: React.FC<Props> = ({
                       {tab.label}
                     </button>
                   ))}
-                </div>
+                </nav>
 
                 {/* Sub-tab content */}
                 <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
@@ -10364,12 +10453,12 @@ const PosOnlyView: React.FC<Props> = ({
             })();
 
             return (
-              <div className="relative flex-1 overflow-y-auto bg-[#0d1724] text-slate-200">
+              <div className="relative flex-1 overflow-y-auto bg-gray-50 text-gray-900 dark:bg-[#0d1724] dark:text-slate-200">
                 <div className="w-full px-3 pb-8 pt-3 sm:px-5 sm:pt-5 lg:px-6 lg:pt-6">
                   <div className="animate-in fade-in duration-500">
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-[270px_minmax(0,1fr)] lg:gap-5">
-                      <aside className="h-fit rounded-2xl border border-[#26384c] bg-[#172333] p-3 shadow-xl shadow-black/10 md:sticky md:top-4">
-                        <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">General Setting</p>
+                      <aside className="h-fit rounded-2xl border border-gray-200 dark:border-[#26384c] bg-white dark:bg-[#172333] p-3 shadow-xl shadow-black/10 md:sticky md:top-4">
+                        <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-gray-500 dark:text-slate-400">General Setting</p>
 
                         <div className="flex flex-col gap-1">
                           {settingsTabs.map(tab => {
@@ -10382,12 +10471,12 @@ const PosOnlyView: React.FC<Props> = ({
                                 className={`w-full rounded-xl border px-3 py-2.5 text-left transition-all duration-200 ${
                                   isActive
                                     ? 'border-orange-500/60 bg-orange-500/15 shadow-[inset_3px_0_0_#f97316]'
-                                    : 'border-transparent bg-transparent hover:border-[#385069] hover:bg-[#203044]'
+                                    : 'border-transparent bg-transparent hover:border-gray-300 hover:bg-gray-100 dark:hover:border-[#385069] dark:hover:bg-[#203044]'
                                 }`}
                               >
                                 <div className="flex min-w-0 items-center">
-                                  <tab.icon size={17} className={`mr-3 shrink-0 ${isActive ? 'text-orange-400' : 'text-slate-300'}`} />
-                                  <span className={`whitespace-nowrap text-sm font-semibold ${isActive ? 'text-orange-300' : 'text-slate-200'}`}>{tab.label}</span>
+                                  <tab.icon size={17} className={`mr-3 shrink-0 ${isActive ? 'text-orange-600 dark:text-orange-400' : 'text-gray-500 dark:text-slate-300'}`} />
+                                  <span className={`whitespace-nowrap text-sm font-semibold ${isActive ? 'text-orange-700 dark:text-orange-300' : 'text-gray-700 dark:text-slate-200'}`}>{tab.label}</span>
                                 </div>
 
                               </button>
@@ -10406,8 +10495,8 @@ const PosOnlyView: React.FC<Props> = ({
                             { key: 'addon-shift', label: 'Shift Management', info: 'Cashier shift open/close with cash drawer reconciliation & schedule.', icon: <Clock size={14} />, badge: 'Add-on', isInstalled: featureSettings.shiftEnabled, addonId: 'shift' },
                           ];
                           return (
-                            <div className="mt-3 border-t border-[#26384c] pt-3">
-                              <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Add-on Feature Setting</p>
+                            <div className="mt-3 border-t border-gray-200 dark:border-[#26384c] pt-3">
+                              <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-gray-500 dark:text-slate-400">Add-on Feature Setting</p>
                               <div className="flex flex-col gap-1">
                                 {addonSettingsList.map(addon => {
                                   const isActive = activeSettingsPanel === addon.key;
@@ -10418,12 +10507,12 @@ const PosOnlyView: React.FC<Props> = ({
                                       className={`w-full rounded-xl border px-3 py-2.5 text-left transition-all duration-200 ${
                                         isActive
                                           ? 'border-orange-500/60 bg-orange-500/15 shadow-[inset_3px_0_0_#f97316]'
-                                            : 'border-transparent bg-transparent hover:border-[#385069] hover:bg-[#203044]'
+                                            : 'border-transparent bg-transparent hover:border-gray-300 hover:bg-gray-100 dark:hover:border-[#385069] dark:hover:bg-[#203044]'
                                       }`}
                                     >
                                       <div className="flex min-w-0 items-center">
-                                        <span className={`flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold ${isActive ? 'text-orange-300' : 'text-slate-200'}`}>
-                                          <span className={isActive ? 'text-orange-400' : 'text-slate-300'}>{addon.icon}</span> {addon.label}
+                                        <span className={`flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold ${isActive ? 'text-orange-700 dark:text-orange-300' : 'text-gray-700 dark:text-slate-200'}`}>
+                                          <span className={isActive ? 'text-orange-600 dark:text-orange-400' : 'text-gray-500 dark:text-slate-300'}>{addon.icon}</span> {addon.label}
                                         </span>
                                       </div>
                                     </button>
@@ -10432,7 +10521,7 @@ const PosOnlyView: React.FC<Props> = ({
                               </div>
                               <button
                                 onClick={() => handleTabSelection('ADDONS')}
-                                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#385069] bg-[#13202e] px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 transition-all hover:border-orange-500/60 hover:bg-orange-500/10 hover:text-orange-300"
+                                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-gray-300 dark:border-[#385069] bg-gray-50 dark:bg-[#13202e] px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-slate-400 transition-all hover:border-orange-500/60 hover:bg-orange-500/10 hover:text-orange-700 dark:hover:text-orange-300"
                               >
                                 <Package size={12} /> Manage Add-ons
                               </button>
@@ -10441,16 +10530,16 @@ const PosOnlyView: React.FC<Props> = ({
                         })()}
                       </aside>
 
-                      <section className="min-w-0 overflow-hidden rounded-2xl border border-[#26384c] bg-[#172333] shadow-2xl shadow-black/15">
-                      <div className="border-b border-[#26384c] px-4 py-4 sm:px-6 sm:py-5">
+                      <section className="min-w-0 overflow-hidden rounded-2xl border border-gray-200 dark:border-[#26384c] bg-white dark:bg-[#172333] shadow-2xl shadow-black/15">
+                      <div className="border-b border-gray-200 dark:border-[#26384c] px-4 py-4 sm:px-6 sm:py-5">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex items-start gap-3">
                             <div className="rounded-xl border border-orange-500/40 bg-orange-500 p-2 text-white shadow-lg shadow-orange-500/20">
                               <ActiveSettingsIcon size={18} />
                             </div>
                             <div>
-                              <h2 className="text-lg font-semibold tracking-tight text-white">{activeSettingsTab.label}</h2>
-                              <p className="mt-0.5 text-sm text-slate-400">{activeSettingsTab.info}</p>
+                              <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">{activeSettingsTab.label}</h2>
+                              <p className="mt-0.5 text-sm text-gray-500 dark:text-slate-400">{activeSettingsTab.info}</p>
                             </div>
                           </div>
                           {isAddonPanel && addonPanelMeta[activeSettingsPanel] ? (
@@ -10506,11 +10595,11 @@ const PosOnlyView: React.FC<Props> = ({
                               </button>
                             </div>
                           ) : (
-                            <span className="inline-flex w-fit items-center rounded-full border border-[#385069] bg-[#223247] px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-300">{activeSettingsTab.badge}</span>
+                            <span className="inline-flex w-fit items-center rounded-full border border-gray-300 dark:border-[#385069] bg-gray-100 dark:bg-[#223247] px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-gray-600 dark:text-slate-300">{activeSettingsTab.badge}</span>
                           )}
                         </div>
                         <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center rounded-full border border-orange-500/40 bg-orange-500/10 px-2.5 py-1 text-[11px] font-semibold text-orange-300">{panelMetaLine}</span>
+                          <span className="inline-flex items-center rounded-full border border-orange-500/40 bg-orange-500/10 px-2.5 py-1 text-[11px] font-semibold text-orange-700 dark:text-orange-300">{panelMetaLine}</span>
                         </div>
                       </div>
 
@@ -10520,7 +10609,7 @@ const PosOnlyView: React.FC<Props> = ({
                           )}
 
                           {activeSettingsPanel === 'printer' && (
-                            <div className="min-w-0 rounded-2xl border border-[#26384c] bg-[#101c2b] p-3 sm:p-4">
+                            <div className="min-w-0 rounded-2xl border border-gray-200 dark:border-[#26384c] bg-gray-50 dark:bg-[#101c2b] p-3 sm:p-4">
                               <PrinterSettings
                                 restaurantId={restaurant.id}
                                 restaurantName={restaurant.name}
@@ -11155,7 +11244,7 @@ const PosOnlyView: React.FC<Props> = ({
 
           {/* Add-on Feature Tab */}
           {activeTab === 'ADDONS' && (
-            <div className="flex-1 overflow-y-auto p-3 md:p-5 xl:p-6">
+            <div className="flex-1 overflow-y-auto p-3 md:p-5 2xl:p-6">
               <div className="animate-in fade-in duration-500">
                 {(() => {
                   // Add-on feature definitions
@@ -11189,7 +11278,7 @@ const PosOnlyView: React.FC<Props> = ({
                       planColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
                       shortDesc: 'Save bill & manage table layout for dine-in.',
                       description: 'Table Management lets you configure your restaurant floor plan with customizable table layouts. Save bills to specific tables, manage multiple floors, and keep track of occupied and available tables in real time. Perfect for dine-in restaurants that need organized seating management.',
-                      features: ['Saved bill per table', 'Customizable table grid layout', 'Multi-floor support', 'Real-time table status', 'Table count & layout configuration'],
+                      features: ['Table bill per table', 'Customizable table grid layout', 'Multi-floor support', 'Real-time table status', 'Table count & layout configuration'],
                       version: '1.0.0',
                       author: 'QuickServe',
                       isInstalled: featureSettings.tableManagementEnabled || featureSettings.savedBillEnabled,
@@ -11867,7 +11956,7 @@ const PosOnlyView: React.FC<Props> = ({
                         ))}
                       </div>
 
-                      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-4 md:p-5 xl:p-6 rounded-b-2xl rounded-tr-2xl">
+                      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-4 md:p-5 2xl:p-6 rounded-b-2xl rounded-tr-2xl">
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
                           <div>
                             <p className="text-[10px] font-black uppercase tracking-[0.24em] text-gray-400 mb-1.5">{addonFeatureTab === 'AVAILABLE' ? 'Installable Now' : 'Roadmap Preview'}</p>
@@ -11898,7 +11987,7 @@ const PosOnlyView: React.FC<Props> = ({
                             <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">{activeEmptyState.description}</p>
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 22xl:grid-cols-4 gap-3">
                             {activeAddonItems.map(renderAddonCard)}
                           </div>
                         )}
@@ -12208,7 +12297,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Document-style tab bar */}
-                <div className="flex gap-0 relative">
+                <div className="relative flex gap-0">
                   {([
                     { id: 'INCOMING' as const, label: 'Incoming Orders', icon: <QrCode size={13} /> },
                     { id: 'QR_GENERATOR' as const, label: 'QR Generator', icon: <QrCode size={13} /> },
@@ -12218,14 +12307,14 @@ const PosOnlyView: React.FC<Props> = ({
                       key={tab.id}
                       onClick={() => setQrOrderSubTab(tab.id)}
                       style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
-                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
+                      className={`relative -mb-px flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-t-lg px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-normal transition-colors duration-150 sm:gap-2 sm:px-5 sm:text-xs sm:tracking-wider ${
                         qrOrderSubTab === tab.id
                           ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
                           : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
                       }`}
                     >
-                      {tab.icon}
-                      {tab.label}
+                      <span className="hidden shrink-0 sm:inline-flex">{tab.icon}</span>
+                      <span className="leading-tight">{tab.label}</span>
                     </button>
                   ))}
                 </div>
@@ -12236,30 +12325,37 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* ── Incoming Orders Sub-tab ── */}
                 {qrOrderSubTab === 'INCOMING' && (
                   <>
-                    <div className="flex items-center justify-between mb-6 gap-4 overflow-x-auto hide-scrollbar">
-                      <p className="shrink-0 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Manage orders placed via QR table scan.</p>
-                      <div className="flex shrink-0 items-center gap-3">
-                        <button
-                          type="button"
-                          className="group relative flex min-h-[42px] w-[42px] shrink-0 items-center justify-center rounded-lg border border-orange-200 bg-orange-50 text-orange-600 transition-all hover:border-orange-300 hover:bg-orange-100 dark:border-orange-900/50 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/30"
-                          aria-label="Kitchen routing information"
-                        >
-                          <Info size={15} />
-                          <span className="pointer-events-none absolute right-0 top-11 z-20 hidden w-64 rounded-lg border border-gray-200 bg-white p-3 text-left text-[10px] font-bold leading-relaxed text-gray-600 shadow-xl group-hover:block dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
-                            Send orders to your Kitchen Display by enabling the add-on in Settings. Without it, QR and tableside orders stay Ongoing until staff marks them Served.
-                          </span>
-                        </button>
-                        <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm overflow-x-auto hide-scrollbar">
-                          <button onClick={() => setQrOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Ongoing</button>
-                          <button onClick={() => setQrOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Served</button>
-                          <button onClick={() => setQrOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Cancelled</button>
-                          <button onClick={() => setQrOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>All</button>
+                    <div className="mb-4 flex flex-wrap items-center gap-2 sm:mb-6 2xl:justify-between 2xl:gap-4">
+                        <p className="hidden shrink-0 whitespace-nowrap text-xs font-medium uppercase tracking-widest text-gray-500 dark:text-gray-400 2xl:block">Manage orders placed via QR table scan.</p>
+                        <div className="contents 2xl:flex 2xl:shrink-0 2xl:items-center 2xl:gap-3">
+                        <div ref={kitchenRoutingInfoRef} className="relative shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setShowKitchenRoutingInfo(open => !open)}
+                            aria-label="Kitchen routing information"
+                            aria-expanded={showKitchenRoutingInfo}
+                            aria-controls="kitchen-routing-info"
+                            className="flex min-h-[42px] w-[42px] items-center justify-center rounded-lg border border-orange-200 bg-orange-50 text-orange-600 transition-all hover:border-orange-300 hover:bg-orange-100 dark:border-orange-900/50 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/30"
+                          >
+                            <Info size={15} />
+                          </button>
+                          {showKitchenRoutingInfo && (
+                            <div id="kitchen-routing-info" role="note" className="absolute left-0 top-11 z-20 w-64 rounded-lg border border-gray-200 bg-white p-3 text-left text-[10px] font-bold leading-relaxed text-gray-600 shadow-xl dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                              Send orders to your Kitchen Display by enabling the add-on in Settings. Without it, QR and tableside orders stay Ongoing until staff marks them Served.
+                            </div>
+                          )}
                         </div>
-                        <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm shrink-0">
+                        <div role="group" aria-label="QR order status" className="grid min-w-[240px] flex-1 grid-cols-4 rounded-lg border bg-gray-50 p-1 shadow-sm dark:border-gray-600 dark:bg-gray-700 2xl:flex 2xl:shrink-0 2xl:overflow-x-auto">
+                          <button onClick={() => setQrOrderFilter('ONGOING_ALL')} className={`min-w-0 rounded-lg px-1 py-2 text-[9px] font-black uppercase transition-all sm:text-[10px] 2xl:whitespace-nowrap 2xl:px-4 2xl:tracking-widest ${qrOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Ongoing</button>
+                          <button onClick={() => setQrOrderFilter(OrderStatus.SERVED)} className={`min-w-0 rounded-lg px-1 py-2 text-[9px] font-black uppercase transition-all sm:text-[10px] 2xl:whitespace-nowrap 2xl:px-4 2xl:tracking-widest ${qrOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Served</button>
+                          <button onClick={() => setQrOrderFilter(OrderStatus.CANCELLED)} className={`min-w-0 rounded-lg px-1 py-2 text-[9px] font-black uppercase transition-all sm:text-[10px] 2xl:whitespace-nowrap 2xl:px-4 2xl:tracking-widest ${qrOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Cancelled</button>
+                          <button onClick={() => setQrOrderFilter('ALL')} className={`min-w-0 rounded-lg px-1 py-2 text-[9px] font-black uppercase transition-all sm:text-[10px] 2xl:whitespace-nowrap 2xl:px-4 2xl:tracking-widest ${qrOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>All</button>
+                        </div>
+                        <div className="flex shrink-0 rounded-lg border bg-gray-50 p-1 shadow-sm dark:border-gray-600 dark:bg-gray-700">
                           <button onClick={() => setQrTableOrderViewPreference('grid')} className={`p-2 rounded-md transition-all ${posViewPreferences.qrTableOrderView === 'grid' ? 'bg-white dark:bg-gray-600 text-orange-500 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><LayoutGrid size={13} /></button>
                           <button onClick={() => setQrTableOrderViewPreference('list')} className={`p-2 rounded-md transition-all ${posViewPreferences.qrTableOrderView === 'list' ? 'bg-white dark:bg-gray-600 text-orange-500 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><List size={13} /></button>
                         </div>
-                      </div>
+                        </div>
                     </div>
 
                     {(() => {
@@ -13596,7 +13692,7 @@ const PosOnlyView: React.FC<Props> = ({
                               ? 'bg-blue-500 text-white shadow-sm'
                               : counterMode === 'SAVED_BILL' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                           }`}
-                        >{editingQrOrderId ? 'Edit Order' : 'SAVED BILL'}
+                        >{editingQrOrderId ? 'Edit Order' : 'TABLE BILL'}
                           {!editingQrOrderId && savedBills.length > 0 && (
                             <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-black min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">{savedBills.length}</span>
                           )}
@@ -13635,7 +13731,7 @@ const PosOnlyView: React.FC<Props> = ({
                       {editingQrOrderId
                         ? `Editing Order #${editingQrOrderId.slice(-6).toUpperCase()}`
                         : showSavedBillFeature && counterMode === 'SAVED_BILL'
-                        ? 'Saved Bills'
+                        ? 'Table Bills'
                         : showQrFeature && counterMode === 'QR_ORDER'
                         ? (selectedQrOrderForPayment ? `Order #${selectedQrOrderForPayment.id.slice(-6).toUpperCase()}` : 'QR Order')
                         : counterMode === 'COUNTER_ORDER' && !isCounterTableValue(posTableNo)
@@ -13649,8 +13745,8 @@ const PosOnlyView: React.FC<Props> = ({
                           onClick={() => setSavedBillActionMenuOpen(prev => !prev)}
                           disabled={!selectedSavedBillEntry}
                           className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 text-gray-500 transition-all hover:border-orange-300 hover:text-orange-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-300"
-                          title="Saved bill actions"
-                          aria-label="Saved bill actions"
+                          title="Table bill actions"
+                          aria-label="Table bill actions"
                           aria-expanded={savedBillActionMenuOpen}
                         >
                           <MoreVertical size={16} />
@@ -13681,6 +13777,7 @@ const PosOnlyView: React.FC<Props> = ({
                     {!editingQrOrderId && (counterMode === 'COUNTER_ORDER' || (!showQrFeature && counterMode !== 'SAVED_BILL')) && (
                       <button
                         type="button"
+                        aria-label="Clear cart"
                         onClick={() => { resetCounterOrderDraft(); setActiveSavedBillTable(null); setCounterOrderAction('ADD_ORDER'); }}
                         className="text-gray-400 hover:text-red-500 transition-colors"
                       >
@@ -13698,7 +13795,7 @@ const PosOnlyView: React.FC<Props> = ({
             {/* Sidebar content by mode */}
             {showSavedBillFeature && counterMode === 'SAVED_BILL' ? (
               <>
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
                 {!selectedSavedBillEntry ? (
                   <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
                     <Receipt size={48} className="mb-4" />
@@ -13768,18 +13865,18 @@ const PosOnlyView: React.FC<Props> = ({
                 )}
               </div>
 
-              <div className="p-6 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-4">
+              <div data-table-bill-footer className="shrink-0 px-4 py-3 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-3">
                 {!selectedSavedBillEntry && activeSavedBillTable ? (
                   <button
                     type="button"
                     onClick={() => addOrderForTable(activeSavedBillTable)}
-                    className="w-full py-4 rounded-lg bg-orange-500 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-orange-500/20 transition-all hover:bg-orange-600"
+                    className="w-full py-3 rounded-lg bg-orange-500 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-orange-500/20 transition-all hover:bg-orange-600"
                   >
                     Add Order
                   </button>
                 ) : (
                 <>
-                <div className="space-y-2">
+                <div className="space-y-1.5 leading-none">
                   <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                     <span>Subtotal</span>
                     <span>{currencySymbol}{selectedSavedBillPreDiscountSubtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -13806,7 +13903,7 @@ const PosOnlyView: React.FC<Props> = ({
                   <button
                     onClick={() => { if (activeSavedBillTable) loadSavedBill(activeSavedBillTable); }}
                     disabled={!selectedSavedBillEntry || isCompletingPayment || Boolean(sendingSavedBillId)}
-                    className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                    className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
                   >
                     Edit Bill
                   </button>
@@ -13814,7 +13911,7 @@ const PosOnlyView: React.FC<Props> = ({
                     <button
                       onClick={handleSendSavedBillToKitchen}
                       disabled={!selectedSavedBillEntry || isCompletingPayment || Boolean(sendingSavedBillId) || !isOnline}
-                      className="flex-1 py-4 bg-gray-900 dark:bg-white text-white dark:text-black rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-black dark:hover:bg-gray-100 active:scale-[0.98] transition-all disabled:opacity-50"
+                      className="flex-1 py-3 bg-gray-900 dark:bg-white text-white dark:text-black rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-black dark:hover:bg-gray-100 active:scale-[0.98] transition-all disabled:opacity-50"
                     >
                       {sendingSavedBillId ? 'Sending...' : selectedSavedBillKitchenOrderId ? 'Sent' : 'Send'}
                     </button>
@@ -13822,7 +13919,7 @@ const PosOnlyView: React.FC<Props> = ({
                   <button
                     onClick={handleSavedBillCheckout}
                     disabled={!selectedSavedBillEntry || isCompletingPayment}
-                    className="flex-[2] py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 active:scale-[0.98] transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
+                    className="flex-[2] py-3 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 active:scale-[0.98] transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
                   >
                     Complete Payment
                   </button>
@@ -13922,14 +14019,14 @@ const PosOnlyView: React.FC<Props> = ({
                         disabled={!selectedQrOrderForPayment || isCompletingPayment}
                         className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                       >
-                        <Edit3 size={14} /> Edit Order
+                        Edit Order
                       </button>
                       <button
                         onClick={handleQrOrderCheckout}
                         disabled={!selectedQrOrderForPayment || isCompletingPayment}
                         className="flex-[2] py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 active:scale-[0.98] transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                       >
-                        <CreditCard size={16} /> Complete Payment
+                        Complete Payment
                       </button>
                     </div>
                   </div>
@@ -14047,25 +14144,25 @@ const PosOnlyView: React.FC<Props> = ({
 
               <div className="space-y-3">
                 {!editingQrOrderId && (
-                  <div className="flex gap-2">
-                    <div className="flex-1">
+                  <div className="flex flex-wrap gap-2">
+                    <div className="flex-[1_0_max-content]">
                       <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table</label>
                       <button
                         type="button"
+                        aria-label="Change table"
                         onClick={openCounterTablePicker}
-                        className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white text-left flex items-center justify-between hover:border-orange-300 dark:hover:border-orange-500 transition-all"
+                        className="w-full px-7 py-2 whitespace-nowrap bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white text-center relative flex items-center justify-center hover:border-orange-300 dark:hover:border-orange-500 transition-all"
                       >
-                        <span className="uppercase">{posTableNo || 'Counter'}</span>
-                        <ChevronDown size={14} className="text-gray-400" />
+                        <span className="uppercase">{counterOrderConfiguredRef.current || activeSavedBillTable ? getOrderTableDisplay({ tableNumber: posTableNo, diningType: posDiningType }) : 'SELECT TABLE'}</span>
+                        <ChevronDown size={14} className="absolute right-2 text-gray-400" />
                       </button>
                     </div>
-                    <div className="flex-[2]">
+                    <div className="flex-[2_0_max-content]">
                       <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Dining Option</label>
-                      <select value={posDiningType} onChange={e => setPosDiningType(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase dark:text-white">
-                        {availableDiningOptions.map((option) => (
-                          <option key={option} value={option}>{option.toUpperCase()}</option>
-                        ))}
-                      </select>
+                      <button type="button" aria-label="Change dining option" onClick={openCounterTablePicker} className="w-full px-7 py-2 whitespace-nowrap bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase dark:text-white text-center relative flex items-center justify-center">
+                        <span>{counterOrderConfiguredRef.current || activeSavedBillTable ? posDiningType : 'SELECT DINING OPTION'}</span>
+                        <ChevronDown size={14} className="absolute right-2 text-gray-400" />
+                      </button>
                     </div>
                   </div>
                 )}
@@ -14074,7 +14171,7 @@ const PosOnlyView: React.FC<Props> = ({
                   {editingQrOrderId ? (
                     <>
                       <button
-                        onClick={() => { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); setPosDiningType(preferredDiningOption); }}
+                        onClick={() => { setEditingQrOrderId(null); setPosCart([]); counterOrderConfiguredRef.current = false; setPosRemark(''); setPosTableNo('Counter'); setPosDiningType(preferredDiningOption); }}
                         className="w-[47.5%] py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
                       >
                         Cancel
@@ -14087,31 +14184,14 @@ const PosOnlyView: React.FC<Props> = ({
                         Save Changes
                       </button>
                     </>
-                  ) : showSavedBillFeature ? (
-                    <>
-                      <button
-                        onClick={saveCurrentBill}
-                        disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
-                        className="w-[47.5%] py-4 border-2 border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
-                      >
-                        Save Bill
-                      </button>
-                      <button
-                        onClick={handleCheckout}
-                        disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
-                        className="w-[47.5%] py-4 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 active:scale-[0.98] transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
-                      >
-                        {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Payment'}
-                      </button>
-                    </>
                   ) : (
-                    <button
-                      onClick={handleCheckout}
-                      disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
-                      className="w-full py-4 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 active:scale-[0.98] transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
-                    >
-                      {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Payment'}
-                    </button>
+                    <CounterCheckoutActions
+                      canSaveBill={showSavedBillFeature && posDiningType === 'Dine-in'}
+                      disabled={posCart.length === 0 || isSavingTableBill || isCompletingPayment || showPaymentSuccess}
+                      paymentLabel={isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Payment'}
+                      onSaveBill={saveCurrentBill}
+                      onPayment={handleCheckout}
+                    />
                   )}
                 </div>
               </div>
@@ -14125,6 +14205,7 @@ const PosOnlyView: React.FC<Props> = ({
       {/* Mobile Floating Cart Button */}
       {activeTab === 'COUNTER' && posCart.length > 0 && !showMobileCart && (
         <button
+          aria-label="View cart"
           onClick={() => setShowMobileCart(true)}
           className="lg:hidden fixed bottom-6 right-6 z-40 bg-orange-500 text-white w-16 h-16 rounded-full shadow-2xl shadow-orange-500/40 flex items-center justify-center active:scale-95 transition-transform"
         >
@@ -14151,7 +14232,7 @@ const PosOnlyView: React.FC<Props> = ({
                 Cart ({cartItemCount})
               </h3>
               <div className="flex items-center gap-3">
-                <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors p-1">
+                <button aria-label="Clear cart" onClick={() => { setPosCart([]); counterOrderConfiguredRef.current = false; }} className="text-gray-400 hover:text-red-500 transition-colors p-1">
                   <Trash2 size={18} />
                 </button>
                 <button onClick={() => setShowMobileCart(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
@@ -14245,45 +14326,40 @@ const PosOnlyView: React.FC<Props> = ({
                 <span className="text-xl font-black text-orange-500">{currencySymbol}{cartGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
+                  aria-label="Change table"
                   onClick={openCounterTablePicker}
-                  className="p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-left transition-all hover:border-orange-300 dark:hover:border-orange-500"
+                  className="flex-[1_0_max-content] whitespace-nowrap p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-center transition-all hover:border-orange-300 dark:hover:border-orange-500"
                 >
                   <span className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Table</span>
-                  <span className="flex items-center justify-between gap-2 text-[11px] font-black dark:text-white uppercase tracking-wide">
-                    <span className="truncate">{posTableNo || 'Counter'}</span>
-                    <ChevronDown size={14} className="text-gray-400 shrink-0" />
+                  <span className="relative flex items-center justify-center gap-2 px-5 text-[11px] font-black dark:text-white uppercase tracking-wide">
+                    <span className="whitespace-nowrap">{counterOrderConfiguredRef.current || activeSavedBillTable ? getOrderTableDisplay({ tableNumber: posTableNo, diningType: posDiningType }) : 'SELECT TABLE'}</span>
+                    <ChevronDown size={14} className="absolute right-0 text-gray-400 shrink-0" />
                   </span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowDiningOptionPicker(true)}
-                  className="p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-left transition-all hover:border-orange-300 dark:hover:border-orange-500"
+                  aria-label="Change dining option"
+                  onClick={openCounterTablePicker}
+                  className="flex-[1_0_max-content] whitespace-nowrap p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-center transition-all hover:border-orange-300 dark:hover:border-orange-500"
                 >
                   <span className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Dining</span>
-                  <span className="flex items-center justify-between gap-2 text-[11px] font-black dark:text-white uppercase tracking-wide">
-                    <span className="truncate">{posDiningType}</span>
-                    <ChevronDown size={14} className="text-gray-400 shrink-0" />
+                  <span className="relative flex items-center justify-center gap-2 px-5 text-[11px] font-black dark:text-white uppercase tracking-wide">
+                    <span className="whitespace-nowrap">{counterOrderConfiguredRef.current || activeSavedBillTable ? posDiningType : 'SELECT DINING OPTION'}</span>
+                    <ChevronDown size={14} className="absolute right-0 text-gray-400 shrink-0" />
                   </span>
                 </button>
               </div>
 
-              {showSavedBillFeature ? (
-                <div className="grid grid-cols-2 gap-2">
-                  <button onClick={saveCurrentBill} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border dark:border-gray-700 rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] hover:border-orange-300 dark:hover:border-orange-500 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
-                    <Receipt size={15} /> Save Bill
-                  </button>
-                  <button onClick={() => { setShowMobileCart(false); handleCheckout(); }} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
-                    <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : `Pay ${currencySymbol}${cartGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                  </button>
-                </div>
-              ) : (
-                <button onClick={() => { setShowMobileCart(false); handleCheckout(); }} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
-                  <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : `Pay ${currencySymbol}${cartGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                </button>
-              )}
+              <CounterCheckoutActions
+                canSaveBill={showSavedBillFeature && posDiningType === 'Dine-in'}
+                disabled={posCart.length === 0 || isSavingTableBill || isCompletingPayment || showPaymentSuccess}
+                paymentLabel={isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : `Pay ${currencySymbol}${cartGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                onSaveBill={saveCurrentBill}
+                onPayment={() => { setShowMobileCart(false); handleCheckout(); }}
+              />
             </div>
           </div>
         </div>
@@ -14926,88 +15002,116 @@ const PosOnlyView: React.FC<Props> = ({
         </div>
       )}
 
-      {showSaveBillTableModal && (
+      <TableBillFeedback saving={isSavingTableBill} success={tableBillSuccess} onDismiss={() => setTableBillSuccess(null)} />
+
+      {showSaveBillTableModal && tableModalMode === 'COUNTER_PICK' && (
+        <CounterOrderSetupModal
+          diningOptions={availableDiningOptions}
+          diningOption={counterDiningDraft}
+          selectedTable={selectedSaveTableNumber}
+          tables={tableLabelsForModalFloor}
+          pendingTables={occupiedCounterTables}
+          blockedTables={blockedCounterTables}
+          floorCount={featureSettings.floorEnabled ? effectiveFloorCount : 1}
+          selectedFloor={modalSelectedFloor}
+          itemName={pendingCounterMenuItem?.name}
+          onDiningChange={option => {
+            setCounterDiningDraft(option);
+            if (option !== 'Dine-in') setSelectedSaveTableNumber('');
+          }}
+          onTableChange={handleSaveBillModalTableClick}
+          onFloorChange={setModalSelectedFloor}
+          onConfirm={confirmSaveBillToTable}
+          onClose={closeSaveBillTableModal}
+        />
+      )}
+
+      {showSaveBillTableModal && tableModalMode !== 'COUNTER_PICK' && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[130] flex items-center justify-center p-4" onClick={closeSaveBillTableModal}>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-[86vw] max-w-3xl h-[88vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-labelledby="counter-table-dialog-title" onKeyDown={event => {
+            if (event.key === 'Escape') closeSaveBillTableModal();
+            if (event.key === 'Tab') {
+              const controls = event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)');
+              const first = controls[0];
+              const last = controls[controls.length - 1];
+              if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+              else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+            }
+          }} className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-[86vw] max-w-3xl h-[88vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b dark:border-gray-700 flex items-center justify-between">
               <div>
-                <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">
-                  {tableModalMode === 'COUNTER_PICK' ? 'Select Table For Counter Order' : 'Select Table For Saved Bill'}
+                <h3 id="counter-table-dialog-title" className="font-black dark:text-white uppercase tracking-tighter text-lg">
+                  Select Table For Table Bill
                 </h3>
                 <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">
-                  {tableModalMode === 'COUNTER_PICK' ? 'Tap one table to set for counter order' : 'Tap one table based on your custom arrangement'}
+                  Tap one table based on your custom arrangement
                 </p>
               </div>
-              <button onClick={closeSaveBillTableModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all">
+              <button aria-label="Close dining and table selection" autoFocus onClick={closeSaveBillTableModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all">
                 <X size={18} className="text-gray-400" />
               </button>
             </div>
 
             <div className="p-6 space-y-4 flex-1 overflow-y-auto">
-              {tableModalMode === 'COUNTER_PICK' && (
-                <button
-                  onClick={() => handleSaveBillModalTableClick('Counter')}
-                  className={`w-full p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between ${selectedSaveTableNumber === 'Counter' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-orange-300'}`}
-                >
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-widest dark:text-white">Counter</p>
-                    <p className="text-[10px] mt-1 text-gray-400">No table assigned</p>
-                  </div>
-                  <Hash size={16} className="text-gray-400" />
-                </button>
-              )}
-              {/* Floor tabs in modal */}
-              {featureSettings.floorEnabled && effectiveFloorCount > 1 && (
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                  {Array.from({ length: effectiveFloorCount }, (_, i) => i + 1).map(f => (
-                    <button
-                      key={f}
-                      onClick={() => setModalSelectedFloor(f)}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shrink-0 ${
-                        modalSelectedFloor === f
-                          ? 'bg-orange-500 text-white shadow-sm'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                      }`}
-                    >
-                      Floor {f}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {tableRowsForModal.map((row, rowIdx) => (
-                <div
-                  key={`select-row-${rowIdx}`}
-                  className="grid gap-3"
-                  style={{ gridTemplateColumns: `repeat(${effectiveTableCols}, minmax(0, 1fr))` }}
-                >
-                  {Array.from({ length: effectiveTableCols }, (_, colIdx) => {
-                    const table = row[colIdx];
-                    if (!table) {
-                      return <div key={`select-empty-${rowIdx}-${colIdx}`} aria-hidden="true" />;
-                    }
-                    const hasPending = savedBillsByTable.has(table);
-                    const selected = selectedSaveTableNumber === table;
-                    return (
+              <fieldset
+                className="min-w-0 space-y-4 disabled:opacity-40"
+              >
+                <legend className="mb-2 text-xs font-black uppercase tracking-widest dark:text-white">Table Selection</legend>
+                {/* Floor tabs in modal */}
+                {featureSettings.floorEnabled && effectiveFloorCount > 1 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                    {Array.from({ length: effectiveFloorCount }, (_, i) => i + 1).map(f => (
                       <button
-                        key={table}
-                        onClick={() => handleSaveBillModalTableClick(table)}
-                        className={`h-[84px] p-4 rounded-lg border-2 text-left transition-all flex flex-col justify-between ${
-                          selected
-                            ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                            : hasPending
-                              ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20'
-                              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-orange-300'
+                        key={f}
+                        onClick={() => setModalSelectedFloor(f)}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shrink-0 ${
+                          modalSelectedFloor === f
+                            ? 'bg-orange-500 text-white shadow-sm'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                         }`}
                       >
-                        <p className="text-xs font-black uppercase tracking-widest dark:text-white">{table}</p>
-                        <p className={`text-[10px] mt-1 ${hasPending ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-400'}`}>
-                          {hasPending ? 'Has pending bill (will replace)' : 'Available'}
-                        </p>
+                        Floor {f}
                       </button>
-                    );
-                  })}
-                </div>
-              ))}
+                    ))}
+                  </div>
+                )}
+                {tableRowsForModal.map((row, rowIdx) => (
+                  <div
+                    key={`select-row-${rowIdx}`}
+                    className="grid gap-1.5 sm:gap-3"
+                    style={{ gridTemplateColumns: `repeat(${effectiveTableCols}, minmax(0, 1fr))` }}
+                  >
+                    {Array.from({ length: effectiveTableCols }, (_, colIdx) => {
+                      const table = row[colIdx];
+                      if (!table) {
+                        return <div key={`select-empty-${rowIdx}-${colIdx}`} aria-hidden="true" />;
+                      }
+                      const hasPending = occupiedCounterTables.has(table);
+                      const selected = selectedSaveTableNumber === table;
+                      return (
+                        <button
+                          key={table}
+                          disabled={blockedCounterTables.has(table)}
+                          aria-pressed={selected}
+                          onClick={() => handleSaveBillModalTableClick(table)}
+                          className={`min-h-[84px] min-w-0 p-1 sm:p-4 rounded-lg border-2 text-left transition-all flex flex-col justify-between ${
+                            selected
+                              ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                              : hasPending
+                                ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20'
+                                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-orange-300'
+                          }`}
+                        >
+                          <p className="text-[10px] sm:text-xs font-black uppercase sm:tracking-widest break-words dark:text-white">{table}</p>
+                          <p className={`text-[9px] sm:text-[10px] mt-1 break-words ${hasPending ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-400'}`}>
+                            {hasPending ? 'Open bill - unavailable' : 'Available'}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </fieldset>
             </div>
 
             <div className="px-5 py-4 border-t dark:border-gray-700 flex gap-2">
@@ -15019,45 +15123,11 @@ const PosOnlyView: React.FC<Props> = ({
               </button>
               <button
                 onClick={confirmSaveBillToTable}
-                disabled={!selectedSaveTableNumber}
+                disabled={!selectedSaveTableNumber || blockedCounterTables.has(selectedSaveTableNumber) || isSavingTableBill}
                 className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {tableModalMode === 'COUNTER_PICK' ? 'Use Selected Table' : 'Save Bill'}
+                Save Bill
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showDiningOptionPicker && (
-        <div className="lg:hidden fixed inset-0 z-[130]" onClick={() => setShowDiningOptionPicker(false)}>
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-          <div className="absolute inset-x-0 bottom-0 bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-center pb-1">
-              <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-black dark:text-white uppercase tracking-tighter text-base">Dining Option</h3>
-                <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Choose order mode for this bill</p>
-              </div>
-              <button onClick={() => setShowDiningOptionPicker(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all">
-                <X size={18} className="text-gray-400" />
-              </button>
-            </div>
-            <div className="space-y-2">
-              {availableDiningOptions.map((option) => (
-                <button
-                  key={option}
-                  onClick={() => {
-                    setPosDiningType(option);
-                    setShowDiningOptionPicker(false);
-                  }}
-                  className={`w-full px-4 py-3 rounded-2xl border text-left transition-all ${posDiningType === option ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:border-orange-300 dark:hover:border-orange-500'}`}
-                >
-                  <span className="text-[11px] font-black uppercase tracking-widest">{option}</span>
-                </button>
-              ))}
             </div>
           </div>
         </div>
@@ -15165,7 +15235,7 @@ const PosOnlyView: React.FC<Props> = ({
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/15">
                 <AlertCircle size={28} className="text-red-400" />
               </div>
-              <h3 id="cancel-saved-bill-title" className="mb-2 text-lg font-black text-white">Cancel Saved Bill?</h3>
+              <h3 id="cancel-saved-bill-title" className="mb-2 text-lg font-black text-white">Cancel Table Bill?</h3>
               <p className="text-sm text-gray-400">
                 Cancel the order for <span className="font-bold text-gray-200">{selectedSavedBillEntry.tableNumber}</span>?
                 <br />This action cannot be undone.
@@ -15209,7 +15279,7 @@ const PosOnlyView: React.FC<Props> = ({
             <div className="p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Table</span>
-                <span className="text-xs font-black dark:text-white">#{selectedReportOrder.tableNumber}</span>
+                <span className="text-xs font-black dark:text-white">{getReportTableDisplay(selectedReportOrder)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Status</span>

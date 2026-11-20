@@ -1,3 +1,4 @@
+import { getReportTableDisplay } from '../lib/orderTableDisplay';
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, AdminDashboardAnalytics, Subscription, SubscriptionExpiryHistory, PlanId, MenuItem } from '../src/types';
 import { uploadImage } from '../lib/storage';
@@ -4842,7 +4843,7 @@ const AdminView: React.FC<Props> = ({
                           <th className="px-4 py-2.5 text-left">ID</th>
                           <th className="px-4 py-2.5 text-left">Kitchen</th>
                           <th className="px-4 py-2.5 text-left">Hub</th>
-                          <th className="px-4 py-2.5 text-left">Table</th>
+                          <th className="px-4 py-2.5 text-center">Table</th>
                           <th className="px-4 py-2.5 text-left">Date</th>
                           <th className="px-4 py-2.5 text-left">Time</th>
                           <th className="px-4 py-2.5 text-left">Status</th>
@@ -4864,7 +4865,7 @@ const AdminView: React.FC<Props> = ({
                                  </div>
                               </td>
                               <td className="px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">{report.locationName}</td>
-                              <td className="px-4 py-2 text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-widest">#{report.tableNumber}</td>
+                              <td className="px-4 py-2 text-center text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-widest">{getReportTableDisplay(report)}</td>
                               <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter">{new Date(report.timestamp).toLocaleDateString()}</td>
                               <td className="px-4 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(report.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                               <td className="px-4 py-2">

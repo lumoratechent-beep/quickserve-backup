@@ -1,3 +1,4 @@
+import { getReportTableDisplay } from '../lib/orderTableDisplay';
 import React, { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { Order, OrderStatus, ReportResponse, CashierShift } from '../src/types';
 import type { PlanId } from '../src/types';
@@ -494,7 +495,7 @@ const StandardReport: React.FC<Props> = ({
 
       {showTopRangeAndExportControls && (
         <div ref={toolbarRef} role="group" aria-label="Report period and download" className={downloadOnly ? 'w-auto shrink-0' : 'min-w-0 bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-row items-end gap-3 mb-6'}>
-          {!downloadOnly && <div className="min-w-0 flex-1">
+          {!downloadOnly && <div className="min-w-0 flex-1 md:flex-initial">
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
               <div className="flex w-full flex-nowrap gap-0.5 overflow-x-auto rounded-lg bg-gray-100 p-0.5 hide-scrollbar dark:bg-gray-700">
                 {periodOptions.map((option) => (
@@ -511,7 +512,7 @@ const StandardReport: React.FC<Props> = ({
                       }
                       setDetailRange(option.value);
                     }}
-                    className={`flex-1 shrink-0 px-2 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                    className={`flex-1 shrink-0 px-2 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap md:flex-none ${
                       detailRange === option.value
                         ? 'bg-orange-500 text-white shadow-sm'
                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
@@ -525,7 +526,7 @@ const StandardReport: React.FC<Props> = ({
           {!downloadOnly && <div ref={periodMeasureRef} aria-hidden="true" className="pointer-events-none fixed -left-[10000px] top-0 flex w-max invisible">
             {[...periodOptions.map(option => option.label), 'Custom'].map((label, index) => <span key={index} className="shrink-0 px-2 text-[10px] font-black uppercase tracking-widest whitespace-nowrap">{label}</span>)}
           </div>}
-          <div className={downloadOnly ? 'w-full' : `shrink-0 ${toolbarMode === 3 ? 'w-9' : toolbarMode === 2 ? 'w-[104px]' : 'w-[124px]'}`}>
+          <div className={downloadOnly ? 'w-full' : `ml-auto shrink-0 ${toolbarMode === 3 ? 'w-9' : toolbarMode === 2 ? 'w-[104px]' : 'w-[124px]'}`}>
             <label className={toolbarMode === 3 && !downloadOnly ? 'sr-only' : 'mb-1 ml-1 block truncate whitespace-nowrap text-[8px] font-black uppercase tracking-wider text-gray-400'}>Download Report</label>
             <button
               aria-label="Download"
@@ -917,7 +918,7 @@ const StandardReport: React.FC<Props> = ({
             <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
               <tr>
                 <th className="px-4 py-3 text-left">Order ID</th>
-                <th className="px-4 py-3 text-left">Table</th>
+                <th className="px-4 py-3 text-center">Table</th>
                 <th className="px-4 py-3 text-left">Date</th>
                 <th className="px-4 py-3 text-left">Time</th>
                 <th className="px-4 py-3 text-left">Status</th>
@@ -944,7 +945,7 @@ const StandardReport: React.FC<Props> = ({
                         <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">{report.id}</span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-[10px] font-black text-gray-900 dark:text-white">#{report.tableNumber}</td>
+                    <td className="px-4 py-2 text-center text-[10px] font-black text-gray-900 dark:text-white">{getReportTableDisplay(report)}</td>
                     <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter">{new Date(report.timestamp).toLocaleDateString()}</td>
                     <td className="px-4 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(report.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                     <td className="px-4 py-2">

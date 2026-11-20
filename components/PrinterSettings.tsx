@@ -428,11 +428,11 @@ const PrinterSettings: React.FC<Props> = ({
       </div>
       <div className="min-w-0 space-y-4">
             <div className="flex items-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Printers</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-500 dark:text-slate-400">Printers</p>
         <div className="flex-1" />
         <button
           onClick={handleDownloadPrintServer}
-          className="flex items-center gap-1 rounded-lg border border-[#385069] bg-[#223247] px-2.5 py-1.5 text-[8px] font-black text-slate-300 transition-all hover:border-orange-500/60 hover:text-orange-300"
+          className="flex items-center gap-1 rounded-lg border border-gray-300 dark:border-[#385069] bg-gray-100 dark:bg-[#223247] px-2.5 py-1.5 text-[8px] font-black text-gray-600 dark:text-slate-300 transition-all hover:border-orange-500/60 hover:text-orange-600 dark:hover:text-orange-300"
           title="Download print-server.js for WiFi/LAN printing"
         >
           <Download size={10} /> Proxy Script
@@ -504,11 +504,11 @@ const PrinterSettings: React.FC<Props> = ({
         )}
 
         {savedPrinters.map(printer => (
-          <div key={printer.id} className="mb-2 rounded-xl border border-[#2d435a] bg-[#1d2d40] p-4 transition-colors hover:border-orange-500/50">
+          <div key={printer.id} className="mb-2 rounded-xl border border-gray-200 dark:border-[#2d435a] bg-white dark:bg-[#1d2d40] p-4 transition-colors hover:border-orange-500/50">
             <div className="flex items-center justify-between">
               <div className="flex-1" onClick={() => handleEditPrinter(printer)} style={{ cursor: 'pointer' }}>
                 <div className="flex items-center gap-2">
-                  <p className="text-xs font-black text-white">{printer.name}</p>
+                  <p className="text-xs font-black text-gray-900 dark:text-white">{printer.name}</p>
                   {printer.printJobs.includes('receipt') && (
                     <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded text-[8px] font-black uppercase">Receipt</span>
                   )}
@@ -517,24 +517,24 @@ const PrinterSettings: React.FC<Props> = ({
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[9px] capitalize text-slate-400">{printer.connectionType}</span>
+                  <span className="text-[9px] capitalize text-gray-500 dark:text-slate-400">{printer.connectionType}</span>
                   <span className="text-[9px] text-gray-300">&middot;</span>
-                  <span className="text-[9px] text-slate-400">{printer.paperSize}</span>
+                  <span className="text-[9px] text-gray-500 dark:text-slate-400">{printer.paperSize}</span>
                   <span className="text-[9px] text-gray-300">&middot;</span>
-                  <span className="text-[9px] text-slate-400">
+                  <span className="text-[9px] text-gray-500 dark:text-slate-400">
                     {printer.printerModel === 'other' ? 'Custom' : (PRINTER_MODELS.find(m => m.id === printer.printerModel)?.name || printer.printerModel || 'Custom')}
                   </span>
                   <span className="text-[9px] text-gray-300">&middot;</span>
-                  <span className="text-[9px] capitalize text-slate-400">{printer.printDensity}</span>
+                  <span className="text-[9px] capitalize text-gray-500 dark:text-slate-400">{printer.printDensity}</span>
                   {printer.autoCut && <><span className="text-[9px] text-gray-300">&middot;</span><span className="text-[9px] text-gray-400">Auto-cut</span></>}
                   {printer.cashDrawer && <><span className="text-[9px] text-gray-300">&middot;</span><span className="text-[9px] text-gray-400">Drawer</span></>}
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => handleEditPrinter(printer)} className="rounded-full border border-[#385069] p-2 text-slate-300 transition-colors hover:border-orange-500/60 hover:text-orange-300">
+                <button onClick={() => handleEditPrinter(printer)} className="rounded-full border border-gray-300 dark:border-[#385069] p-2 text-gray-600 dark:text-slate-300 transition-colors hover:border-orange-500/60 hover:text-orange-600 dark:hover:text-orange-300">
                   <Settings size={14} />
                 </button>
-                <button onClick={() => handleDeletePrinter(printer.id)} className="rounded-full border border-[#385069] p-2 text-slate-300 transition-colors hover:border-red-500/60 hover:text-red-400">
+                <button onClick={() => handleDeletePrinter(printer.id)} className="rounded-full border border-gray-300 dark:border-[#385069] p-2 text-gray-600 dark:text-slate-300 transition-colors hover:border-red-500/60 hover:text-red-400">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -544,7 +544,7 @@ const PrinterSettings: React.FC<Props> = ({
 
         {/* ── Add / Edit Printer Form ── */}
         {isAddingPrinter ? (
-          <div className="mt-3 space-y-4 rounded-xl border border-[#2d435a] bg-[#1d2d40] p-4">
+          <div className="mt-3 space-y-4 rounded-xl border border-gray-200 dark:border-[#2d435a] bg-white dark:bg-[#1d2d40] p-4">
             <div className="flex items-center justify-between">
               <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
                 {editingPrinterId ? 'Edit Printer' : 'New Printer'}
@@ -1455,10 +1455,10 @@ const PrinterSettings: React.FC<Props> = ({
   }, [activeTab, filteredTabs]);
 
   return (
-    <div className="space-y-5 text-slate-200">
+    <div className="space-y-5 text-gray-900 dark:text-slate-200">
       {/* Tab Navigation */}
       {filteredTabs.length > 1 && (
-        <div className="flex border-b border-[#26384c]">
+        <div className="flex border-b border-gray-200 dark:border-[#26384c]">
           {filteredTabs.map(tab => {
             const Icon = tab.icon;
             return (
@@ -1467,8 +1467,8 @@ const PrinterSettings: React.FC<Props> = ({
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex-1 flex items-center justify-center gap-2 border-b-2 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${
                   activeTab === tab.id
-                    ? 'border-orange-500 text-white'
-                    : 'border-transparent text-slate-400 hover:text-white'
+                    ? 'border-orange-500 text-orange-600 dark:text-white'
+                    : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white'
                 }`}
               >
                 <Icon size={13} />

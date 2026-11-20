@@ -314,7 +314,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onSh
           <div className="grid grid-cols-3 gap-2 sm:gap-6">
             {[
               { id: 'backoffice', icon: <BarChart3 className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'Back Office', desc: 'Sales dashboard, inventory, staff & finance management — all in one place.', accent: 'from-gray-600 to-gray-400' },
-              { id: 'table', icon: <MapPin className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'Table Management', desc: 'Configurable floor plan with saved bills per table and multi-floor support.', accent: 'from-sky-500 to-sky-400' },
+              { id: 'table', icon: <MapPin className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'Table Management', desc: 'Configurable floor plan with table bills per table and multi-floor support.', accent: 'from-sky-500 to-sky-400' },
               { id: 'qr', icon: <QrCode className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'QR Ordering', desc: 'Customers scan, browse, and order from their phone — no app needed.', accent: 'from-violet-500 to-violet-400' },
               { id: 'tableside', icon: <Smartphone className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'Tableside Ordering', desc: 'Staff take orders at the table using any tablet device.', accent: 'from-teal-500 to-teal-400' },
               { id: 'kitchen', icon: <ChefHat className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'Kitchen Display', desc: 'Dedicated kitchen screen with department routing and auto-accept.', accent: 'from-orange-500 to-orange-400' },

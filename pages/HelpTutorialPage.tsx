@@ -62,7 +62,7 @@ const guideSections: GuideSection[] = [
       'Choose the order type, table, customer, or dining mode depending on your workflow.',
       'Review the cart total before payment and select the payment method used by the customer.',
       'Print or preview the receipt after payment, then clear the cart for the next customer.',
-      'Use saved bills or open orders when an order needs to stay active before final payment.',
+      'Use table bills or open orders when an order needs to stay active before final payment.',
     ],
     tips: ['During busy service, keep the menu categories clean and hide unavailable items to reduce cashier mistakes.'],
   },
